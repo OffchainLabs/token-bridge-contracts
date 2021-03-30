@@ -1,67 +1,31 @@
 {
-  "name": "arbitrum",
-  "version": "0.2.0",
-  "description": "The Arbitrum Monorepo",
-  "author": "Offchain Labs, Inc.",
+  "name": "arb-bridge-peripherals",
+  "version": "1.0.0",
   "license": "Apache-2.0",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/OffchainLabs/arbitrum.git"
-  },
-  "bugs": {
-    "url": "https://github.com/offchainlabs/arbitrum/issues"
-  },
-  "homepage": "https://offchainlabs.com/",
   "scripts": {
-    "install:deps": "./scripts/install-deps",
-    "install:validator": "./scripts/install-validator",
-    "update-abi": "yarn go:generate && yarn workspace arb-provider-ethers update-abi",
-    "build": "yarn workspace arb-provider-ethers build",
-    "docker:build:parity": "yarn workspace arb-bridge-eth docker:build:parity",
-    "docker:build:ganache": "yarn workspace arb-bridge-eth docker:build:ganache",
-    "run:local:geth": "yarn workspace arb-bridge-eth run:local:geth",
-    "kill:geth": "kill $(lsof -t -i:7545)",
-    "docker:build:geth": "yarn workspace arb-bridge-eth docker:build:geth",
-    "docker:parity": "yarn workspace arb-bridge-eth docker:parity",
-    "docker:ganache": "yarn workspace arb-bridge-eth docker:ganache",
-    "docker:geth": "yarn workspace arb-bridge-eth docker:geth",
-    "prepare": "yarn workspace arb-provider-ethers prepare",
-    "go:vet": "./scripts/run-go-packages 'go vet ./...'",
-    "go:generate": "./scripts/run-go-packages 'go generate ./...'",
-    "go:tidy": "./scripts/run-go-packages 'go mod tidy'",
-    "demo:initialize": "yarn workspace tools demo:initialize",
-    "demo:deploy": "./scripts/arb_deploy.py local",
-    "prod:initialize": "yarn workspace tools prod:initialize",
-    "deploy:validators": "./scripts/arb_deploy.py"
-  },
-  "engines": {
-    "node": ">= 8.0.0 < 13.0.0",
-    "npm": "^6.0.0",
-    "yarn": "^1.0.0"
-  },
-  "engine-strict": true,
-  "private": true,
-  "workspaces": {
-    "packages": [
-      "packages/arb-bridge-eth",
-      "packages/arb-provider-ethers",
-      "packages/arbos-contracts",
-      "packages/tools"
-    ]
+    "test:l1": "hardhat test test/*.l1.ts",
+    "test:l2": "hardhat test test/*.l2.ts --network arbitrum",
+    "typechain": "hardhat typechain",
+    "deploy:tokenbridge:l1": "hardhat run scripts/deploy_token_bridge_l1.ts --network kovan",
+    "deploy:tokenbridge:l2": "hardhat run scripts/deploy_token_bridge_l2.ts --network arbkovan4",
+    "deploy:tokenbridge": "yarn deploy:tokenbridge:l2 && yarn deploy:tokenbridge:l1",
+    "deploy:buddydeployer": "hardhat run scripts/deploy_buddy_deployer.ts --network arbkovan4",
+    "deploy": "yarn deploy:buddydeployer && yarn deploy:tokenbridge"
   },
   "devDependencies": {
-    "eslint": "^7.3.1",
-    "eslint-config-prettier": "^6.11.0",
-    "eslint-plugin-mocha": "^7.0.1",
-    "eslint-plugin-prettier": "^3.1.4",
-    "prettier": "^2.0.5",
-    "prettier-plugin-solidity": "^1.0.0-alpha.54"
-  },
-  "resolutions": {
-    "arb-provider-ethers/ethers": "~4.0.47",
-    "eth-sig-util/ethereumjs-abi": "^0.6.8-1",
-    "typechain/truffle-v4/truffle": "^4.0.0",
-    "typechain/truffle-v5/truffle": "^5.0.0",
-    "typechain/web3-v1/web3": "^1.0.0"
+    "@nomiclabs/hardhat-ethers": "^2.0.0",
+    "@nomiclabs/hardhat-waffle": "^2.0.0",
+    "@openzeppelin/contracts": "3.4.0",
+    "@types/chai": "^4.2.15",
+    "@types/mocha": "^8.2.0",
+    "@types/node": "^14.14.28",
+    "arbos-contracts": "^1.0.0",
+    "chai": "^4.2.0",
+    "ethereum-waffle": "^3.0.0",
+    "ethers": "^5.0.24",
+    "hardhat": "^2.0.7",
+    "ts-node": "^9.1.1",
+    "typescript": "^4.1.5",
+    "typechain": "^4.0.0"
   }
 }
