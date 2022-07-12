@@ -26,6 +26,8 @@ module.exports = {
         'test/**/*.tsx',
         'scripts/**/*.ts',
         'scripts/**/*.tsx',
+        'deploy/**/*.ts',
+        'deploy/**/*.tsx',
       ],
       parser: '@typescript-eslint/parser',
       parserOptions: {
