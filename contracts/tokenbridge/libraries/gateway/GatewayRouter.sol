@@ -144,4 +144,5 @@ abstract contract GatewayRouter is TokenGateway, IGatewayRouter {
         }
         return TokenGateway(gateway).calculateL2TokenAddress(l1ERC20);
     }
+
 }
