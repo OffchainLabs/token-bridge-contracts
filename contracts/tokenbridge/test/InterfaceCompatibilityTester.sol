@@ -28,7 +28,7 @@ import "arb-bridge-eth/contracts/bridge/interfaces/ISequencerInbox.sol";
 import "arb-bridge-eth/contracts/challenge/IChallenge.sol";
 import "arb-bridge-eth/contracts/challenge/IChallengeFactory.sol";
 import "arb-bridge-eth/contracts/interfaces/IERC20.sol";
-import "arb-bridge-eth/contracts/interfaces/IERC721.sol";
+// import "arb-bridge-eth/contracts/interfaces/IERC721.sol";
 import "arb-bridge-eth/contracts/libraries/ICloneable.sol";
 import "arb-bridge-eth/contracts/rollup/INode.sol";
 import "arb-bridge-eth/contracts/rollup/INodeFactory.sol";
