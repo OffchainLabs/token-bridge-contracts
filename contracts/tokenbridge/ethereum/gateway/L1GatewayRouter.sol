@@ -22,12 +22,10 @@ pragma experimental ABIEncoderV2;
 import "arb-bridge-eth/contracts/libraries/Whitelist.sol";
 
 import { ArbitrumEnabledToken } from "../ICustomToken.sol";
-import "@openzeppelin/contracts/drafts/ERC20Permit.sol";
 import "../L1ArbitrumMessenger.sol";
 import "../../libraries/gateway/GatewayRouter.sol";
 import "../../arbitrum/gateway/L2GatewayRouter.sol";
 import "../../libraries/ERC165.sol";
-import "../../libraries/IDaiLikePermit.sol";
 import "./IL1GatewayRouter.sol";
 import "./IL1ArbitrumGateway.sol";
 
@@ -44,15 +42,6 @@ contract L1GatewayRouter is
 {
     address public override owner;
     address public override inbox;
-
-    struct PermitData {
-        uint256 deadline;
-        uint256 nonce;
-        uint8 v;
-        bytes32 r;
-        bytes32 s;
-        bool isStandardImpl;
-    }
 
     modifier onlyOwner() {
         require(msg.sender == owner, "ONLY_OWNER");
@@ -316,134 +305,6 @@ contract L1GatewayRouter is
             );
     }
 
-        /**
-     * @notice Bridge ERC20 token using the registered or otherwise default gateway with call to permit. 
-                Compatible with older gateways without OutboundTransferCustomRefund
-     * @param _token L1 address of ERC20
-     * @param _to Account to be credited with the tokens in the L2 (can be the user's L2 account or a contract), not subject to L2 aliasing
-                  This account, or its L2 alias if it have code in L1, will also be able to cancel the retryable ticket and receive callvalue refund
-     * @param _amount Token Amount
-     * @param _maxGas Max gas deducted from user's L2 balance to cover L2 execution
-     * @param _gasPriceBid Gas price for L2 execution
-     * @param _data encoded data from router and user
-     * @param _permitData signature and deadline params of permit
-     * @return res abi encoded inbox sequence number
-    */
-    function outboundTransferWithPermit(
-        address _token,
-        address _to,
-        uint256 _amount,
-        uint256 _maxGas,
-        uint256 _gasPriceBid,
-        bytes calldata _data,
-        PermitData calldata _permitData
-    ) public payable virtual returns (bytes memory) {
-        address gateway = getGateway(_token);
-        bytes memory gatewayData = GatewayMessageHandler.encodeFromRouterToGateway(
-            msg.sender,
-            _data
-        );
-
-        emit TransferRouted(_token, msg.sender, _to, gateway);
-        if (_permitData.isStandardImpl) {
-            ERC20Permit(_token).permit(
-                msg.sender,
-                gateway,
-                _amount,
-                _permitData.deadline,
-                _permitData.v,
-                _permitData.r,
-                _permitData.s
-            );
-        } else {
-            IDaiLikePermit(_token).permit(
-                msg.sender,
-                gateway,
-                _permitData.nonce,
-                _permitData.deadline,
-                true,
-                _permitData.v,
-                _permitData.r,
-                _permitData.s
-            );
-        }
-
-        return
-            ITokenGateway(gateway).outboundTransfer{ value: msg.value }(
-                _token,
-                _to,
-                _amount,
-                _maxGas,
-                _gasPriceBid,
-                gatewayData
-            );
-    }
-
-    /**
-     * @notice Bridge ERC20 token using the registered or otherwise default gateway with call to permit.
-     * @param _token L1 address of ERC20
-     * @param _refundTo Account, or its L2 alias if it have code in L1, to be credited with excess gas refund in L2
-     * @param _to Account to be credited with the tokens in the L2 (can be the user's L2 account or a contract), not subject to L2 aliasing
-                  This account, or its L2 alias if it have code in L1, will also be able to cancel the retryable ticket and receive callvalue refund
-     * @param _amount Token Amount
-     * @param _maxGas Max gas deducted from user's L2 balance to cover L2 execution
-     * @param _gasPriceBid Gas price for L2 execution
-     * @param _data encoded data from router and user
-     * @param _permitData signature and deadline params of permit
-     * @return res abi encoded inbox sequence number
-    */
-    function outboundTransferCustomRefundWithPermit(
-        address _token,
-        address _refundTo,
-        address _to,
-        uint256 _amount,
-        uint256 _maxGas,
-        uint256 _gasPriceBid,
-        bytes calldata _data,
-        PermitData calldata _permitData
-    ) public payable virtual returns (bytes memory) {
-        address gateway = getGateway(_token);
-        bytes memory gatewayData = GatewayMessageHandler.encodeFromRouterToGateway(
-            msg.sender,
-            _data
-        );
-
-        emit TransferRouted(_token, msg.sender, _to, gateway);
-        if (_permitData.isStandardImpl) {
-            ERC20Permit(_token).permit(
-                msg.sender,
-                gateway,
-                _amount,
-                _permitData.deadline,
-                _permitData.v,
-                _permitData.r,
-                _permitData.s
-            );
-        } else {
-            IDaiLikePermit(_token).permit(
-                msg.sender,
-                gateway,
-                _permitData.nonce,
-                _permitData.deadline,
-                true,
-                _permitData.v,
-                _permitData.r,
-                _permitData.s
-            );
-        }
-
-        return
-            IL1ArbitrumGateway(gateway).outboundTransferCustomRefund{ value: msg.value }(
-                _token,
-                _refundTo,
-                _to,
-                _amount,
-                _maxGas,
-                _gasPriceBid,
-                gatewayData
-            );
-    }
-
     modifier onlyCounterpartGateway() override {
         // don't expect messages from L2 router
         revert("ONLY_COUNTERPART_GATEWAY");
@@ -460,6 +321,7 @@ contract L1GatewayRouter is
         // using function selector instead of single function interfaces to reduce bloat
         return
             interfaceId == this.outboundTransferCustomRefund.selector ||
+            interfaceId == this.outboundTransferCustomRefundWithPermit.selector ||
             super.supportsInterface(interfaceId);
     }
 }

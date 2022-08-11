@@ -33,7 +33,6 @@
   "dependencies": {
     "@openzeppelin/contracts": "3.4.2",
     "@openzeppelin/contracts-upgradeable": "3.4.2",
-    "@typechain/ethers-v5": "^10.1.0",
     "arb-bridge-eth": "^0.7.8",
     "arbos-precompiles": "^1.0.2",
     "hardhat": "2.9.9"

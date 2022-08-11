@@ -119,7 +119,6 @@ export const processL2ToL1Tx = async (
   return Promise.all(l2ToL1Logs)
 }
 
-
 export async function getPermitSig(
   signer: SignerWithAddress,
   token: Contract,
