@@ -326,8 +326,21 @@ contract L1GatewayRouter is
             );
     }
 
+    /**
+     * @notice Bridge ERC20 token using the registered or otherwise default gateway with call to permit.
+     * @param _token L1 address of ERC20
+     * @param _refundTo Account, or its L2 alias if it have code in L1, to be credited with excess gas refund in L2
+     * @param _to Account to be credited with the tokens in the L2 (can be the user's L2 account or a contract), not subject to L2 aliasing
+                  This account, or its L2 alias if it have code in L1, will also be able to cancel the retryable ticket and receive callvalue refund
+     * @param _amount Token Amount
+     * @param _maxGas Max gas deducted from user's L2 balance to cover L2 execution
+     * @param _gasPriceBid Gas price for L2 execution
+     * @param _data encoded data from router and user
+     * @param _permitData signature and deadline params of permit
+     * @return res abi encoded inbox sequence number
+    */
     function outboundTransferCustomRefundWithPermit(
-        address _l1Token,
+        address _token,
         address _refundTo,
         address _to,
         uint256 _amount,
@@ -335,17 +348,24 @@ contract L1GatewayRouter is
         uint256 _gasPriceBid,
         bytes calldata _data,
         PermitData calldata _permitData
-    ) public payable override returns (bytes memory) {
+    ) public payable returns (bytes memory) {
+        address gateway = getGateway(_token);
+        bytes memory gatewayData = GatewayMessageHandler.encodeFromRouterToGateway(
+            msg.sender,
+            _data
+        );
+
+        emit TransferRouted(_token, msg.sender, _to, gateway);
+        super.callPermit(_token, _amount, _permitData);
         return
-            super.outboundTransferCustomRefundWithPermit(
-                _l1Token,
+            IL1ArbitrumGateway(gateway).outboundTransferCustomRefund{ value: msg.value }(
+                _token,
                 _refundTo,
                 _to,
                 _amount,
                 _maxGas,
                 _gasPriceBid,
-                _data,
-                _permitData
+                gatewayData
             );
     }
 
