@@ -558,7 +558,7 @@ describe('Bridge peripherals layer 1', () => {
   })
 
   it('should support outboundTransferCustomRefundWithPermit interface', async function () {
-    // 0x988fee7b  =>  outboundTransferCustomRefundWithPermit(address,address,address,uint256,uint256,uint256,bytes,(uint256,uint256,uint8,bytes32,bytes32,bool))
-    expect(await testBridge.supportsInterface('0x988fee7b')).is.true
+    // 0x4811bdb0  =>  outboundTransferCustomRefundWithPermit(address,address,address,uint256,uint256,uint256,bytes,(uint256,uint256,uint8,bytes32,bytes32,bool))
+    expect(await testBridge.supportsInterface('0x4811bdb0')).is.true
   })
 })

@@ -43,10 +43,10 @@ abstract contract GatewayRouter is TokenGateway, IGatewayRouter {
     struct PermitData {
         uint256 deadline;
         uint256 nonce;
+        bool isStandardImpl;
         uint8 v;
         bytes32 r;
         bytes32 s;
-        bool isStandardImpl;
     }
 
     event TransferRouted(
@@ -187,29 +187,7 @@ abstract contract GatewayRouter is TokenGateway, IGatewayRouter {
         );
 
         emit TransferRouted(_token, msg.sender, _to, gateway);
-        if (_permitData.isStandardImpl) {
-            ERC20Permit(_token).permit(
-                msg.sender,
-                gateway,
-                _amount,
-                _permitData.deadline,
-                _permitData.v,
-                _permitData.r,
-                _permitData.s
-            );
-        } else {
-            IDaiLikePermit(_token).permit(
-                msg.sender,
-                gateway,
-                _permitData.nonce,
-                _permitData.deadline,
-                true,
-                _permitData.v,
-                _permitData.r,
-                _permitData.s
-            );
-        }
-
+        callPermit(_token, _amount, _permitData);
         return
             ITokenGateway(gateway).outboundTransfer{ value: msg.value }(
                 _token,
@@ -251,6 +229,25 @@ abstract contract GatewayRouter is TokenGateway, IGatewayRouter {
         );
 
         emit TransferRouted(_token, msg.sender, _to, gateway);
+        callPermit(_token, _amount, _permitData);
+        return
+            IL1ArbitrumGateway(gateway).outboundTransferCustomRefund{ value: msg.value }(
+                _token,
+                _refundTo,
+                _to,
+                _amount,
+                _maxGas,
+                _gasPriceBid,
+                gatewayData
+            );
+    }
+
+    function callPermit(
+        address _token,
+        uint256 _amount,
+        PermitData calldata _permitData
+    ) internal virtual returns (uint256 amountReceived) {
+        address gateway = getGateway(_token);
         if (_permitData.isStandardImpl) {
             ERC20Permit(_token).permit(
                 msg.sender,
@@ -273,16 +270,5 @@ abstract contract GatewayRouter is TokenGateway, IGatewayRouter {
                 _permitData.s
             );
         }
-
-        return
-            IL1ArbitrumGateway(gateway).outboundTransferCustomRefund{ value: msg.value }(
-                _token,
-                _refundTo,
-                _to,
-                _amount,
-                _maxGas,
-                _gasPriceBid,
-                gatewayData
-            );
     }
 }
