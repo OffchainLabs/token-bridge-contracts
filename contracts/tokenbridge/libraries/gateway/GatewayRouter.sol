@@ -169,7 +169,6 @@ abstract contract GatewayRouter is TokenGateway, IGatewayRouter {
      * @param _gasPriceBid Gas price for L2 execution
      * @param _data encoded data from router and user
      * @param _permitData signature and deadline params of permit
-     * @return res abi encoded inbox sequence number
     */
     function outboundTransferWithPermit(
         address _token,
@@ -180,30 +179,15 @@ abstract contract GatewayRouter is TokenGateway, IGatewayRouter {
         bytes calldata _data,
         PermitData calldata _permitData
     ) public payable virtual returns (bytes memory) {
-        address gateway = getGateway(_token);
-        bytes memory gatewayData = GatewayMessageHandler.encodeFromRouterToGateway(
-            msg.sender,
-            _data
-        );
-
-        emit TransferRouted(_token, msg.sender, _to, gateway);
         callPermit(_token, _amount, _permitData);
-        return
-            ITokenGateway(gateway).outboundTransfer{ value: msg.value }(
-                _token,
-                _to,
-                _amount,
-                _maxGas,
-                _gasPriceBid,
-                gatewayData
-            );
+        return outboundTransfer(_token, _to, _amount, _maxGas, _gasPriceBid, _data);
     }
 
     function callPermit(
         address _token,
         uint256 _amount,
         PermitData calldata _permitData
-    ) internal virtual returns (uint256 amountReceived) {
+    ) internal virtual {
         address gateway = getGateway(_token);
         if (_permitData.isStandardImpl) {
             ERC20Permit(_token).permit(

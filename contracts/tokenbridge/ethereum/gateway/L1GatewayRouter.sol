@@ -337,7 +337,6 @@ contract L1GatewayRouter is
      * @param _gasPriceBid Gas price for L2 execution
      * @param _data encoded data from router and user
      * @param _permitData signature and deadline params of permit
-     * @return res abi encoded inbox sequence number
     */
     function outboundTransferCustomRefundWithPermit(
         address _token,
@@ -349,23 +348,16 @@ contract L1GatewayRouter is
         bytes calldata _data,
         PermitData calldata _permitData
     ) public payable returns (bytes memory) {
-        address gateway = getGateway(_token);
-        bytes memory gatewayData = GatewayMessageHandler.encodeFromRouterToGateway(
-            msg.sender,
-            _data
-        );
-
-        emit TransferRouted(_token, msg.sender, _to, gateway);
         super.callPermit(_token, _amount, _permitData);
         return
-            IL1ArbitrumGateway(gateway).outboundTransferCustomRefund{ value: msg.value }(
+            outboundTransferCustomRefund(
                 _token,
                 _refundTo,
                 _to,
                 _amount,
                 _maxGas,
                 _gasPriceBid,
-                gatewayData
+                _data
             );
     }
 
