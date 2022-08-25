@@ -305,8 +305,21 @@ contract L1GatewayRouter is
             );
     }
 
+    /**
+     * @notice Bridge ERC20 token using the registered or otherwise default gateway with standard EIP 2612 call to permit. 
+                Compatible with older gateways without OutboundTransferCustomRefund
+     * @notice Safe from reentrancy as there are no calls in the function into the caller's address
+     * @param _token L1 address of ERC20
+     * @param _to Account to be credited with the tokens in the L2 (can be the user's L2 account or a contract), not subject to L2 aliasing
+                  This account, or its L2 alias if it have code in L1, will also be able to cancel the retryable ticket and receive callvalue refund
+     * @param _amount Token Amount
+     * @param _maxGas Max gas deducted from user's L2 balance to cover L2 execution
+     * @param _gasPriceBid Gas price for L2 execution
+     * @param _data encoded data from router and user
+     * @param _permitData signature and deadline params of permit
+    */
     function outboundTransferWithEip2612Permit(
-        address _l1Token,
+        address _token,
         address _to,
         uint256 _amount,
         uint256 _maxGas,
@@ -316,7 +329,7 @@ contract L1GatewayRouter is
     ) public payable override returns (bytes memory) {
         return
             super.outboundTransferWithEip2612Permit(
-                _l1Token,
+                _token,
                 _to,
                 _amount,
                 _maxGas,
@@ -326,8 +339,22 @@ contract L1GatewayRouter is
             );
     }
 
+    /**
+     * @notice Bridge ERC20 token using the registered or otherwise default gateway with Dai Like call to permit. 
+                Compatible with older gateways without OutboundTransferCustomRefund
+     * @notice Safe from reentrancy as there are no calls in the function into the caller's address
+     * @param _token L1 address of ERC20
+     * @param _to Account to be credited with the tokens in the L2 (can be the user's L2 account or a contract), not subject to L2 aliasing
+                  This account, or its L2 alias if it have code in L1, will also be able to cancel the retryable ticket and receive callvalue refund
+     * @param _amount Token Amount
+     * @param _maxGas Max gas deducted from user's L2 balance to cover L2 execution
+     * @param _gasPriceBid Gas price for L2 execution
+     * @param _nonce msg.sender nonce
+     * @param _data encoded data from router and user
+     * @param _permitData signature and deadline params of permit
+    */
     function outboundTransferWithDaiPermit(
-        address _l1Token,
+        address _token,
         address _to,
         uint256 _amount,
         uint256 _maxGas,
@@ -338,7 +365,7 @@ contract L1GatewayRouter is
     ) public payable override returns (bytes memory) {
         return
             super.outboundTransferWithDaiPermit(
-                _l1Token,
+                _token,
                 _to,
                 _amount,
                 _maxGas,
@@ -404,6 +431,7 @@ contract L1GatewayRouter is
      * @param _amount Token Amount
      * @param _maxGas Max gas deducted from user's L2 balance to cover L2 execution
      * @param _gasPriceBid Gas price for L2 execution
+     * @param _nonce msg.sender nonce
      * @param _data encoded data from router and user
      * @param _permitData signature and deadline params of permit
     */
