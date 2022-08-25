@@ -30,7 +30,6 @@ import "./GatewayMessageHandler.sol";
 interface IGatewayRouter is ITokenGateway {
     struct PermitData {
         uint256 deadline;
-        uint256 nonce;
         uint8 v;
         bytes32 r;
         bytes32 s;
@@ -66,6 +65,7 @@ interface IGatewayRouter is ITokenGateway {
         uint256 _amount,
         uint256 _maxGas,
         uint256 _gasPriceBid,
+        uint256 _nonce,
         bytes calldata _data,
         PermitData calldata _permitData
     ) external payable returns (bytes memory);

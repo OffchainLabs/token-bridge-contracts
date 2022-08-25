@@ -193,6 +193,7 @@ abstract contract GatewayRouter is TokenGateway, IGatewayRouter {
      * @param _amount Token Amount
      * @param _maxGas Max gas deducted from user's L2 balance to cover L2 execution
      * @param _gasPriceBid Gas price for L2 execution
+     * @param _nonce msg.sender nonce
      * @param _data encoded data from router and user
      * @param _permitData signature and deadline params of permit
     */
@@ -202,6 +203,7 @@ abstract contract GatewayRouter is TokenGateway, IGatewayRouter {
         uint256 _amount,
         uint256 _maxGas,
         uint256 _gasPriceBid,
+        uint256 _nonce,
         bytes calldata _data,
         PermitData calldata _permitData
     ) public payable virtual override returns (bytes memory) {
@@ -209,7 +211,7 @@ abstract contract GatewayRouter is TokenGateway, IGatewayRouter {
         IDaiLikePermit(_token).permit(
             msg.sender,
             gateway,
-            _permitData.nonce,
+            _nonce,
             _permitData.deadline,
             true,
             _permitData.v,

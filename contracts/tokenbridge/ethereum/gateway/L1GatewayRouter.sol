@@ -332,6 +332,7 @@ contract L1GatewayRouter is
         uint256 _amount,
         uint256 _maxGas,
         uint256 _gasPriceBid,
+        uint256 _nonce,
         bytes calldata _data,
         PermitData calldata _permitData
     ) public payable override returns (bytes memory) {
@@ -342,6 +343,7 @@ contract L1GatewayRouter is
                 _amount,
                 _maxGas,
                 _gasPriceBid,
+                _nonce,
                 _data,
                 _permitData
             );
@@ -412,6 +414,7 @@ contract L1GatewayRouter is
         uint256 _amount,
         uint256 _maxGas,
         uint256 _gasPriceBid,
+        uint256 _nonce,
         bytes calldata _data,
         PermitData calldata _permitData
     ) public payable returns (bytes memory) {
@@ -419,7 +422,7 @@ contract L1GatewayRouter is
         IDaiLikePermit(_token).permit(
             msg.sender,
             gateway,
-            _permitData.nonce,
+            _nonce,
             _permitData.deadline,
             true,
             _permitData.v,

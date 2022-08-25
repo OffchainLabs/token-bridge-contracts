@@ -253,7 +253,6 @@ describe('Bridge peripherals layer 1', () => {
     const { v, r, s } = ethers.utils.splitSignature(signature[0])
 
     const permitData = {
-      nonce: signature[1],
       deadline: deadline,
       v: v,
       r: r,
@@ -334,7 +333,6 @@ describe('Bridge peripherals layer 1', () => {
     const { v, r, s } = ethers.utils.splitSignature(signature[0])
 
     const permitData = {
-      nonce: signature[1],
       deadline: deadline,
       v: v,
       r: r,
@@ -422,7 +420,6 @@ describe('Bridge peripherals layer 1', () => {
     const { v, r, s } = ethers.utils.splitSignature(signature[0])
 
     const permitData = {
-      nonce: signature[1],
       deadline: deadline,
       v: v,
       r: r,
@@ -503,7 +500,6 @@ describe('Bridge peripherals layer 1', () => {
     const { v, r, s } = ethers.utils.splitSignature(signature[0])
 
     const permitData = {
-      nonce: signature[1],
       deadline: deadline,
       v: v,
       r: r,
@@ -517,6 +513,7 @@ describe('Bridge peripherals layer 1', () => {
       tokenAmount,
       maxGas,
       gasPrice,
+      signature[1],
       data,
       permitData,
       {
@@ -554,12 +551,12 @@ describe('Bridge peripherals layer 1', () => {
   })
 
   it('should support outboundTransferCustomRefundWithPermit interface', async function () {
-    // 0x5ed9af73  =>  outboundTransferCustomRefundWithEip2612Permit(address,address,address,uint256,uint256,uint256,bytes,(uint256,uint256,uint8,bytes32,bytes32))
-    expect(await testBridge.supportsInterface('0x5ed9af73')).is.true
+    // 0x7f14fc1e  =>  outboundTransferCustomRefundWithEip2612Permit(address,address,address,uint256,uint256,uint256,bytes,(uint256,uint8,bytes32,bytes32))
+    expect(await testBridge.supportsInterface('0x7f14fc1e')).is.true
   })
 
   it('should support outboundTransferCustomRefundWithDaiPermit interface', async function () {
-    // 0x5be142dc  =>  outboundTransferCustomRefundWithDaiPermit(address,address,address,uint256,uint256,uint256,bytes,(uint256,uint256,uint8,bytes32,bytes32))
-    expect(await testBridge.supportsInterface('0x5be142dc')).is.true
+    // 0xee436479  =>  outboundTransferCustomRefundWithDaiPermit(address,address,address,uint256,uint256,uint256,uint256,bytes,(uint256,uint8,bytes32,bytes32))
+    expect(await testBridge.supportsInterface('0xee436479')).is.true
   })
 })
