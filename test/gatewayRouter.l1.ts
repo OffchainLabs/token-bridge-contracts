@@ -19,6 +19,11 @@ import { ethers } from 'hardhat'
 import { assert, expect } from 'chai'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 import { Contract, ContractFactory } from 'ethers'
+import {
+  getDaiLikePermitSig,
+  getPermitSig,
+  getPermitSigNoVersion,
+} from './testhelper'
 
 describe('Bridge peripherals layer 1', () => {
   let accounts: SignerWithAddress[]
@@ -206,6 +211,335 @@ describe('Bridge peripherals layer 1', () => {
     )
   })
 
+  it('should submit correct sender to inbox w/ permit', async function () {
+    const L1ERC20Gateway = await ethers.getContractFactory('L1ERC20Gateway')
+    const l1ERC20Gateway = await L1ERC20Gateway.deploy()
+
+    await l1ERC20Gateway.initialize(
+      l2Address,
+      testBridge.address,
+      inbox.address,
+      '0x0000000000000000000000000000000000000000000000000000000000000001', // cloneable proxy hash
+      accounts[0].address // beaconProxyFactory
+    )
+
+    await testBridge.setDefaultGateway(
+      l1ERC20Gateway.address,
+      maxGas,
+      gasPrice,
+      maxSubmissionCost
+    )
+
+    const TokenPermit = await ethers.getContractFactory('TestERC20Permit')
+    const tokenPermit = await TokenPermit.deploy('TestPermit', 'TPP')
+    // send escrowed tokens to bridge
+    const tokenAmount = 100
+
+    const data = ethers.utils.defaultAbiCoder.encode(
+      ['uint256', 'bytes'],
+      [maxSubmissionCost, '0x']
+    )
+
+    const deadline = ethers.constants.MaxUint256
+
+    const signature = await getPermitSig(
+      accounts[0],
+      tokenPermit,
+      l1ERC20Gateway.address,
+      tokenAmount,
+      deadline
+    )
+
+    const { v, r, s } = ethers.utils.splitSignature(signature[0])
+
+    const permitData = {
+      deadline: deadline,
+      v: v,
+      r: r,
+      s: s,
+    }
+
+    const tx = await testBridge.outboundTransferWithEip2612Permit(
+      tokenPermit.address,
+      accounts[1].address,
+      tokenAmount,
+      maxGas,
+      gasPrice,
+      data,
+      permitData,
+      {
+        value: maxSubmissionCost + maxGas * gasPrice,
+      }
+    )
+
+    const receipt = await tx.wait()
+    // RefundAddresses(address,address)
+    const expectedTopic =
+      '0x70b37e3cd4440bad0fef84e97b8196e82fe9a1ba044f099cbac6cd7f79e8702f'
+    const logs = receipt.events
+      .filter((curr: any) => curr.topics[0] === expectedTopic)
+      .map((curr: any) => inbox.interface.parseLog(curr))
+    assert.equal(
+      logs[0].args.excessFeeRefundAddress,
+      accounts[1].address,
+      'Invalid excessFeeRefundAddress address'
+    )
+    assert.equal(
+      logs[0].args.callValueRefundAddress,
+      accounts[0].address,
+      'Invalid callValueRefundAddress address'
+    )
+  })
+
+  it('should submit the custom refund address to inbox using permit', async function () {
+    const L1ERC20Gateway = await ethers.getContractFactory('L1ERC20Gateway')
+    const l1ERC20Gateway = await L1ERC20Gateway.deploy()
+
+    await l1ERC20Gateway.initialize(
+      l2Address,
+      testBridge.address,
+      inbox.address,
+      '0x0000000000000000000000000000000000000000000000000000000000000001', // cloneable proxy hash
+      accounts[0].address // beaconProxyFactory
+    )
+
+    await testBridge.setDefaultGateway(
+      l1ERC20Gateway.address,
+      maxGas,
+      gasPrice,
+      maxSubmissionCost
+    )
+
+    const TokenPermit = await ethers.getContractFactory('TestERC20Permit')
+    const tokenPermit = await TokenPermit.deploy('TestPermit', 'TPP')
+    // send escrowed tokens to bridge
+    const tokenAmount = 100
+
+    const data = ethers.utils.defaultAbiCoder.encode(
+      ['uint256', 'bytes'],
+      [maxSubmissionCost, '0x']
+    )
+
+    const deadline = ethers.constants.MaxUint256
+
+    const signature = await getPermitSig(
+      accounts[0],
+      tokenPermit,
+      l1ERC20Gateway.address,
+      tokenAmount,
+      deadline
+    )
+
+    const { v, r, s } = ethers.utils.splitSignature(signature[0])
+
+    const permitData = {
+      deadline: deadline,
+      v: v,
+      r: r,
+      s: s,
+    }
+
+    const tx = await testBridge.outboundTransferCustomRefundWithEip2612Permit(
+      tokenPermit.address,
+      accounts[1].address,
+      accounts[0].address,
+      tokenAmount,
+      maxGas,
+      gasPrice,
+      data,
+      permitData,
+      {
+        value: maxSubmissionCost + maxGas * gasPrice,
+      }
+    )
+
+    const receipt = await tx.wait()
+    // RefundAddresses(address,address)
+    const expectedTopic =
+      '0x70b37e3cd4440bad0fef84e97b8196e82fe9a1ba044f099cbac6cd7f79e8702f'
+    const logs = receipt.events
+      .filter((curr: any) => curr.topics[0] === expectedTopic)
+      .map((curr: any) => inbox.interface.parseLog(curr))
+    assert.equal(
+      logs[0].args.excessFeeRefundAddress,
+      accounts[1].address,
+      'Invalid excessFeeRefundAddress address'
+    )
+    assert.equal(
+      logs[0].args.callValueRefundAddress,
+      accounts[0].address,
+      'Invalid callValueRefundAddress address'
+    )
+  })
+
+  it('should submit the custom refund address to inbox using permit w/no version in signature', async function () {
+    const L1ERC20Gateway = await ethers.getContractFactory('L1ERC20Gateway')
+    const l1ERC20Gateway = await L1ERC20Gateway.deploy()
+
+    await l1ERC20Gateway.initialize(
+      l2Address,
+      testBridge.address,
+      inbox.address,
+      '0x0000000000000000000000000000000000000000000000000000000000000001', // cloneable proxy hash
+      accounts[0].address // beaconProxyFactory
+    )
+
+    await testBridge.setDefaultGateway(
+      l1ERC20Gateway.address,
+      maxGas,
+      gasPrice,
+      maxSubmissionCost
+    )
+
+    const TokenPermit = await ethers.getContractFactory(
+      'TestERC20PermitNoVersion'
+    )
+    const tokenPermit = await TokenPermit.deploy(
+      accounts[0].address,
+      accounts[0].address,
+      100000000000
+    )
+    // send escrowed tokens to bridge
+    const tokenAmount = 100
+
+    const data = ethers.utils.defaultAbiCoder.encode(
+      ['uint256', 'bytes'],
+      [maxSubmissionCost, '0x']
+    )
+
+    const deadline = ethers.constants.MaxUint256
+
+    const signature = await getPermitSigNoVersion(
+      accounts[0],
+      tokenPermit,
+      l1ERC20Gateway.address,
+      tokenAmount,
+      deadline
+    )
+
+    const { v, r, s } = ethers.utils.splitSignature(signature[0])
+
+    const permitData = {
+      deadline: deadline,
+      v: v,
+      r: r,
+      s: s,
+    }
+
+    const tx = await testBridge.outboundTransferCustomRefundWithEip2612Permit(
+      tokenPermit.address,
+      accounts[1].address,
+      accounts[0].address,
+      tokenAmount,
+      maxGas,
+      gasPrice,
+      data,
+      permitData,
+      {
+        value: maxSubmissionCost + maxGas * gasPrice,
+      }
+    )
+
+    const receipt = await tx.wait()
+    // RefundAddresses(address,address)
+    const expectedTopic =
+      '0x70b37e3cd4440bad0fef84e97b8196e82fe9a1ba044f099cbac6cd7f79e8702f'
+    const logs = receipt.events
+      .filter((curr: any) => curr.topics[0] === expectedTopic)
+      .map((curr: any) => inbox.interface.parseLog(curr))
+    assert.equal(
+      logs[0].args.excessFeeRefundAddress,
+      accounts[1].address,
+      'Invalid excessFeeRefundAddress address'
+    )
+    assert.equal(
+      logs[0].args.callValueRefundAddress,
+      accounts[0].address,
+      'Invalid callValueRefundAddress address'
+    )
+  })
+
+  it('should submit the custom refund address to inbox using permit w/dai like permit call & signature', async function () {
+    const L1ERC20Gateway = await ethers.getContractFactory('L1ERC20Gateway')
+    const l1ERC20Gateway = await L1ERC20Gateway.deploy()
+
+    await l1ERC20Gateway.initialize(
+      l2Address,
+      testBridge.address,
+      inbox.address,
+      '0x0000000000000000000000000000000000000000000000000000000000000001', // cloneable proxy hash
+      accounts[0].address // beaconProxyFactory
+    )
+
+    await testBridge.setDefaultGateway(
+      l1ERC20Gateway.address,
+      maxGas,
+      gasPrice,
+      maxSubmissionCost
+    )
+
+    const TokenPermit = await ethers.getContractFactory('TestERC20PermitDai')
+    const tokenPermit = await TokenPermit.deploy()
+    await tokenPermit.mint(accounts[0].address, 100)
+    // send escrowed tokens to bridge
+    const tokenAmount = 100
+
+    const data = ethers.utils.defaultAbiCoder.encode(
+      ['uint256', 'bytes'],
+      [maxSubmissionCost, '0x']
+    )
+
+    const deadline = ethers.constants.MaxUint256
+    const signature = await getDaiLikePermitSig(
+      accounts[0],
+      tokenPermit,
+      l1ERC20Gateway.address,
+      deadline
+    )
+
+    const { v, r, s } = ethers.utils.splitSignature(signature[0])
+
+    const permitData = {
+      deadline: deadline,
+      v: v,
+      r: r,
+      s: s,
+    }
+
+    const tx = await testBridge.outboundTransferCustomRefundWithDaiPermit(
+      tokenPermit.address,
+      accounts[1].address,
+      accounts[0].address,
+      tokenAmount,
+      maxGas,
+      gasPrice,
+      signature[1],
+      data,
+      permitData,
+      {
+        value: maxSubmissionCost + maxGas * gasPrice,
+      }
+    )
+
+    const receipt = await tx.wait()
+    // RefundAddresses(address,address)
+    const expectedTopic =
+      '0x70b37e3cd4440bad0fef84e97b8196e82fe9a1ba044f099cbac6cd7f79e8702f'
+    const logs = receipt.events
+      .filter((curr: any) => curr.topics[0] === expectedTopic)
+      .map((curr: any) => inbox.interface.parseLog(curr))
+    assert.equal(
+      logs[0].args.excessFeeRefundAddress,
+      accounts[1].address,
+      'Invalid excessFeeRefundAddress address'
+    )
+    assert.equal(
+      logs[0].args.callValueRefundAddress,
+      accounts[0].address,
+      'Invalid callValueRefundAddress address'
+    )
+  })
+
   it('should support ERC165 interface', async function () {
     expect(await testBridge.supportsInterface('0x01ffc9a7')).is.true
     expect(await testBridge.supportsInterface('0xffffffff')).is.false
@@ -214,5 +548,15 @@ describe('Bridge peripherals layer 1', () => {
   it('should support outboundTransferCustomRefund interface', async function () {
     // 4fb1a07b  =>  outboundTransferCustomRefund(address,address,address,uint256,uint256,uint256,bytes)
     expect(await testBridge.supportsInterface('0x4fb1a07b')).is.true
+  })
+
+  it('should support outboundTransferCustomRefundWithPermit interface', async function () {
+    // 0x7f14fc1e  =>  outboundTransferCustomRefundWithEip2612Permit(address,address,address,uint256,uint256,uint256,bytes,(uint256,uint8,bytes32,bytes32))
+    expect(await testBridge.supportsInterface('0x7f14fc1e')).is.true
+  })
+
+  it('should support outboundTransferCustomRefundWithDaiPermit interface', async function () {
+    // 0xee436479  =>  outboundTransferCustomRefundWithDaiPermit(address,address,address,uint256,uint256,uint256,uint256,bytes,(uint256,uint8,bytes32,bytes32))
+    expect(await testBridge.supportsInterface('0xee436479')).is.true
   })
 })
