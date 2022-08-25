@@ -17,6 +17,7 @@
  */
 
 pragma solidity ^0.6.11;
+pragma experimental ABIEncoderV2;
 
 import "arb-bridge-eth/contracts/libraries/ProxyUtil.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
@@ -27,6 +28,14 @@ import "./GatewayMessageHandler.sol";
  * @title Common interface for L1 and L2 Gateway Routers
  */
 interface IGatewayRouter is ITokenGateway {
+    struct PermitData {
+        uint256 deadline;
+        uint256 nonce;
+        uint8 v;
+        bytes32 r;
+        bytes32 s;
+    }
+
     function defaultGateway() external view returns (address gateway);
 
     event TransferRouted(
@@ -40,4 +49,24 @@ interface IGatewayRouter is ITokenGateway {
     event DefaultGatewayUpdated(address newDefaultGateway);
 
     function getGateway(address _token) external view returns (address gateway);
+
+    function outboundTransferWithEip2612Permit(
+        address _token,
+        address _to,
+        uint256 _amount,
+        uint256 _maxGas,
+        uint256 _gasPriceBid,
+        bytes calldata _data,
+        PermitData calldata _permitData
+    ) external payable returns (bytes memory);
+
+    function outboundTransferWithDaiPermit(
+        address _token,
+        address _to,
+        uint256 _amount,
+        uint256 _maxGas,
+        uint256 _gasPriceBid,
+        bytes calldata _data,
+        PermitData calldata _permitData
+    ) external payable returns (bytes memory);
 }

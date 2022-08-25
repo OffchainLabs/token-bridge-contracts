@@ -23,7 +23,6 @@ import "arb-bridge-eth/contracts/libraries/ProxyUtil.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/drafts/ERC20Permit.sol";
 import "./TokenGateway.sol";
-import "../../ethereum/gateway/IL1ArbitrumGateway.sol";
 import "./GatewayMessageHandler.sol";
 import "./IGatewayRouter.sol";
 import "../IDaiLikePermit.sol";
@@ -39,15 +38,6 @@ abstract contract GatewayRouter is TokenGateway, IGatewayRouter {
 
     mapping(address => address) public l1TokenToGateway;
     address public override defaultGateway;
-
-    struct PermitData {
-        uint256 deadline;
-        uint256 nonce;
-        bool isStandardImpl;
-        uint8 v;
-        bytes32 r;
-        bytes32 s;
-    }
 
     event TransferRouted(
         address indexed token,
@@ -159,8 +149,9 @@ abstract contract GatewayRouter is TokenGateway, IGatewayRouter {
     }
 
     /**
-     * @notice Bridge ERC20 token using the registered or otherwise default gateway with call to permit. 
+     * @notice Bridge ERC20 token using the registered or otherwise default gateway with standard EIP 2612 call to permit. 
                 Compatible with older gateways without OutboundTransferCustomRefund
+     * @notice Safe from reentrancy as there are no calls in the function into the caller's address
      * @param _token L1 address of ERC20
      * @param _to Account to be credited with the tokens in the L2 (can be the user's L2 account or a contract), not subject to L2 aliasing
                   This account, or its L2 alias if it have code in L1, will also be able to cancel the retryable ticket and receive callvalue refund
@@ -170,7 +161,7 @@ abstract contract GatewayRouter is TokenGateway, IGatewayRouter {
      * @param _data encoded data from router and user
      * @param _permitData signature and deadline params of permit
     */
-    function outboundTransferWithPermit(
+    function outboundTransferWithEip2612Permit(
         address _token,
         address _to,
         uint256 _amount,
@@ -178,38 +169,53 @@ abstract contract GatewayRouter is TokenGateway, IGatewayRouter {
         uint256 _gasPriceBid,
         bytes calldata _data,
         PermitData calldata _permitData
-    ) public payable virtual returns (bytes memory) {
-        callPermit(_token, _amount, _permitData);
+    ) public payable virtual override returns (bytes memory) {
+        address gateway = getGateway(_token);
+        ERC20Permit(_token).permit(
+            msg.sender,
+            gateway,
+            _amount,
+            _permitData.deadline,
+            _permitData.v,
+            _permitData.r,
+            _permitData.s
+        );
         return outboundTransfer(_token, _to, _amount, _maxGas, _gasPriceBid, _data);
     }
 
-    function callPermit(
+    /**
+     * @notice Bridge ERC20 token using the registered or otherwise default gateway with Dai Like call to permit. 
+                Compatible with older gateways without OutboundTransferCustomRefund
+     * @notice Safe from reentrancy as there are no calls in the function into the caller's address
+     * @param _token L1 address of ERC20
+     * @param _to Account to be credited with the tokens in the L2 (can be the user's L2 account or a contract), not subject to L2 aliasing
+                  This account, or its L2 alias if it have code in L1, will also be able to cancel the retryable ticket and receive callvalue refund
+     * @param _amount Token Amount
+     * @param _maxGas Max gas deducted from user's L2 balance to cover L2 execution
+     * @param _gasPriceBid Gas price for L2 execution
+     * @param _data encoded data from router and user
+     * @param _permitData signature and deadline params of permit
+    */
+    function outboundTransferWithDaiPermit(
         address _token,
+        address _to,
         uint256 _amount,
+        uint256 _maxGas,
+        uint256 _gasPriceBid,
+        bytes calldata _data,
         PermitData calldata _permitData
-    ) internal virtual {
+    ) public payable virtual override returns (bytes memory) {
         address gateway = getGateway(_token);
-        if (_permitData.isStandardImpl) {
-            ERC20Permit(_token).permit(
-                msg.sender,
-                gateway,
-                _amount,
-                _permitData.deadline,
-                _permitData.v,
-                _permitData.r,
-                _permitData.s
-            );
-        } else {
-            IDaiLikePermit(_token).permit(
-                msg.sender,
-                gateway,
-                _permitData.nonce,
-                _permitData.deadline,
-                true,
-                _permitData.v,
-                _permitData.r,
-                _permitData.s
-            );
-        }
+        IDaiLikePermit(_token).permit(
+            msg.sender,
+            gateway,
+            _permitData.nonce,
+            _permitData.deadline,
+            true,
+            _permitData.v,
+            _permitData.r,
+            _permitData.s
+        );
+        return outboundTransfer(_token, _to, _amount, _maxGas, _gasPriceBid, _data);
     }
 }

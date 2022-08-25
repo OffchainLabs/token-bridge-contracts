@@ -258,10 +258,9 @@ describe('Bridge peripherals layer 1', () => {
       v: v,
       r: r,
       s: s,
-      isStandardImpl: true,
     }
 
-    const tx = await testBridge.outboundTransferWithPermit(
+    const tx = await testBridge.outboundTransferWithEip2612Permit(
       tokenPermit.address,
       accounts[1].address,
       tokenAmount,
@@ -340,10 +339,9 @@ describe('Bridge peripherals layer 1', () => {
       v: v,
       r: r,
       s: s,
-      isStandardImpl: true,
     }
 
-    const tx = await testBridge.outboundTransferCustomRefundWithPermit(
+    const tx = await testBridge.outboundTransferCustomRefundWithEip2612Permit(
       tokenPermit.address,
       accounts[1].address,
       accounts[0].address,
@@ -429,10 +427,9 @@ describe('Bridge peripherals layer 1', () => {
       v: v,
       r: r,
       s: s,
-      isStandardImpl: true,
     }
 
-    const tx = await testBridge.outboundTransferCustomRefundWithPermit(
+    const tx = await testBridge.outboundTransferCustomRefundWithEip2612Permit(
       tokenPermit.address,
       accounts[1].address,
       accounts[0].address,
@@ -511,10 +508,9 @@ describe('Bridge peripherals layer 1', () => {
       v: v,
       r: r,
       s: s,
-      isStandardImpl: false,
     }
 
-    const tx = await testBridge.outboundTransferCustomRefundWithPermit(
+    const tx = await testBridge.outboundTransferCustomRefundWithDaiPermit(
       tokenPermit.address,
       accounts[1].address,
       accounts[0].address,
@@ -558,7 +554,12 @@ describe('Bridge peripherals layer 1', () => {
   })
 
   it('should support outboundTransferCustomRefundWithPermit interface', async function () {
-    // 0x4811bdb0  =>  outboundTransferCustomRefundWithPermit(address,address,address,uint256,uint256,uint256,bytes,(uint256,uint256,uint8,bytes32,bytes32,bool))
-    expect(await testBridge.supportsInterface('0x4811bdb0')).is.true
+    // 0x5ed9af73  =>  outboundTransferCustomRefundWithEip2612Permit(address,address,address,uint256,uint256,uint256,bytes,(uint256,uint256,uint8,bytes32,bytes32))
+    expect(await testBridge.supportsInterface('0x5ed9af73')).is.true
+  })
+
+  it('should support outboundTransferCustomRefundWithDaiPermit interface', async function () {
+    // 0x5be142dc  =>  outboundTransferCustomRefundWithDaiPermit(address,address,address,uint256,uint256,uint256,bytes,(uint256,uint256,uint8,bytes32,bytes32))
+    expect(await testBridge.supportsInterface('0x5be142dc')).is.true
   })
 })

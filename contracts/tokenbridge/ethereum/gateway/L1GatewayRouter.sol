@@ -305,7 +305,7 @@ contract L1GatewayRouter is
             );
     }
 
-    function outboundTransferWithPermit(
+    function outboundTransferWithEip2612Permit(
         address _l1Token,
         address _to,
         uint256 _amount,
@@ -315,7 +315,28 @@ contract L1GatewayRouter is
         PermitData calldata _permitData
     ) public payable override returns (bytes memory) {
         return
-            super.outboundTransferWithPermit(
+            super.outboundTransferWithEip2612Permit(
+                _l1Token,
+                _to,
+                _amount,
+                _maxGas,
+                _gasPriceBid,
+                _data,
+                _permitData
+            );
+    }
+
+    function outboundTransferWithDaiPermit(
+        address _l1Token,
+        address _to,
+        uint256 _amount,
+        uint256 _maxGas,
+        uint256 _gasPriceBid,
+        bytes calldata _data,
+        PermitData calldata _permitData
+    ) public payable override returns (bytes memory) {
+        return
+            super.outboundTransferWithDaiPermit(
                 _l1Token,
                 _to,
                 _amount,
@@ -327,7 +348,8 @@ contract L1GatewayRouter is
     }
 
     /**
-     * @notice Bridge ERC20 token using the registered or otherwise default gateway with call to permit.
+     * @notice Bridge ERC20 token using the registered or otherwise default gateway with standard EIP 2612 call to permit.
+            Uses a standard call to permit.
      * @param _token L1 address of ERC20
      * @param _refundTo Account, or its L2 alias if it have code in L1, to be credited with excess gas refund in L2
      * @param _to Account to be credited with the tokens in the L2 (can be the user's L2 account or a contract), not subject to L2 aliasing
@@ -338,7 +360,7 @@ contract L1GatewayRouter is
      * @param _data encoded data from router and user
      * @param _permitData signature and deadline params of permit
     */
-    function outboundTransferCustomRefundWithPermit(
+    function outboundTransferCustomRefundWithEip2612Permit(
         address _token,
         address _refundTo,
         address _to,
@@ -348,7 +370,62 @@ contract L1GatewayRouter is
         bytes calldata _data,
         PermitData calldata _permitData
     ) public payable returns (bytes memory) {
-        super.callPermit(_token, _amount, _permitData);
+        address gateway = getGateway(_token);
+        ERC20Permit(_token).permit(
+            msg.sender,
+            gateway,
+            _amount,
+            _permitData.deadline,
+            _permitData.v,
+            _permitData.r,
+            _permitData.s
+        );
+        return
+            outboundTransferCustomRefund(
+                _token,
+                _refundTo,
+                _to,
+                _amount,
+                _maxGas,
+                _gasPriceBid,
+                _data
+            );
+    }
+
+    /**
+     * @notice Bridge ERC20 token using the registered or otherwise default gateway with Dai Like call to permit.
+        Uses a Dai-like call to permit.
+     * @param _token L1 address of ERC20
+     * @param _refundTo Account, or its L2 alias if it have code in L1, to be credited with excess gas refund in L2
+     * @param _to Account to be credited with the tokens in the L2 (can be the user's L2 account or a contract), not subject to L2 aliasing
+                  This account, or its L2 alias if it have code in L1, will also be able to cancel the retryable ticket and receive callvalue refund
+     * @param _amount Token Amount
+     * @param _maxGas Max gas deducted from user's L2 balance to cover L2 execution
+     * @param _gasPriceBid Gas price for L2 execution
+     * @param _data encoded data from router and user
+     * @param _permitData signature and deadline params of permit
+    */
+    function outboundTransferCustomRefundWithDaiPermit(
+        address _token,
+        address _refundTo,
+        address _to,
+        uint256 _amount,
+        uint256 _maxGas,
+        uint256 _gasPriceBid,
+        bytes calldata _data,
+        PermitData calldata _permitData
+    ) public payable returns (bytes memory) {
+        address gateway = getGateway(_token);
+        IDaiLikePermit(_token).permit(
+            msg.sender,
+            gateway,
+            _permitData.nonce,
+            _permitData.deadline,
+            true,
+            _permitData.v,
+            _permitData.r,
+            _permitData.s
+        );
         return
             outboundTransferCustomRefund(
                 _token,
@@ -377,7 +454,8 @@ contract L1GatewayRouter is
         // using function selector instead of single function interfaces to reduce bloat
         return
             interfaceId == this.outboundTransferCustomRefund.selector ||
-            interfaceId == this.outboundTransferCustomRefundWithPermit.selector ||
+            interfaceId == this.outboundTransferCustomRefundWithEip2612Permit.selector ||
+            interfaceId == this.outboundTransferCustomRefundWithDaiPermit.selector ||
             super.supportsInterface(interfaceId);
     }
 }
