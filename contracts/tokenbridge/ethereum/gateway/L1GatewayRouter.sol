@@ -185,7 +185,7 @@ contract L1GatewayRouter is
         address _creditBackAddress
     ) public payable override returns (uint256) {
         require(
-            ArbitrumEnabledToken(msg.sender).isArbitrumEnabled() == uint8(0xa4),
+            ArbitrumEnabledToken(msg.sender).isArbitrumEnabled() == uint8(0xb1),
             "NOT_ARB_ENABLED"
         );
         require(_gateway.isContract(), "NOT_TO_CONTRACT");
