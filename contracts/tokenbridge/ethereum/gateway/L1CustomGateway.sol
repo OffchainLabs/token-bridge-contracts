@@ -151,7 +151,7 @@ contract L1CustomGateway is L1ArbitrumExtendedGateway, ICustomGateway {
         address _creditBackAddress
     ) public payable returns (uint256) {
         require(
-            ArbitrumEnabledToken(msg.sender).isArbitrumEnabled() == uint8(0xa4b1),
+            ArbitrumEnabledToken(msg.sender).isArbitrumEnabled() == uint8(0xa4),
             "NOT_ARB_ENABLED"
         );
 

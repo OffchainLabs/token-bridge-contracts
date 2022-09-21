@@ -66,7 +66,7 @@ contract TestCustomTokenL1 is aeERC20, ICustomToken {
     /// @dev we only set shouldRegisterGateway to true when in `registerTokenOnL2`
     function isArbitrumEnabled() external view override returns (uint8) {
         require(shouldRegisterGateway, "NOT_EXPECTED_CALL");
-        return uint8(0xa4b1);
+        return uint8(0xa4);
     }
 
     function registerTokenOnL2(
