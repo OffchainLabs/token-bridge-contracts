@@ -34,7 +34,6 @@
     "@arbitrum/nitro-contracts": "^1.0.0-beta.8",
     "@openzeppelin/contracts": "3.4.2",
     "@openzeppelin/contracts-upgradeable": "3.4.2",
-    "arbos-precompiles": "^1.0.2",
     "hardhat": "2.9.9"
   },
   "devDependencies": {
