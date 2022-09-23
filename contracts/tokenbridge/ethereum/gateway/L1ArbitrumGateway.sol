@@ -24,13 +24,12 @@ import "@openzeppelin/contracts/utils/Create2.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 
-import "arb-bridge-eth/contracts/bridge/interfaces/IInbox.sol";
-import "arb-bridge-eth/contracts/libraries/ProxyUtil.sol";
 
 import "../L1ArbitrumMessenger.sol";
+import "./IL1ArbitrumGateway.sol";
+import "../../libraries/ProxyUtil.sol";
 import "../../libraries/gateway/GatewayMessageHandler.sol";
 import "../../libraries/gateway/TokenGateway.sol";
-import "./IL1ArbitrumGateway.sol";
 import "../../libraries/ITransferAndCall.sol";
 import "../../libraries/ERC165.sol";
 

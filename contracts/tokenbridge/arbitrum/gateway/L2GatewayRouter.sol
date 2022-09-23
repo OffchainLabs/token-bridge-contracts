@@ -21,7 +21,7 @@ pragma solidity ^0.6.11;
 import "../../libraries/gateway/GatewayRouter.sol";
 import "../../ethereum/gateway/L1GatewayRouter.sol";
 import "../L2ArbitrumMessenger.sol";
-import "arb-bridge-eth/contracts/libraries/AddressAliasHelper.sol";
+import "../../libraries/AddressAliasHelper.sol";
 
 /**
  * @title Handles withdrawals from Ethereum into Arbitrum. Tokens are routered to their appropriate L2 gateway (Router itself also conforms to the Gateway interface).
