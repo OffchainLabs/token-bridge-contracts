@@ -55,7 +55,7 @@ contract L2CustomGateway is L2ArbitrumGateway, ICustomGateway {
         address _l2Token,
         address _from,
         uint256 _amount
-    ) internal override returns (uint256 amountBurnt) {
+    ) internal virtual override returns (uint256 amountBurnt) {
         uint256 prevBalance = IERC20(_l2Token).balanceOf(_from);
 
         // in the custom gateway, we do the same behaviour as the superclass, but actually check
