@@ -24,7 +24,7 @@ import "../../arbitrum/gateway/L2CustomGateway.sol";
 import "../../libraries/gateway/ICustomGateway.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 
-import "arb-bridge-eth/contracts/libraries/Whitelist.sol";
+import "../../libraries/Whitelist.sol";
 
 /**
  * @title Gatway for "custom" bridging functionality

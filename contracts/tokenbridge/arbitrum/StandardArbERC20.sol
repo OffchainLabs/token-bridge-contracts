@@ -18,7 +18,7 @@
 
 pragma solidity ^0.6.11;
 
-import "arb-bridge-eth/contracts/libraries/Cloneable.sol";
+import "../libraries/Cloneable.sol";
 import "../libraries/L2GatewayToken.sol";
 import "../libraries/BytesParser.sol";
 import "./IArbToken.sol";

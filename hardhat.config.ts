@@ -6,7 +6,6 @@ import 'hardhat-gas-reporter'
 import '@nomiclabs/hardhat-etherscan'
 import 'hardhat-deploy'
 
-import baseConfig from './hardhat.base-config.json'
 import { task } from 'hardhat/config'
 import '@nomiclabs/hardhat-ethers'
 
@@ -19,7 +18,33 @@ task('accounts', 'Prints the list of accounts', async (taskArgs, bre) => {
 })
 
 const config = {
-  ...baseConfig,
+  defaultNetwork: 'hardhat',
+  paths: {
+    artifacts: 'build/contracts',
+  },
+  solidity: {
+    compilers: [
+      {
+        version: '0.6.11',
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 100,
+          },
+        },
+      },
+      {
+        version: '0.8.7',
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 100,
+          },
+        },
+      },
+    ],
+    overrides: {},
+  },
   networks: {
     hardhat: {
       chainId: 1337,
@@ -197,7 +222,6 @@ if (process.env['GOERLI_URL'] && process.env['GOERLI_MNEMONIC']) {
 }
 
 if (!process.env['DEVNET_PRIVKEY']) console.warn('No devnet privkey set')
-
 
 if (process.env['INTERFACE_TESTER_SOLC_VERSION']) {
   config.solidity.compilers.push({
