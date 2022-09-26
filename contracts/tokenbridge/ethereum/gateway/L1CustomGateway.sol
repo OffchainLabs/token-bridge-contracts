@@ -20,8 +20,8 @@ pragma solidity ^0.6.11;
 
 import { ArbitrumEnabledToken } from "../ICustomToken.sol";
 import "./L1ArbitrumExtendedGateway.sol";
+import "./IL1CustomGateway.sol";
 import "../../arbitrum/gateway/L2CustomGateway.sol";
-import "../../libraries/gateway/ICustomGateway.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 
 import "../../libraries/Whitelist.sol";
@@ -30,7 +30,7 @@ import "../../libraries/Whitelist.sol";
  * @title Gatway for "custom" bridging functionality
  * @notice Handles some (but not all!) custom Gateway needs.
  */
-contract L1CustomGateway is L1ArbitrumExtendedGateway, ICustomGateway {
+contract L1CustomGateway is L1ArbitrumExtendedGateway, IL1CustomGateway {
     using Address for address;
     // stores addresses of L2 tokens to be used
     mapping(address => address) public override l1ToL2Token;
@@ -149,7 +149,7 @@ contract L1CustomGateway is L1ArbitrumExtendedGateway, ICustomGateway {
         uint256 _gasPriceBid,
         uint256 _maxSubmissionCost,
         address _creditBackAddress
-    ) public payable returns (uint256) {
+    ) public override payable returns (uint256) {
         require(
             ArbitrumEnabledToken(msg.sender).isArbitrumEnabled() == uint8(0xa4b1),
             "NOT_ARB_ENABLED"
