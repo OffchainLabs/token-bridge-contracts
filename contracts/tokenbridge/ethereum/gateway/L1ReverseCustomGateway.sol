@@ -22,6 +22,8 @@ import "./L1CustomGateway.sol";
 
 // CHRIS: TODO: docs
 contract L1ReverseCustomGateway is L1CustomGateway {
+    // TODO: on register we need to validate the L2 address
+    
     // TODO: is the validation currently done enough? do we need to check the reverse mapping?
     function inboundEscrowTransfer(address _l1Token, address _dest, uint256 _amount) internal override {
         IArbToken(_l1Token).bridgeMint(_dest, _amount);
