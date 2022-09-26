@@ -23,7 +23,7 @@ import "./L1CustomGateway.sol";
 // CHRIS: TODO: docs
 contract L1ReverseCustomGateway is L1CustomGateway {
     // TODO: on register we need to validate the L2 address
-    
+
     // TODO: is the validation currently done enough? do we need to check the reverse mapping?
     function inboundEscrowTransfer(address _l1Token, address _dest, uint256 _amount) internal override {
         IArbToken(_l1Token).bridgeMint(_dest, _amount);
@@ -47,9 +47,6 @@ contract L1ReverseCustomGateway is L1CustomGateway {
         // user funds are escrowed on the gateway using this function
         // burns L2 tokens in order to release escrowed L1 tokens
         IArbToken(_l1Token).bridgeBurn(_from, _amount);
-        // by default we assume that the amount we send to bridgeBurn is the amount burnt
-        // this might not be the case for every token
-        return _amount;
 
         uint256 postBalance = IERC20(_l1Token).balanceOf(_from);
         return SafeMath.sub(prevBalance, postBalance);
