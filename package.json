@@ -1,5 +1,5 @@
 {
-  "name": "arb-bridge-peripherals",
+  "name": "@arbitrum/token-bridge-contracts",
   "version": "1.0.12",
   "license": "Apache-2.0",
   "scripts": {
