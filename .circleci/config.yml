@@ -6,7 +6,6 @@ executors:
 
 jobs:
   contract-test:
-
     executor: my-custom-executor
     working_directory: ~/token-bridge-contracts
     steps:
