@@ -1,13 +1,13 @@
 version: 2.1
 executors:
-  my-custom-executor:
+  general-test-executor:
     docker:
       - image: cimg/node:16.18
 
 jobs:
   contract-test:
 
-    executor: my-custom-executor
+    executor: general-test-executor
     working_directory: ~/token-bridge-contracts
     steps:
       - checkout
@@ -17,6 +17,6 @@ jobs:
           yarn test
 
 workflows:
-  my-custom-workflow:
+  build-test-workflow:
     jobs:
       - contract-test
