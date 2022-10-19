@@ -19,9 +19,9 @@
 pragma solidity ^0.6.11;
 
 import "@openzeppelin/contracts/utils/Address.sol";
-import "arb-bridge-eth/contracts/libraries/BytesLib.sol";
-import "arb-bridge-eth/contracts/libraries/ProxyUtil.sol";
-import "arb-bridge-eth/contracts/libraries/AddressAliasHelper.sol";
+import "../../libraries/AddressAliasHelper.sol";
+import "../../libraries/BytesLib.sol";
+import "../../libraries/ProxyUtil.sol";
 
 import "../IArbToken.sol";
 

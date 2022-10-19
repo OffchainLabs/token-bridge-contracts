@@ -16,13 +16,15 @@
  * limitations under the License.
  */
 
-pragma solidity ^0.6.11;
+// solhint-disable-next-line compiler-version
+pragma solidity >=0.6.9 <0.9.0;
 
-import "../arbitrum/L2ArbitrumMessenger.sol";
-import "../libraries/AddressAliasHelper.sol";
-
-contract AddressMappingTest is L2ArbitrumMessenger {
-    function getL1AddressTest(address sender) external pure returns (address l1Address) {
-        return AddressAliasHelper.undoL1ToL2Alias(sender);
-    }
+/// @title  The L2 component of an token that has been reverse bridged
+/// @notice Reverse bridged tokens are said to be native on the L2.
+/// @dev    Minting done on L2, transfers from L2 to L1 do not burn tokens but instead escrow
+///         them on the L2 gateway. The L1 token should mint and burn when interacting with the
+///         gateway to ensure that the L2 supply is respected.
+interface IReverseArbToken {
+    /// @notice address of layer 1 token
+    function l1Address() external view returns (address);
 }

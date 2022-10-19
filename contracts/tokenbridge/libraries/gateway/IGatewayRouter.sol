@@ -18,7 +18,7 @@
 
 pragma solidity ^0.6.11;
 
-import "arb-bridge-eth/contracts/libraries/ProxyUtil.sol";
+import "../ProxyUtil.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "./TokenGateway.sol";
 import "./GatewayMessageHandler.sol";

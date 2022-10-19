@@ -18,7 +18,7 @@
 
 pragma solidity ^0.6.11;
 
-import "arb-bridge-eth/contracts/bridge/interfaces/IInbox.sol";
+import "@arbitrum/nitro-contracts/src/bridge/IInbox.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../../libraries/IWETH9.sol";

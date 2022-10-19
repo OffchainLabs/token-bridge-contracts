@@ -18,7 +18,7 @@
 
 pragma solidity ^0.6.11;
 
-import "arb-bridge-eth/contracts/libraries/BytesLib.sol";
+import "./BytesLib.sol";
 
 library BytesParser {
     using BytesLib for bytes;

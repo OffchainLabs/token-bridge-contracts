@@ -20,7 +20,7 @@ pragma solidity ^0.6.11;
 
 import "./L1ArbitrumExtendedGateway.sol";
 import "@openzeppelin/contracts/utils/Create2.sol";
-import "arb-bridge-eth/contracts/libraries/Whitelist.sol";
+import "../../libraries/Whitelist.sol";
 
 /**
  * @title Layer 1 Gateway contract for bridging standard ERC20s

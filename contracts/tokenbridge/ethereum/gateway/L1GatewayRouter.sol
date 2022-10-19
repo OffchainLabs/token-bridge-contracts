@@ -18,7 +18,7 @@
 
 pragma solidity ^0.6.11;
 
-import "arb-bridge-eth/contracts/libraries/Whitelist.sol";
+import "../../libraries/Whitelist.sol";
 
 import { ArbitrumEnabledToken } from "../ICustomToken.sol";
 import "../L1ArbitrumMessenger.sol";

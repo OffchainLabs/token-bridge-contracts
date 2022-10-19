@@ -18,9 +18,9 @@
 
 pragma solidity ^0.6.11;
 
-import "arb-bridge-eth/contracts/bridge/interfaces/IOutbox.sol";
-import "arb-bridge-eth/contracts/bridge/interfaces/IBridge.sol";
-import "arb-bridge-eth/contracts/bridge/interfaces/IInbox.sol";
+import "@arbitrum/nitro-contracts/src/bridge/IOutbox.sol";
+import "@arbitrum/nitro-contracts/src/bridge/IBridge.sol";
+import "@arbitrum/nitro-contracts/src/bridge/IInbox.sol";
 
 contract InboxMock {
     address l2ToL1SenderMock = address(0);
