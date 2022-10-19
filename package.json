@@ -3,7 +3,7 @@
   "version": "1.0.13",
   "license": "Apache-2.0",
   "scripts": {
-    "build": "./scripts/build.bash",
+    "build": "hardhat compile",
     "build:0.6": "INTERFACE_TESTER_SOLC_VERSION=0.6.9 yarn run build",
     "build:0.7": "INTERFACE_TESTER_SOLC_VERSION=0.7.0 yarn run build",
     "build:0.8": "INTERFACE_TESTER_SOLC_VERSION=0.8.15 yarn run build",
@@ -22,14 +22,11 @@
     "gen:uml:test": "sol2uml ./contracts/tokenbridge/arbitrum,./contracts/tokenbridge/test -o ./gatewayTestUML.svg",
     "pre:slither": "yarn run post:slither && ln -s ../../node_modules/arb-bridge-eth && ln -s ../../node_modules/arbos-precompiles",
     "slither": "yarn run pre:slither && slither --hardhat-artifacts-directory build/contracts .  --filter-paths 'node_modules|arb-bridge-eth|arbos-precompiles' && yarn run post:slither",
-    "post:slither": "rm -f arb-bridge-eth && rm -f arbos-precompiles",
-    "hardhat": "hardhat --config hardhat.config.ts",
-    "hardhat:prod": "hardhat --config hardhat.prod-config.js"
+    "post:slither": "rm -f arb-bridge-eth && rm -f arbos-precompiles"
   },
   "files": [
     "contracts",
-    "scripts/build.bash",
-    "hardhat.prod-config.js"
+    "build/contracts"
   ],
   "dependencies": {
     "@openzeppelin/contracts": "3.4.2",
