@@ -177,8 +177,8 @@ const config = {
         network: 'arbGoerliRollup',
         chainId: 421613,
         urls: {
-          apiURL: 'https://goerli-rollup-explorer.arbitrum.io/api',
-          browserURL: 'https://goerli-rollup-explorer.arbitrum.io/',
+          apiURL: 'https://api-goerli.arbiscan.io/api',
+          browserURL: 'https://goerli.arbiscan.io/',
         },
       },
     ],
