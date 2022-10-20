@@ -162,7 +162,7 @@ const config = {
       arbitrumOne: process.env['ARBISCAN_API_KEY'],
       arbitrumTestnet: process.env['ARBISCAN_API_KEY'],
       nova: '0',
-      arbGoerliRollup: '0',
+      arbGoerliRollup: process.env['ARBISCAN_API_KEY'],
     },
     customChains: [
       {
