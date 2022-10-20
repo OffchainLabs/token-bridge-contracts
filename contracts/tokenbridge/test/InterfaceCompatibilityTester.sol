@@ -29,12 +29,7 @@ pragma solidity >=0.6.9 <0.9.0;
 // import "arb-bridge-eth/contracts/challenge/IChallengeFactory.sol";
 // import "arb-bridge-eth/contracts/interfaces/IERC20.sol";
 // import "arb-bridge-eth/contracts/interfaces/IERC721.sol";
-// import "arb-bridge-eth/contracts/libraries/ICloneable.sol";
-// import "arb-bridge-eth/contracts/rollup/INode.sol";
-// import "arb-bridge-eth/contracts/rollup/INodeFactory.sol";
-// import "arb-bridge-eth/contracts/rollup/IRollupCore.sol";
-// import "arb-bridge-eth/contracts/rollup/facets/IRollupFacets.sol";
-// import "arb-bridge-eth/contracts/validator/IGasRefunder.sol";
+
 
 import "../arbitrum/IArbToken.sol";
 import "../ethereum/ICustomToken.sol";
