@@ -24,7 +24,6 @@ import "@openzeppelin/contracts/utils/Create2.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 
-
 import "../L1ArbitrumMessenger.sol";
 import "./IL1ArbitrumGateway.sol";
 import "../../libraries/ProxyUtil.sol";
