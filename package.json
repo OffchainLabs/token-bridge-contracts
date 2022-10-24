@@ -3,6 +3,7 @@
   "version": "1.0.0-beta.0",
   "license": "Apache-2.0",
   "scripts": {
+    "prepublishOnly": "hardhat clean && hardhat compile",
     "build": "hardhat compile",
     "build:0.6": "INTERFACE_TESTER_SOLC_VERSION=0.6.9 yarn run build",
     "build:0.7": "INTERFACE_TESTER_SOLC_VERSION=0.7.0 yarn run build",
