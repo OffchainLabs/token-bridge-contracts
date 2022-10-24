@@ -137,7 +137,7 @@ const config = {
       arbitrumOne: process.env['ARBISCAN_API_KEY'],
       arbitrumTestnet: process.env['ARBISCAN_API_KEY'],
       nova: '0',
-      arbGoerliRollup: '0',
+      arbGoerliRollup: process.env['ARBISCAN_API_KEY'],
     },
     customChains: [
       {
@@ -152,8 +152,8 @@ const config = {
         network: 'arbGoerliRollup',
         chainId: 421613,
         urls: {
-          apiURL: 'https://goerli-rollup-explorer.arbitrum.io/api',
-          browserURL: 'https://goerli-rollup-explorer.arbitrum.io/',
+          apiURL: 'https://api-goerli.arbiscan.io/api',
+          browserURL: 'https://goerli.arbiscan.io/',
         },
       },
     ],
