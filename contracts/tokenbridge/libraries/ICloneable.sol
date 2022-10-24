@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /*
- * Copyright 2022, Offchain Labs, Inc.
+ * Copyright 2019, Offchain Labs, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,11 +19,6 @@
 // solhint-disable-next-line compiler-version
 pragma solidity >=0.6.9 <0.9.0;
 
-import "../arbitrum/IArbToken.sol";
-import "../ethereum/ICustomToken.sol";
-import "../ethereum/gateway/IL1ArbitrumGateway.sol";
-import "../ethereum/gateway/IL1GatewayRouter.sol";
-import "../libraries/IWETH9.sol";
-import "../libraries/IERC165.sol";
-import "../libraries/gateway/ICustomGateway.sol";
-import "../libraries/gateway/ITokenGateway.sol";
+interface ICloneable {
+    function isMaster() external view returns (bool);
+}

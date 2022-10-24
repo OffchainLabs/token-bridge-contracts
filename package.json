@@ -1,9 +1,9 @@
 {
-  "name": "arb-bridge-peripherals",
-  "version": "1.0.12",
+  "name": "@arbitrum/token-bridge-contracts",
+  "version": "1.0.0-beta.0",
   "license": "Apache-2.0",
   "scripts": {
-    "build": "./scripts/build.bash",
+    "build": "hardhat compile",
     "build:0.6": "INTERFACE_TESTER_SOLC_VERSION=0.6.9 yarn run build",
     "build:0.7": "INTERFACE_TESTER_SOLC_VERSION=0.7.0 yarn run build",
     "build:0.8": "INTERFACE_TESTER_SOLC_VERSION=0.8.15 yarn run build",
@@ -12,6 +12,7 @@
     "lint": "yarn lint:solidity && yarn lint:js",
     "format": "prettier './**/*.{js,json,md,ts,yml,sol}' --write && yarn lint --fix",
     "test:compatibility": "yarn run build:0.6 && yarn run build:0.7 && yarn run build:0.8",
+    "test": "hardhat test test/*",
     "test:e2e": "hardhat test test/*.e2e.ts",
     "test:l1": "hardhat test test/*.l1.ts",
     "test:l2": "hardhat test test/*.l2.ts",
@@ -21,21 +22,16 @@
     "gen:uml:test": "sol2uml ./contracts/tokenbridge/arbitrum,./contracts/tokenbridge/test -o ./gatewayTestUML.svg",
     "pre:slither": "yarn run post:slither && ln -s ../../node_modules/arb-bridge-eth && ln -s ../../node_modules/arbos-precompiles",
     "slither": "yarn run pre:slither && slither --hardhat-artifacts-directory build/contracts .  --filter-paths 'node_modules|arb-bridge-eth|arbos-precompiles' && yarn run post:slither",
-    "post:slither": "rm -f arb-bridge-eth && rm -f arbos-precompiles",
-    "hardhat": "hardhat --config hardhat.config.ts",
-    "hardhat:prod": "hardhat --config hardhat.prod-config.js"
+    "post:slither": "rm -f arb-bridge-eth && rm -f arbos-precompiles"
   },
   "files": [
     "contracts",
-    "scripts/build.bash",
-    "hardhat.prod-config.js"
+    "build/contracts"
   ],
   "dependencies": {
+    "@arbitrum/nitro-contracts": "^1.0.0-beta.8",
     "@openzeppelin/contracts": "3.4.2",
-    "@openzeppelin/contracts-upgradeable": "3.4.2",
-    "arb-bridge-eth": "0.7.8",
-    "arbos-precompiles": "^1.0.2",
-    "hardhat": "2.9.9"
+    "@openzeppelin/contracts-upgradeable": "3.4.2"
   },
   "devDependencies": {
     "@nomiclabs/hardhat-ethers": "^2.0.1",
@@ -59,6 +55,7 @@
     "eslint-plugin-prettier": "^4.0.0",
     "ethereum-waffle": "^3.2.0",
     "ethers": "^5.4.5",
+    "hardhat": "2.9.9",
     "hardhat-deploy": "^0.9.1",
     "hardhat-gas-reporter": "^1.0.4",
     "prettier": "^2.3.2",

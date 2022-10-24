@@ -19,7 +19,7 @@
 pragma solidity ^0.6.11;
 
 import "../arbitrum/L2ArbitrumMessenger.sol";
-import "arb-bridge-eth/contracts/libraries/AddressAliasHelper.sol";
+import "../libraries/AddressAliasHelper.sol";
 
 contract AddressMappingTest is L2ArbitrumMessenger {
     function getL1AddressTest(address sender) external pure returns (address l1Address) {

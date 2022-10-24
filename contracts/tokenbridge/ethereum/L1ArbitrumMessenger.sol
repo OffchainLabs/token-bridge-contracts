@@ -18,8 +18,8 @@
 
 pragma solidity ^0.6.11;
 
-import "arb-bridge-eth/contracts/bridge/interfaces/IInbox.sol";
-import "arb-bridge-eth/contracts/bridge/interfaces/IOutbox.sol";
+import "@arbitrum/nitro-contracts/src/bridge/IInbox.sol";
+import "@arbitrum/nitro-contracts/src/bridge/IOutbox.sol";
 
 /// @notice L1 utility contract to assist with L1 <=> L2 interactions
 /// @dev this is an abstract contract instead of library so the functions can be easily overriden when testing
