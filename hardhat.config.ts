@@ -1,5 +1,5 @@
 import { config } from './hardhat.dev-config'
-import './arb-upgrades/peripheralsTasks'
+import './tasks/peripheralsTasks'
 
 if (process.env['INTERFACE_TESTER_SOLC_VERSION']) {
   config.solidity.compilers.push({
