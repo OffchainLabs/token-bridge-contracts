@@ -238,13 +238,6 @@ describe('Bridge peripherals end-to-end reverse custom gateway', () => {
     )
   })
 
-  // CHRIS: TODO: we should check that our reverse token reverts when we send it through the wrong thing
-  // CHRIS: TODO: investigate this test below
-  // CHRIS: TODO: what happens when they mint in L!??? we should get errors..
-
-  // CHRIS: TODO: tests - 'should force withdraw tokens if no token is deployed in L2'
-  // CHRIS: TODO: tests - 'should revert withdraw tokens when minted in L2'
-
   it('should support ERC165 interface in L1 bridges', async function () {
     expect(await l1TestReverseGateway.supportsInterface('0x01ffc9a7')).is.true
     expect(await l1TestReverseGateway.supportsInterface('0xffffffff')).is.false
