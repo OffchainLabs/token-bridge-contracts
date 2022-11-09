@@ -55,3 +55,7 @@ interface ICustomToken is ArbitrumEnabledToken {
 interface L1MintableToken is ICustomToken {
     function bridgeMint(address account, uint256 amount) external;
 }
+
+interface L1ReverseToken is L1MintableToken {
+    function bridgeBurn(address account, uint256 amount) external;
+}
