@@ -53,7 +53,7 @@ contract L2ReverseCustomGateway is L2CustomGateway {
         uint256 prevBalance = IERC20(_l2Token).balanceOf(address(this));
         // as in the normal custom gateway, in the reverse custom gateway we check
         // for the balances of tokens to ensure that inflationary / deflationary changes in the amount
-        // are taken into account we ignore the return value since we actually query the token before 
+        // are taken into account we ignore the return value since we actually query the token before
         // and after to calculate the amount of tokens that were transferred
         IERC20(_l2Token).safeTransferFrom(_from, address(this), _amount);
         uint256 postBalance = IERC20(_l2Token).balanceOf(address(this));

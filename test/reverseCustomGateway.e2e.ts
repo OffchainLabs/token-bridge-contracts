@@ -52,11 +52,15 @@ describe('Bridge peripherals end-to-end reverse custom gateway', () => {
     )
     l1TestRouter = await L1RouterTestBridge.deploy()
 
-    const L1TestBridge = await ethers.getContractFactory('L1ReverseCustomGateway')
+    const L1TestBridge = await ethers.getContractFactory(
+      'L1ReverseCustomGateway'
+    )
     l1TestReverseGateway = await L1TestBridge.deploy()
 
     // l2 side deploy
-    const L2TestBridge = await ethers.getContractFactory('L2ReverseCustomGateway')
+    const L2TestBridge = await ethers.getContractFactory(
+      'L2ReverseCustomGateway'
+    )
     l2TestReverseGateway = await L2TestBridge.deploy()
 
     const L2RouterTestBridge = await ethers.getContractFactory(
@@ -100,13 +104,17 @@ describe('Bridge peripherals end-to-end reverse custom gateway', () => {
 
   it('should withdraw tokens (L2->L1)', async function () {
     // custom token setup
-    const L1ReverseCustomToken = await ethers.getContractFactory('ReverseTestCustomTokenL1')
+    const L1ReverseCustomToken = await ethers.getContractFactory(
+      'ReverseTestCustomTokenL1'
+    )
     const l1ReverseCustomToken = await L1ReverseCustomToken.deploy(
       l1TestReverseGateway.address,
       l1TestRouter.address
     )
 
-    const L2ReverseToken = await ethers.getContractFactory('ReverseTestArbCustomToken')
+    const L2ReverseToken = await ethers.getContractFactory(
+      'ReverseTestArbCustomToken'
+    )
     const l2ReverseToken = await L2ReverseToken.deploy(
       l2TestReverseGateway.address,
       l1ReverseCustomToken.address
@@ -136,17 +144,24 @@ describe('Bridge peripherals end-to-end reverse custom gateway', () => {
         l1ReverseCustomToken.address,
         accounts[0].address,
         tokenAmount,
-        "0x",
-      ), inboxMock
+        '0x'
+      ),
+      inboxMock
     )
 
-    const escrowedTokens = await l2ReverseToken.balanceOf(l2TestReverseGateway.address)
+    const escrowedTokens = await l2ReverseToken.balanceOf(
+      l2TestReverseGateway.address
+    )
     assert.equal(escrowedTokens.toNumber(), tokenAmount, 'Tokens not escrowed')
 
     const l2TokenAddress = await l2TestRouter.calculateL2TokenAddress(
       l1ReverseCustomToken.address
     )
-    assert.equal(l2TokenAddress, l2ReverseToken.address, 'Token Pair not correct')
+    assert.equal(
+      l2TokenAddress,
+      l2ReverseToken.address,
+      'Token Pair not correct'
+    )
 
     const l1Balance = await l1ReverseCustomToken.balanceOf(accounts[0].address)
     assert.equal(l1Balance.toNumber(), tokenAmount, 'Tokens not minted')
@@ -154,13 +169,17 @@ describe('Bridge peripherals end-to-end reverse custom gateway', () => {
 
   it('should deposit tokens (L1->L2)', async function () {
     // custom token setup
-    const L1ReverseCustomToken = await ethers.getContractFactory('ReverseTestCustomTokenL1')
+    const L1ReverseCustomToken = await ethers.getContractFactory(
+      'ReverseTestCustomTokenL1'
+    )
     const l1ReverseCustomToken = await L1ReverseCustomToken.deploy(
       l1TestReverseGateway.address,
       l1TestRouter.address
     )
 
-    const L2ReverseToken = await ethers.getContractFactory('ReverseTestArbCustomToken')
+    const L2ReverseToken = await ethers.getContractFactory(
+      'ReverseTestArbCustomToken'
+    )
     const l2ReverseToken = await L2ReverseToken.deploy(
       l2TestReverseGateway.address,
       l1ReverseCustomToken.address
@@ -190,14 +209,14 @@ describe('Bridge peripherals end-to-end reverse custom gateway', () => {
         'outboundTransfer(address,address,uint256,bytes)'
       ](l1ReverseCustomToken.address, accounts[0].address, tokenAmount, '0x'),
       inboxMock
-      )
+    )
     const prevUserBalance = await l2ReverseToken.balanceOf(accounts[0].address)
 
     const data = ethers.utils.defaultAbiCoder.encode(
       ['uint256', 'bytes'],
       [maxSubmissionCost, '0x']
     )
-      
+
     await processL1ToL2Tx(
       await l1TestRouter.outboundTransfer(
         l1ReverseCustomToken.address,

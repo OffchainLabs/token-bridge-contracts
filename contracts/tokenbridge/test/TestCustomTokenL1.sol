@@ -112,7 +112,11 @@ contract MintableTestCustomTokenL1 is L1MintableToken, TestCustomTokenL1 {
         _;
     }
 
-    function bridgeMint(address account, uint256 amount) public override(L1MintableToken) onlyGateway {
+    function bridgeMint(address account, uint256 amount)
+        public
+        override(L1MintableToken)
+        onlyGateway
+    {
         _mint(account, amount);
     }
 
@@ -136,9 +140,16 @@ contract MintableTestCustomTokenL1 is L1MintableToken, TestCustomTokenL1 {
 }
 
 contract ReverseTestCustomTokenL1 is L1ReverseToken, MintableTestCustomTokenL1 {
-    constructor(address _gateway, address _router) public MintableTestCustomTokenL1(_gateway, _router) {}
+    constructor(address _gateway, address _router)
+        public
+        MintableTestCustomTokenL1(_gateway, _router)
+    {}
 
-    function bridgeBurn(address account, uint256 amount) public override(L1ReverseToken) onlyGateway {
+    function bridgeBurn(address account, uint256 amount)
+        public
+        override(L1ReverseToken)
+        onlyGateway
+    {
         _burn(account, amount);
     }
 
