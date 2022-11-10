@@ -32,7 +32,8 @@ import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
  * @dev     The reverse custom gateway burns on the l2 and escrows on the l1
  *          which is the opposite of the way the normal custom gateway works
  *          This means that the total supply L2 isn't affected by briding, which
- *          is helpful if the minting is also occuring on L2
+ *          is helpful for obeservers calculating the total supply especially if
+ *          if minting is also occuring on L2
  */
 contract L2ReverseCustomGateway is L2CustomGateway {
     using SafeERC20 for IERC20;
