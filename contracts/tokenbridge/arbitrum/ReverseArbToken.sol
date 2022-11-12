@@ -30,11 +30,11 @@ import "./IArbToken.sol";
 ///         but since we know that bridgeMint/burn won't/shouldn't be used we override these
 ///         functions to ensure that if they throw if called during development
 abstract contract ReverseArbToken is IArbToken {
-    function bridgeMint(address account, uint256 amount) public override {
+    function bridgeMint(address, uint256) public override {
         revert("BRIDGE_MINT_NOT_IMPLEMENTED");
     }
 
-    function bridgeBurn(address account, uint256 amount) public override {
+    function bridgeBurn(address, uint256) public override {
         revert("BRIDGE_BURN_NOT_IMPLEMENTED");
     }
 }
