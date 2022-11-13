@@ -32,7 +32,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
  * @dev     The reverse custom gateway burns on the l2 and escrows on the l1
  *          which is the opposite of the way the normal custom gateway works
  *          This means that the total supply L2 isn't affected by briding, which
- *          is helpful for obeservers calculating the total supply especially if
+ *          is helpful for observers calculating the total supply especially if
  *          if minting is also occuring on L2
  */
 contract L1ReverseCustomGateway is L1CustomGateway {
@@ -48,7 +48,7 @@ contract L1ReverseCustomGateway is L1CustomGateway {
         address _l1Token,
         address _from,
         uint256 _amount
-    ) internal virtual override returns (uint256 amountBurnt) {
+    ) internal virtual override returns (uint256) {
         uint256 prevBalance = IERC20(_l1Token).balanceOf(_from);
         // as in the normal custom gateway, in the reverse custom gateway we check
         // for the balances of tokens to ensure that inflationary / deflationary changes in the amount
