@@ -85,7 +85,9 @@ contract Multicall2 {
         returnData = new Result[](calls.length);
         uint256 gasPerCall = gasleft() / calls.length;
         for (uint256 i = 0; i < calls.length; i++) {
-            (bool success, bytes memory ret) = calls[i].target.call{ gas: gasleft() > gasPerCall ? gasPerCall : gasleft() }(calls[i].callData);
+            (bool success, bytes memory ret) = calls[i].target.call{
+                gas: gasleft() > gasPerCall ? gasPerCall : gasleft()
+            }(calls[i].callData);
 
             if (requireSuccess) {
                 require(success, "Multicall2 aggregate: call failed");
@@ -203,7 +205,9 @@ contract ArbMulticall2 {
         returnData = new Result[](calls.length);
         uint256 gasPerCall = gasleft() / calls.length;
         for (uint256 i = 0; i < calls.length; i++) {
-            (bool success, bytes memory ret) = calls[i].target.call{ gas: gasleft() > gasPerCall ? gasPerCall : gasleft() }(calls[i].callData);
+            (bool success, bytes memory ret) = calls[i].target.call{
+                gas: gasleft() > gasPerCall ? gasPerCall : gasleft()
+            }(calls[i].callData);
 
             if (requireSuccess) {
                 require(success, "Multicall2 aggregate: call failed");

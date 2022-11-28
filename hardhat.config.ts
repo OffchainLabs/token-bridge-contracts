@@ -1,3 +1,4 @@
+import './tasks/peripheralsTasks'
 import '@typechain/hardhat'
 import '@nomiclabs/hardhat-waffle'
 import 'dotenv/config'
