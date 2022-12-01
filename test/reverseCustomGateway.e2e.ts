@@ -326,7 +326,7 @@ describe('Bridge peripherals end-to-end force only reverse custom gateway', () =
     ])
   })
 
-  it.only('should deposit tokens (L1->L2)', async function () {
+  it('should deposit tokens (L1->L2)', async function () {
     // custom token setup
     const L1ReverseCustomToken = await ethers.getContractFactory(
       'ReverseTestCustomTokenL1'
