@@ -32,7 +32,7 @@ describe('Bridge peripherals layer 1', () => {
   let inbox: InboxMock
   const maxSubmissionCost = 1
   const maxGas = 1000000000
-  const gasPrice = 0
+  const gasPrice = 3
   let l2Address: string
   before(async function () {
     accounts = await ethers.getSigners()
@@ -78,14 +78,17 @@ describe('Bridge peripherals layer 1', () => {
       wethAmount,
       maxGas,
       gasPrice,
-      data
+      data,
+      {
+        value: maxSubmissionCost + maxGas * gasPrice,
+      }
     )
     const escrowedWeth = await weth.balanceOf(testBridge.address)
     assert.equal(escrowedWeth.toNumber(), 0, 'Weth should not be escrowed')
     const escrowedETH = await waffle.provider.getBalance(inbox.address)
     assert.equal(
       escrowedETH.sub(escrowPrevBalance).toNumber(),
-      wethAmount,
+      wethAmount + maxSubmissionCost + maxGas * gasPrice,
       'ETH should be escrowed'
     )
   })
@@ -125,14 +128,17 @@ describe('Bridge peripherals layer 1', () => {
       wethAmount,
       maxGas,
       gasPrice,
-      data
+      data,
+      {
+        value: maxSubmissionCost + maxGas * gasPrice,
+      }
     )
     const escrowedWeth = await weth.balanceOf(testBridge.address)
     assert.equal(escrowedWeth.toNumber(), 0, 'Weth should not be escrowed')
     const escrowedETH = await waffle.provider.getBalance(inbox.address)
     assert.equal(
       escrowedETH.sub(escrowPrevBalance).toNumber(),
-      wethAmount,
+      wethAmount + maxSubmissionCost + maxGas * gasPrice,
       'ETH should be escrowed'
     )
   })
@@ -311,7 +317,10 @@ describe('Bridge peripherals layer 1', () => {
       wethAmount,
       maxGas,
       gasPrice,
-      data
+      data,
+      {
+        value: maxSubmissionCost + maxGas * gasPrice,
+      }
     )
     const receipt = await tx.wait()
     // TicketData(uint256)

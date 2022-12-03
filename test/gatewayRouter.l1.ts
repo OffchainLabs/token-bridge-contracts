@@ -66,7 +66,10 @@ describe('Bridge peripherals layer 1', () => {
       l1ERC20Gateway.address,
       maxGas,
       gasPrice,
-      maxSubmissionCost
+      maxSubmissionCost,
+      {
+        value: maxSubmissionCost + maxGas * gasPrice,
+      }
     )
 
     const receipt = await tx.wait()
@@ -99,7 +102,10 @@ describe('Bridge peripherals layer 1', () => {
       l1ERC20Gateway.address,
       maxGas,
       gasPrice,
-      maxSubmissionCost
+      maxSubmissionCost,
+      {
+        value: maxSubmissionCost + maxGas * gasPrice,
+      }
     )
 
     const Token = await ethers.getContractFactory('TestERC20')
@@ -160,7 +166,10 @@ describe('Bridge peripherals layer 1', () => {
       l1ERC20Gateway.address,
       maxGas,
       gasPrice,
-      maxSubmissionCost
+      maxSubmissionCost,
+      {
+        value: maxSubmissionCost + maxGas * gasPrice,
+      }
     )
 
     const Token = await ethers.getContractFactory('TestERC20')
