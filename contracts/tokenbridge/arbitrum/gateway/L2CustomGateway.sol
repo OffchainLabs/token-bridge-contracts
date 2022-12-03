@@ -66,7 +66,8 @@ contract L2CustomGateway is L2ArbitrumGateway, ICustomGateway {
         super.outboundEscrowTransfer(_l2Token, _from, _amount);
 
         uint256 postBalance = IERC20(_l2Token).balanceOf(_from);
-        return SafeMath.sub(prevBalance, postBalance);
+        uint256 changed = SafeMath.sub(prevBalance, postBalance);
+        return changed > _amount ? _amount : changed;
     }
 
     /**
