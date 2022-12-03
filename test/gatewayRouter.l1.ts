@@ -68,7 +68,7 @@ describe('Bridge peripherals layer 1', () => {
       gasPrice,
       maxSubmissionCost,
       {
-        value: maxSubmissionCost + maxGas * gasPrice
+        value: maxSubmissionCost + maxGas * gasPrice,
       }
     )
 
@@ -104,7 +104,7 @@ describe('Bridge peripherals layer 1', () => {
       gasPrice,
       maxSubmissionCost,
       {
-        value: maxSubmissionCost + maxGas * gasPrice
+        value: maxSubmissionCost + maxGas * gasPrice,
       }
     )
 
@@ -168,7 +168,7 @@ describe('Bridge peripherals layer 1', () => {
       gasPrice,
       maxSubmissionCost,
       {
-        value: maxSubmissionCost + maxGas * gasPrice
+        value: maxSubmissionCost + maxGas * gasPrice,
       }
     )
 

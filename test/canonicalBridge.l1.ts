@@ -84,7 +84,7 @@ describe('Bridge peripherals layer 1', () => {
       gasPrice,
       data,
       {
-        value: maxSubmissionCost + maxGas * gasPrice
+        value: maxSubmissionCost + maxGas * gasPrice,
       }
     )
 
@@ -187,7 +187,7 @@ describe('Bridge peripherals layer 1', () => {
       gasPrice,
       data,
       {
-        value: maxSubmissionCost + maxGas * gasPrice
+        value: maxSubmissionCost + maxGas * gasPrice,
       }
     )
 
@@ -257,7 +257,7 @@ describe('Bridge peripherals layer 1', () => {
       gasPrice,
       data,
       {
-        value: maxSubmissionCost + maxGas * gasPrice
+        value: maxSubmissionCost + maxGas * gasPrice,
       }
     )
     const receipt = await tx.wait()

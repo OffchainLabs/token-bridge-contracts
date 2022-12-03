@@ -39,9 +39,7 @@ contract InboxMock {
         uint256 maxFeePerGas,
         bytes calldata data
     ) external payable returns (uint256) {
-        if (
-            msg.value < (maxSubmissionCost + l2CallValue + gasLimit * maxFeePerGas)
-        ) {
+        if (msg.value < (maxSubmissionCost + l2CallValue + gasLimit * maxFeePerGas)) {
             revert("WRONG_ETH_VALUE");
         }
         emit TicketData(maxSubmissionCost);

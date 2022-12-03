@@ -80,7 +80,7 @@ describe('Bridge peripherals layer 1', () => {
       gasPrice,
       data,
       {
-        value: maxSubmissionCost + maxGas * gasPrice
+        value: maxSubmissionCost + maxGas * gasPrice,
       }
     )
     const escrowedWeth = await weth.balanceOf(testBridge.address)
@@ -130,7 +130,7 @@ describe('Bridge peripherals layer 1', () => {
       gasPrice,
       data,
       {
-        value: maxSubmissionCost + maxGas * gasPrice
+        value: maxSubmissionCost + maxGas * gasPrice,
       }
     )
     const escrowedWeth = await weth.balanceOf(testBridge.address)
@@ -319,7 +319,7 @@ describe('Bridge peripherals layer 1', () => {
       gasPrice,
       data,
       {
-        value: maxSubmissionCost + maxGas * gasPrice
+        value: maxSubmissionCost + maxGas * gasPrice,
       }
     )
     const receipt = await tx.wait()
