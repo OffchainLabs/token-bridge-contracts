@@ -67,6 +67,8 @@ contract L2CustomGateway is L2ArbitrumGateway, ICustomGateway {
 
         uint256 postBalance = IERC20(_l2Token).balanceOf(_from);
         uint256 changed = SafeMath.sub(prevBalance, postBalance);
+
+        // consider the amountBurnt as the lesser of balance change and requested _amount
         return changed > _amount ? _amount : changed;
     }
 
