@@ -32,8 +32,4 @@ contract TestArbCustomTokenBurnFee is TestArbCustomToken {
         super._burn(account, amount);
         _transfer(account, address(1), 1);
     }
-
-    function mint() external {
-        _mint(msg.sender, 50000000);
-    }
 }
