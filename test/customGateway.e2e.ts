@@ -438,4 +438,81 @@ describe('Bridge peripherals end-to-end custom gateway', () => {
     // 4fb1a07b  =>  outboundTransferCustomRefund(address,address,address,uint256,uint256,uint256,bytes)
     expect(await l1TestBridge.supportsInterface('0x4fb1a07b')).is.true
   })
+
+  it('should withdraw burnt amount only', async function () {
+    // custom token setup
+    const L1CustomToken = await ethers.getContractFactory('TestCustomTokenL1')
+    const l1CustomToken = await L1CustomToken.deploy(
+      l1TestBridge.address,
+      l1RouterTestBridge.address
+    )
+
+    // this token transfer extra 1 wei from the sender as fee when it burn token
+    const L2TokenVlun = await ethers.getContractFactory(
+      'TestArbCustomTokenBurnFee'
+    )
+    const l2TokenVlun = await L2TokenVlun.deploy(
+      l2TestBridge.address,
+      l1CustomToken.address
+    )
+
+    await processL1ToL2Tx(
+      await l1TestBridge.forceRegisterTokenToL2(
+        [l1CustomToken.address],
+        [l2TokenVlun.address],
+        0,
+        0,
+        0
+      )
+    )
+    await l1RouterTestBridge.setGateways(
+      [l1CustomToken.address],
+      [l1TestBridge.address],
+      0,
+      0,
+      0
+    )
+
+    // send escrowed tokens to bridge
+    const tokenAmount = 100
+    await l1CustomToken.mint()
+    await l1CustomToken.approve(l1TestBridge.address, tokenAmount)
+
+    const data = ethers.utils.defaultAbiCoder.encode(
+      ['uint256', 'bytes'],
+      [maxSubmissionCost, '0x']
+    )
+
+    await processL1ToL2Tx(
+      await l1RouterTestBridge.outboundTransfer(
+        l1CustomToken.address,
+        accounts[0].address,
+        tokenAmount,
+        maxGas,
+        gasPrice,
+        data,
+        { value: maxSubmissionCost + maxGas * gasPrice }
+      )
+    )
+
+    const prevUserBalance = await l1CustomToken.balanceOf(accounts[0].address)
+
+    // bridge 1 less token since that would be taken as fee
+    const bridgeAmount = tokenAmount - 1
+
+    await processL2ToL1Tx(
+      await l2TestBridge.functions[
+        'outboundTransfer(address,address,uint256,bytes)'
+      ](l1CustomToken.address, accounts[0].address, bridgeAmount, '0x'),
+      inboxMock
+    )
+
+    const postUserBalance = await l1CustomToken.balanceOf(accounts[0].address)
+
+    assert.equal(
+      prevUserBalance.toNumber() + bridgeAmount,
+      postUserBalance.toNumber(),
+      'Invalid Balance'
+    )
+  })
 })
