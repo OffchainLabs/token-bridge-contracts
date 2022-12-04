@@ -51,27 +51,6 @@ contract L2CustomGateway is L2ArbitrumGateway, ICustomGateway {
         return true;
     }
 
-    function outboundEscrowTransfer(
-        address _l2Token,
-        address _from,
-        uint256 _amount
-    ) internal override returns (uint256 amountBurnt) {
-        uint256 prevBalance = IERC20(_l2Token).balanceOf(_from);
-
-        // in the custom gateway, we do the same behaviour as the superclass, but actually check
-        // for the balances of tokens to ensure that inflationary / deflationary changes in the amount
-        // are taken into account
-        // we ignore the return value since we actually query the token before and after to calculate
-        // the amount of tokens that were burnt
-        super.outboundEscrowTransfer(_l2Token, _from, _amount);
-
-        uint256 postBalance = IERC20(_l2Token).balanceOf(_from);
-        uint256 changed = SafeMath.sub(prevBalance, postBalance);
-
-        // consider the amountBurnt as the lesser of balance change and requested _amount
-        return changed > _amount ? _amount : changed;
-    }
-
     /**
      * @notice Calculate the address used when bridging an ERC20 token
      * @dev the L1 and L2 address oracles may not always be in sync.
