@@ -38,7 +38,7 @@ describe('Bridge peripherals end-to-end custom gateway', () => {
 
   const maxSubmissionCost = 1
   const maxGas = 1000000000
-  const gasPrice = 1
+  const gasPrice = 3
 
   before(async function () {
     accounts = await ethers.getSigners()

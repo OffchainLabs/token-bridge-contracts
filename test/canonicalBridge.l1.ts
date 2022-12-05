@@ -33,7 +33,7 @@ describe('Bridge peripherals layer 1', () => {
   let inbox: InboxMock
   const maxSubmissionCost = 1
   const maxGas = 1000000000
-  const gasPrice = 0
+  const gasPrice = 3
   const l2Template20 = '0x0000000000000000000000000000000000000020'
   let l2Address: string
   // const l2Address = '0x1100000000000000000000000000000000000011'
@@ -82,7 +82,10 @@ describe('Bridge peripherals layer 1', () => {
       tokenAmount,
       maxGas,
       gasPrice,
-      data
+      data,
+      {
+        value: maxSubmissionCost + maxGas * gasPrice,
+      }
     )
 
     const escrowedTokens = await token.balanceOf(testBridge.address)
@@ -182,7 +185,10 @@ describe('Bridge peripherals layer 1', () => {
       tokenAmount,
       maxGas,
       gasPrice,
-      data
+      data,
+      {
+        value: maxSubmissionCost + maxGas * gasPrice,
+      }
     )
 
     await inbox.setL2ToL1Sender(l2Address)
@@ -249,7 +255,10 @@ describe('Bridge peripherals layer 1', () => {
       tokenAmount,
       maxGas,
       gasPrice,
-      data
+      data,
+      {
+        value: maxSubmissionCost + maxGas * gasPrice,
+      }
     )
     const receipt = await tx.wait()
     // TicketData(uint256)
