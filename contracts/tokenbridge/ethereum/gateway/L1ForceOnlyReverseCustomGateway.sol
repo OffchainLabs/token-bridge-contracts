@@ -30,7 +30,7 @@ contract L1ForceOnlyReverseCustomGateway is L1ReverseCustomGateway {
         uint256 _gasPriceBid,
         uint256 _maxSubmissionCost,
         address _creditBackAddress
-    ) public virtual override payable returns (uint256) { 
+    ) public payable virtual override returns (uint256) {
         revert("REGISTER_TOKEN_ON_L2_DISABLED");
     }
 }

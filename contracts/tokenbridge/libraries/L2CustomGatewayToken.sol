@@ -40,12 +40,6 @@ contract L2CustomGatewayToken is L2GatewayToken {
         address l2Gateway_,
         address l1Counterpart_
     ) public virtual initializer {
-        _initialize(
-            name_,
-            symbol_,
-            decimals_,
-            l2Gateway_,
-            l1Counterpart_
-        );
+        _initialize(name_, symbol_, decimals_, l2Gateway_, l1Counterpart_);
     }
 }
