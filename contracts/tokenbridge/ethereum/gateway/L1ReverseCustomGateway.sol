@@ -49,13 +49,12 @@ contract L1ReverseCustomGateway is L1CustomGateway {
         address _from,
         uint256 _amount
     ) internal virtual override returns (uint256) {
-        uint256 prevBalance = IERC20(_l1Token).balanceOf(_from);
-        // as in the normal custom gateway, in the reverse custom gateway we check
-        // for the balances of tokens to ensure that inflationary / deflationary changes in the amount
-        // are taken into account we ignore the return value since we actually query the token before
-        // and after to calculate the amount of tokens that were burnt
+        // this method is virtual since different subclasses can handle escrow differently
+        // user funds are escrowed on the gateway using this function
+        // burns L2 tokens in order to release escrowed L1 tokens
         IArbToken(_l1Token).bridgeBurn(_from, _amount);
-        uint256 postBalance = IERC20(_l1Token).balanceOf(_from);
-        return SafeMath.sub(prevBalance, postBalance);
+        // by default we assume that the amount we send to bridgeBurn is the amount burnt
+        // this might not be the case for every token
+        return _amount;
     }
 }
