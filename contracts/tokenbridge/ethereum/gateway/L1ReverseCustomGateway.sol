@@ -48,10 +48,7 @@ contract L1ReverseCustomGateway is L1CustomGateway {
         address _l1Token,
         address _from,
         uint256 _amount
-    ) internal virtual override returns (uint256) {
-        // this method is virtual since different subclasses can handle escrow differently
-        // user funds are escrowed on the gateway using this function
-        // burns L2 tokens in order to release escrowed L1 tokens
+    ) internal override returns (uint256) {
         IArbToken(_l1Token).bridgeBurn(_from, _amount);
         // by default we assume that the amount we send to bridgeBurn is the amount burnt
         // this might not be the case for every token
