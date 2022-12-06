@@ -30,18 +30,21 @@ contract InboxMock {
     event InboxRetryableTicket(address from, address to, uint256 value, uint256 maxGas, bytes data);
 
     function createRetryableTicket(
-        address destAddr,
+        address to,
         uint256 l2CallValue,
         uint256 maxSubmissionCost,
         address excessFeeRefundAddress,
         address callValueRefundAddress,
-        uint256 maxGas,
-        uint256, /* gasPriceBid */
+        uint256 gasLimit,
+        uint256 maxFeePerGas,
         bytes calldata data
     ) external payable returns (uint256) {
+        if (msg.value < (maxSubmissionCost + l2CallValue + gasLimit * maxFeePerGas)) {
+            revert("WRONG_ETH_VALUE");
+        }
         emit TicketData(maxSubmissionCost);
         emit RefundAddresses(excessFeeRefundAddress, callValueRefundAddress);
-        emit InboxRetryableTicket(msg.sender, destAddr, l2CallValue, maxGas, data);
+        emit InboxRetryableTicket(msg.sender, to, l2CallValue, gasLimit, data);
         return 0;
     }
 
