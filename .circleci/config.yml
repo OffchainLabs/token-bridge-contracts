@@ -10,6 +10,7 @@ jobs:
     working_directory: ~/token-bridge-contracts
     steps:
       - checkout
+      - run: fgrep .only -R test/ && exit 1
       - run: |
           yarn install
           yarn build
