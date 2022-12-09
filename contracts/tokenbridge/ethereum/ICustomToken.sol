@@ -20,7 +20,7 @@
 pragma solidity >=0.6.9 <0.9.0;
 
 interface ArbitrumEnabledToken {
-    /// @notice should return `0xa4b1` if token is enabled for arbitrum gateways
+    /// @notice should return `0xb1` if token is enabled for arbitrum gateways
     function isArbitrumEnabled() external view returns (uint8);
 }
 
