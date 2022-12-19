@@ -162,7 +162,7 @@ const config = {
       goerli: process.env['ETHERSCAN_API_KEY'],
       arbitrumOne: process.env['ARBISCAN_API_KEY'],
       arbitrumTestnet: process.env['ARBISCAN_API_KEY'],
-      nova: '0',
+      nova: process.env['NOVA_ARBISCAN_API_KEY'],
       arbGoerliRollup: process.env['ARBISCAN_API_KEY'],
     },
     customChains: [
@@ -170,8 +170,8 @@ const config = {
         network: 'nova',
         chainId: 42170,
         urls: {
-          apiURL: 'https://nova-explorer.arbitrum.io/api',
-          browserURL: 'https://nova-explorer.arbitrum.io/',
+          apiURL: 'https://api-nova.arbiscan.io/api',
+          browserURL: 'https://nova.arbiscan.io/',
         },
       },
       {
