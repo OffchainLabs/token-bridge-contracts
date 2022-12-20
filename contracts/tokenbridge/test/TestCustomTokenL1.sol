@@ -31,12 +31,12 @@ interface IGatewayRouter2 {
 }
 
 contract TestCustomTokenL1 is aeERC20, ICustomToken {
-    address public bridge;
+    address public gateway;
     address public router;
     bool private shouldRegisterGateway;
 
-    constructor(address _bridge, address _router) public {
-        bridge = _bridge;
+    constructor(address _gateway, address _router) public {
+        gateway = _gateway;
         router = _router;
         aeERC20._initialize("TestCustomToken", "CARB", uint8(18));
     }
@@ -71,9 +71,9 @@ contract TestCustomTokenL1 is aeERC20, ICustomToken {
 
     function registerTokenOnL2(
         address l2CustomTokenAddress,
-        uint256 maxSubmissionCostForCustomBridge,
+        uint256 maxSubmissionCostForCustomGateway,
         uint256 maxSubmissionCostForRouter,
-        uint256 maxGasForCustomBridge,
+        uint256 maxGasForCustomGateway,
         uint256 maxGasForRouter,
         uint256 gasPriceBid,
         uint256 valueForGateway,
@@ -84,16 +84,16 @@ contract TestCustomTokenL1 is aeERC20, ICustomToken {
         bool prev = shouldRegisterGateway;
         shouldRegisterGateway = true;
 
-        IL1CustomGateway(bridge).registerTokenToL2{ value: valueForGateway }(
+        IL1CustomGateway(gateway).registerTokenToL2{ value: valueForGateway }(
             l2CustomTokenAddress,
-            maxGasForCustomBridge,
+            maxGasForCustomGateway,
             gasPriceBid,
-            maxSubmissionCostForCustomBridge,
+            maxSubmissionCostForCustomGateway,
             creditBackAddress
         );
 
         IGatewayRouter2(router).setGateway{ value: valueForRouter }(
-            bridge,
+            gateway,
             maxGasForRouter,
             gasPriceBid,
             maxSubmissionCostForRouter,
@@ -105,15 +105,25 @@ contract TestCustomTokenL1 is aeERC20, ICustomToken {
 }
 
 contract MintableTestCustomTokenL1 is L1MintableToken, TestCustomTokenL1 {
-    constructor(address _bridge, address _router) public TestCustomTokenL1(_bridge, _router) {}
+    constructor(address _gateway, address _router) public TestCustomTokenL1(_gateway, _router) {}
 
-    function bridgeMint(address account, uint256 amount) public override(L1MintableToken) {
+    modifier onlyGateway() {
+        require(msg.sender == gateway, "ONLY_l1GATEWAY");
+        _;
+    }
+
+    function bridgeMint(address account, uint256 amount)
+        public
+        override(L1MintableToken)
+        onlyGateway
+    {
         _mint(account, amount);
     }
 
     function balanceOf(address account)
         public
         view
+        virtual
         override(TestCustomTokenL1, ICustomToken)
         returns (uint256 amount)
     {
@@ -124,7 +134,39 @@ contract MintableTestCustomTokenL1 is L1MintableToken, TestCustomTokenL1 {
         address sender,
         address recipient,
         uint256 amount
-    ) public override(TestCustomTokenL1, ICustomToken) returns (bool) {
+    ) public virtual override(TestCustomTokenL1, ICustomToken) returns (bool) {
+        return super.transferFrom(sender, recipient, amount);
+    }
+}
+
+contract ReverseTestCustomTokenL1 is L1ReverseToken, MintableTestCustomTokenL1 {
+    constructor(address _gateway, address _router)
+        public
+        MintableTestCustomTokenL1(_gateway, _router)
+    {}
+
+    function bridgeBurn(address account, uint256 amount)
+        public
+        override(L1ReverseToken)
+        onlyGateway
+    {
+        _burn(account, amount);
+    }
+
+    function balanceOf(address account)
+        public
+        view
+        override(MintableTestCustomTokenL1, ICustomToken)
+        returns (uint256 amount)
+    {
+        return super.balanceOf(account);
+    }
+
+    function transferFrom(
+        address sender,
+        address recipient,
+        uint256 amount
+    ) public override(MintableTestCustomTokenL1, ICustomToken) returns (bool) {
         return super.transferFrom(sender, recipient, amount);
     }
 }
