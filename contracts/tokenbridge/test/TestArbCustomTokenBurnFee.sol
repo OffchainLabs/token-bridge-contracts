@@ -18,11 +18,18 @@
 
 pragma solidity ^0.6.11;
 
-import "../arbitrum/L2ArbitrumMessenger.sol";
-import "../libraries/AddressAliasHelper.sol";
+import "./TestArbCustomToken.sol";
 
-contract AddressMappingTest is L2ArbitrumMessenger {
-    function getL1AddressTest(address sender) external pure returns (address l1Address) {
-        return AddressAliasHelper.undoL1ToL2Alias(sender);
+contract TestArbCustomTokenBurnFee is TestArbCustomToken {
+    constructor(address _l2Gateway, address _l1Address)
+        public
+        TestArbCustomToken(_l2Gateway, _l1Address)
+    {}
+
+    // this token transfer extra 1 wei from the sender as fee when it burn token
+    // alternatively, it can also be a callback that pass execution to the user
+    function _burn(address account, uint256 amount) internal override {
+        super._burn(account, amount);
+        _transfer(account, address(1), 1);
     }
 }

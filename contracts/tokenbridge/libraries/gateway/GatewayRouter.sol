@@ -19,7 +19,7 @@
 pragma solidity ^0.6.11;
 pragma experimental ABIEncoderV2;
 
-import "arb-bridge-eth/contracts/libraries/ProxyUtil.sol";
+import "../ProxyUtil.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/drafts/ERC20Permit.sol";
 import "./TokenGateway.sol";

@@ -19,7 +19,7 @@
 pragma solidity ^0.6.11;
 pragma experimental ABIEncoderV2;
 
-import "arb-bridge-eth/contracts/libraries/Whitelist.sol";
+import "../../libraries/Whitelist.sol";
 
 import { ArbitrumEnabledToken } from "../ICustomToken.sol";
 import "../L1ArbitrumMessenger.sol";
@@ -227,24 +227,6 @@ contract L1GatewayRouter is
             _setGateways(_token, _gateway, _maxGas, _gasPriceBid, _maxSubmissionCost, msg.sender);
     }
 
-    function _outboundTransferChecks(
-        uint256 _maxGas,
-        uint256 _gasPriceBid,
-        bytes calldata _data
-    ) internal view {
-        // when sending a L1 to L2 transaction, we expect the user to send
-        // eth in flight in order to pay for L2 gas costs
-        // this check prevents users from misconfiguring the msg.value
-
-        // _data is (uint256, bytes) encoded, but we don't need the bytes
-        uint256 _maxSubmissionCost = abi.decode(_data, (uint256));
-
-        // here we don't use SafeMath since this validation is to prevent users
-        // from shooting themselves on the foot.
-        require(_maxSubmissionCost != 0, "NO_SUBMISSION_COST");
-        require(msg.value == _maxSubmissionCost + (_maxGas * _gasPriceBid), "WRONG_ETH_VALUE");
-    }
-
     function outboundTransfer(
         address _token,
         address _to,
@@ -253,8 +235,6 @@ contract L1GatewayRouter is
         uint256 _gasPriceBid,
         bytes calldata _data
     ) public payable override(GatewayRouter, ITokenGateway) returns (bytes memory) {
-        _outboundTransferChecks(_maxGas, _gasPriceBid, _data);
-
         return super.outboundTransfer(_token, _to, _amount, _maxGas, _gasPriceBid, _data);
     }
 

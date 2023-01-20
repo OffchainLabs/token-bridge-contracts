@@ -3,7 +3,7 @@
 pragma solidity >=0.5.0;
 pragma experimental ABIEncoderV2;
 
-import "arbos-precompiles/arbos/builtin/ArbSys.sol";
+import "@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
 
 // implementation from https://github.com/makerdao/multicall/blob/1e1b44362640820bef92d0ccf5eeee25d9b41474/src/Multicall2.sol MIT License
 
@@ -76,6 +76,25 @@ contract Multicall2 {
 
     function getLastBlockHash() public view returns (bytes32 blockHash) {
         blockHash = blockhash(block.number - 1);
+    }
+
+    function tryAggregateGasRation(bool requireSuccess, Call[] memory calls)
+        public
+        returns (Result[] memory returnData)
+    {
+        returnData = new Result[](calls.length);
+        uint256 gasPerCall = gasleft() / calls.length;
+        for (uint256 i = 0; i < calls.length; i++) {
+            (bool success, bytes memory ret) = calls[i].target.call{
+                gas: gasleft() > gasPerCall ? gasPerCall : gasleft()
+            }(calls[i].callData);
+
+            if (requireSuccess) {
+                require(success, "Multicall2 aggregate: call failed");
+            }
+
+            returnData[i] = Result(success, ret);
+        }
     }
 
     function tryAggregate(bool requireSuccess, Call[] memory calls)
@@ -177,6 +196,25 @@ contract ArbMulticall2 {
 
     function getLastBlockHash() public view returns (bytes32 blockHash) {
         blockHash = blockhash(block.number - 1);
+    }
+
+    function tryAggregateGasRation(bool requireSuccess, Call[] memory calls)
+        public
+        returns (Result[] memory returnData)
+    {
+        returnData = new Result[](calls.length);
+        uint256 gasPerCall = gasleft() / calls.length;
+        for (uint256 i = 0; i < calls.length; i++) {
+            (bool success, bytes memory ret) = calls[i].target.call{
+                gas: gasleft() > gasPerCall ? gasPerCall : gasleft()
+            }(calls[i].callData);
+
+            if (requireSuccess) {
+                require(success, "Multicall2 aggregate: call failed");
+            }
+
+            returnData[i] = Result(success, ret);
+        }
     }
 
     function tryAggregate(bool requireSuccess, Call[] memory calls)

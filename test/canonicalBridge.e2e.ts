@@ -38,7 +38,7 @@ describe('Bridge peripherals end-to-end', () => {
 
   const maxSubmissionCost = 1
   const maxGas = 1000000000
-  const gasPrice = 1
+  const gasPrice = 3
 
   before(async function () {
     accounts = await ethers.getSigners()
@@ -144,17 +144,6 @@ describe('Bridge peripherals end-to-end', () => {
         data
       )
     ).to.be.revertedWith('NOT_FROM_ROUTER')
-
-    await expect(
-      l1RouterTestBridge.outboundTransfer(
-        token.address,
-        accounts[0].address,
-        tokenAmount,
-        maxGas,
-        gasPrice,
-        ethers.utils.defaultAbiCoder.encode(['uint256', 'bytes'], [0, '0x'])
-      )
-    ).to.be.revertedWith('NO_SUBMISSION_COST')
 
     await expect(
       l1RouterTestBridge.outboundTransfer(

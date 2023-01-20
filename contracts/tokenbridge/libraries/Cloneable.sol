@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /*
- * Copyright 2022, Offchain Labs, Inc.
+ * Copyright 2019-2020, Offchain Labs, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,25 @@
  * limitations under the License.
  */
 
-// solhint-disable-next-line compiler-version
-pragma solidity >=0.6.9 <0.9.0;
+pragma solidity ^0.6.11;
 
-import "../arbitrum/IArbToken.sol";
-import "../ethereum/ICustomToken.sol";
-import "../ethereum/gateway/IL1ArbitrumGateway.sol";
-import "../ethereum/gateway/IL1GatewayRouter.sol";
-import "../libraries/IWETH9.sol";
-import "../libraries/IERC165.sol";
-import "../libraries/gateway/ICustomGateway.sol";
-import "../libraries/gateway/ITokenGateway.sol";
+import "./ICloneable.sol";
+
+contract Cloneable is ICloneable {
+    string private constant NOT_CLONE = "NOT_CLONE";
+
+    bool private isMasterCopy;
+
+    constructor() public {
+        isMasterCopy = true;
+    }
+
+    function isMaster() external view override returns (bool) {
+        return isMasterCopy;
+    }
+
+    function safeSelfDestruct(address payable dest) internal {
+        require(!isMasterCopy, NOT_CLONE);
+        selfdestruct(dest);
+    }
+}
