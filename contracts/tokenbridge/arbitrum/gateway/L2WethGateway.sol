@@ -91,6 +91,8 @@ contract L2WethGateway is L2ArbitrumGateway {
         uint256 _tokenAmount,
         bytes memory _outboundCalldata
     ) internal override returns (uint256) {
+        // exitNum incremented after being included in _outboundCalldata
+        exitNum++;
         return
             sendTxToL1(
                 // we send the amount of weth withdrawn as callvalue to the L1 gateway

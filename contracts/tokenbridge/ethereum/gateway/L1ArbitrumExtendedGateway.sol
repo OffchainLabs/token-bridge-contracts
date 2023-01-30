@@ -122,7 +122,7 @@ abstract contract L1ArbitrumExtendedGateway is L1ArbitrumGateway {
         address _initialDestination,
         address _newDestination,
         bytes memory _newData
-    ) internal {
+    ) internal virtual {
         bytes32 withdrawData = encodeWithdrawal(_exitNum, _initialDestination);
         redirectedExits[withdrawData] = ExitData(true, _newDestination, _newData);
     }

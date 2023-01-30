@@ -109,5 +109,19 @@ contract L1WethGateway is L1ArbitrumExtendedGateway {
         return l2Weth;
     }
 
+    /**
+     * @notice  this will revert with exitNum <= 1 to mitigate a known issue
+     */
+    function setRedirectedExit(
+        uint256 _exitNum,
+        address _initialDestination,
+        address _newDestination,
+        bytes memory _newData
+    ) internal override {
+        require(_exitNum > 1, "INVALID_EXIT_NUM");
+        bytes32 withdrawData = encodeWithdrawal(_exitNum, _initialDestination);
+        redirectedExits[withdrawData] = ExitData(true, _newDestination, _newData);
+    }
+
     receive() external payable {}
 }
