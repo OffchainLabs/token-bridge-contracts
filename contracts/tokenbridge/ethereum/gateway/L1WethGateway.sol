@@ -46,7 +46,7 @@ contract L1WethGateway is L1ArbitrumExtendedGateway {
         // we skip the first 2 exit numbers becuase a previous version of this contract had exitNum
         // stuck at 1 which we have to prevent those exit being traded by reverting with INVALID_EXIT_NUM
         // starting exitNum at 2 will prevent any new deployment triggering that revert
-        exitNum = 2;
+        _exitNum = 2;
     }
 
     function createOutboundTxCustomRefund(
