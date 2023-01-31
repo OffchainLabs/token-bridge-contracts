@@ -39,6 +39,7 @@ describe('Bridge peripherals layer 1', () => {
     l2Address = accounts[1].address
 
     TestBridge = await ethers.getContractFactory('L1WethGateway')
+    testBridge = await TestBridge.deploy()
 
     const Inbox = await ethers.getContractFactory('InboxMock')
     inbox = await Inbox.deploy()
@@ -361,5 +362,29 @@ describe('Bridge peripherals layer 1', () => {
   it('should support outboundTransferCustomRefund interface', async function () {
     // 4fb1a07b  =>  outboundTransferCustomRefund(address,address,address,uint256,uint256,uint256,bytes)
     expect(await testBridge.supportsInterface('0x4fb1a07b')).is.true
+  })
+
+  it('should be able to transferExitAndCall', async function () {
+    await expect(
+      testBridge.transferExitAndCall(
+        2,
+        accounts[0].address,
+        accounts[1].address,
+        '0x',
+        '0x'
+      )
+    ).to.emit(testBridge, 'WithdrawRedirected')
+  })
+
+  it('should fail to transferExitAndCall exitNum == 1', async function () {
+    await expect(
+      testBridge.transferExitAndCall(
+        1,
+        accounts[0].address,
+        accounts[1].address,
+        '0x',
+        '0x'
+      )
+    ).to.be.revertedWith('INVALID_EXIT_NUM')
   })
 })

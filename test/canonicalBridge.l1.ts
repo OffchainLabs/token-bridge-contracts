@@ -295,4 +295,77 @@ describe('Bridge peripherals layer 1', () => {
     // 4fb1a07b  =>  outboundTransferCustomRefund(address,address,address,uint256,uint256,uint256,bytes)
     expect(await testBridge.supportsInterface('0x4fb1a07b')).is.true
   })
+
+  // same as "should withdraw erc20 tokens from L2" but trading exit to account[1]
+  it('should be able to trade exit', async function () {
+    const Token = await ethers.getContractFactory('TestERC20')
+    const token = await Token.deploy()
+    // send escrowed tokens to bridge
+    const tokenAmount = 100
+
+    await token.mint()
+    await token.approve(testBridge.address, tokenAmount)
+
+    let data = ethers.utils.defaultAbiCoder.encode(
+      ['uint256', 'bytes'],
+      [maxSubmissionCost, '0x']
+    )
+
+    // router usually does this encoding part
+    data = ethers.utils.defaultAbiCoder.encode(
+      ['address', 'bytes'],
+      [accounts[0].address, data]
+    )
+
+    await testBridge.outboundTransfer(
+      token.address,
+      accounts[0].address,
+      tokenAmount,
+      maxGas,
+      gasPrice,
+      data,
+      {
+        value: maxSubmissionCost + maxGas * gasPrice,
+      }
+    )
+
+    await inbox.setL2ToL1Sender(l2Address)
+
+    const prevUserBalance = await token.balanceOf(accounts[1].address)
+
+    const exitNum = 0
+    const withdrawData = ethers.utils.defaultAbiCoder.encode(
+      ['uint256', 'bytes'],
+      [exitNum, '0x']
+    )
+
+    // trade exit
+    await expect(
+      testBridge.transferExitAndCall(
+        exitNum,
+        accounts[0].address,
+        accounts[1].address,
+        '0x',
+        '0x'
+      )
+    ).to.emit(testBridge, 'WithdrawRedirected')
+
+    await testBridge
+      .connect(await impersonateAccount(inbox.address))
+      .finalizeInboundTransfer(
+        token.address,
+        accounts[0].address,
+        accounts[0].address,
+        tokenAmount,
+        withdrawData
+      )
+
+    const postUserBalance = await token.balanceOf(accounts[1].address)
+
+    assert.equal(
+      prevUserBalance.toNumber() + tokenAmount,
+      postUserBalance.toNumber(),
+      'Tokens not escrowed'
+    )
+  })
 })
