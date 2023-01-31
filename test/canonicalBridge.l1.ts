@@ -123,6 +123,7 @@ describe('Bridge peripherals layer 1', () => {
     ).to.be.revertedWith('EXTRA_DATA_DISABLED')
   })
 
+  // TODO: this does not revert, extra data is not checked on inbound
   it('should revert on inbound if there is data for post mint call', async function () {
     const Token = await ethers.getContractFactory('TestERC20')
     const token = await Token.deploy()
@@ -130,18 +131,7 @@ describe('Bridge peripherals layer 1', () => {
     const tokenAmount = 100
 
     await token.mint()
-    await token.approve(testBridge.address, tokenAmount)
-
-    let data = ethers.utils.defaultAbiCoder.encode(
-      ['uint256', 'bytes'],
-      [maxSubmissionCost, '0x12']
-    )
-
-    // router usually does this encoding part
-    data = ethers.utils.defaultAbiCoder.encode(
-      ['address', 'bytes'],
-      [accounts[0].address, data]
-    )
+    await token.transfer(testBridge.address, tokenAmount)
 
     const exitNum = 0
     const withdrawData = ethers.utils.defaultAbiCoder.encode(
@@ -149,16 +139,20 @@ describe('Bridge peripherals layer 1', () => {
       [exitNum, '0x11']
     )
 
+    await inbox.setL2ToL1Sender(l2Address)
     await expect(
-      testBridge.finalizeInboundTransfer(
-        token.address,
-        accounts[0].address,
-        accounts[0].address,
-        tokenAmount,
-        withdrawData
-      )
-    ).to.be.revertedWith('')
+      testBridge
+        .connect(await impersonateAccount(inbox.address))
+        .finalizeInboundTransfer(
+          token.address,
+          accounts[0].address,
+          accounts[0].address,
+          tokenAmount,
+          withdrawData
+        )
+    ).to.be.revertedWith('EXTRA_DATA_DISABLED')
   })
+
   it('should withdraw erc20 tokens from L2', async function () {
     const Token = await ethers.getContractFactory('TestERC20')
     const token = await Token.deploy()
