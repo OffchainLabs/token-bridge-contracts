@@ -43,6 +43,10 @@ contract L1WethGateway is L1ArbitrumExtendedGateway {
         require(_l2Weth != address(0), "INVALID_L2WETH");
         l1Weth = _l1Weth;
         l2Weth = _l2Weth;
+        // we skip the first 2 exit numbers becuase a previous version of this contract had exitNum
+        // stuck at 1 which we have to prevent those exit being traded by reverting with INVALID_EXIT_NUM
+        // starting exitNum at 2 will prevent any new deployment triggering that revert
+        exitNum = 2;
     }
 
     function createOutboundTxCustomRefund(
@@ -110,7 +114,7 @@ contract L1WethGateway is L1ArbitrumExtendedGateway {
     }
 
     /**
-     * @notice  this will revert with exitNum <= 1 to mitigate a known issue
+     * @notice  this will revert with exitNum <= 1 to mitigate a known issue casuing multiple exits with exitNum == 1
      */
     function setRedirectedExit(
         uint256 _exitNum,
