@@ -200,7 +200,7 @@ describe('Bridge peripherals layer 1', () => {
     )
     // send weth to bridge
     const wethAmount = 100
-    const exitNum = 0
+    const exitNum = 1
     const withdrawData = ethers.utils.defaultAbiCoder.encode(
       ['uint256', 'bytes'],
       [exitNum, '0x11']
@@ -235,7 +235,7 @@ describe('Bridge peripherals layer 1', () => {
     )
     // send weth to bridge
     const wethAmount = 100
-    const exitNum = 0
+    const exitNum = 1
     const withdrawData = ethers.utils.defaultAbiCoder.encode(
       ['uint256', 'bytes'],
       [exitNum, '0x']
@@ -346,16 +346,58 @@ describe('Bridge peripherals layer 1', () => {
     expect(await testBridge.supportsInterface('0x4fb1a07b')).is.true
   })
 
-  it('should be able to transferExitAndCall', async function () {
+  // same as "should withdraw weth from L2" but trading exit to account[1]
+  it('should be able to trade exit', async function () {
+    const Weth = await ethers.getContractFactory('TestWETH9')
+    const weth = await Weth.deploy('weth', 'weth')
+
+    testBridge = await TestBridge.deploy()
+    await testBridge.initialize(
+      l2Address,
+      accounts[0].address,
+      inbox.address,
+      weth.address, // _l1Weth
+      accounts[0].address // _l2Weth
+    )
+    // send weth to bridge
+    const wethAmount = 100
+    const exitNum = 2
+    const withdrawData = ethers.utils.defaultAbiCoder.encode(
+      ['uint256', 'bytes'],
+      [exitNum, '0x']
+    )
+
     await expect(
       testBridge.transferExitAndCall(
-        2,
+        exitNum,
         accounts[0].address,
         accounts[1].address,
         '0x',
         '0x'
       )
     ).to.emit(testBridge, 'WithdrawRedirected')
+
+    const prevUserBalance = await weth.balanceOf(accounts[1].address)
+
+    await inbox.setL2ToL1Sender(l2Address)
+    await testBridge
+      .connect(await impersonateAccount(inbox.address))
+      .finalizeInboundTransfer(
+        weth.address,
+        accounts[0].address,
+        accounts[0].address,
+        wethAmount,
+        withdrawData,
+        { value: wethAmount }
+      )
+
+    const postUserBalance = await weth.balanceOf(accounts[1].address)
+
+    assert.equal(
+      prevUserBalance.toNumber() + wethAmount,
+      postUserBalance.toNumber(),
+      'Weth not escrowed'
+    )
   })
 
   it('should fail to transferExitAndCall exitNum == 1', async function () {

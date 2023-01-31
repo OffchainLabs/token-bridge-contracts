@@ -133,7 +133,7 @@ describe('Bridge peripherals layer 1', () => {
     await token.mint()
     await token.transfer(testBridge.address, tokenAmount)
 
-    const exitNum = 0
+    const exitNum = 1
     const withdrawData = ethers.utils.defaultAbiCoder.encode(
       ['uint256', 'bytes'],
       [exitNum, '0x11']
@@ -189,7 +189,7 @@ describe('Bridge peripherals layer 1', () => {
 
     const prevUserBalance = await token.balanceOf(accounts[0].address)
 
-    const exitNum = 0
+    const exitNum = 1
     const withdrawData = ethers.utils.defaultAbiCoder.encode(
       ['uint256', 'bytes'],
       [exitNum, '0x']
@@ -327,7 +327,7 @@ describe('Bridge peripherals layer 1', () => {
 
     const prevUserBalance = await token.balanceOf(accounts[1].address)
 
-    const exitNum = 0
+    const exitNum = 1
     const withdrawData = ethers.utils.defaultAbiCoder.encode(
       ['uint256', 'bytes'],
       [exitNum, '0x']
