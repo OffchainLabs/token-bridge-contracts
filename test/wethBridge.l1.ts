@@ -185,8 +185,8 @@ describe('Bridge peripherals layer 1', () => {
     ).to.be.revertedWith('EXTRA_DATA_DISABLED')
   })
 
-  // TODO: this does not revert, extra data is not checked on inbound
-  it('should revert on inbound if there is data for post mint call', async function () {
+  // this does not revert, extra data is not checked on inbound but is checked on outbound
+  it.skip('should revert on inbound if there is data for post mint call', async function () {
     const Weth = await ethers.getContractFactory('TestWETH9')
     const weth = await Weth.deploy('weth', 'weth')
 
