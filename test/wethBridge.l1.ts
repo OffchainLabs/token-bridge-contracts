@@ -346,8 +346,9 @@ describe('Bridge peripherals layer 1', () => {
     expect(await testBridge.supportsInterface('0x4fb1a07b')).is.true
   })
 
+  // TEMPORARILY DISABLING TRADABLE EXIT
   // same as "should withdraw weth from L2" but trading exit to account[1]
-  it('should be able to trade exit', async function () {
+  it.skip('should be able to trade exit', async function () {
     const Weth = await ethers.getContractFactory('TestWETH9')
     const weth = await Weth.deploy('weth', 'weth')
 
@@ -398,17 +399,5 @@ describe('Bridge peripherals layer 1', () => {
       postUserBalance.toNumber(),
       'Weth not escrowed'
     )
-  })
-
-  it('should fail to transferExitAndCall exitNum == 1', async function () {
-    await expect(
-      testBridge.transferExitAndCall(
-        1,
-        accounts[0].address,
-        accounts[1].address,
-        '0x',
-        '0x'
-      )
-    ).to.be.revertedWith('INVALID_EXIT_NUM')
   })
 })

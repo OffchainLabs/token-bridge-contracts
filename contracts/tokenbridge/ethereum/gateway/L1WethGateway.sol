@@ -118,8 +118,7 @@ contract L1WethGateway is L1ArbitrumExtendedGateway {
         address _newDestination,
         bytes memory _newData
     ) internal override {
-        require(_exitNum > 1, "INVALID_EXIT_NUM");
-        super.setRedirectedExit(_exitNum, _initialDestination, _newDestination, _newData);
+        revert("TRADABLE_EXIT_TEMP_DISABLED");
     }
 
     receive() external payable {}
