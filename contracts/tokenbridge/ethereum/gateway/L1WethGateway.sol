@@ -110,7 +110,7 @@ contract L1WethGateway is L1ArbitrumExtendedGateway {
     }
 
     /**
-     * @notice  this will revert with exitNum <= 1 to mitigate a known issue casuing multiple exits with exitNum 0 and 1
+     * @notice  this will revert with exitNum <= 1 to mitigate a known issue causing multiple exits with exitNum 0 and 1
      */
     function setRedirectedExit(
         uint256 _exitNum,
