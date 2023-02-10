@@ -24,9 +24,9 @@
     },
     "L2WethGateway": {
       "proxyAddress": "0x7626841cB6113412F9c88D3ADC720C9FAC88D9eD",
-      "implAddress": "0x190C993Db842097df8b8d71c910f1802df0724C3",
-      "implDeploymentTxn": "0x510b16690e35cd4490211c1b7f11762f2e47c33236076883d54d8c153df79855",
-      "implArbitrumCommitHash": "265b5ef6a68f4e6c5d891d61b4c733634e49ac74",
+      "implAddress": "0xbe04Ab2728c924D678f9FC833E379688c6eFA317",
+      "implDeploymentTxn": "0x99333784813d8bcfc7ccc34b7cf258deccec9d160afce25c89a9faf0a1a19a92",
+      "implArbitrumCommitHash": "dce646c6890ab9c7c91c7d2ec70b4d83fa359a76",
       "implBuildInfo": ""
     },
     "StandardArbERC20": {
