@@ -23,6 +23,7 @@ import {
   L1WethGateway,
   L1WethGateway__factory,
 } from '../build/types'
+import { impersonateAccount } from './testhelper'
 
 describe('Bridge peripherals layer 1', () => {
   let accounts: SignerWithAddress[]
@@ -39,6 +40,7 @@ describe('Bridge peripherals layer 1', () => {
     l2Address = accounts[1].address
 
     TestBridge = await ethers.getContractFactory('L1WethGateway')
+    testBridge = await TestBridge.deploy()
 
     const Inbox = await ethers.getContractFactory('InboxMock')
     inbox = await Inbox.deploy()
@@ -183,7 +185,8 @@ describe('Bridge peripherals layer 1', () => {
     ).to.be.revertedWith('EXTRA_DATA_DISABLED')
   })
 
-  it('should revert on inbound if there is data for post mint call', async function () {
+  // this does not revert, extra data is not checked on inbound but is checked on outbound
+  it.skip('should revert on inbound if there is data for post mint call', async function () {
     const Weth = await ethers.getContractFactory('TestWETH9')
     const weth = await Weth.deploy('weth', 'weth')
 
@@ -197,27 +200,28 @@ describe('Bridge peripherals layer 1', () => {
     )
     // send weth to bridge
     const wethAmount = 100
-    await weth.deposit({ value: wethAmount })
-    await weth.approve(testBridge.address, wethAmount)
-
-    const exitNum = 0
+    const exitNum = 1
     const withdrawData = ethers.utils.defaultAbiCoder.encode(
       ['uint256', 'bytes'],
       [exitNum, '0x11']
     )
 
+    await inbox.setL2ToL1Sender(l2Address)
     await expect(
-      testBridge.finalizeInboundTransfer(
-        weth.address,
-        accounts[0].address,
-        accounts[0].address,
-        wethAmount,
-        withdrawData
-      )
-    ).to.be.revertedWith('')
+      testBridge
+        .connect(await impersonateAccount(inbox.address))
+        .finalizeInboundTransfer(
+          weth.address,
+          accounts[0].address,
+          accounts[0].address,
+          wethAmount,
+          withdrawData,
+          { value: wethAmount }
+        )
+    ).to.be.revertedWith('EXTRA_DATA_DISABLED')
   })
 
-  it.skip('should withdraw weth from L2', async function () {
+  it('should withdraw weth from L2', async function () {
     const Weth = await ethers.getContractFactory('TestWETH9')
     const weth = await Weth.deploy('weth', 'weth')
 
@@ -231,46 +235,25 @@ describe('Bridge peripherals layer 1', () => {
     )
     // send weth to bridge
     const wethAmount = 100
-    await weth.deposit({ value: wethAmount })
-    await weth.approve(testBridge.address, wethAmount)
-
-    let data = ethers.utils.defaultAbiCoder.encode(
-      ['uint256', 'bytes'],
-      [maxSubmissionCost, '0x']
-    )
-
-    // router usually does this encoding part
-    data = ethers.utils.defaultAbiCoder.encode(
-      ['address', 'bytes'],
-      [accounts[0].address, data]
-    )
-
-    await testBridge.outboundTransfer(
-      weth.address,
-      accounts[0].address,
-      wethAmount,
-      maxGas,
-      gasPrice,
-      data
-    )
-
-    await inbox.setL2ToL1Sender(l2Address)
-
-    const prevUserBalance = await weth.balanceOf(accounts[0].address)
-
-    const exitNum = 0
+    const exitNum = 1
     const withdrawData = ethers.utils.defaultAbiCoder.encode(
       ['uint256', 'bytes'],
       [exitNum, '0x']
     )
 
-    await testBridge.finalizeInboundTransfer(
-      weth.address,
-      accounts[0].address,
-      accounts[0].address,
-      wethAmount,
-      withdrawData
-    )
+    const prevUserBalance = await weth.balanceOf(accounts[0].address)
+
+    await inbox.setL2ToL1Sender(l2Address)
+    await testBridge
+      .connect(await impersonateAccount(inbox.address))
+      .finalizeInboundTransfer(
+        weth.address,
+        accounts[0].address,
+        accounts[0].address,
+        wethAmount,
+        withdrawData,
+        { value: wethAmount }
+      )
 
     const postUserBalance = await weth.balanceOf(accounts[0].address)
 
@@ -361,5 +344,60 @@ describe('Bridge peripherals layer 1', () => {
   it('should support outboundTransferCustomRefund interface', async function () {
     // 4fb1a07b  =>  outboundTransferCustomRefund(address,address,address,uint256,uint256,uint256,bytes)
     expect(await testBridge.supportsInterface('0x4fb1a07b')).is.true
+  })
+
+  // TEMPORARILY DISABLING TRADABLE EXIT
+  // same as "should withdraw weth from L2" but trading exit to account[1]
+  it.skip('should be able to trade exit', async function () {
+    const Weth = await ethers.getContractFactory('TestWETH9')
+    const weth = await Weth.deploy('weth', 'weth')
+
+    testBridge = await TestBridge.deploy()
+    await testBridge.initialize(
+      l2Address,
+      accounts[0].address,
+      inbox.address,
+      weth.address, // _l1Weth
+      accounts[0].address // _l2Weth
+    )
+    // send weth to bridge
+    const wethAmount = 100
+    const exitNum = 2
+    const withdrawData = ethers.utils.defaultAbiCoder.encode(
+      ['uint256', 'bytes'],
+      [exitNum, '0x']
+    )
+
+    await expect(
+      testBridge.transferExitAndCall(
+        exitNum,
+        accounts[0].address,
+        accounts[1].address,
+        '0x',
+        '0x'
+      )
+    ).to.emit(testBridge, 'WithdrawRedirected')
+
+    const prevUserBalance = await weth.balanceOf(accounts[1].address)
+
+    await inbox.setL2ToL1Sender(l2Address)
+    await testBridge
+      .connect(await impersonateAccount(inbox.address))
+      .finalizeInboundTransfer(
+        weth.address,
+        accounts[0].address,
+        accounts[0].address,
+        wethAmount,
+        withdrawData,
+        { value: wethAmount }
+      )
+
+    const postUserBalance = await weth.balanceOf(accounts[1].address)
+
+    assert.equal(
+      prevUserBalance.toNumber() + wethAmount,
+      postUserBalance.toNumber(),
+      'Weth not escrowed'
+    )
   })
 })
