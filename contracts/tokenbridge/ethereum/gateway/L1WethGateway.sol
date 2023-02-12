@@ -32,13 +32,13 @@ contract L1WethGateway is L1ArbitrumExtendedGateway {
     address public l2Weth;
 
     function initialize(
-        address _l1Counterpart,
+        address _l2Counterpart,
         address _l1Router,
         address _inbox,
         address _l1Weth,
         address _l2Weth
     ) public {
-        L1ArbitrumGateway._initialize(_l1Counterpart, _l1Router, _inbox);
+        L1ArbitrumGateway._initialize(_l2Counterpart, _l1Router, _inbox);
         require(_l1Weth != address(0), "INVALID_L1WETH");
         require(_l2Weth != address(0), "INVALID_L2WETH");
         l1Weth = _l1Weth;
@@ -107,6 +107,18 @@ contract L1WethGateway is L1ArbitrumExtendedGateway {
             return address(0);
         }
         return l2Weth;
+    }
+
+    /**
+     * @notice  Temporary disable the ability to trade exits
+     */
+    function setRedirectedExit(
+        uint256 _exitNum,
+        address _initialDestination,
+        address _newDestination,
+        bytes memory _newData
+    ) internal override {
+        revert("TRADABLE_EXIT_TEMP_DISABLED");
     }
 
     receive() external payable {}
