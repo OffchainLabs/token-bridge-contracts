@@ -249,6 +249,7 @@ contract L1GatewayRouter is
      * @param _refundTo Account, or its L2 alias if it have code in L1, to be credited with excess gas refund in L2
      * @param _to Account to be credited with the tokens in the L2 (can be the user's L2 account or a contract), not subject to L2 aliasing
                   This account, or its L2 alias if it have code in L1, will also be able to cancel the retryable ticket and receive callvalue refund
+                  If this field is set to address(0), it will be set to msg.sender
      * @param _amount Token Amount
      * @param _maxGas Max gas deducted from user's L2 balance to cover L2 execution
      * @param _gasPriceBid Gas price for L2 execution
@@ -269,6 +270,9 @@ contract L1GatewayRouter is
             msg.sender,
             _data
         );
+        if (_to == address(0)) {
+            _to = msg.sender;
+        }
 
         emit TransferRouted(_token, msg.sender, _to, gateway);
         // here we use `IL1ArbitrumGateway` since we don't assume all ITokenGateway implements `outboundTransferCustomRefund`
