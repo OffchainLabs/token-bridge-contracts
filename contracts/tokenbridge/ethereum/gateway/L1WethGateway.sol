@@ -113,10 +113,10 @@ contract L1WethGateway is L1ArbitrumExtendedGateway {
      * @notice  Temporary disable the ability to trade exits
      */
     function setRedirectedExit(
-        uint256 _exitNum,
-        address _initialDestination,
-        address _newDestination,
-        bytes memory _newData
+        uint256, /* _exitNum */
+        address, /* _initialDestination */
+        address, /* _newDestination */
+        bytes memory /* _newData */
     ) internal override {
         revert("TRADABLE_EXIT_TEMP_DISABLED");
     }
