@@ -45,9 +45,10 @@ contract L2GatewayRouter is GatewayRouter, L2ArbitrumMessenger {
         onlyCounterpartGateway
     {
         // counterpart gateway (L1 router) should never allow wrong lengths
-        assert(_l1Token.length == _gateway.length);
+        uint256 numberOfL1Tokens = _l1Token.length;
+        assert(numberOfL1Tokens == _gateway.length);
 
-        for (uint256 i = 0; i < _l1Token.length; i++) {
+        for (uint256 i; i < numberOfL1Tokens; ++i) {
             l1TokenToGateway[_l1Token[i]] = _gateway[i];
             emit GatewaySet(_l1Token[i], _gateway[i]);
         }
