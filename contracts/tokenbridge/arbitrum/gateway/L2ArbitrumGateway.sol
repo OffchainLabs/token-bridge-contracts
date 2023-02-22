@@ -134,10 +134,10 @@ abstract contract L2ArbitrumGateway is L2ArbitrumMessenger, TokenGateway {
         address _l1Token,
         address _to,
         uint256 _amount,
-        uint256, /* _maxGas */
-        uint256, /* _gasPriceBid */
+        uint256 _maxGas,
+        uint256 _gasPriceBid,
         bytes calldata _data
-    ) external payable override returns (bytes memory) {
+    ) external payable override returns (bytes memory res) {
         // This function is set as public and virtual so that subclasses can override
         // it and add custom validation for callers (ie only whitelisted users)
 
@@ -146,32 +146,10 @@ abstract contract L2ArbitrumGateway is L2ArbitrumMessenger, TokenGateway {
         // TODO: remove this invariant for execution markets
         require(msg.value == 0, "NO_VALUE");
 
-        address _from;
-        bytes memory _extraData;
-        {
-            if (isRouter(msg.sender)) {
-                (_from, _extraData) = GatewayMessageHandler.parseFromRouterToGateway(_data);
-            } else {
-                _from = msg.sender;
-                _extraData = _data;
-            }
-        }
-        // the inboundEscrowAndCall functionality has been disabled, so no data is allowed
-        require(_extraData.length == 0, "EXTRA_DATA_DISABLED");
-
-        uint256 id;
-        {
-            address l2Token = calculateL2TokenAddress(_l1Token);
-            require(l2Token.isContract(), "TOKEN_NOT_DEPLOYED");
-            require(IArbToken(l2Token).l1Address() == _l1Token, "NOT_EXPECTED_L1_TOKEN");
-
-            _amount = outboundEscrowTransfer(l2Token, _from, _amount);
-            id = triggerWithdrawal(_l1Token, _from, _to, _amount, _extraData);
-        }
-        return abi.encode(id);
+        res = _outboundTransfer(_l1Token, _to, _amount, _maxGas, _gasPriceBid, _data);
     }
 
-        /**
+    /**
      * @notice Initiates a token withdrawal from Arbitrum to Ethereum
      * @param _l1Token l1 address of token
      * @param _to destination address
@@ -186,14 +164,6 @@ abstract contract L2ArbitrumGateway is L2ArbitrumMessenger, TokenGateway {
         uint256, /* _gasPriceBid */
         bytes calldata _data
     ) internal returns (bytes memory) {
-        // This function is set as public and virtual so that subclasses can override
-        // it and add custom validation for callers (ie only whitelisted users)
-
-        // the function is marked as payable to conform to the inheritance setup
-        // this particular code path shouldn't have a msg.value > 0
-        // TODO: remove this invariant for execution markets
-        require(msg.value == 0, "NO_VALUE");
-
         address _from;
         bytes memory _extraData;
         {
