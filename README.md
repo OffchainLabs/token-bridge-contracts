@@ -10,6 +10,8 @@ The Token Bridge includes "Gateway" contracts — pairs of contracts that implem
 
 See the [developer documentation](https://developer.arbitrum.io/asset-bridging) for more info.
 
+See security audit reports [here](./audits).
+
 This repository is offered under the Apache 2.0 license. See LICENSE for details.
 
 ## Contact
