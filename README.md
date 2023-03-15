@@ -1,15 +1,19 @@
 <p align="center"><img src="docs/assets/arbitrum_horizontal_logo.png" width="600"></p>
 
-# Arbitrum Monorepo
+# Arbitrum Token Bridge Contracts
 
-[![CircleCI](https://circleci.com/gh/OffchainLabs/arbitrum.svg?style=svg)](https://circleci.com/gh/OffchainLabs/arbitrum) [![codecov](https://codecov.io/gh/OffchainLabs/arbitrum/branch/master/graph/badge.svg)](https://codecov.io/gh/OffchainLabs/arbitrum)
+The Arbitrum Token Bridge is a decentralized application that uses [Nitro's](https://github.com/OffchainLabs/nitro) arbitrary cross-chain messaging system to implement an ERC20 token bridge between an EVM compatible base-chain and an Arbitrum chain.
 
-Arbitrum is a Layer 2 cryptocurrency platform that makes smart contracts scalable, fast, and private. Arbitrum interoperates closely with Ethereum, so Ethereum developers can easily cross-compile their contracts to run on Arbitrum. Arbitrum achieves these goals through a unique combination of incentives, network protocol design, and virtual machine architecture. Arbitrum has three modes: channels, AnyTrust sidechains, and rollup. Channels and sidechains provide the AnyTrust Guarantee which ensures that the code will run correctly as long as any validator is honest.
+All public Arbitrum chains include a [canonical token bridge deployment](https://developer.arbitrum.io/useful-addresses#token-bridge).
 
-Want to learn more? Join the team on [Discord](https://discord.gg/ZpZuw7p), follow the [developer guide](https://developer.offchainlabs.com), and read the [white paper](https://developer.offchainlabs.com/docs/inside_arbitrum)!
+The Token Bridge includes "Gateway" contracts — pairs of contracts that implement a particular token-bridging flow — as well as "Gateway Router" contracts, which map tokens to their respective gateways.
+
+See the [developer documentation](https://developer.arbitrum.io/asset-bridging) for more info.
 
 This repository is offered under the Apache 2.0 license. See LICENSE for details.
 
-## Quickstart
+## Contact
 
-Follow [the guide](https://developer.offchainlabs.com/docs/Developer_Quickstart/) on our developer site to build a demo dapp on Arbitrum.
+Discord - [Arbitrum](https://discord.com/invite/5KE54JwyTs)
+
+Twitter: [Arbitrum](https://twitter.com/arbitrum)
