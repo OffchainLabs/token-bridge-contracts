@@ -5,3 +5,7 @@ cache
 build
 artifacts
 deployment.json
+
+#Foundry files
+out/
+forge-cache/
