@@ -94,12 +94,14 @@ abstract contract L1ArbitrumMessenger {
         uint256 _gasPriceBid,
         bytes memory _data
     ) internal returns (uint256) {
-        uint256 seqNum = IInbox(_inbox).createRetryableTicket{ value: _l1CallValue }(
+        uint256 seqNum = _createRetryable(
+            _inbox,
             _to,
+            _refundTo,
+            _user,
+            _l1CallValue,
             _l2CallValue,
             _maxSubmissionCost,
-            _refundTo, // only refund excess fee to the custom address
-            _user, // user can cancel the retryable and receive call value refund
             _maxGas,
             _gasPriceBid,
             _data
@@ -146,4 +148,69 @@ abstract contract L1ArbitrumMessenger {
         require(l2ToL1Sender != address(0), "NO_SENDER");
         return l2ToL1Sender;
     }
+
+    /**
+     * @notice Calls inbox to create retryable ticket. Default implementation is for standard Eth-based rollup, but it can be overriden to create retryable in ERC20-based rollup.
+     * @param _inbox address of the rollup's inbox
+     * @param _to destination L2 contract address
+     * @param _refundTo refund address for excess fee
+     * @param _user refund address for callvalue
+     * @param _totalFeeAmount amount of fees to pay, in Eth or native token, for retryable's execution
+     * @param _l2CallValue call value for retryable L2 message
+     * @param _maxSubmissionCost Max gas deducted from user's L2 balance to cover base submission fee
+     * @param _maxGas Max gas deducted from user's L2 balance to cover L2 execution
+     * @param _gasPriceBid price bid for L2 execution
+     * @param _data ABI encoded data of L2 message
+     * @return unique message number of the retryable transaction
+     */
+    function _createRetryable(
+        address _inbox,
+        address _to,
+        address _refundTo,
+        address _user,
+        uint256 _totalFeeAmount,
+        uint256 _l2CallValue,
+        uint256 _maxSubmissionCost,
+        uint256 _maxGas,
+        uint256 _gasPriceBid,
+        bytes memory _data
+    ) internal virtual returns (uint256) {
+        return
+            IEthInbox(_inbox).createRetryableTicket{ value: _totalFeeAmount }(
+                _to,
+                _l2CallValue,
+                _maxSubmissionCost,
+                _refundTo,
+                _user,
+                _gasPriceBid,
+                _data
+            );
+    }
+}
+
+interface IERC20Inbox {
+    function createRetryableTicket(
+        address to,
+        uint256 l2CallValue,
+        uint256 maxSubmissionCost,
+        address excessFeeRefundAddress,
+        address callValueRefundAddress,
+        uint256 gasLimit,
+        uint256 maxFeePerGas,
+        uint256 tokenTotalFeeAmount,
+        bytes calldata data
+    ) external returns (uint256);
+}
+
+interface IEthInbox {
+    function createRetryableTicket(
+        address to,
+        uint256 l2CallValue,
+        uint256 maxSubmissionCost,
+        address excessFeeRefundAddress,
+        address callValueRefundAddress,
+        uint256 gasLimit,
+        uint256 maxFeePerGas,
+        bytes calldata data
+    ) external payable returns (uint256);
 }

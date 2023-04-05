@@ -20,7 +20,6 @@ pragma solidity ^0.6.11;
 
 import "@arbitrum/nitro-contracts/src/bridge/IOutbox.sol";
 import "@arbitrum/nitro-contracts/src/bridge/IBridge.sol";
-import "@arbitrum/nitro-contracts/src/bridge/IInbox.sol";
 
 abstract contract AbsInboxMock {
     address l2ToL1SenderMock = address(0);
