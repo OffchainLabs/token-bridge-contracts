@@ -182,6 +182,7 @@ abstract contract L1ArbitrumMessenger {
                 _maxSubmissionCost,
                 _refundTo,
                 _user,
+                _maxGas,
                 _gasPriceBid,
                 _data
             );
