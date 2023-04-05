@@ -22,13 +22,31 @@ import "@arbitrum/nitro-contracts/src/bridge/IOutbox.sol";
 import "@arbitrum/nitro-contracts/src/bridge/IBridge.sol";
 import "@arbitrum/nitro-contracts/src/bridge/IInbox.sol";
 
-contract InboxMock {
+abstract contract AbsInboxMock {
     address l2ToL1SenderMock = address(0);
 
     event TicketData(uint256 maxSubmissionCost);
     event RefundAddresses(address excessFeeRefundAddress, address callValueRefundAddress);
     event InboxRetryableTicket(address from, address to, uint256 value, uint256 maxGas, bytes data);
 
+    function bridge() external view returns (IBridge) {
+        return IBridge(address(this));
+    }
+
+    function activeOutbox() external view returns (address) {
+        return address(this);
+    }
+
+    function setL2ToL1Sender(address sender) external {
+        l2ToL1SenderMock = sender;
+    }
+
+    function l2ToL1Sender() external view returns (address) {
+        return l2ToL1SenderMock;
+    }
+}
+
+contract InboxMock is AbsInboxMock {
     function createRetryableTicket(
         address to,
         uint256 l2CallValue,
@@ -47,20 +65,28 @@ contract InboxMock {
         emit InboxRetryableTicket(msg.sender, to, l2CallValue, gasLimit, data);
         return 0;
     }
+}
 
-    function bridge() external view returns (IBridge) {
-        return IBridge(address(this));
-    }
+contract ERC20InboxMock is AbsInboxMock {
+    function createRetryableTicket(
+        address to,
+        uint256 l2CallValue,
+        uint256 maxSubmissionCost,
+        address excessFeeRefundAddress,
+        address callValueRefundAddress,
+        uint256 gasLimit,
+        uint256 maxFeePerGas,
+        uint256 tokenTotalFeeAmount,
+        bytes calldata data
+    ) external returns (uint256) {
+        // ensure the user's deposit alone will make submission succeed
+        if (tokenTotalFeeAmount < (maxSubmissionCost + l2CallValue + gasLimit * maxFeePerGas)) {
+            revert("WRONG_TOKEN_VALUE");
+        }
 
-    function activeOutbox() external view returns (address) {
-        return address(this);
-    }
-
-    function setL2ToL1Sender(address sender) external {
-        l2ToL1SenderMock = sender;
-    }
-
-    function l2ToL1Sender() external view returns (address) {
-        return l2ToL1SenderMock;
+        emit TicketData(maxSubmissionCost);
+        emit RefundAddresses(excessFeeRefundAddress, callValueRefundAddress);
+        emit InboxRetryableTicket(msg.sender, to, l2CallValue, gasLimit, data);
+        return 0;
     }
 }
