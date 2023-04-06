@@ -73,7 +73,13 @@ contract L1OrbitERC20GatewayTest is Test {
         vm.prank(user);
         token.approve(address(l1Gateway), depositAmount);
 
-        // expect event
+        // expect events
+        vm.expectEmit(true, true, true, true);
+        emit TicketData(maxSubmissionCost);
+
+        vm.expectEmit(true, true, true, true);
+        emit RefundAddresses(user, user);
+
         vm.expectEmit(true, true, true, true);
         emit DepositInitiated(address(token), user, user, 0, depositAmount);
 
@@ -110,4 +116,6 @@ contract L1OrbitERC20GatewayTest is Test {
         uint256 indexed _sequenceNumber,
         uint256 _amount
     );
+    event TicketData(uint256 maxSubmissionCost);
+    event RefundAddresses(address excessFeeRefundAddress, address callValueRefundAddress);
 }
