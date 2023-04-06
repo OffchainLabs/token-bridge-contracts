@@ -66,6 +66,11 @@ contract L1ERC20GatewayTest is Test {
         vm.prank(user);
         token.approve(address(l1Gateway), depositAmount);
 
+        // expect event
+        vm.expectEmit(true, true, true, true);
+        emit DepositInitiated(address(token), user, user, 0, depositAmount);
+
+        // trigger deposit
         vm.prank(router);
         l1Gateway.outboundTransfer{ value: maxSubmissionCost + maxGas * gasPrice }(
             address(token),
@@ -87,4 +92,15 @@ contract L1ERC20GatewayTest is Test {
             "Wrong l1 gateway balance"
         );
     }
+
+    ////
+    // Event declarations
+    ////
+    event DepositInitiated(
+        address l1Token,
+        address indexed _from,
+        address indexed _to,
+        uint256 indexed _sequenceNumber,
+        uint256 _amount
+    );
 }
