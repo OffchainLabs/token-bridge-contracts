@@ -162,6 +162,40 @@ contract L1ERC20GatewayTest is Test {
         );
     }
 
+    function test_finalizeInboundTransfer() public {
+        // fund gateway with tokens being withdrawn
+        vm.prank(address(l1Gateway));
+        TestERC20(address(token)).mint();
+
+        // snapshot state before
+        uint256 userBalanceBefore = token.balanceOf(user);
+        uint256 l1GatewayBalanceBefore = token.balanceOf(address(l1Gateway));
+
+        // withdrawal params
+        address from = address(3000);
+        uint256 withdrawalAmount = 25;
+        uint256 exitNum = 7;
+        bytes memory callHookData = "";
+        bytes memory data = abi.encode(exitNum, callHookData);
+
+        InboxMock(address(inbox)).setL2ToL1Sender(l2Gateway);
+
+        // trigger withdrawal
+        vm.prank(address(IInbox(l1Gateway.inbox()).bridge()));
+        l1Gateway.finalizeInboundTransfer(address(token), from, user, withdrawalAmount, data);
+
+        // check tokens are properly released
+        uint256 userBalanceAfter = token.balanceOf(user);
+        assertEq(userBalanceAfter - userBalanceBefore, withdrawalAmount, "Wrong user balance");
+
+        uint256 l1GatewayBalanceAfter = token.balanceOf(address(l1Gateway));
+        assertEq(
+            l1GatewayBalanceBefore - l1GatewayBalanceAfter,
+            withdrawalAmount,
+            "Wrong l1 gateway balance"
+        );
+    }
+
     ////
     // Event declarations
     ////
