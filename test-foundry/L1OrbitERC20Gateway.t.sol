@@ -121,6 +121,66 @@ contract L1OrbitERC20GatewayTest is Test {
         );
     }
 
+    function test_outboundTransferCustomRefund() public {
+        // snapshot state before
+        uint256 userBalanceBefore = token.balanceOf(user);
+        uint256 l1GatewayBalanceBefore = token.balanceOf(address(l1Gateway));
+
+        // retryable params
+        uint256 maxSubmissionCost = 0;
+        uint256 maxGas = 200000000;
+        uint256 gasPrice = 4;
+
+        uint256 depositAmount = 700;
+        uint256 nativeTokenTotalFee = maxGas * gasPrice;
+        address refundTo = address(3000);
+
+        bytes memory callHookData = "";
+        bytes memory userEncodedData = abi.encode(
+            maxSubmissionCost,
+            nativeTokenTotalFee,
+            callHookData
+        );
+        bytes memory routerEncodedData = abi.encode(user, userEncodedData);
+
+        // approve token
+        vm.prank(user);
+        token.approve(address(l1Gateway), depositAmount);
+
+        // expect events
+        vm.expectEmit(true, true, true, true);
+        emit TicketData(maxSubmissionCost);
+
+        vm.expectEmit(true, true, true, true);
+        emit RefundAddresses(refundTo, user);
+
+        vm.expectEmit(true, true, true, true);
+        emit DepositInitiated(address(token), user, user, 0, depositAmount);
+
+        // trigger deposit
+        vm.prank(router);
+        l1Gateway.outboundTransferCustomRefund(
+            address(token),
+            refundTo,
+            user,
+            depositAmount,
+            maxGas,
+            gasPrice,
+            routerEncodedData
+        );
+
+        // check tokens are escrowed
+        uint256 userBalanceAfter = token.balanceOf(user);
+        assertEq(userBalanceBefore - userBalanceAfter, depositAmount, "Wrong user balance");
+
+        uint256 l1GatewayBalanceAfter = token.balanceOf(address(l1Gateway));
+        assertEq(
+            l1GatewayBalanceAfter - l1GatewayBalanceBefore,
+            depositAmount,
+            "Wrong l1 gateway balance"
+        );
+    }
+
     ////
     // Event declarations
     ////
