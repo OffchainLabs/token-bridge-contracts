@@ -5,12 +5,13 @@ pragma experimental ABIEncoderV2;
 
 import "forge-std/Test.sol";
 import "contracts/tokenbridge/ethereum/gateway/L1OrbitERC20Gateway.sol";
+
 import { TestERC20 } from "contracts/tokenbridge/test/TestERC20.sol";
 import { ERC20InboxMock } from "contracts/tokenbridge/test/InboxMock.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract L1OrbitERC20GatewayTest is Test {
-    L1OrbitERC20Gateway public l1Gateway;
+    IL1ArbitrumGateway public l1Gateway;
     IERC20 public token;
 
     // gateway params
@@ -25,7 +26,13 @@ contract L1OrbitERC20GatewayTest is Test {
 
     function setUp() public {
         l1Gateway = new L1OrbitERC20Gateway();
-        l1Gateway.initialize(l2Gateway, router, inbox, cloneableProxyHash, l2BeaconProxyFactory);
+        L1OrbitERC20Gateway(address(l1Gateway)).initialize(
+            l2Gateway,
+            router,
+            inbox,
+            cloneableProxyHash,
+            l2BeaconProxyFactory
+        );
 
         token = IERC20(address(new TestERC20()));
 
@@ -37,15 +44,23 @@ contract L1OrbitERC20GatewayTest is Test {
 
     /* solhint-disable func-name-mixedcase */
     function test_initialize() public {
-        assertEq(l1Gateway.counterpartGateway(), l2Gateway, "Invalid counterpartGateway");
-        assertEq(l1Gateway.router(), router, "Invalid router");
+        assertEq(
+            L1OrbitERC20Gateway(address(l1Gateway)).counterpartGateway(),
+            l2Gateway,
+            "Invalid counterpartGateway"
+        );
+        assertEq(L1OrbitERC20Gateway(address(l1Gateway)).router(), router, "Invalid router");
         assertEq(l1Gateway.inbox(), inbox, "Invalid inbox");
         assertEq(
-            l1Gateway.l2BeaconProxyFactory(),
+            L1OrbitERC20Gateway(address(l1Gateway)).l2BeaconProxyFactory(),
             l2BeaconProxyFactory,
             "Invalid l2BeaconProxyFactory"
         );
-        assertEq(l1Gateway.whitelist(), address(0), "Invalid whitelist");
+        assertEq(
+            L1OrbitERC20Gateway(address(l1Gateway)).whitelist(),
+            address(0),
+            "Invalid whitelist"
+        );
     }
 
     function test_outboundTransfer() public {
