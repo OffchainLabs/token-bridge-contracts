@@ -148,4 +148,22 @@ contract L1OrbitERC20GatewayTest is L1ERC20GatewayTest {
             "Wrong l1 gateway balance"
         );
     }
+
+    function test_outboundTransferCustomRefund_revert_ExtraDataDisabled() public override {
+        bytes memory callHookData = abi.encodeWithSignature("doSomething()");
+        bytes memory userEncodedData = abi.encode(5, 10, callHookData);
+        bytes memory routerEncodedData = abi.encode(user, userEncodedData);
+
+        vm.prank(router);
+        vm.expectRevert("EXTRA_DATA_DISABLED");
+        l1Gateway.outboundTransferCustomRefund{ value: 1 ether }(
+            address(token),
+            user,
+            user,
+            400,
+            0.1 ether,
+            0.01 ether,
+            routerEncodedData
+        );
+    }
 }
