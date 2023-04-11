@@ -99,7 +99,7 @@ contract L1ERC20GatewayTest is Test {
         );
     }
 
-    ////
+    //
     // Event declarations
     ////
     event DepositInitiated(
