@@ -166,4 +166,20 @@ contract L1OrbitERC20GatewayTest is L1ERC20GatewayTest {
             routerEncodedData
         );
     }
+
+    function test_outboundTransferCustomRefund_revert_L1NotContract() public override {
+        address invalidTokenAddress = address(70);
+
+        vm.prank(router);
+        vm.expectRevert("L1_NOT_CONTRACT");
+        l1Gateway.outboundTransferCustomRefund{ value: 1 ether }(
+            address(invalidTokenAddress),
+            user,
+            user,
+            400,
+            0.1 ether,
+            0.01 ether,
+            abi.encode(user, abi.encode(2, 3, ""))
+        );
+    }
 }

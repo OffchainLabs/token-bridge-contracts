@@ -195,6 +195,22 @@ contract L1ERC20GatewayTest is Test {
         );
     }
 
+    function test_outboundTransferCustomRefund_revert_L1NotContract() public virtual {
+        address invalidTokenAddress = address(70);
+
+        vm.prank(router);
+        vm.expectRevert("L1_NOT_CONTRACT");
+        l1Gateway.outboundTransferCustomRefund{ value: 1 ether }(
+            address(invalidTokenAddress),
+            user,
+            user,
+            400,
+            0.1 ether,
+            0.01 ether,
+            abi.encode(user, abi.encode(2, ""))
+        );
+    }
+
     function test_finalizeInboundTransfer() public {
         // fund gateway with tokens being withdrawn
         vm.prank(address(l1Gateway));
