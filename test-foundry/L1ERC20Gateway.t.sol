@@ -16,14 +16,16 @@ contract L1ERC20GatewayTest is Test {
     // gateway params
     address public l2Gateway = address(1000);
     address public router = address(1001);
-    address public inbox = address(new InboxMock());
+    address public inbox;
     address public l2BeaconProxyFactory = address(1003);
     bytes32 public cloneableProxyHash =
         0x0000000000000000000000000000000000000000000000000000000000000001;
 
     address public user = address(1004);
 
-    function setUp() public {
+    function setUp() public virtual {
+        inbox = address(new InboxMock());
+
         l1Gateway = new L1ERC20Gateway();
         L1ERC20Gateway(address(l1Gateway)).initialize(
             l2Gateway,
@@ -58,7 +60,7 @@ contract L1ERC20GatewayTest is Test {
         assertEq(L1ERC20Gateway(address(l1Gateway)).whitelist(), address(0), "Invalid whitelist");
     }
 
-    function test_outboundTransfer() public {
+    function test_outboundTransfer() public virtual {
         // snapshot state before
         uint256 userBalanceBefore = token.balanceOf(user);
         uint256 l1GatewayBalanceBefore = token.balanceOf(address(l1Gateway));
@@ -109,7 +111,7 @@ contract L1ERC20GatewayTest is Test {
         );
     }
 
-    function test_outboundTransferCustomRefund() public {
+    function test_outboundTransferCustomRefund() public virtual {
         // snapshot state before
         uint256 userBalanceBefore = token.balanceOf(user);
         uint256 l1GatewayBalanceBefore = token.balanceOf(address(l1Gateway));

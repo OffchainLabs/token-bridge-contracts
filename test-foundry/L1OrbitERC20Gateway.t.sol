@@ -3,28 +3,16 @@
 pragma solidity 0.6.11;
 pragma experimental ABIEncoderV2;
 
-import "forge-std/Test.sol";
+import { L1ERC20GatewayTest } from "./L1ERC20Gateway.t.sol";
 import "contracts/tokenbridge/ethereum/gateway/L1OrbitERC20Gateway.sol";
 
 import { TestERC20 } from "contracts/tokenbridge/test/TestERC20.sol";
 import { ERC20InboxMock } from "contracts/tokenbridge/test/InboxMock.sol";
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-contract L1OrbitERC20GatewayTest is Test {
-    IL1ArbitrumGateway public l1Gateway;
-    IERC20 public token;
+contract L1OrbitERC20GatewayTest is L1ERC20GatewayTest {
+    function setUp() public override {
+        inbox = address(new ERC20InboxMock());
 
-    // gateway params
-    address public l2Gateway = address(1000);
-    address public router = address(1001);
-    address public inbox = address(new ERC20InboxMock());
-    address public l2BeaconProxyFactory = address(1003);
-    bytes32 public cloneableProxyHash =
-        0x0000000000000000000000000000000000000000000000000000000000000001;
-
-    address public user = address(1004);
-
-    function setUp() public {
         l1Gateway = new L1OrbitERC20Gateway();
         L1OrbitERC20Gateway(address(l1Gateway)).initialize(
             l2Gateway,
@@ -43,27 +31,7 @@ contract L1OrbitERC20GatewayTest is Test {
     }
 
     /* solhint-disable func-name-mixedcase */
-    function test_initialize() public {
-        assertEq(
-            L1OrbitERC20Gateway(address(l1Gateway)).counterpartGateway(),
-            l2Gateway,
-            "Invalid counterpartGateway"
-        );
-        assertEq(L1OrbitERC20Gateway(address(l1Gateway)).router(), router, "Invalid router");
-        assertEq(l1Gateway.inbox(), inbox, "Invalid inbox");
-        assertEq(
-            L1OrbitERC20Gateway(address(l1Gateway)).l2BeaconProxyFactory(),
-            l2BeaconProxyFactory,
-            "Invalid l2BeaconProxyFactory"
-        );
-        assertEq(
-            L1OrbitERC20Gateway(address(l1Gateway)).whitelist(),
-            address(0),
-            "Invalid whitelist"
-        );
-    }
-
-    function test_outboundTransfer() public {
+    function test_outboundTransfer() public override {
         // snapshot state before
         uint256 userBalanceBefore = token.balanceOf(user);
         uint256 l1GatewayBalanceBefore = token.balanceOf(address(l1Gateway));
@@ -121,7 +89,7 @@ contract L1OrbitERC20GatewayTest is Test {
         );
     }
 
-    function test_outboundTransferCustomRefund() public {
+    function test_outboundTransferCustomRefund() public override {
         // snapshot state before
         uint256 userBalanceBefore = token.balanceOf(user);
         uint256 l1GatewayBalanceBefore = token.balanceOf(address(l1Gateway));
@@ -180,17 +148,4 @@ contract L1OrbitERC20GatewayTest is Test {
             "Wrong l1 gateway balance"
         );
     }
-
-    ////
-    // Event declarations
-    ////
-    event DepositInitiated(
-        address l1Token,
-        address indexed _from,
-        address indexed _to,
-        uint256 indexed _sequenceNumber,
-        uint256 _amount
-    );
-    event TicketData(uint256 maxSubmissionCost);
-    event RefundAddresses(address excessFeeRefundAddress, address callValueRefundAddress);
 }
