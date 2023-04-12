@@ -296,6 +296,16 @@ contract L1ERC20GatewayTest is Test {
         assertEq(l1Gateway.supportsInterface(iface), expected, "Interface shouldn't be supported");
     }
 
+    function test_encodeWithdrawal(uint256 exitNum, address dest) public {
+        bytes32 encodedWithdrawal = L1ERC20Gateway(address(l1Gateway)).encodeWithdrawal(
+            exitNum,
+            dest
+        );
+        bytes32 expectedEncoding = keccak256(abi.encode(exitNum, dest));
+
+        assertEq(encodedWithdrawal, expectedEncoding, "Invalid encodeWithdrawal");
+    }
+
     ////
     // Helper functions
     ////
