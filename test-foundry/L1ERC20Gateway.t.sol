@@ -284,16 +284,16 @@ contract L1ERC20GatewayTest is Test {
         assertEq(outboundCalldata, expectedCalldata, "Invalid outboundCalldata");
     }
 
-    function callStatic(
-        address targetContract,
-        bytes4 targetFunction
-    ) internal view returns (bytes memory) {
-        (
-            ,
-            /* bool success */
-            bytes memory res
-        ) = targetContract.staticcall(abi.encodeWithSelector(targetFunction));
-        return res;
+    function test_supportsInterface(bytes4 iface) public {
+        bool expected = false;
+        if (
+            iface == type(IERC165).interfaceId ||
+            iface == IL1ArbitrumGateway.outboundTransferCustomRefund.selector
+        ) {
+            expected = true;
+        }
+
+        assertEq(l1Gateway.supportsInterface(iface), expected, "Interface shouldn't be supported");
     }
 
     ////
