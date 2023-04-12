@@ -177,7 +177,7 @@ contract L1ERC20GatewayTest is Test {
         );
     }
 
-    function test_outboundTransferCustomRefund_revert_ExtraDataDisabled() public virtual {
+    function test_outboundTransferCustomRefund_revert_ExtraDataDisabled() public {
         bytes memory callHookData = abi.encodeWithSignature("doSomething()");
         bytes memory routerEncodedData = buildRouterEncodedData(callHookData);
 
@@ -194,7 +194,7 @@ contract L1ERC20GatewayTest is Test {
         );
     }
 
-    function test_outboundTransferCustomRefund_revert_L1NotContract() public virtual {
+    function test_outboundTransferCustomRefund_revert_L1NotContract() public {
         address invalidTokenAddress = address(70);
 
         vm.prank(router);
@@ -204,6 +204,22 @@ contract L1ERC20GatewayTest is Test {
             user,
             user,
             400,
+            0.1 ether,
+            0.01 ether,
+            buildRouterEncodedData("")
+        );
+    }
+
+    function test_outboundTransferCustomRefund_revert_AmountExceedsAllowance() public {
+        uint256 tooManyTokens = 500 ether;
+
+        vm.prank(router);
+        vm.expectRevert("ERC20: transfer amount exceeds balance");
+        l1Gateway.outboundTransferCustomRefund{ value: 1 ether }(
+            address(token),
+            user,
+            user,
+            tooManyTokens,
             0.1 ether,
             0.01 ether,
             buildRouterEncodedData("")
@@ -242,6 +258,42 @@ contract L1ERC20GatewayTest is Test {
             withdrawalAmount,
             "Wrong l1 gateway balance"
         );
+    }
+
+    function test_getOutboundCalldata() public {
+        bytes memory outboundCalldata = l1Gateway.getOutboundCalldata({
+            _token: address(token),
+            _from: user,
+            _to: address(800),
+            _amount: 355,
+            _data: abi.encode("doStuff()")
+        });
+
+        bytes memory expectedCalldata = abi.encodeWithSelector(
+            ITokenGateway.finalizeInboundTransfer.selector,
+            address(token),
+            user,
+            address(800),
+            355,
+            abi.encode(
+                abi.encode(abi.encode("IntArbTestToken"), abi.encode("IARB"), abi.encode(18)),
+                abi.encode("doStuff()")
+            )
+        );
+
+        assertEq(outboundCalldata, expectedCalldata, "Invalid outboundCalldata");
+    }
+
+    function callStatic(
+        address targetContract,
+        bytes4 targetFunction
+    ) internal view returns (bytes memory) {
+        (
+            ,
+            /* bool success */
+            bytes memory res
+        ) = targetContract.staticcall(abi.encodeWithSelector(targetFunction));
+        return res;
     }
 
     ////
