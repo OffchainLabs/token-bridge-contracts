@@ -179,8 +179,7 @@ contract L1ERC20GatewayTest is Test {
 
     function test_outboundTransferCustomRefund_revert_ExtraDataDisabled() public virtual {
         bytes memory callHookData = abi.encodeWithSignature("doSomething()");
-        bytes memory userEncodedData = abi.encode(2, callHookData);
-        bytes memory routerEncodedData = abi.encode(user, userEncodedData);
+        bytes memory routerEncodedData = buildRouterEncodedData(callHookData);
 
         vm.prank(router);
         vm.expectRevert("EXTRA_DATA_DISABLED");
@@ -207,7 +206,7 @@ contract L1ERC20GatewayTest is Test {
             400,
             0.1 ether,
             0.01 ether,
-            abi.encode(user, abi.encode(2, ""))
+            buildRouterEncodedData("")
         );
     }
 
@@ -243,6 +242,20 @@ contract L1ERC20GatewayTest is Test {
             withdrawalAmount,
             "Wrong l1 gateway balance"
         );
+    }
+
+    ////
+    // Helper functions
+    ////
+    function buildRouterEncodedData(
+        bytes memory callHookData
+    ) internal view virtual returns (bytes memory) {
+        uint256 maxSubmissionCost = 20;
+
+        bytes memory userEncodedData = abi.encode(maxSubmissionCost, callHookData);
+        bytes memory routerEncodedData = abi.encode(user, userEncodedData);
+
+        return routerEncodedData;
     }
 
     ////

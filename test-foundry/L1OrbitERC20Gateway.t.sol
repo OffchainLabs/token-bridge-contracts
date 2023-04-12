@@ -149,37 +149,22 @@ contract L1OrbitERC20GatewayTest is L1ERC20GatewayTest {
         );
     }
 
-    function test_outboundTransferCustomRefund_revert_ExtraDataDisabled() public override {
-        bytes memory callHookData = abi.encodeWithSignature("doSomething()");
-        bytes memory userEncodedData = abi.encode(5, 10, callHookData);
+    ////
+    // Helper functions
+    ////
+    function buildRouterEncodedData(
+        bytes memory callHookData
+    ) internal view override returns (bytes memory) {
+        uint256 nativeTokenTotalFee = 350;
+        uint256 maxSubmissionCost = 20;
+
+        bytes memory userEncodedData = abi.encode(
+            maxSubmissionCost,
+            nativeTokenTotalFee,
+            callHookData
+        );
         bytes memory routerEncodedData = abi.encode(user, userEncodedData);
 
-        vm.prank(router);
-        vm.expectRevert("EXTRA_DATA_DISABLED");
-        l1Gateway.outboundTransferCustomRefund{ value: 1 ether }(
-            address(token),
-            user,
-            user,
-            400,
-            0.1 ether,
-            0.01 ether,
-            routerEncodedData
-        );
-    }
-
-    function test_outboundTransferCustomRefund_revert_L1NotContract() public override {
-        address invalidTokenAddress = address(70);
-
-        vm.prank(router);
-        vm.expectRevert("L1_NOT_CONTRACT");
-        l1Gateway.outboundTransferCustomRefund{ value: 1 ether }(
-            address(invalidTokenAddress),
-            user,
-            user,
-            400,
-            0.1 ether,
-            0.01 ether,
-            abi.encode(user, abi.encode(2, 3, ""))
-        );
+        return routerEncodedData;
     }
 }
