@@ -31,6 +31,17 @@ contract L1OrbitERC20GatewayTest is L1ERC20GatewayTest {
     }
 
     /* solhint-disable func-name-mixedcase */
+    function test_initialize() public override {
+        L1ERC20Gateway gateway = new L1OrbitERC20Gateway();
+        gateway.initialize(l2Gateway, router, inbox, cloneableProxyHash, l2BeaconProxyFactory);
+
+        assertEq(gateway.counterpartGateway(), l2Gateway, "Invalid counterpartGateway");
+        assertEq(gateway.router(), router, "Invalid router");
+        assertEq(gateway.inbox(), inbox, "Invalid inbox");
+        assertEq(gateway.l2BeaconProxyFactory(), l2BeaconProxyFactory, "Invalid beacon");
+        assertEq(gateway.whitelist(), address(0), "Invalid whitelist");
+    }
+
     function test_outboundTransfer() public override {
         // snapshot state before
         uint256 userBalanceBefore = token.balanceOf(user);
