@@ -338,6 +338,11 @@ contract L1ERC20GatewayTest is Test {
         assertEq(l2TokenAddress, expectedL2TokenAddress, "Invalid calculateL2TokenAddress");
     }
 
+    function test_postUpgradeInit_revert_NotFromAdmin() public {
+        vm.expectRevert("NOT_FROM_ADMIN");
+        L1ERC20Gateway(address(l1Gateway)).postUpgradeInit();
+    }
+
     ////
     // Helper functions
     ////
