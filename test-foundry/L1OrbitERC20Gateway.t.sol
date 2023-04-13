@@ -145,6 +145,17 @@ contract L1OrbitERC20GatewayTest is L1ERC20GatewayTest {
         emit RefundAddresses(refundTo, user);
 
         vm.expectEmit(true, true, true, true);
+        emit ERC20InboxRetryableTicket(
+            address(l1Gateway),
+            l2Gateway,
+            0,
+            maxGas,
+            gasPrice,
+            nativeTokenTotalFee,
+            l1Gateway.getOutboundCalldata(address(token), user, user, 700, "")
+        );
+
+        vm.expectEmit(true, true, true, true);
         emit DepositInitiated(address(token), user, user, 0, depositAmount);
 
         // trigger deposit
