@@ -280,6 +280,23 @@ contract L1ERC20GatewayTest is Test {
         );
     }
 
+    function test_finalizeInboundTransfer_revert_NotFromBridge() public {
+        address notBridge = address(300);
+        vm.prank(notBridge);
+        vm.expectRevert("NOT_FROM_BRIDGE");
+        l1Gateway.finalizeInboundTransfer(address(token), user, user, 100, "");
+    }
+
+    function test_finalizeInboundTransfer_revert_OnlyCounterpartGateway() public {
+        address notCounterPartGateway = address(400);
+        InboxMock(address(inbox)).setL2ToL1Sender(notCounterPartGateway);
+
+        // trigger withdrawal
+        vm.prank(address(IInbox(l1Gateway.inbox()).bridge()));
+        vm.expectRevert("ONLY_COUNTERPART_GATEWAY");
+        l1Gateway.finalizeInboundTransfer(address(token), user, user, 100, "");
+    }
+
     function test_getOutboundCalldata() public {
         bytes memory outboundCalldata = l1Gateway.getOutboundCalldata({
             _token: address(token),
