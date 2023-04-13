@@ -3,14 +3,13 @@
 pragma solidity 0.6.11;
 pragma experimental ABIEncoderV2;
 
-import "forge-std/Test.sol";
+import { L1ArbitrumExtendedGatewayTest } from "./L1ArbitrumExtendedGateway.t.sol";
 import "contracts/tokenbridge/ethereum/gateway/L1ERC20Gateway.sol";
 import { TestERC20 } from "contracts/tokenbridge/test/TestERC20.sol";
 import { InboxMock } from "contracts/tokenbridge/test/InboxMock.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-contract L1ERC20GatewayTest is Test {
-    IL1ArbitrumGateway public l1Gateway;
+contract L1ERC20GatewayTest is L1ArbitrumExtendedGatewayTest {
     IERC20 public token;
 
     // gateway params
@@ -340,16 +339,6 @@ contract L1ERC20GatewayTest is Test {
         }
 
         assertEq(l1Gateway.supportsInterface(iface), expected, "Interface shouldn't be supported");
-    }
-
-    function test_encodeWithdrawal(uint256 exitNum, address dest) public {
-        bytes32 encodedWithdrawal = L1ERC20Gateway(address(l1Gateway)).encodeWithdrawal(
-            exitNum,
-            dest
-        );
-        bytes32 expectedEncoding = keccak256(abi.encode(exitNum, dest));
-
-        assertEq(encodedWithdrawal, expectedEncoding, "Invalid encodeWithdrawal");
     }
 
     function test_calculateL2TokenAddress(address tokenAddress) public {
