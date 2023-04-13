@@ -326,6 +326,18 @@ contract L1ERC20GatewayTest is Test {
         assertEq(encodedWithdrawal, expectedEncoding, "Invalid encodeWithdrawal");
     }
 
+    function test_calculateL2TokenAddress(address tokenAddress) public {
+        address l2TokenAddress = l1Gateway.calculateL2TokenAddress(tokenAddress);
+
+        address expectedL2TokenAddress = Create2.computeAddress(
+            keccak256(abi.encode(l2Gateway, keccak256(abi.encode(tokenAddress)))),
+            cloneableProxyHash,
+            l2BeaconProxyFactory
+        );
+
+        assertEq(l2TokenAddress, expectedL2TokenAddress, "Invalid calculateL2TokenAddress");
+    }
+
     ////
     // Helper functions
     ////
