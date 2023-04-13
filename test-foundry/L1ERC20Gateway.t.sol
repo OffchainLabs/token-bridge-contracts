@@ -74,6 +74,15 @@ contract L1ERC20GatewayTest is Test {
         emit RefundAddresses(user, user);
 
         vm.expectEmit(true, true, true, true);
+        emit InboxRetryableTicket(
+            address(l1Gateway),
+            l2Gateway,
+            0,
+            maxGas,
+            l1Gateway.getOutboundCalldata(address(token), user, user, depositAmount, callHookData)
+        );
+
+        vm.expectEmit(true, true, true, true);
         emit DepositInitiated(address(token), user, user, 0, depositAmount);
 
         // trigger deposit
@@ -111,4 +120,5 @@ contract L1ERC20GatewayTest is Test {
     );
     event TicketData(uint256 maxSubmissionCost);
     event RefundAddresses(address excessFeeRefundAddress, address callValueRefundAddress);
+    event InboxRetryableTicket(address from, address to, uint256 value, uint256 maxGas, bytes data);
 }

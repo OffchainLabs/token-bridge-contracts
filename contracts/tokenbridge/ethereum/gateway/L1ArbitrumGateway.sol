@@ -262,7 +262,7 @@ abstract contract L1ArbitrumGateway is
                 extraData = _data;
             }
             // unpack user encoded data
-            (_maxSubmissionCost, tokenTotalFeeAmount, extraData) = _parseUserEncodedData(extraData);
+            (_maxSubmissionCost, extraData, tokenTotalFeeAmount) = _parseUserEncodedData(extraData);
 
             // the inboundEscrowAndCall functionality has been disabled, so no data is allowed
             require(extraData.length == 0, "EXTRA_DATA_DISABLED");
@@ -354,8 +354,8 @@ abstract contract L1ArbitrumGateway is
      *      - callHookData (bytes)
      * @param data data encoded by user
      * @return maxSubmissionCost Max gas deducted from user's L2 balance to cover base submission fee
-     * @return tokenTotalFeeAmount Amount of fees to be deposited in native token to cover for retryable ticket cost (used only in ERC20-based rollups, otherwise 0)
      * @return callHookData Calldata for extra call in inboundEscrowAndCall on L2
+     * @return tokenTotalFeeAmount Amount of fees to be deposited in native token to cover for retryable ticket cost (used only in ERC20-based rollups, otherwise 0)
      */
     function _parseUserEncodedData(
         bytes memory data
@@ -363,7 +363,7 @@ abstract contract L1ArbitrumGateway is
         internal
         pure
         virtual
-        returns (uint256 maxSubmissionCost, uint256 tokenTotalFeeAmount, bytes memory callHookData)
+        returns (uint256 maxSubmissionCost, bytes memory callHookData, uint256 tokenTotalFeeAmount)
     {
         (maxSubmissionCost, callHookData) = abi.decode(data, (uint256, bytes));
     }
