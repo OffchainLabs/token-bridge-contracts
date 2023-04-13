@@ -67,6 +67,16 @@ contract InboxMock is AbsInboxMock {
 }
 
 contract ERC20InboxMock is AbsInboxMock {
+    event ERC20InboxRetryableTicket(
+        address from,
+        address to,
+        uint256 l2CallValue,
+        uint256 maxGas,
+        uint256 gasPrice,
+        uint256 tokenTotalFeeAmount,
+        bytes data
+    );
+
     function createRetryableTicket(
         address to,
         uint256 l2CallValue,
@@ -85,7 +95,15 @@ contract ERC20InboxMock is AbsInboxMock {
 
         emit TicketData(maxSubmissionCost);
         emit RefundAddresses(excessFeeRefundAddress, callValueRefundAddress);
-        emit InboxRetryableTicket(msg.sender, to, l2CallValue, gasLimit, data);
+        emit ERC20InboxRetryableTicket(
+            msg.sender,
+            to,
+            l2CallValue,
+            gasLimit,
+            maxFeePerGas,
+            tokenTotalFeeAmount,
+            data
+        );
         return 0;
     }
 }

@@ -58,8 +58,8 @@ contract L1OrbitERC20GatewayTest is L1ERC20GatewayTest {
         bytes memory callHookData = "";
         bytes memory userEncodedData = abi.encode(
             maxSubmissionCost,
-            nativeTokenTotalFee,
-            callHookData
+            callHookData,
+            nativeTokenTotalFee
         );
         bytes memory routerEncodedData = abi.encode(user, userEncodedData);
 
@@ -73,6 +73,17 @@ contract L1OrbitERC20GatewayTest is L1ERC20GatewayTest {
 
         vm.expectEmit(true, true, true, true);
         emit RefundAddresses(user, user);
+
+        vm.expectEmit(true, true, true, true);
+        emit ERC20InboxRetryableTicket(
+            address(l1Gateway),
+            l2Gateway,
+            0,
+            maxGas,
+            gasPrice,
+            nativeTokenTotalFee,
+            l1Gateway.getOutboundCalldata(address(token), user, user, 300, "")
+        );
 
         vm.expectEmit(true, true, true, true);
         emit DepositInitiated(address(token), user, user, 0, depositAmount);
@@ -117,8 +128,8 @@ contract L1OrbitERC20GatewayTest is L1ERC20GatewayTest {
         bytes memory callHookData = "";
         bytes memory userEncodedData = abi.encode(
             maxSubmissionCost,
-            nativeTokenTotalFee,
-            callHookData
+            callHookData,
+            nativeTokenTotalFee
         );
         bytes memory routerEncodedData = abi.encode(user, userEncodedData);
 
@@ -171,11 +182,21 @@ contract L1OrbitERC20GatewayTest is L1ERC20GatewayTest {
 
         bytes memory userEncodedData = abi.encode(
             maxSubmissionCost,
-            nativeTokenTotalFee,
-            callHookData
+            callHookData,
+            nativeTokenTotalFee
         );
         bytes memory routerEncodedData = abi.encode(user, userEncodedData);
 
         return routerEncodedData;
     }
+
+    event ERC20InboxRetryableTicket(
+        address from,
+        address to,
+        uint256 l2CallValue,
+        uint256 maxGas,
+        uint256 gasPrice,
+        uint256 tokenTotalFeeAmount,
+        bytes data
+    );
 }
