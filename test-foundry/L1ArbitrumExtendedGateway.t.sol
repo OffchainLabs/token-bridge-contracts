@@ -67,6 +67,41 @@ abstract contract L1ArbitrumExtendedGatewayTest is Test {
         assertEq(exitData.length, 0, "Invalid exitData");
     }
 
+    function test_transferExitAndCall_ExecuteCall(
+        uint256 exitNum,
+        address initialDestination
+    ) public {
+        bytes memory newData;
+        bytes memory data = abi.encode("fun()");
+        address newDestination = address(new TestExitReceiver());
+
+        // check events
+        vm.expectEmit(true, true, true, true);
+        emit ExitHookTriggered(initialDestination, exitNum, data);
+
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawRedirected(initialDestination, newDestination, exitNum, newData, data, true);
+
+        // do it
+        vm.prank(initialDestination);
+        L1ArbitrumExtendedGateway(address(l1Gateway)).transferExitAndCall(
+            exitNum,
+            initialDestination,
+            newDestination,
+            newData,
+            data
+        );
+
+        // check exit data is properly updated
+        bytes32 exitId = keccak256(abi.encode(exitNum, initialDestination));
+        (bool isExit, address exitTo, bytes memory exitData) = L1ArbitrumExtendedGateway(
+            address(l1Gateway)
+        ).redirectedExits(exitId);
+        assertEq(isExit, true, "Invalid isExit");
+        assertEq(exitTo, newDestination, "Invalid exitTo");
+        assertEq(exitData.length, 0, "Invalid exitData");
+    }
+
     function test_transferExitAndCall_revert_NotExpectedSender() public {
         address nonSender = address(800);
         vm.expectRevert("NOT_EXPECTED_SENDER");
@@ -107,6 +142,24 @@ abstract contract L1ArbitrumExtendedGatewayTest is Test {
         );
     }
 
+    function test_transferExitAndCall_revert_TransferHookFail(
+        uint256 exitNum,
+        address initialDestination
+    ) public {
+        bytes memory data = abi.encode("failIt");
+        address newDestination = address(new TestExitReceiver());
+
+        vm.prank(initialDestination);
+        vm.expectRevert("TRANSFER_HOOK_FAIL");
+        L1ArbitrumExtendedGateway(address(l1Gateway)).transferExitAndCall(
+            exitNum,
+            initialDestination,
+            newDestination,
+            "",
+            data
+        );
+    }
+
     /////
     /// Event declarations
     /////
@@ -118,4 +171,18 @@ abstract contract L1ArbitrumExtendedGatewayTest is Test {
         bytes data,
         bool madeExternalCall
     );
+    event ExitHookTriggered(address sender, uint256 exitNum, bytes data);
+}
+
+contract TestExitReceiver is ITradeableExitReceiver {
+    event ExitHookTriggered(address sender, uint256 exitNum, bytes data);
+
+    function onExitTransfer(
+        address sender,
+        uint256 exitNum,
+        bytes calldata data
+    ) external override returns (bool) {
+        emit ExitHookTriggered(sender, exitNum, data);
+        return keccak256(data) != keccak256(abi.encode("failIt"));
+    }
 }
