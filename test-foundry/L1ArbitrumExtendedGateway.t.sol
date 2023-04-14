@@ -35,7 +35,39 @@ abstract contract L1ArbitrumExtendedGatewayTest is Test {
         assertEq(newData.length, 0, "Invalid _newData");
     }
 
-    function test_transferExitAndCall_EmptyData(
+    function test_getExternalCall_Redirected(
+        uint256 exitNum,
+        address initialDest,
+        address newDest,
+        bytes memory data
+    ) public {
+        // redirect
+        vm.prank(initialDest);
+        L1ArbitrumExtendedGateway(address(l1Gateway)).transferExitAndCall(
+            exitNum,
+            initialDest,
+            newDest,
+            "",
+            ""
+        );
+
+        // check getExternalCall returns new destination
+        (address target, bytes memory extData) = L1ArbitrumExtendedGateway(address(l1Gateway))
+            .getExternalCall(exitNum, initialDest, "");
+        assertEq(target, newDest, "Invalid dest");
+        assertEq(extData.length, 0, "Invalid data");
+
+        // check exit redirection is properly stored
+        bytes32 exitId = keccak256(abi.encode(exitNum, initialDest));
+        (bool isExit, address newTo, bytes memory newData) = L1ArbitrumExtendedGateway(
+            address(l1Gateway)
+        ).redirectedExits(exitId);
+        assertEq(isExit, true, "Invalid isExit");
+        assertEq(newTo, newDest, "Invalid _newTo");
+        assertEq(newData.length, 0, "Invalid _newData");
+    }
+
+    function test_transferExitAndCall_EmptyData_NotRedirected(
         uint256 exitNum,
         address initialDestination,
         address newDestination
@@ -67,7 +99,44 @@ abstract contract L1ArbitrumExtendedGatewayTest is Test {
         assertEq(exitData.length, 0, "Invalid exitData");
     }
 
-    function test_transferExitAndCall_ExecuteCall(
+    function test_transferExitAndCall_EmptyData_Redirected(
+        uint256 exitNum,
+        address initialDestination
+    ) public {
+        bytes memory data;
+        address intermediateDestination = address(new TestExitReceiver());
+
+        // transfer exit
+        vm.prank(initialDestination);
+        L1ArbitrumExtendedGateway(address(l1Gateway)).transferExitAndCall(
+            exitNum,
+            initialDestination,
+            intermediateDestination,
+            "",
+            data
+        );
+
+        address finalDestination = address(new TestExitReceiver());
+        vm.prank(intermediateDestination);
+        L1ArbitrumExtendedGateway(address(l1Gateway)).transferExitAndCall(
+            exitNum,
+            initialDestination,
+            finalDestination,
+            "",
+            data
+        );
+
+        // check exit data is properly updated
+        bytes32 exitId = keccak256(abi.encode(exitNum, initialDestination));
+        (bool isExit, address exitTo, bytes memory exitData) = L1ArbitrumExtendedGateway(
+            address(l1Gateway)
+        ).redirectedExits(exitId);
+        assertEq(isExit, true, "Invalid isExit");
+        assertEq(exitTo, finalDestination, "Invalid exitTo");
+        assertEq(exitData.length, 0, "Invalid exitData");
+    }
+
+    function test_transferExitAndCall_NonEmptyData(
         uint256 exitNum,
         address initialDestination
     ) public {
@@ -99,6 +168,43 @@ abstract contract L1ArbitrumExtendedGatewayTest is Test {
         ).redirectedExits(exitId);
         assertEq(isExit, true, "Invalid isExit");
         assertEq(exitTo, newDestination, "Invalid exitTo");
+        assertEq(exitData.length, 0, "Invalid exitData");
+    }
+
+    function test_transferExitAndCall_NonEmptyData_Redirected(
+        uint256 exitNum,
+        address initialDestination
+    ) public {
+        bytes memory data = abi.encode("run()");
+        address intermediateDestination = address(new TestExitReceiver());
+
+        // transfer exit
+        vm.prank(initialDestination);
+        L1ArbitrumExtendedGateway(address(l1Gateway)).transferExitAndCall(
+            exitNum,
+            initialDestination,
+            intermediateDestination,
+            "",
+            data
+        );
+
+        address finalDestination = address(new TestExitReceiver());
+        vm.prank(intermediateDestination);
+        L1ArbitrumExtendedGateway(address(l1Gateway)).transferExitAndCall(
+            exitNum,
+            initialDestination,
+            finalDestination,
+            "",
+            data
+        );
+
+        // check exit data is properly updated
+        bytes32 exitId = keccak256(abi.encode(exitNum, initialDestination));
+        (bool isExit, address exitTo, bytes memory exitData) = L1ArbitrumExtendedGateway(
+            address(l1Gateway)
+        ).redirectedExits(exitId);
+        assertEq(isExit, true, "Invalid isExit");
+        assertEq(exitTo, finalDestination, "Invalid exitTo");
         assertEq(exitData.length, 0, "Invalid exitData");
     }
 
@@ -157,6 +263,36 @@ abstract contract L1ArbitrumExtendedGatewayTest is Test {
             newDestination,
             "",
             data
+        );
+    }
+
+    function test_transferExitAndCall_revert_TransferHookFail_Redirected(
+        uint256 exitNum,
+        address initialDestination
+    ) public {
+        bytes memory data = abi.encode("abc");
+        address intermediateDestination = address(new TestExitReceiver());
+
+        vm.prank(initialDestination);
+        L1ArbitrumExtendedGateway(address(l1Gateway)).transferExitAndCall(
+            exitNum,
+            initialDestination,
+            intermediateDestination,
+            "",
+            data
+        );
+
+        bytes memory failData = abi.encode("failIt");
+        address finalDestination = address(new TestExitReceiver());
+
+        vm.prank(intermediateDestination);
+        vm.expectRevert("TRANSFER_HOOK_FAIL");
+        L1ArbitrumExtendedGateway(address(l1Gateway)).transferExitAndCall(
+            exitNum,
+            initialDestination,
+            finalDestination,
+            "",
+            failData
         );
     }
 
