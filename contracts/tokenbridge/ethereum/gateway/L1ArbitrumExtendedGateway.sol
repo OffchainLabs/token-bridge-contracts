@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-pragma solidity ^0.6.11;
+pragma solidity ^0.8.0;
 
 import "../../libraries/ITransferAndCall.sol";
 
@@ -78,7 +78,7 @@ abstract contract L1ArbitrumExtendedGateway is L1ArbitrumGateway {
         setRedirectedExit(_exitNum, _initialDestination, _newDestination, _newData);
 
         if (_data.length > 0) {
-            require(_newDestination.isContract(), "TO_NOT_CONTRACT");
+            require(Address.isContract(_newDestination), "TO_NOT_CONTRACT");
             bool success = ITradeableExitReceiver(_newDestination).onExitTransfer(
                 expectedSender,
                 _exitNum,

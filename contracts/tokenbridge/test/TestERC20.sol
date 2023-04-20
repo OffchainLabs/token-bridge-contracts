@@ -16,10 +16,10 @@
  * limitations under the License.
  */
 
-pragma solidity ^0.6.11;
+pragma solidity ^0.8.0;
 
 import "../libraries/aeERC20.sol";
-import "@openzeppelin/contracts-upgradeable/drafts/ERC20PermitUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/draft-ERC20PermitUpgradeable.sol";
 
 contract TestERC20 is aeERC20 {
     constructor() public {

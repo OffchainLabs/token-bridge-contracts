@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
-pragma solidity ^0.6.11;
+pragma solidity ^0.8.0;
 
 import "../libraries/aeERC20.sol";
 import "../ethereum/ICustomToken.sol";
 import "../ethereum/gateway/L1CustomGateway.sol";
 import "../ethereum/gateway/L1GatewayRouter.sol";
-import "@openzeppelin/contracts/GSN/Context.sol";
+import "@openzeppelin/contracts/utils/Context.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/math/SafeMath.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 interface IL1CustomGateway {
     function registerTokenToL2(
@@ -49,7 +49,7 @@ contract TestCustomTokenL1 is aeERC20, ICustomToken {
         address sender,
         address recipient,
         uint256 amount
-    ) public virtual override(ERC20Upgradeable, ICustomToken) returns (bool) {
+    ) public virtual override(IERC20Upgradeable, ERC20Upgradeable, ICustomToken) returns (bool) {
         return ERC20Upgradeable.transferFrom(sender, recipient, amount);
     }
 
@@ -57,7 +57,7 @@ contract TestCustomTokenL1 is aeERC20, ICustomToken {
         public
         view
         virtual
-        override(ERC20Upgradeable, ICustomToken)
+        override(IERC20Upgradeable, ERC20Upgradeable, ICustomToken)
         returns (uint256)
     {
         return ERC20Upgradeable.balanceOf(account);
@@ -66,7 +66,7 @@ contract TestCustomTokenL1 is aeERC20, ICustomToken {
     /// @dev we only set shouldRegisterGateway to true when in `registerTokenOnL2`
     function isArbitrumEnabled() external view override returns (uint8) {
         require(shouldRegisterGateway, "NOT_EXPECTED_CALL");
-        return uint8(0xa4b1);
+        return uint8(0xb1);
     }
 
     function registerTokenOnL2(

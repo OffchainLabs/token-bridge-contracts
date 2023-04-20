@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-pragma solidity ^0.6.11;
+pragma solidity ^0.8.0;
 
 import "../ProxyUtil.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
@@ -35,16 +35,6 @@ abstract contract GatewayRouter is TokenGateway, IGatewayRouter {
 
     mapping(address => address) public l1TokenToGateway;
     address public override defaultGateway;
-
-    event TransferRouted(
-        address indexed token,
-        address indexed _userFrom,
-        address indexed _userTo,
-        address gateway
-    );
-
-    event GatewaySet(address indexed l1Token, address indexed gateway);
-    event DefaultGatewayUpdated(address newDefaultGateway);
 
     function postUpgradeInit() external {
         // it is assumed the L2 Arbitrum Gateway contract is behind a Proxy controlled by a proxy admin
