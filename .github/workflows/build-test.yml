@@ -1,0 +1,21 @@
+name: Build and test
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [opened, synchronize]
+  push:
+
+jobs:
+  test-unit:
+    name: Test storage layout
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install packages
+        run: yarn
+
+      - name: Build
+        run: yarn build
+
+      - name: Test Storage Layouts
+        run: yarn run test:storage
