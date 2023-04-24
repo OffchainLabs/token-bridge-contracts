@@ -16,12 +16,10 @@
  * limitations under the License.
  */
 
-pragma solidity ^0.6.11;
+pragma solidity ^0.8.0;
 
 import "./L2CustomGateway.sol";
-
-import "@openzeppelin/contracts/math/SafeMath.sol";
-import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
  * @title   L2 Gateway for reverse "custom" bridging functionality
@@ -58,6 +56,6 @@ contract L2ReverseCustomGateway is L2CustomGateway {
         // and after to calculate the amount of tokens that were transferred
         IERC20(_l2Token).safeTransferFrom(_from, address(this), _amount);
         uint256 postBalance = IERC20(_l2Token).balanceOf(address(this));
-        return SafeMath.sub(postBalance, prevBalance);
+        return postBalance - prevBalance;
     }
 }

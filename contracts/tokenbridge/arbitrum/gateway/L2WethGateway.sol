@@ -16,12 +16,12 @@
  * limitations under the License.
  */
 
-pragma solidity ^0.6.11;
+pragma solidity ^0.8.0;
 
 import "./L2ArbitrumGateway.sol";
 import "../../libraries/IWETH9.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract L2WethGateway is L2ArbitrumGateway {
     using SafeERC20 for IERC20;

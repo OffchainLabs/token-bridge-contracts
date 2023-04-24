@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-pragma solidity ^0.6.11;
+pragma solidity ^0.8.0;
 
 import { ArbitrumEnabledToken } from "../ICustomToken.sol";
 import "./L1ArbitrumExtendedGateway.sol";
@@ -113,7 +113,7 @@ contract L1CustomGateway is L1ArbitrumExtendedGateway, ICustomGateway {
      * @param l1ERC20 address of L1 token
      * @return L2 address of a bridged ERC20 token
      */
-    function calculateL2TokenAddress(address l1ERC20) public view override returns (address) {
+    function calculateL2TokenAddress(address l1ERC20) public view override(ITokenGateway, TokenGateway) returns (address) {
         return l1ToL2Token[l1ERC20];
     }
 
@@ -151,7 +151,7 @@ contract L1CustomGateway is L1ArbitrumExtendedGateway, ICustomGateway {
         address _creditBackAddress
     ) public payable virtual returns (uint256) {
         require(
-            ArbitrumEnabledToken(msg.sender).isArbitrumEnabled() == uint8(0xa4b1),
+            ArbitrumEnabledToken(msg.sender).isArbitrumEnabled() == uint8(0xb1),
             "NOT_ARB_ENABLED"
         );
 

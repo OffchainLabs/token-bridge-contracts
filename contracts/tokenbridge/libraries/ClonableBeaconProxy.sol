@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // solhint-disable-next-line compiler-version
-pragma solidity >=0.6.0 <0.8.0;
+pragma solidity >=0.6.0 <0.9.0;
 
-import "@openzeppelin/contracts/proxy/BeaconProxy.sol";
-import "@openzeppelin/contracts/proxy/UpgradeableBeacon.sol";
+import "@openzeppelin/contracts/proxy/beacon/BeaconProxy.sol";
+import "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import "@openzeppelin/contracts/utils/Create2.sol";
 
 interface ProxySetter {
@@ -11,7 +11,7 @@ interface ProxySetter {
 }
 
 contract ClonableBeaconProxy is BeaconProxy {
-    constructor() public BeaconProxy(ProxySetter(msg.sender).beacon(), "") {}
+    constructor() BeaconProxy(ProxySetter(msg.sender).beacon(), "") {}
 }
 
 contract BeaconProxyFactory is ProxySetter {

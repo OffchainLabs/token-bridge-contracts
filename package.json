@@ -13,11 +13,12 @@
     "lint": "yarn lint:solidity && yarn lint:js",
     "format": "prettier './**/*.{js,json,md,ts,yml,sol}' --write && yarn lint --fix",
     "test:compatibility": "yarn run build:0.6 && yarn run build:0.7 && yarn run build:0.8",
-    "test": "hardhat test test/*",
+    "test": "hardhat test test/*.ts",
     "test:e2e": "hardhat test test/*.e2e.ts",
     "test:l1": "hardhat test test/*.l1.ts",
     "test:l2": "hardhat test test/*.l2.ts",
     "test:unit": "forge test",
+    "test:storage": "./scripts/storage_layout_test.bash",
     "typechain": "hardhat typechain",
     "deploy:tokenbridge": "hardhat run scripts/deploy_token_bridge_l1.ts --network mainnet",
     "gen:uml": "sol2uml ./contracts/tokenbridge/arbitrum,./contracts/tokenbridge/ethereum,./contracts/tokenbridge/libraries -o ./gatewayUML.svg",
@@ -32,8 +33,8 @@
   ],
   "dependencies": {
     "@arbitrum/nitro-contracts": "^1.0.0-beta.8",
-    "@openzeppelin/contracts": "3.4.2",
-    "@openzeppelin/contracts-upgradeable": "3.4.2"
+    "@openzeppelin/contracts": "^4.8.3",
+    "@openzeppelin/contracts-upgradeable": "^4.8.3"
   },
   "devDependencies": {
     "@nomiclabs/hardhat-ethers": "^2.0.1",
@@ -63,7 +64,7 @@
     "prettier": "^2.3.2",
     "prettier-plugin-solidity": "^1.0.0-beta.17",
     "prompts": "^2.4.1",
-    "sol2uml": "^1.1.29",
+    "sol2uml": "^2.5.4",
     "solhint": "^3.2.0",
     "solhint-plugin-prettier": "^0.0.5",
     "solidity-coverage": "v0.7.17",
@@ -73,6 +74,6 @@
     "typescript": "^4.2.2"
   },
   "optionalDependencies": {
-    "@openzeppelin/upgrades-core": "^1.7.6"
+    "@openzeppelin/upgrades-core": "^1.24.1"
   }
 }
