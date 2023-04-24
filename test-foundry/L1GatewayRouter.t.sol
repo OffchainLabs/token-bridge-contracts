@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-pragma solidity 0.6.11;
-pragma experimental ABIEncoderV2;
+pragma solidity ^0.8.0;
 
 import { GatewayRouterTest } from "./GatewayRouter.t.sol";
 import { L1GatewayRouter } from "contracts/tokenbridge/ethereum/gateway/L1GatewayRouter.sol";
