@@ -113,6 +113,31 @@ contract L1GatewayRouterTest is GatewayRouterTest {
         assertEq(seqNum, 0, "Invalid seqNum");
     }
 
+    function test_setOwner(address newOwner) public {
+        vm.assume(newOwner != address(0));
+
+        vm.prank(owner);
+        l1Router.setOwner(newOwner);
+
+        assertEq(l1Router.owner(), newOwner, "Invalid owner");
+    }
+
+    function test_setOwner_revert_InvalidOwner() public {
+        address invalidOwner = address(0);
+
+        vm.prank(owner);
+        vm.expectRevert("INVALID_OWNER");
+        l1Router.setOwner(invalidOwner);
+    }
+
+    function test_setOwner_revert_OnlyOwner() public {
+        address nonOwner = address(250);
+
+        vm.prank(nonOwner);
+        vm.expectRevert("ONLY_OWNER");
+        l1Router.setOwner(address(300));
+    }
+
     ////
     // Event declarations
     ////
