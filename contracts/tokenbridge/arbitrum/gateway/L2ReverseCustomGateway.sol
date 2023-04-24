@@ -19,8 +19,6 @@
 pragma solidity ^0.8.0;
 
 import "./L2CustomGateway.sol";
-
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
@@ -58,6 +56,6 @@ contract L2ReverseCustomGateway is L2CustomGateway {
         // and after to calculate the amount of tokens that were transferred
         IERC20(_l2Token).safeTransferFrom(_from, address(this), _amount);
         uint256 postBalance = IERC20(_l2Token).balanceOf(address(this));
-        return SafeMath.sub(postBalance, prevBalance);
+        return postBalance - prevBalance;
     }
 }

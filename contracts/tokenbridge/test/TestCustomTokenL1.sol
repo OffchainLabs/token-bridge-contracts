@@ -8,7 +8,6 @@ import "../ethereum/gateway/L1CustomGateway.sol";
 import "../ethereum/gateway/L1GatewayRouter.sol";
 import "@openzeppelin/contracts/utils/Context.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 interface IL1CustomGateway {
     function registerTokenToL2(
