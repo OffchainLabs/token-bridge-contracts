@@ -11,7 +11,7 @@ interface ProxySetter {
 }
 
 contract ClonableBeaconProxy is BeaconProxy {
-    constructor() public BeaconProxy(ProxySetter(msg.sender).beacon(), "") {}
+    constructor() BeaconProxy(ProxySetter(msg.sender).beacon(), "") {}
 }
 
 contract BeaconProxyFactory is ProxySetter {

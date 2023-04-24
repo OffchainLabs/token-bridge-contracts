@@ -35,7 +35,7 @@ contract TestCustomTokenL1 is aeERC20, ICustomToken {
     address public router;
     bool private shouldRegisterGateway;
 
-    constructor(address _gateway, address _router) public {
+    constructor(address _gateway, address _router) {
         gateway = _gateway;
         router = _router;
         aeERC20._initialize("TestCustomToken", "CARB", uint8(18));
@@ -105,7 +105,7 @@ contract TestCustomTokenL1 is aeERC20, ICustomToken {
 }
 
 contract MintableTestCustomTokenL1 is L1MintableToken, TestCustomTokenL1 {
-    constructor(address _gateway, address _router) public TestCustomTokenL1(_gateway, _router) {}
+    constructor(address _gateway, address _router) TestCustomTokenL1(_gateway, _router) {}
 
     modifier onlyGateway() {
         require(msg.sender == gateway, "ONLY_l1GATEWAY");
@@ -140,10 +140,7 @@ contract MintableTestCustomTokenL1 is L1MintableToken, TestCustomTokenL1 {
 }
 
 contract ReverseTestCustomTokenL1 is L1ReverseToken, MintableTestCustomTokenL1 {
-    constructor(address _gateway, address _router)
-        public
-        MintableTestCustomTokenL1(_gateway, _router)
-    {}
+    constructor(address _gateway, address _router) MintableTestCustomTokenL1(_gateway, _router) {}
 
     function bridgeBurn(address account, uint256 amount)
         public

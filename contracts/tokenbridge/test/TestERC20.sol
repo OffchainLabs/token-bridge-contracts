@@ -22,7 +22,7 @@ import "../libraries/aeERC20.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/draft-ERC20PermitUpgradeable.sol";
 
 contract TestERC20 is aeERC20 {
-    constructor() public {
+    constructor() {
         aeERC20._initialize("IntArbTestToken", "IARB", uint8(18));
     }
 

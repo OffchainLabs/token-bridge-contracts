@@ -44,7 +44,7 @@ contract Whitelist {
     event OwnerUpdated(address newOwner);
     event WhitelistUpgraded(address newWhitelist, address[] targets);
 
-    constructor() public {
+    constructor() {
         owner = msg.sender;
     }
 

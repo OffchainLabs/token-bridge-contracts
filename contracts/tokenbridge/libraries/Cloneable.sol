@@ -25,7 +25,7 @@ contract Cloneable is ICloneable {
 
     bool private isMasterCopy;
 
-    constructor() public {
+    constructor() {
         isMasterCopy = true;
     }
 

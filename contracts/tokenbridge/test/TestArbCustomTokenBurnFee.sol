@@ -21,10 +21,10 @@ pragma solidity ^0.8.0;
 import "./TestArbCustomToken.sol";
 
 contract TestArbCustomTokenBurnFee is TestArbCustomToken {
-    constructor(address _l2Gateway, address _l1Address)
-        public
-        TestArbCustomToken(_l2Gateway, _l1Address)
-    {}
+    constructor(
+        address _l2Gateway,
+        address _l1Address
+    ) TestArbCustomToken(_l2Gateway, _l1Address) {}
 
     // this token transfer extra 1 wei from the sender as fee when it burn token
     // alternatively, it can also be a callback that pass execution to the user
