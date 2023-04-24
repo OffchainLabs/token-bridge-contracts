@@ -9,3 +9,6 @@ deployment.json
 #Foundry files
 out/
 forge-cache/
+
+#Storage layout test files
+test/storage/*-old.dot

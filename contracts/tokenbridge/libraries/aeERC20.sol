@@ -16,9 +16,9 @@
  * limitations under the License.
  */
 
-pragma solidity ^0.6.11;
+pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts-upgradeable/drafts/ERC20PermitUpgradeable.sol";
+import "../libraries/draft-ERC20PermitUpgradeable.sol";
 import "./TransferAndCallToken.sol";
 
 /// @title Arbitrum extended ERC20
@@ -27,7 +27,7 @@ import "./TransferAndCallToken.sol";
 contract aeERC20 is ERC20PermitUpgradeable, TransferAndCallToken {
     using AddressUpgradeable for address;
 
-    constructor() public initializer {
+    constructor() initializer {
         // this is expected to be used as the logic contract behind a proxy
         // override the constructor if you don't wish to use the initialize method
     }

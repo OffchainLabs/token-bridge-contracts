@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-pragma solidity ^0.6.11;
+pragma solidity ^0.8.0;
 
 import "./ITokenGateway.sol";
 import "@openzeppelin/contracts/utils/Address.sol";

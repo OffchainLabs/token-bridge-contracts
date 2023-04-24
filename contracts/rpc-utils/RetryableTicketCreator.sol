@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // solhint-disable-next-line compiler-version
-pragma solidity >=0.4.21 <0.7.0;
+pragma solidity >=0.4.21 <0.9.0;
 
 interface RetryableTicketCreator {
     /**

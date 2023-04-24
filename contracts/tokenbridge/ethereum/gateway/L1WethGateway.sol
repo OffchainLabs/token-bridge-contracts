@@ -16,10 +16,10 @@
  * limitations under the License.
  */
 
-pragma solidity ^0.6.11;
+pragma solidity ^0.8.0;
 
 import "@arbitrum/nitro-contracts/src/bridge/IInbox.sol";
-import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../../libraries/IWETH9.sol";
 import "../../test/TestWETH9.sol";
@@ -101,7 +101,7 @@ contract L1WethGateway is L1ArbitrumExtendedGateway {
      * @param l1ERC20 address of L1 token
      * @return L2 address of a bridged ERC20 token
      */
-    function calculateL2TokenAddress(address l1ERC20) public view override returns (address) {
+    function calculateL2TokenAddress(address l1ERC20) public view override(ITokenGateway, TokenGateway) returns (address) {
         if (l1ERC20 != l1Weth) {
             // invalid L1 weth address
             return address(0);
