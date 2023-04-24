@@ -2,7 +2,7 @@
 // solhint-disable-next-line compiler-version
 pragma solidity >0.6.0 <0.9.0;
 
-import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import "./ERC20Upgradeable.sol";
 import "./ITransferAndCall.sol";
 
 // Implementation from https://github.com/smartcontractkit/LinkToken/blob/master/contracts/v0.6/TransferAndCallToken.sol
