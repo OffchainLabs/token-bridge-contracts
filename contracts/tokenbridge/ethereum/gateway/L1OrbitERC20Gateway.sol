@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-pragma solidity ^0.6.11;
+pragma solidity ^0.8.0;
 
 import "./L1ERC20Gateway.sol";
 import { IERC20Inbox } from "../L1ArbitrumMessenger.sol";

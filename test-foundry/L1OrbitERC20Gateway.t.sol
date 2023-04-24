@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-pragma solidity 0.6.11;
-pragma experimental ABIEncoderV2;
+pragma solidity ^0.8.0;
 
 import { L1ERC20GatewayTest } from "./L1ERC20Gateway.t.sol";
 import "contracts/tokenbridge/ethereum/gateway/L1OrbitERC20Gateway.sol";

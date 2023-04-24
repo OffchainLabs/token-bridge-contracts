@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-pragma solidity 0.6.11;
-pragma experimental ABIEncoderV2;
+pragma solidity ^0.8.0;
 
 import { L1ArbitrumExtendedGatewayTest } from "./L1ArbitrumExtendedGateway.t.sol";
 import "contracts/tokenbridge/ethereum/gateway/L1ERC20Gateway.sol";
@@ -238,11 +237,11 @@ contract L1ERC20GatewayTest is L1ArbitrumExtendedGatewayTest {
         );
     }
 
-    function test_outboundTransferCustomRefund_revert_AmountExceedsAllowance() public {
+    function test_outboundTransferCustomRefund_revert_InsufficientAllowance() public {
         uint256 tooManyTokens = 500 ether;
 
         vm.prank(router);
-        vm.expectRevert("ERC20: transfer amount exceeds balance");
+        vm.expectRevert("ERC20: insufficient allowance");
         l1Gateway.outboundTransferCustomRefund{ value: 1 ether }(
             address(token),
             user,
