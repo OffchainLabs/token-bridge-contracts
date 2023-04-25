@@ -39,6 +39,8 @@ contract L1GatewayRouter is
     ERC165,
     IL1GatewayRouter
 {
+    using Address for address;
+
     address public override owner;
     address public override inbox;
 
@@ -189,7 +191,7 @@ contract L1GatewayRouter is
             "NOT_ARB_ENABLED"
         );
 
-        require(Address.isContract(_gateway), "NOT_TO_CONTRACT");
+        require(_gateway.isContract(), "NOT_TO_CONTRACT");
 
         address currGateway = getGateway(msg.sender);
         if (currGateway != address(0) && currGateway != defaultGateway) {
