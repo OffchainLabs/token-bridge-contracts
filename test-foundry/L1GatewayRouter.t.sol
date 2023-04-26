@@ -6,10 +6,12 @@ import { GatewayRouterTest } from "./GatewayRouter.t.sol";
 import { L1GatewayRouter } from "contracts/tokenbridge/ethereum/gateway/L1GatewayRouter.sol";
 import { L2GatewayRouter } from "contracts/tokenbridge/arbitrum/gateway/L2GatewayRouter.sol";
 import { L1ERC20Gateway } from "contracts/tokenbridge/ethereum/gateway/L1ERC20Gateway.sol";
+import { L1CustomGateway } from "contracts/tokenbridge/ethereum/gateway/L1CustomGateway.sol";
 import { InboxMock } from "contracts/tokenbridge/test/InboxMock.sol";
+import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract L1GatewayRouterTest is GatewayRouterTest {
-    L1GatewayRouter l1Router;
+    L1GatewayRouter public l1Router;
 
     address public owner = makeAddr("owner");
     address public defaultGateway = makeAddr("defaultGateway");
@@ -77,6 +79,9 @@ contract L1GatewayRouterTest is GatewayRouterTest {
 
         // event checkers
         vm.expectEmit(true, true, true, true);
+        emit DefaultGatewayUpdated(address(newL1DefaultGateway));
+
+        vm.expectEmit(true, true, true, true);
         emit TicketData(maxSubmissionCost);
 
         vm.expectEmit(true, true, true, true);
@@ -113,6 +118,81 @@ contract L1GatewayRouterTest is GatewayRouterTest {
         assertEq(seqNum, 0, "Invalid seqNum");
     }
 
+    function test_setGateway() public {
+        // create gateway
+        L1CustomGateway customGateway = new L1CustomGateway();
+        address l2Counterpart = makeAddr("l2Counterpart");
+        customGateway.initialize(l2Counterpart, address(l1Router), address(inbox), owner);
+
+        // create token
+        ERC20 customToken = new ERC20("X", "Y");
+        vm.deal(address(customToken), 100 ether);
+        vm.mockCall(
+            address(customToken),
+            abi.encodeWithSignature("isArbitrumEnabled()"),
+            abi.encode(uint8(0xb1))
+        );
+
+        // register token to gateway
+        vm.prank(address(customToken));
+        customGateway.registerTokenToL2{ value: 4000040000 }(
+            makeAddr("tokenL2Address"),
+            1000000000,
+            3,
+            40000,
+            makeAddr("creditBackAddress")
+        );
+
+        // set gateway params
+        uint256 maxSubmissionCost = 40000;
+        uint256 maxGas = 1000000000;
+        uint256 gasPrice = 3;
+        uint256 value = maxSubmissionCost + maxGas * gasPrice;
+        address creditBackAddress = makeAddr("creditBackAddress");
+
+        // expect events
+        emit GatewaySet(address(customToken), address(customGateway));
+
+        vm.expectEmit(true, true, true, true);
+        emit TicketData(maxSubmissionCost);
+
+        vm.expectEmit(true, true, true, true);
+        emit RefundAddresses(creditBackAddress, creditBackAddress);
+
+        vm.expectEmit(true, true, true, true);
+        address[] memory _tokenArr = new address[](1);
+        _tokenArr[0] = address(customToken);
+        address[] memory _gatewayArr = new address[](1);
+        _gatewayArr[0] = l2Counterpart;
+        emit InboxRetryableTicket(
+            address(l1Router),
+            counterpartGateway,
+            0,
+            maxGas,
+            abi.encodeWithSelector(L2GatewayRouter.setGateway.selector, _tokenArr, _gatewayArr)
+        );
+
+        // set gateway
+        vm.prank(address(customToken));
+        uint256 seqNum = l1Router.setGateway{ value: value }(
+            address(customGateway),
+            maxGas,
+            gasPrice,
+            maxSubmissionCost,
+            creditBackAddress
+        );
+
+        ///// checks
+
+        assertEq(
+            l1Router.l1TokenToGateway(address(customToken)),
+            address(customGateway),
+            "Gateway not set"
+        );
+
+        assertEq(seqNum, 0, "Invalid seqNum");
+    }
+
     function test_setOwner(address newOwner) public {
         vm.assume(newOwner != address(0));
 
@@ -141,6 +221,9 @@ contract L1GatewayRouterTest is GatewayRouterTest {
     ////
     // Event declarations
     ////
+    event GatewaySet(address indexed l1Token, address indexed gateway);
+    event DefaultGatewayUpdated(address newDefaultGateway);
+
     event DepositInitiated(
         address l1Token,
         address indexed _from,
