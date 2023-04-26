@@ -193,6 +193,126 @@ contract L1GatewayRouterTest is GatewayRouterTest {
         assertEq(seqNum, 0, "Invalid seqNum");
     }
 
+    function test_setGateway_revert_NotArbEnabled() public {
+        address nonArbEnabledToken = address(new ERC20("X", "Y"));
+        vm.deal(nonArbEnabledToken, 100 ether);
+        vm.mockCall(
+            nonArbEnabledToken,
+            abi.encodeWithSignature("isArbitrumEnabled()"),
+            abi.encode(uint8(0xb2))
+        );
+
+        vm.prank(nonArbEnabledToken);
+        vm.expectRevert("NOT_ARB_ENABLED");
+        l1Router.setGateway{ value: 400000 }(
+            makeAddr("gateway"),
+            100000,
+            3,
+            200,
+            makeAddr("creditback")
+        );
+    }
+
+    function test_setGateway_revert_NotToContract() public {
+        address token = address(new ERC20("X", "Y"));
+        vm.deal(token, 100 ether);
+        vm.mockCall(token, abi.encodeWithSignature("isArbitrumEnabled()"), abi.encode(uint8(0xb1)));
+
+        address gatewayNotContract = makeAddr("not contract");
+
+        vm.prank(token);
+        vm.expectRevert("NOT_TO_CONTRACT");
+        l1Router.setGateway{ value: 400000 }(
+            gatewayNotContract,
+            100000,
+            3,
+            200,
+            makeAddr("creditback")
+        );
+    }
+
+    function test_setGateway_NoUpdateToDifferentAddress() public {
+        // create gateway
+        address initialGateway = address(new L1CustomGateway());
+        address l2Counterpart = makeAddr("l2Counterpart");
+        L1CustomGateway(initialGateway).initialize(
+            l2Counterpart,
+            address(l1Router),
+            address(inbox),
+            owner
+        );
+
+        // create token
+        address token = address(new ERC20("X", "Y"));
+        vm.deal(address(token), 100 ether);
+        vm.mockCall(
+            address(token),
+            abi.encodeWithSignature("isArbitrumEnabled()"),
+            abi.encode(uint8(0xb1))
+        );
+
+        // retryable params
+        uint256 maxSubmissionCost = 40000;
+        uint256 maxGas = 1000000000;
+        uint256 gasPrice = 3;
+        uint256 value = maxSubmissionCost + maxGas * gasPrice;
+        address creditBackAddress = makeAddr("creditBackAddress");
+
+        // register token to gateway
+        vm.prank(token);
+        L1CustomGateway(initialGateway).registerTokenToL2{ value: value }(
+            makeAddr("tokenL2Address"),
+            maxGas,
+            gasPrice,
+            maxSubmissionCost,
+            creditBackAddress
+        );
+
+        // initially set gateway for token
+        vm.prank(address(token));
+        l1Router.setGateway{ value: value }(
+            initialGateway,
+            maxGas,
+            gasPrice,
+            maxSubmissionCost,
+            creditBackAddress
+        );
+        assertEq(l1Router.l1TokenToGateway(token), initialGateway, "Initial gateway not set");
+
+        //// now try setting different gateway
+        address newGateway = address(new L1CustomGateway());
+
+        vm.prank(token);
+        vm.expectRevert("NO_UPDATE_TO_DIFFERENT_ADDR");
+        l1Router.setGateway{ value: value }(
+            newGateway,
+            maxGas,
+            gasPrice,
+            maxSubmissionCost,
+            creditBackAddress
+        );
+    }
+
+    function test_setGateway_revert_TokenNotHandledByGateway() public {
+        // create gateway
+        L1CustomGateway gateway = new L1CustomGateway();
+
+        // create token
+        address token = address(new ERC20("X", "Y"));
+        vm.deal(token, 100 ether);
+        vm.mockCall(token, abi.encodeWithSignature("isArbitrumEnabled()"), abi.encode(uint8(0xb1)));
+
+        vm.prank(token);
+        vm.expectRevert("TOKEN_NOT_HANDLED_BY_GATEWAY");
+        l1Router.setGateway{ value: 400000 }(
+            address(gateway),
+            100000,
+            3,
+            200,
+            makeAddr("creditback")
+        );
+    }
+
     function test_setOwner(address newOwner) public {
         vm.assume(newOwner != address(0));
 
