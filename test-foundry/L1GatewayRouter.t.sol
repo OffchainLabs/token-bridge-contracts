@@ -8,6 +8,7 @@ import { L2GatewayRouter } from "contracts/tokenbridge/arbitrum/gateway/L2Gatewa
 import { L1ERC20Gateway } from "contracts/tokenbridge/ethereum/gateway/L1ERC20Gateway.sol";
 import { L1CustomGateway } from "contracts/tokenbridge/ethereum/gateway/L1CustomGateway.sol";
 import { InboxMock } from "contracts/tokenbridge/test/InboxMock.sol";
+import { IERC165 } from "contracts/tokenbridge/libraries/IERC165.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract L1GatewayRouterTest is GatewayRouterTest {
@@ -560,6 +561,11 @@ contract L1GatewayRouterTest is GatewayRouterTest {
         assertEq(seqNum, 0, "Invalid seqNum");
     }
 
+    function test_setGateways_revert_notOwner() public {
+        vm.expectRevert("ONLY_OWNER");
+        l1Router.setGateways{ value: 1000 }(new address[](1), new address[](1), 100, 8, 10);
+    }
+
     function test_setOwner(address newOwner) public {
         vm.assume(newOwner != address(0));
 
@@ -583,6 +589,18 @@ contract L1GatewayRouterTest is GatewayRouterTest {
         vm.prank(nonOwner);
         vm.expectRevert("ONLY_OWNER");
         l1Router.setOwner(address(300));
+    }
+
+    function test_supportsInterface(bytes4 iface) public {
+        bool expected = false;
+        if (
+            iface == type(IERC165).interfaceId ||
+            iface == L1GatewayRouter.outboundTransferCustomRefund.selector
+        ) {
+            expected = true;
+        }
+
+        assertEq(l1Router.supportsInterface(iface), expected, "Interface shouldn't be supported");
     }
 
     ////

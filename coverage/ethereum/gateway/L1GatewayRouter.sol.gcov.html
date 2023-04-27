@@ -1,0 +1,391 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+
+<html lang="en">
+
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <title>LCOV - lcov.info - ethereum/gateway/L1GatewayRouter.sol</title>
+  <link rel="stylesheet" type="text/css" href="../../gcov.css">
+</head>
+
+<body>
+
+  <table width="100%" border=0 cellspacing=0 cellpadding=0>
+    <tr><td class="title">LCOV - code coverage report</td></tr>
+    <tr><td class="ruler"><img src="../../glass.png" width=3 height=3 alt=""></td></tr>
+
+    <tr>
+      <td width="100%">
+        <table cellpadding=1 border=0 width="100%">
+          <tr>
+            <td width="10%" class="headerItem">Current view:</td>
+            <td width="35%" class="headerValue"><a href="../../index.html">top level</a> - <a href="index.html">ethereum/gateway</a> - L1GatewayRouter.sol<span style="font-size: 80%;"> (source / <a href="L1GatewayRouter.sol.func-sort-c.html">functions</a>)</span></td>
+            <td width="5%"></td>
+            <td width="15%"></td>
+            <td width="10%" class="headerCovTableHead">Hit</td>
+            <td width="10%" class="headerCovTableHead">Total</td>
+            <td width="15%" class="headerCovTableHead">Coverage</td>
+          </tr>
+          <tr>
+            <td class="headerItem">Test:</td>
+            <td class="headerValue">lcov.info</td>
+            <td></td>
+            <td class="headerItem">Lines:</td>
+            <td class="headerCovTableEntry">35</td>
+            <td class="headerCovTableEntry">40</td>
+            <td class="headerCovTableEntryMed">87.5 %</td>
+          </tr>
+          <tr>
+            <td class="headerItem">Date:</td>
+            <td class="headerValue">2023-04-27 16:26:32</td>
+            <td></td>
+            <td class="headerItem">Functions:</td>
+            <td class="headerCovTableEntry">7</td>
+            <td class="headerCovTableEntry">9</td>
+            <td class="headerCovTableEntryMed">77.8 %</td>
+          </tr>
+          <tr>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td class="headerItem">Branches:</td>
+            <td class="headerCovTableEntry">13</td>
+            <td class="headerCovTableEntry">18</td>
+            <td class="headerCovTableEntryLo">72.2 %</td>
+          </tr>
+          <tr><td><img src="../../glass.png" width=3 height=3 alt=""></td></tr>
+        </table>
+      </td>
+    </tr>
+
+    <tr><td class="ruler"><img src="../../glass.png" width=3 height=3 alt=""></td></tr>
+  </table>
+
+  <table cellpadding=0 cellspacing=0 border=0>
+    <tr>
+      <td><br></td>
+    </tr>
+    <tr>
+      <td>
+<pre class="sourceHeading">           Branch data     Line data    Source code</pre>
+<pre class="source">
+<a name="1"><span class="lineNum">       1 </span>                :            : // SPDX-License-Identifier: Apache-2.0</a>
+<a name="2"><span class="lineNum">       2 </span>                :            : </a>
+<a name="3"><span class="lineNum">       3 </span>                :            : /*</a>
+<a name="4"><span class="lineNum">       4 </span>                :            :  * Copyright 2020, Offchain Labs, Inc.</a>
+<a name="5"><span class="lineNum">       5 </span>                :            :  *</a>
+<a name="6"><span class="lineNum">       6 </span>                :            :  * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);</a>
+<a name="7"><span class="lineNum">       7 </span>                :            :  * you may not use this file except in compliance with the License.</a>
+<a name="8"><span class="lineNum">       8 </span>                :            :  * You may obtain a copy of the License at</a>
+<a name="9"><span class="lineNum">       9 </span>                :            :  *</a>
+<a name="10"><span class="lineNum">      10 </span>                :            :  *    http://www.apache.org/licenses/LICENSE-2.0</a>
+<a name="11"><span class="lineNum">      11 </span>                :            :  *</a>
+<a name="12"><span class="lineNum">      12 </span>                :            :  * Unless required by applicable law or agreed to in writing, software</a>
+<a name="13"><span class="lineNum">      13 </span>                :            :  * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,</a>
+<a name="14"><span class="lineNum">      14 </span>                :            :  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.</a>
+<a name="15"><span class="lineNum">      15 </span>                :            :  * See the License for the specific language governing permissions and</a>
+<a name="16"><span class="lineNum">      16 </span>                :            :  * limitations under the License.</a>
+<a name="17"><span class="lineNum">      17 </span>                :            :  */</a>
+<a name="18"><span class="lineNum">      18 </span>                :            : </a>
+<a name="19"><span class="lineNum">      19 </span>                :            : pragma solidity ^0.8.0;</a>
+<a name="20"><span class="lineNum">      20 </span>                :            : </a>
+<a name="21"><span class="lineNum">      21 </span>                :            : import &quot;../../libraries/Whitelist.sol&quot;;</a>
+<a name="22"><span class="lineNum">      22 </span>                :            : </a>
+<a name="23"><span class="lineNum">      23 </span>                :            : import { ArbitrumEnabledToken } from &quot;../ICustomToken.sol&quot;;</a>
+<a name="24"><span class="lineNum">      24 </span>                :            : import &quot;../L1ArbitrumMessenger.sol&quot;;</a>
+<a name="25"><span class="lineNum">      25 </span>                :            : import &quot;../../libraries/gateway/GatewayRouter.sol&quot;;</a>
+<a name="26"><span class="lineNum">      26 </span>                :            : import &quot;../../arbitrum/gateway/L2GatewayRouter.sol&quot;;</a>
+<a name="27"><span class="lineNum">      27 </span>                :            : import &quot;../../libraries/ERC165.sol&quot;;</a>
+<a name="28"><span class="lineNum">      28 </span>                :            : import &quot;./IL1GatewayRouter.sol&quot;;</a>
+<a name="29"><span class="lineNum">      29 </span>                :            : import &quot;./IL1ArbitrumGateway.sol&quot;;</a>
+<a name="30"><span class="lineNum">      30 </span>                :            : </a>
+<a name="31"><span class="lineNum">      31 </span>                :            : /**</a>
+<a name="32"><span class="lineNum">      32 </span>                :            :  * @title Handles deposits from Erhereum into Arbitrum. Tokens are routered to their appropriate L1 gateway (Router itself also conforms to the Gateway itnerface).</a>
+<a name="33"><span class="lineNum">      33 </span>                :            :  * @notice Router also serves as an L1-L2 token address oracle.</a>
+<a name="34"><span class="lineNum">      34 </span>                :            :  */</a>
+<a name="35"><span class="lineNum">      35 </span>                :            : contract L1GatewayRouter is</a>
+<a name="36"><span class="lineNum">      36 </span>                :            :     WhitelistConsumer,</a>
+<a name="37"><span class="lineNum">      37 </span>                :            :     L1ArbitrumMessenger,</a>
+<a name="38"><span class="lineNum">      38 </span>                :            :     GatewayRouter,</a>
+<a name="39"><span class="lineNum">      39 </span>                :            :     ERC165,</a>
+<a name="40"><span class="lineNum">      40 </span>                :            :     IL1GatewayRouter</a>
+<a name="41"><span class="lineNum">      41 </span>                :            : {</a>
+<a name="42"><span class="lineNum">      42 </span>                :            :     address public override owner;</a>
+<a name="43"><span class="lineNum">      43 </span>                :            :     address public override inbox;</a>
+<a name="44"><span class="lineNum">      44 </span>                :            : </a>
+<a name="45"><span class="lineNum">      45 </span>                :            :     modifier onlyOwner() {</a>
+<a name="46"><span class="lineNum">      46 </span>                :            :         require(msg.sender == owner, &quot;ONLY_OWNER&quot;);</a>
+<a name="47"><span class="lineNum">      47 </span>                :            :         _;</a>
+<a name="48"><span class="lineNum">      48 </span>                :            :     }</a>
+<a name="49"><span class="lineNum">      49 </span>                :            : </a>
+<a name="50"><span class="lineNum">      50 </span>                :            :     function initialize(</a>
+<a name="51"><span class="lineNum">      51 </span>                :            :         address _owner,</a>
+<a name="52"><span class="lineNum">      52 </span>                :            :         address _defaultGateway,</a>
+<a name="53"><span class="lineNum">      53 </span>                :            :         address, // was _whitelist, now unused</a>
+<a name="54"><span class="lineNum">      54 </span>                :            :         address _counterpartGateway,</a>
+<a name="55"><span class="lineNum">      55 </span>                :            :         address _inbox</a>
+<a name="56"><span class="lineNum">      56 </span>                :            :     ) public {</a>
+<a name="57"><span class="lineNum">      57 </span>                :<span class="lineCov">          4 :         GatewayRouter._initialize(_counterpartGateway, address(0), _defaultGateway);</span></a>
+<a name="58"><span class="lineNum">      58 </span>                :<span class="lineCov">          2 :         owner = _owner;</span></a>
+<a name="59"><span class="lineNum">      59 </span>                :<span class="lineCov">          2 :         WhitelistConsumer.whitelist = address(0);</span></a>
+<a name="60"><span class="lineNum">      60 </span>                :<span class="lineCov">          2 :         inbox = _inbox;</span></a>
+<a name="61"><span class="lineNum">      61 </span>                :            :     }</a>
+<a name="62"><span class="lineNum">      62 </span>                :            : </a>
+<a name="63"><span class="lineNum">      63 </span>                :            :     function setDefaultGateway(</a>
+<a name="64"><span class="lineNum">      64 </span>                :            :         address newL1DefaultGateway,</a>
+<a name="65"><span class="lineNum">      65 </span>                :            :         uint256 _maxGas,</a>
+<a name="66"><span class="lineNum">      66 </span>                :            :         uint256 _gasPriceBid,</a>
+<a name="67"><span class="lineNum">      67 </span>                :            :         uint256 _maxSubmissionCost</a>
+<a name="68"><span class="lineNum">      68 </span>                :            :     ) external payable onlyOwner returns (uint256) {</a>
+<a name="69"><span class="lineNum">      69 </span>                :<span class="lineCov">          1 :         defaultGateway = newL1DefaultGateway;</span></a>
+<a name="70"><span class="lineNum">      70 </span>                :            : </a>
+<a name="71"><span class="lineNum">      71 </span>                :<span class="lineCov">          1 :         emit DefaultGatewayUpdated(newL1DefaultGateway);</span></a>
+<a name="72"><span class="lineNum">      72 </span>                :            : </a>
+<a name="73"><span class="lineNum">      73 </span>                :<span class="lineCov">          1 :         address l2NewDefaultGateway;</span></a>
+<a name="74"><span class="lineNum">      74 </span>                :            : </a>
+<a name="75"><span class="lineNum">      75 </span>        [<span class="branchNoExec" title="Branch 0 was not executed"> # </span><span class="branchCov" title="Branch 1 was taken 1 time"> + </span>]:<span class="lineCov">          1 :         if (newL1DefaultGateway != address(0)) {</span></a>
+<a name="76"><span class="lineNum">      76 </span>                :<span class="lineCov">          1 :             l2NewDefaultGateway = TokenGateway(newL1DefaultGateway).counterpartGateway();</span></a>
+<a name="77"><span class="lineNum">      77 </span>                :            :         }</a>
+<a name="78"><span class="lineNum">      78 </span>                :            : </a>
+<a name="79"><span class="lineNum">      79 </span>                :<span class="lineCov">          1 :         bytes memory data = abi.encodeWithSelector(</span></a>
+<a name="80"><span class="lineNum">      80 </span>                :            :             L2GatewayRouter.setDefaultGateway.selector,</a>
+<a name="81"><span class="lineNum">      81 </span>                :            :             l2NewDefaultGateway</a>
+<a name="82"><span class="lineNum">      82 </span>                :            :         );</a>
+<a name="83"><span class="lineNum">      83 </span>                :            : </a>
+<a name="84"><span class="lineNum">      84 </span>                :<span class="lineCov">          1 :         return</span></a>
+<a name="85"><span class="lineNum">      85 </span>                :            :             sendTxToL2(</a>
+<a name="86"><span class="lineNum">      86 </span>                :            :                 inbox,</a>
+<a name="87"><span class="lineNum">      87 </span>                :            :                 counterpartGateway,</a>
+<a name="88"><span class="lineNum">      88 </span>                :            :                 msg.sender,</a>
+<a name="89"><span class="lineNum">      89 </span>                :            :                 msg.value,</a>
+<a name="90"><span class="lineNum">      90 </span>                :            :                 0,</a>
+<a name="91"><span class="lineNum">      91 </span>                :            :                 L2GasParams({</a>
+<a name="92"><span class="lineNum">      92 </span>                :            :                     _maxSubmissionCost: _maxSubmissionCost,</a>
+<a name="93"><span class="lineNum">      93 </span>                :            :                     _maxGas: _maxGas,</a>
+<a name="94"><span class="lineNum">      94 </span>                :            :                     _gasPriceBid: _gasPriceBid</a>
+<a name="95"><span class="lineNum">      95 </span>                :            :                 }),</a>
+<a name="96"><span class="lineNum">      96 </span>                :            :                 data</a>
+<a name="97"><span class="lineNum">      97 </span>                :            :             );</a>
+<a name="98"><span class="lineNum">      98 </span>                :            :     }</a>
+<a name="99"><span class="lineNum">      99 </span>                :            : </a>
+<a name="100"><span class="lineNum">     100 </span>                :            :     function setOwner(address newOwner) external onlyOwner {</a>
+<a name="101"><span class="lineNum">     101 </span>        [<span class="branchCov" title="Branch 0 was taken 1 time"> + </span><span class="branchCov" title="Branch 1 was taken 256 times"> + </span>]:<span class="lineCov">        257 :         require(newOwner != address(0), &quot;INVALID_OWNER&quot;);</span></a>
+<a name="102"><span class="lineNum">     102 </span>                :            :         // set newOwner to address(1) to disable owner and keep `initialize` safe</a>
+<a name="103"><span class="lineNum">     103 </span>                :<span class="lineCov">        256 :         owner = newOwner;</span></a>
+<a name="104"><span class="lineNum">     104 </span>                :            :     }</a>
+<a name="105"><span class="lineNum">     105 </span>                :            : </a>
+<a name="106"><span class="lineNum">     106 </span>                :            :     function _setGateways(</a>
+<a name="107"><span class="lineNum">     107 </span>                :            :         address[] memory _token,</a>
+<a name="108"><span class="lineNum">     108 </span>                :            :         address[] memory _gateway,</a>
+<a name="109"><span class="lineNum">     109 </span>                :            :         uint256 _maxGas,</a>
+<a name="110"><span class="lineNum">     110 </span>                :            :         uint256 _gasPriceBid,</a>
+<a name="111"><span class="lineNum">     111 </span>                :            :         uint256 _maxSubmissionCost,</a>
+<a name="112"><span class="lineNum">     112 </span>                :            :         address _creditBackAddress</a>
+<a name="113"><span class="lineNum">     113 </span>                :            :     ) internal returns (uint256) {</a>
+<a name="114"><span class="lineNum">     114 </span>        [<span class="branchNoExec" title="Branch 0 was not executed"> # </span><span class="branchCov" title="Branch 1 was taken 7 times"> + </span>]:<span class="lineCov">          7 :         require(_token.length == _gateway.length, &quot;WRONG_LENGTH&quot;);</span></a>
+<a name="115"><span class="lineNum">     115 </span>                :            : </a>
+<a name="116"><span class="lineNum">     116 </span>                :<span class="lineCov">          7 :         for (uint256 i = 0; i &lt; _token.length; i++) {</span></a>
+<a name="117"><span class="lineNum">     117 </span>                :<span class="lineCov">          8 :             l1TokenToGateway[_token[i]] = _gateway[i];</span></a>
+<a name="118"><span class="lineNum">     118 </span>                :<span class="lineCov">          8 :             emit GatewaySet(_token[i], _gateway[i]);</span></a>
+<a name="119"><span class="lineNum">     119 </span>                :            :             // overwrite memory so the L2 router receives the L2 address of each gateway</a>
+<a name="120"><span class="lineNum">     120 </span>        [<span class="branchNoExec" title="Branch 0 was not executed"> # </span><span class="branchCov" title="Branch 1 was taken 6 times"> + </span>]:<span class="lineCov">          8 :             if (_gateway[i] != address(0) &amp;&amp; _gateway[i] != DISABLED) {</span></a>
+<a name="121"><span class="lineNum">     121 </span>                :            :                 // if we are assigning a gateway to the token, the address oracle of the gateway</a>
+<a name="122"><span class="lineNum">     122 </span>                :            :                 // must return something other than the 0 address</a>
+<a name="123"><span class="lineNum">     123 </span>                :            :                 // this check helps avoid misconfiguring gateways</a>
+<a name="124"><span class="lineNum">     124 </span>        [<span class="branchCov" title="Branch 0 was taken 1 time"> + </span><span class="branchCov" title="Branch 1 was taken 6 times"> + </span>]:<span class="lineCov">          7 :                 require(</span></a>
+<a name="125"><span class="lineNum">     125 </span>                :            :                     TokenGateway(_gateway[i]).calculateL2TokenAddress(_token[i]) != address(0),</a>
+<a name="126"><span class="lineNum">     126 </span>                :            :                     &quot;TOKEN_NOT_HANDLED_BY_GATEWAY&quot;</a>
+<a name="127"><span class="lineNum">     127 </span>                :            :                 );</a>
+<a name="128"><span class="lineNum">     128 </span>                :<span class="lineCov">          6 :                 _gateway[i] = TokenGateway(_gateway[i]).counterpartGateway();</span></a>
+<a name="129"><span class="lineNum">     129 </span>                :            :             }</a>
+<a name="130"><span class="lineNum">     130 </span>                :            :         }</a>
+<a name="131"><span class="lineNum">     131 </span>                :            : </a>
+<a name="132"><span class="lineNum">     132 </span>                :<span class="lineCov">          6 :         bytes memory data = abi.encodeWithSelector(</span></a>
+<a name="133"><span class="lineNum">     133 </span>                :            :             L2GatewayRouter.setGateway.selector,</a>
+<a name="134"><span class="lineNum">     134 </span>                :            :             _token,</a>
+<a name="135"><span class="lineNum">     135 </span>                :            :             _gateway</a>
+<a name="136"><span class="lineNum">     136 </span>                :            :         );</a>
+<a name="137"><span class="lineNum">     137 </span>                :            : </a>
+<a name="138"><span class="lineNum">     138 </span>                :<span class="lineCov">          6 :         return</span></a>
+<a name="139"><span class="lineNum">     139 </span>                :            :             sendTxToL2(</a>
+<a name="140"><span class="lineNum">     140 </span>                :            :                 inbox,</a>
+<a name="141"><span class="lineNum">     141 </span>                :            :                 counterpartGateway,</a>
+<a name="142"><span class="lineNum">     142 </span>                :            :                 _creditBackAddress,</a>
+<a name="143"><span class="lineNum">     143 </span>                :            :                 msg.value,</a>
+<a name="144"><span class="lineNum">     144 </span>                :            :                 0,</a>
+<a name="145"><span class="lineNum">     145 </span>                :            :                 L2GasParams({</a>
+<a name="146"><span class="lineNum">     146 </span>                :            :                     _maxSubmissionCost: _maxSubmissionCost,</a>
+<a name="147"><span class="lineNum">     147 </span>                :            :                     _maxGas: _maxGas,</a>
+<a name="148"><span class="lineNum">     148 </span>                :            :                     _gasPriceBid: _gasPriceBid</a>
+<a name="149"><span class="lineNum">     149 </span>                :            :                 }),</a>
+<a name="150"><span class="lineNum">     150 </span>                :            :                 data</a>
+<a name="151"><span class="lineNum">     151 </span>                :            :             );</a>
+<a name="152"><span class="lineNum">     152 </span>                :            :     }</a>
+<a name="153"><span class="lineNum">     153 </span>                :            : </a>
+<a name="154"><span class="lineNum">     154 </span>                :            :     /**</a>
+<a name="155"><span class="lineNum">     155 </span>                :            :      * @notice Allows L1 Token contract to trustlessly register its gateway. (other setGateway method allows excess eth recovery from _maxSubmissionCost and is recommended)</a>
+<a name="156"><span class="lineNum">     156 </span>                :            :      * @param _gateway l1 gateway address</a>
+<a name="157"><span class="lineNum">     157 </span>                :            :      * @param _maxGas max gas for L2 retryable exrecution</a>
+<a name="158"><span class="lineNum">     158 </span>                :            :      * @param _gasPriceBid gas price for L2 retryable ticket</a>
+<a name="159"><span class="lineNum">     159 </span>                :            :      * @param  _maxSubmissionCost base submission cost  L2 retryable tick3et</a>
+<a name="160"><span class="lineNum">     160 </span>                :            :      * @return Retryable ticket ID</a>
+<a name="161"><span class="lineNum">     161 </span>                :            :      */</a>
+<a name="162"><span class="lineNum">     162 </span>                :            :     function setGateway(</a>
+<a name="163"><span class="lineNum">     163 </span>                :            :         address _gateway,</a>
+<a name="164"><span class="lineNum">     164 </span>                :            :         uint256 _maxGas,</a>
+<a name="165"><span class="lineNum">     165 </span>                :            :         uint256 _gasPriceBid,</a>
+<a name="166"><span class="lineNum">     166 </span>                :            :         uint256 _maxSubmissionCost</a>
+<a name="167"><span class="lineNum">     167 </span>                :            :     ) external payable override returns (uint256) {</a>
+<a name="168"><span class="lineNum">     168 </span>                :<span class="lineCov">          1 :         return setGateway(_gateway, _maxGas, _gasPriceBid, _maxSubmissionCost, msg.sender);</span></a>
+<a name="169"><span class="lineNum">     169 </span>                :            :     }</a>
+<a name="170"><span class="lineNum">     170 </span>                :            : </a>
+<a name="171"><span class="lineNum">     171 </span>                :            :     /**</a>
+<a name="172"><span class="lineNum">     172 </span>                :            :      * @notice Allows L1 Token contract to trustlessly register its gateway.</a>
+<a name="173"><span class="lineNum">     173 </span>                :            :      * @param _gateway l1 gateway address</a>
+<a name="174"><span class="lineNum">     174 </span>                :            :      * @param _maxGas max gas for L2 retryable exrecution</a>
+<a name="175"><span class="lineNum">     175 </span>                :            :      * @param _gasPriceBid gas price for L2 retryable ticket</a>
+<a name="176"><span class="lineNum">     176 </span>                :            :      * @param  _maxSubmissionCost base submission cost  L2 retryable tick3et</a>
+<a name="177"><span class="lineNum">     177 </span>                :            :      * @param _creditBackAddress address for crediting back overpayment of _maxSubmissionCost</a>
+<a name="178"><span class="lineNum">     178 </span>                :            :      * @return Retryable ticket ID</a>
+<a name="179"><span class="lineNum">     179 </span>                :            :      */</a>
+<a name="180"><span class="lineNum">     180 </span>                :            :     function setGateway(</a>
+<a name="181"><span class="lineNum">     181 </span>                :            :         address _gateway,</a>
+<a name="182"><span class="lineNum">     182 </span>                :            :         uint256 _maxGas,</a>
+<a name="183"><span class="lineNum">     183 </span>                :            :         uint256 _gasPriceBid,</a>
+<a name="184"><span class="lineNum">     184 </span>                :            :         uint256 _maxSubmissionCost,</a>
+<a name="185"><span class="lineNum">     185 </span>                :            :         address _creditBackAddress</a>
+<a name="186"><span class="lineNum">     186 </span>                :            :     ) public payable override returns (uint256) {</a>
+<a name="187"><span class="lineNum">     187 </span>        [<span class="branchCov" title="Branch 0 was taken 1 time"> + </span><span class="branchCov" title="Branch 1 was taken 7 times"> + </span>]:<span class="lineCov">          8 :         require(</span></a>
+<a name="188"><span class="lineNum">     188 </span>                :            :             ArbitrumEnabledToken(msg.sender).isArbitrumEnabled() == uint8(0xb1),</a>
+<a name="189"><span class="lineNum">     189 </span>                :            :             &quot;NOT_ARB_ENABLED&quot;</a>
+<a name="190"><span class="lineNum">     190 </span>                :            :         );</a>
+<a name="191"><span class="lineNum">     191 </span>                :            : </a>
+<a name="192"><span class="lineNum">     192 </span>        [<span class="branchCov" title="Branch 0 was taken 1 time"> + </span><span class="branchCov" title="Branch 1 was taken 6 times"> + </span>]:<span class="lineCov">          7 :         require(Address.isContract(_gateway), &quot;NOT_TO_CONTRACT&quot;);</span></a>
+<a name="193"><span class="lineNum">     193 </span>                :            : </a>
+<a name="194"><span class="lineNum">     194 </span>                :<span class="lineCov">          6 :         address currGateway = getGateway(msg.sender);</span></a>
+<a name="195"><span class="lineNum">     195 </span>        [<span class="branchCov" title="Branch 0 was taken 1 time"> + </span><span class="branchNoExec" title="Branch 1 was not executed"> # </span>]:<span class="lineCov">          6 :         if (currGateway != address(0) &amp;&amp; currGateway != defaultGateway) {</span></a>
+<a name="196"><span class="lineNum">     196 </span>                :            :             // if gateway is already set to a non-default gateway, don't allow it to set a different gateway</a>
+<a name="197"><span class="lineNum">     197 </span>        [<span class="branchCov" title="Branch 0 was taken 1 time"> + </span><span class="branchNoExec" title="Branch 1 was not executed"> # </span>]:<span class="lineCov">          1 :             require(currGateway == _gateway, &quot;NO_UPDATE_TO_DIFFERENT_ADDR&quot;);</span></a>
+<a name="198"><span class="lineNum">     198 </span>                :            :         }</a>
+<a name="199"><span class="lineNum">     199 </span>                :            : </a>
+<a name="200"><span class="lineNum">     200 </span>                :<span class="lineCov">          5 :         address[] memory _tokenArr = new address[](1);</span></a>
+<a name="201"><span class="lineNum">     201 </span>                :<span class="lineCov">          5 :         _tokenArr[0] = address(msg.sender);</span></a>
+<a name="202"><span class="lineNum">     202 </span>                :            : </a>
+<a name="203"><span class="lineNum">     203 </span>                :<span class="lineCov">          5 :         address[] memory _gatewayArr = new address[](1);</span></a>
+<a name="204"><span class="lineNum">     204 </span>                :<span class="lineCov">          5 :         _gatewayArr[0] = _gateway;</span></a>
+<a name="205"><span class="lineNum">     205 </span>                :            : </a>
+<a name="206"><span class="lineNum">     206 </span>                :<span class="lineCov">          5 :         return</span></a>
+<a name="207"><span class="lineNum">     207 </span>                :            :             _setGateways(</a>
+<a name="208"><span class="lineNum">     208 </span>                :            :                 _tokenArr,</a>
+<a name="209"><span class="lineNum">     209 </span>                :            :                 _gatewayArr,</a>
+<a name="210"><span class="lineNum">     210 </span>                :            :                 _maxGas,</a>
+<a name="211"><span class="lineNum">     211 </span>                :            :                 _gasPriceBid,</a>
+<a name="212"><span class="lineNum">     212 </span>                :            :                 _maxSubmissionCost,</a>
+<a name="213"><span class="lineNum">     213 </span>                :            :                 _creditBackAddress</a>
+<a name="214"><span class="lineNum">     214 </span>                :            :             );</a>
+<a name="215"><span class="lineNum">     215 </span>                :            :     }</a>
+<a name="216"><span class="lineNum">     216 </span>                :            : </a>
+<a name="217"><span class="lineNum">     217 </span>                :            :     function setGateways(</a>
+<a name="218"><span class="lineNum">     218 </span>                :            :         address[] memory _token,</a>
+<a name="219"><span class="lineNum">     219 </span>                :            :         address[] memory _gateway,</a>
+<a name="220"><span class="lineNum">     220 </span>                :            :         uint256 _maxGas,</a>
+<a name="221"><span class="lineNum">     221 </span>                :            :         uint256 _gasPriceBid,</a>
+<a name="222"><span class="lineNum">     222 </span>                :            :         uint256 _maxSubmissionCost</a>
+<a name="223"><span class="lineNum">     223 </span>                :            :     ) external payable onlyOwner returns (uint256) {</a>
+<a name="224"><span class="lineNum">     224 </span>                :            :         // it is assumed that token and gateway are both contracts</a>
+<a name="225"><span class="lineNum">     225 </span>                :            :         // require(_token[i].isContract() &amp;&amp; _gateway[i].isContract(), &quot;NOT_CONTRACT&quot;);</a>
+<a name="226"><span class="lineNum">     226 </span>                :<span class="lineCov">          2 :         return</span></a>
+<a name="227"><span class="lineNum">     227 </span>                :            :             _setGateways(_token, _gateway, _maxGas, _gasPriceBid, _maxSubmissionCost, msg.sender);</a>
+<a name="228"><span class="lineNum">     228 </span>                :            :     }</a>
+<a name="229"><span class="lineNum">     229 </span>                :            : </a>
+<a name="230"><span class="lineNum">     230 </span>                :            :     function outboundTransfer(</a>
+<a name="231"><span class="lineNum">     231 </span>                :            :         address _token,</a>
+<a name="232"><span class="lineNum">     232 </span>                :            :         address _to,</a>
+<a name="233"><span class="lineNum">     233 </span>                :            :         uint256 _amount,</a>
+<a name="234"><span class="lineNum">     234 </span>                :            :         uint256 _maxGas,</a>
+<a name="235"><span class="lineNum">     235 </span>                :            :         uint256 _gasPriceBid,</a>
+<a name="236"><span class="lineNum">     236 </span>                :            :         bytes calldata _data</a>
+<a name="237"><span class="lineNum">     237 </span>                :            :     ) public payable override(GatewayRouter, ITokenGateway) returns (bytes memory) {</a>
+<a name="238"><span class="lineNum">     238 </span>                :<span class="lineNoCov">          0 :         return super.outboundTransfer(_token, _to, _amount, _maxGas, _gasPriceBid, _data);</span></a>
+<a name="239"><span class="lineNum">     239 </span>                :            :     }</a>
+<a name="240"><span class="lineNum">     240 </span>                :            : </a>
+<a name="241"><span class="lineNum">     241 </span>                :            :     /**</a>
+<a name="242"><span class="lineNum">     242 </span>                :            :      * @notice Deposit ERC20 token from Ethereum into Arbitrum using the registered or otherwise default gateway</a>
+<a name="243"><span class="lineNum">     243 </span>                :            :      * @dev Some legacy gateway might not have the outboundTransferCustomRefund method and will revert, in such case use outboundTransfer instead</a>
+<a name="244"><span class="lineNum">     244 </span>                :            :      *      L2 address alias will not be applied to the following types of addresses on L1:</a>
+<a name="245"><span class="lineNum">     245 </span>                :            :      *      - an externally-owned account</a>
+<a name="246"><span class="lineNum">     246 </span>                :            :      *      - a contract in construction</a>
+<a name="247"><span class="lineNum">     247 </span>                :            :      *      - an address where a contract will be created</a>
+<a name="248"><span class="lineNum">     248 </span>                :            :      *      - an address where a contract lived, but was destroyed</a>
+<a name="249"><span class="lineNum">     249 </span>                :            :      * @param _token L1 address of ERC20</a>
+<a name="250"><span class="lineNum">     250 </span>                :            :      * @param _refundTo Account, or its L2 alias if it have code in L1, to be credited with excess gas refund in L2</a>
+<a name="251"><span class="lineNum">     251 </span>                :            :      * @param _to Account to be credited with the tokens in the L2 (can be the user's L2 account or a contract), not subject to L2 aliasing</a>
+<a name="252"><span class="lineNum">     252 </span>                :            :                   This account, or its L2 alias if it have code in L1, will also be able to cancel the retryable ticket and receive callvalue refund</a>
+<a name="253"><span class="lineNum">     253 </span>                :            :      * @param _amount Token Amount</a>
+<a name="254"><span class="lineNum">     254 </span>                :            :      * @param _maxGas Max gas deducted from user's L2 balance to cover L2 execution</a>
+<a name="255"><span class="lineNum">     255 </span>                :            :      * @param _gasPriceBid Gas price for L2 execution</a>
+<a name="256"><span class="lineNum">     256 </span>                :            :      * @param _data encoded data from router and user</a>
+<a name="257"><span class="lineNum">     257 </span>                :            :      * @return res abi encoded inbox sequence number</a>
+<a name="258"><span class="lineNum">     258 </span>                :            :      */</a>
+<a name="259"><span class="lineNum">     259 </span>                :            :     function outboundTransferCustomRefund(</a>
+<a name="260"><span class="lineNum">     260 </span>                :            :         address _token,</a>
+<a name="261"><span class="lineNum">     261 </span>                :            :         address _refundTo,</a>
+<a name="262"><span class="lineNum">     262 </span>                :            :         address _to,</a>
+<a name="263"><span class="lineNum">     263 </span>                :            :         uint256 _amount,</a>
+<a name="264"><span class="lineNum">     264 </span>                :            :         uint256 _maxGas,</a>
+<a name="265"><span class="lineNum">     265 </span>                :            :         uint256 _gasPriceBid,</a>
+<a name="266"><span class="lineNum">     266 </span>                :            :         bytes calldata _data</a>
+<a name="267"><span class="lineNum">     267 </span>                :            :     ) public payable override returns (bytes memory) {</a>
+<a name="268"><span class="lineNum">     268 </span>                :<span class="lineNoCov">          0 :         address gateway = getGateway(_token);</span></a>
+<a name="269"><span class="lineNum">     269 </span>                :<span class="lineNoCov">          0 :         bytes memory gatewayData = GatewayMessageHandler.encodeFromRouterToGateway(</span></a>
+<a name="270"><span class="lineNum">     270 </span>                :            :             msg.sender,</a>
+<a name="271"><span class="lineNum">     271 </span>                :            :             _data</a>
+<a name="272"><span class="lineNum">     272 </span>                :            :         );</a>
+<a name="273"><span class="lineNum">     273 </span>                :            : </a>
+<a name="274"><span class="lineNum">     274 </span>                :<span class="lineNoCov">          0 :         emit TransferRouted(_token, msg.sender, _to, gateway);</span></a>
+<a name="275"><span class="lineNum">     275 </span>                :            :         // here we use `IL1ArbitrumGateway` since we don't assume all ITokenGateway implements `outboundTransferCustomRefund`</a>
+<a name="276"><span class="lineNum">     276 </span>                :<span class="lineNoCov">          0 :         return</span></a>
+<a name="277"><span class="lineNum">     277 </span>                :            :             IL1ArbitrumGateway(gateway).outboundTransferCustomRefund{ value: msg.value }(</a>
+<a name="278"><span class="lineNum">     278 </span>                :            :                 _token,</a>
+<a name="279"><span class="lineNum">     279 </span>                :            :                 _refundTo,</a>
+<a name="280"><span class="lineNum">     280 </span>                :            :                 _to,</a>
+<a name="281"><span class="lineNum">     281 </span>                :            :                 _amount,</a>
+<a name="282"><span class="lineNum">     282 </span>                :            :                 _maxGas,</a>
+<a name="283"><span class="lineNum">     283 </span>                :            :                 _gasPriceBid,</a>
+<a name="284"><span class="lineNum">     284 </span>                :            :                 gatewayData</a>
+<a name="285"><span class="lineNum">     285 </span>                :            :             );</a>
+<a name="286"><span class="lineNum">     286 </span>                :            :     }</a>
+<a name="287"><span class="lineNum">     287 </span>                :            : </a>
+<a name="288"><span class="lineNum">     288 </span>                :            :     modifier onlyCounterpartGateway() override {</a>
+<a name="289"><span class="lineNum">     289 </span>                :            :         // don't expect messages from L2 router</a>
+<a name="290"><span class="lineNum">     290 </span>                :            :         revert(&quot;ONLY_COUNTERPART_GATEWAY&quot;);</a>
+<a name="291"><span class="lineNum">     291 </span>                :            :         _;</a>
+<a name="292"><span class="lineNum">     292 </span>                :            :     }</a>
+<a name="293"><span class="lineNum">     293 </span>                :            : </a>
+<a name="294"><span class="lineNum">     294 </span>                :            :     function supportsInterface(bytes4 interfaceId)</a>
+<a name="295"><span class="lineNum">     295 </span>                :            :         public</a>
+<a name="296"><span class="lineNum">     296 </span>                :            :         view</a>
+<a name="297"><span class="lineNum">     297 </span>                :            :         override(ERC165, IERC165)</a>
+<a name="298"><span class="lineNum">     298 </span>                :            :         returns (bool)</a>
+<a name="299"><span class="lineNum">     299 </span>                :            :     {</a>
+<a name="300"><span class="lineNum">     300 </span>                :            :         // registering interfaces that is added after arb-bridge-peripherals &gt;1.0.11</a>
+<a name="301"><span class="lineNum">     301 </span>                :            :         // using function selector instead of single function interfaces to reduce bloat</a>
+<a name="302"><span class="lineNum">     302 </span>                :<span class="lineCov">        256 :         return</span></a>
+<a name="303"><span class="lineNum">     303 </span>                :            :             interfaceId == this.outboundTransferCustomRefund.selector ||</a>
+<a name="304"><span class="lineNum">     304 </span>                :            :             super.supportsInterface(interfaceId);</a>
+<a name="305"><span class="lineNum">     305 </span>                :            :     }</a>
+<a name="306"><span class="lineNum">     306 </span>                :            : }</a>
+</pre>
+      </td>
+    </tr>
+  </table>
+  <br>
+
+  <table width="100%" border=0 cellspacing=0 cellpadding=0>
+    <tr><td class="ruler"><img src="../../glass.png" width=3 height=3 alt=""></td></tr>
+    <tr><td class="versionInfo">Generated by: <a href="https://github.com/linux-test-project/lcov" target="_parent">LCOV version 1.16</a></td></tr>
+  </table>
+  <br>
+
+</body>
+</html>
