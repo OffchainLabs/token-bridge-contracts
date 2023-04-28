@@ -26,6 +26,7 @@ contract L1GatewayRouterTest is GatewayRouterTest {
     uint256 public maxGas = 1000000000;
     uint256 public gasPriceBid = 3;
     uint256 public retryableCost = maxSubmissionCost + maxGas * gasPriceBid;
+    address public creditBackAddress = makeAddr("creditBackAddress");
 
     function setUp() public {
         inbox = address(new InboxMock());
@@ -124,6 +125,47 @@ contract L1GatewayRouterTest is GatewayRouterTest {
         assertEq(seqNum, 0, "Invalid seqNum");
     }
 
+    function test_setDefaultGateway_AddressZero() public {
+        address newL1DefaultGateway = address(0);
+
+        // event checkers
+        vm.expectEmit(true, true, true, true);
+        emit DefaultGatewayUpdated(address(newL1DefaultGateway));
+
+        vm.expectEmit(true, true, true, true);
+        emit TicketData(maxSubmissionCost);
+
+        vm.expectEmit(true, true, true, true);
+        emit RefundAddresses(owner, owner);
+
+        vm.expectEmit(true, true, true, true);
+        emit InboxRetryableTicket(
+            address(l1Router),
+            counterpartGateway,
+            0,
+            maxGas,
+            abi.encodeWithSelector(L2GatewayRouter.setDefaultGateway.selector, address(0))
+        );
+
+        // set it
+        vm.prank(owner);
+        uint256 seqNum = l1Router.setDefaultGateway{ value: retryableCost }(
+            newL1DefaultGateway,
+            maxGas,
+            gasPriceBid,
+            maxSubmissionCost
+        );
+
+        /// checks
+        assertEq(
+            l1Router.defaultGateway(),
+            address(newL1DefaultGateway),
+            "Invalid newL1DefaultGateway"
+        );
+
+        assertEq(seqNum, 0, "Invalid seqNum");
+    }
+
     function test_setGateway() public {
         // create gateway
         L1CustomGateway customGateway = new L1CustomGateway();
@@ -149,9 +191,6 @@ contract L1GatewayRouterTest is GatewayRouterTest {
             makeAddr("creditBackAddress")
         );
 
-        // set gateway params
-        address creditBackAddress = makeAddr("creditBackAddress");
-
         // expect events
         vm.expectEmit(true, true, true, true);
         emit GatewaySet(address(customToken), address(customGateway));
@@ -160,7 +199,7 @@ contract L1GatewayRouterTest is GatewayRouterTest {
         emit TicketData(maxSubmissionCost);
 
         vm.expectEmit(true, true, true, true);
-        emit RefundAddresses(creditBackAddress, creditBackAddress);
+        emit RefundAddresses(address(customToken), address(customToken));
 
         vm.expectEmit(true, true, true, true);
         address[] memory _tokenArr = new address[](1);
@@ -181,8 +220,7 @@ contract L1GatewayRouterTest is GatewayRouterTest {
             address(customGateway),
             maxGas,
             gasPriceBid,
-            maxSubmissionCost,
-            creditBackAddress
+            maxSubmissionCost
         );
 
         ///// checks
@@ -221,12 +259,6 @@ contract L1GatewayRouterTest is GatewayRouterTest {
             makeAddr("creditBackAddress")
         );
 
-        // set gateway params
-        uint256 maxSubmissionCost = 40000;
-        uint256 maxGas = 1000000000;
-        uint256 gasPrice = 3;
-        uint256 value = maxSubmissionCost + maxGas * gasPrice;
-
         // expect events
         vm.expectEmit(true, true, true, true);
         emit GatewaySet(address(customToken), address(customGateway));
@@ -235,7 +267,7 @@ contract L1GatewayRouterTest is GatewayRouterTest {
         emit TicketData(maxSubmissionCost);
 
         vm.expectEmit(true, true, true, true);
-        emit RefundAddresses(address(customToken), address(customToken));
+        emit RefundAddresses(creditBackAddress, creditBackAddress);
 
         vm.expectEmit(true, true, true, true);
         address[] memory _tokenArr = new address[](1);
@@ -256,7 +288,8 @@ contract L1GatewayRouterTest is GatewayRouterTest {
             address(customGateway),
             maxGas,
             gasPriceBid,
-            maxSubmissionCost
+            maxSubmissionCost,
+            creditBackAddress
         );
 
         ///// checks
@@ -328,13 +361,6 @@ contract L1GatewayRouterTest is GatewayRouterTest {
             abi.encode(uint8(0xb1))
         );
 
-        // retryable params
-        uint256 maxSubmissionCost = 40000;
-        uint256 maxGas = 1000000000;
-        uint256 gasPrice = 3;
-        uint256 value = maxSubmissionCost + maxGas * gasPrice;
-        address creditBackAddress = makeAddr("creditBackAddress");
-
         // register token to gateway
         vm.prank(token);
         L1CustomGateway(initialGateway).registerTokenToL2{ value: retryableCost }(
@@ -391,12 +417,6 @@ contract L1GatewayRouterTest is GatewayRouterTest {
     }
 
     function test_setGateways() public {
-        // retryables params
-        uint256 maxSubmissionCost = 40000;
-        uint256 maxGas = 1000000000;
-        uint256 gasPrice = 3;
-        uint256 value = maxSubmissionCost + maxGas * gasPrice;
-
         // create tokens and gateways
         address[] memory tokens = new address[](2);
         tokens[0] = address(new ERC20("1", "1"));
@@ -475,6 +495,25 @@ contract L1GatewayRouterTest is GatewayRouterTest {
         assertEq(seqNum, 0, "Invalid seqNum");
     }
 
+    function test_setGateways_revert_WrongLength() public {
+        address[] memory tokens = new address[](2);
+        tokens[0] = address(new ERC20("1", "1"));
+        tokens[1] = address(new ERC20("2", "2"));
+        address[] memory gateways = new address[](1);
+        gateways[0] = address(new L1CustomGateway());
+
+        /// set gateways
+        vm.prank(owner);
+        vm.expectRevert("WRONG_LENGTH");
+        l1Router.setGateways{ value: retryableCost }(
+            tokens,
+            gateways,
+            maxGas,
+            gasPriceBid,
+            maxSubmissionCost
+        );
+    }
+
     function test_setGateways_SetZeroAddr() public {
         // create gateway
         address initialGateway = address(new L1CustomGateway());
@@ -494,13 +533,6 @@ contract L1GatewayRouterTest is GatewayRouterTest {
             abi.encodeWithSignature("isArbitrumEnabled()"),
             abi.encode(uint8(0xb1))
         );
-
-        // retryable params
-        uint256 maxSubmissionCost = 40000;
-        uint256 maxGas = 1000000000;
-        uint256 gasPrice = 3;
-        uint256 value = maxSubmissionCost + maxGas * gasPrice;
-        address creditBackAddress = makeAddr("creditBackAddress");
 
         // register token to gateway
         vm.prank(token);
