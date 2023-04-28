@@ -10,14 +10,22 @@ import { L1CustomGateway } from "contracts/tokenbridge/ethereum/gateway/L1Custom
 import { InboxMock } from "contracts/tokenbridge/test/InboxMock.sol";
 import { IERC165 } from "contracts/tokenbridge/libraries/IERC165.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { ERC20PresetMinterPauser } from "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetMinterPauser.sol";
 
 contract L1GatewayRouterTest is GatewayRouterTest {
     L1GatewayRouter public l1Router;
 
     address public owner = makeAddr("owner");
+    address public user = makeAddr("user");
     address public defaultGateway;
     address public counterpartGateway = makeAddr("counterpartGateway");
     address public inbox;
+
+    // retryable params
+    uint256 public maxSubmissionCost = 50000;
+    uint256 public maxGas = 1000000000;
+    uint256 public gasPriceBid = 3;
+    uint256 public retryableCost = maxSubmissionCost + maxGas * gasPriceBid;
 
     function setUp() public {
         inbox = address(new InboxMock());
@@ -28,6 +36,7 @@ contract L1GatewayRouterTest is GatewayRouterTest {
         defaultGateway = address(new L1ERC20Gateway());
 
         vm.deal(owner, 100 ether);
+        vm.deal(user, 100 ether);
     }
 
     /* solhint-disable func-name-mixedcase */
@@ -73,12 +82,6 @@ contract L1GatewayRouterTest is GatewayRouterTest {
             0x0000000000000000000000000000000000000000000000000000000000000001,
             makeAddr("l2BeaconProxyFactory")
         );
-
-        // retryable params
-        uint256 maxSubmissionCost = 50000;
-        uint256 maxGas = 1000000000;
-        uint256 gasPriceBid = 3;
-        uint256 retryableCost = maxSubmissionCost + maxGas * gasPriceBid;
 
         // event checkers
         vm.expectEmit(true, true, true, true);
@@ -147,13 +150,10 @@ contract L1GatewayRouterTest is GatewayRouterTest {
         );
 
         // set gateway params
-        uint256 maxSubmissionCost = 40000;
-        uint256 maxGas = 1000000000;
-        uint256 gasPrice = 3;
-        uint256 value = maxSubmissionCost + maxGas * gasPrice;
         address creditBackAddress = makeAddr("creditBackAddress");
 
         // expect events
+        vm.expectEmit(true, true, true, true);
         emit GatewaySet(address(customToken), address(customGateway));
 
         vm.expectEmit(true, true, true, true);
@@ -177,10 +177,10 @@ contract L1GatewayRouterTest is GatewayRouterTest {
 
         // set gateway
         vm.prank(address(customToken));
-        uint256 seqNum = l1Router.setGateway{ value: value }(
+        uint256 seqNum = l1Router.setGateway{ value: retryableCost }(
             address(customGateway),
             maxGas,
-            gasPrice,
+            gasPriceBid,
             maxSubmissionCost,
             creditBackAddress
         );
@@ -228,6 +228,7 @@ contract L1GatewayRouterTest is GatewayRouterTest {
         uint256 value = maxSubmissionCost + maxGas * gasPrice;
 
         // expect events
+        vm.expectEmit(true, true, true, true);
         emit GatewaySet(address(customToken), address(customGateway));
 
         vm.expectEmit(true, true, true, true);
@@ -251,10 +252,10 @@ contract L1GatewayRouterTest is GatewayRouterTest {
 
         // set gateway
         vm.prank(address(customToken));
-        uint256 seqNum = l1Router.setGateway{ value: value }(
+        uint256 seqNum = l1Router.setGateway{ value: retryableCost }(
             address(customGateway),
             maxGas,
-            gasPrice,
+            gasPriceBid,
             maxSubmissionCost
         );
 
@@ -336,20 +337,20 @@ contract L1GatewayRouterTest is GatewayRouterTest {
 
         // register token to gateway
         vm.prank(token);
-        L1CustomGateway(initialGateway).registerTokenToL2{ value: value }(
+        L1CustomGateway(initialGateway).registerTokenToL2{ value: retryableCost }(
             makeAddr("tokenL2Address"),
             maxGas,
-            gasPrice,
+            gasPriceBid,
             maxSubmissionCost,
             creditBackAddress
         );
 
         // initially set gateway for token
         vm.prank(address(token));
-        l1Router.setGateway{ value: value }(
+        l1Router.setGateway{ value: retryableCost }(
             initialGateway,
             maxGas,
-            gasPrice,
+            gasPriceBid,
             maxSubmissionCost,
             creditBackAddress
         );
@@ -360,10 +361,10 @@ contract L1GatewayRouterTest is GatewayRouterTest {
 
         vm.prank(token);
         vm.expectRevert("NO_UPDATE_TO_DIFFERENT_ADDR");
-        l1Router.setGateway{ value: value }(
+        l1Router.setGateway{ value: retryableCost }(
             newGateway,
             maxGas,
-            gasPrice,
+            gasPriceBid,
             maxSubmissionCost,
             creditBackAddress
         );
@@ -434,7 +435,9 @@ contract L1GatewayRouterTest is GatewayRouterTest {
         }
 
         // expect events
+        vm.expectEmit(true, true, true, true);
         emit GatewaySet(tokens[0], gateways[0]);
+        vm.expectEmit(true, true, true, true);
         emit GatewaySet(tokens[1], gateways[1]);
 
         vm.expectEmit(true, true, true, true);
@@ -457,11 +460,11 @@ contract L1GatewayRouterTest is GatewayRouterTest {
 
         /// set gateways
         vm.prank(owner);
-        uint256 seqNum = l1Router.setGateways{ value: value }(
+        uint256 seqNum = l1Router.setGateways{ value: retryableCost }(
             tokens,
             gateways,
             maxGas,
-            gasPrice,
+            gasPriceBid,
             maxSubmissionCost
         );
 
@@ -501,20 +504,20 @@ contract L1GatewayRouterTest is GatewayRouterTest {
 
         // register token to gateway
         vm.prank(token);
-        L1CustomGateway(initialGateway).registerTokenToL2{ value: value }(
+        L1CustomGateway(initialGateway).registerTokenToL2{ value: retryableCost }(
             makeAddr("tokenL2Address"),
             maxGas,
-            gasPrice,
+            gasPriceBid,
             maxSubmissionCost,
             creditBackAddress
         );
 
         // initially set gateway for token
         vm.prank(address(token));
-        l1Router.setGateway{ value: value }(
+        l1Router.setGateway{ value: retryableCost }(
             initialGateway,
             maxGas,
-            gasPrice,
+            gasPriceBid,
             maxSubmissionCost,
             creditBackAddress
         );
@@ -524,6 +527,7 @@ contract L1GatewayRouterTest is GatewayRouterTest {
         address newGateway = address(0);
 
         // expect events
+        vm.expectEmit(true, true, true, true);
         emit GatewaySet(token, newGateway);
 
         vm.expectEmit(true, true, true, true);
@@ -547,11 +551,11 @@ contract L1GatewayRouterTest is GatewayRouterTest {
 
         /// set gateways
         vm.prank(owner);
-        uint256 seqNum = l1Router.setGateways{ value: value }(
+        uint256 seqNum = l1Router.setGateways{ value: retryableCost }(
             _tokenArr,
             _gatewayArr,
             maxGas,
-            gasPrice,
+            gasPriceBid,
             maxSubmissionCost
         );
 
@@ -603,9 +607,141 @@ contract L1GatewayRouterTest is GatewayRouterTest {
         assertEq(l1Router.supportsInterface(iface), expected, "Interface shouldn't be supported");
     }
 
+    function test_outboundTransfer() public {
+        // init default gateway
+        L1ERC20Gateway(defaultGateway).initialize(
+            makeAddr("defaultGatewayCounterpart"),
+            address(l1Router),
+            inbox,
+            0x0000000000000000000000000000000000000000000000000000000000000001,
+            makeAddr("l2BeaconProxyFactory")
+        );
+
+        // set default gateway
+        vm.prank(owner);
+        l1Router.setDefaultGateway{ value: retryableCost }(
+            address(defaultGateway),
+            maxGas,
+            gasPriceBid,
+            maxSubmissionCost
+        );
+
+        // create token
+        ERC20PresetMinterPauser token = new ERC20PresetMinterPauser("X", "Y");
+        token.mint(user, 10000);
+        vm.prank(user);
+        token.approve(defaultGateway, 103);
+
+        // snapshot state before
+        uint256 userBalanceBefore = token.balanceOf(user);
+        uint256 l1GatewayBalanceBefore = token.balanceOf(address(defaultGateway));
+
+        /// deposit data
+        address to = address(401);
+        uint256 amount = 103;
+        bytes memory callHookData = "";
+        bytes memory userEncodedData = abi.encode(maxSubmissionCost, callHookData);
+
+        // expect event
+        vm.expectEmit(true, true, true, true);
+        emit TransferRouted(address(token), user, to, address(defaultGateway));
+
+        /// deposit it
+        vm.prank(user);
+        l1Router.outboundTransfer{ value: retryableCost }(
+            address(token),
+            to,
+            amount,
+            maxGas,
+            gasPriceBid,
+            userEncodedData
+        );
+
+        // check tokens are escrowed
+        uint256 userBalanceAfter = token.balanceOf(user);
+        assertEq(userBalanceBefore - userBalanceAfter, amount, "Wrong user balance");
+
+        uint256 l1GatewayBalanceAfter = token.balanceOf(address(defaultGateway));
+        assertEq(
+            l1GatewayBalanceAfter - l1GatewayBalanceBefore,
+            amount,
+            "Wrong defaultGateway balance"
+        );
+    }
+
+    function test_outboundTransferCustomRefund() public {
+        // init default gateway
+        L1ERC20Gateway(defaultGateway).initialize(
+            makeAddr("defaultGatewayCounterpart"),
+            address(l1Router),
+            inbox,
+            0x0000000000000000000000000000000000000000000000000000000000000001,
+            makeAddr("l2BeaconProxyFactory")
+        );
+
+        // set default gateway
+        vm.prank(owner);
+        l1Router.setDefaultGateway{ value: retryableCost }(
+            address(defaultGateway),
+            maxGas,
+            gasPriceBid,
+            maxSubmissionCost
+        );
+
+        // create token
+        ERC20PresetMinterPauser token = new ERC20PresetMinterPauser("X", "Y");
+        token.mint(user, 10000);
+        vm.prank(user);
+        token.approve(defaultGateway, 103);
+
+        // snapshot state before
+        uint256 userBalanceBefore = token.balanceOf(user);
+        uint256 l1GatewayBalanceBefore = token.balanceOf(address(defaultGateway));
+
+        /// deposit data
+        address refundTo = address(400);
+        address to = address(401);
+        uint256 amount = 103;
+        bytes memory callHookData = "";
+        bytes memory userEncodedData = abi.encode(maxSubmissionCost, callHookData);
+
+        // expect event
+        vm.expectEmit(true, true, true, true);
+        emit TransferRouted(address(token), user, to, address(defaultGateway));
+
+        /// deposit it
+        vm.prank(user);
+        l1Router.outboundTransferCustomRefund{ value: retryableCost }(
+            address(token),
+            refundTo,
+            to,
+            amount,
+            maxGas,
+            gasPriceBid,
+            userEncodedData
+        );
+
+        // check tokens are escrowed
+        uint256 userBalanceAfter = token.balanceOf(user);
+        assertEq(userBalanceBefore - userBalanceAfter, amount, "Wrong user balance");
+
+        uint256 l1GatewayBalanceAfter = token.balanceOf(address(defaultGateway));
+        assertEq(
+            l1GatewayBalanceAfter - l1GatewayBalanceBefore,
+            amount,
+            "Wrong defaultGateway balance"
+        );
+    }
+
     ////
     // Event declarations
     ////
+    event TransferRouted(
+        address indexed token,
+        address indexed _userFrom,
+        address indexed _userTo,
+        address gateway
+    );
     event GatewaySet(address indexed l1Token, address indexed gateway);
     event DefaultGatewayUpdated(address newDefaultGateway);
 
