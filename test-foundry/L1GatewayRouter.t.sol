@@ -17,24 +17,17 @@ contract L1GatewayRouterTest is GatewayRouterTest {
 
     address public owner = makeAddr("owner");
     address public user = makeAddr("user");
-    address public defaultGateway;
     address public counterpartGateway = makeAddr("counterpartGateway");
     address public inbox;
-
-    // retryable params
-    uint256 public maxSubmissionCost = 50000;
-    uint256 public maxGas = 1000000000;
-    uint256 public gasPriceBid = 3;
-    uint256 public retryableCost = maxSubmissionCost + maxGas * gasPriceBid;
-    address public creditBackAddress = makeAddr("creditBackAddress");
 
     function setUp() public {
         inbox = address(new InboxMock());
 
-        l1Router = new L1GatewayRouter();
-        l1Router.initialize(owner, defaultGateway, address(0), counterpartGateway, inbox);
-
         defaultGateway = address(new L1ERC20Gateway());
+
+        router = new L1GatewayRouter();
+        l1Router = L1GatewayRouter(address(router));
+        l1Router.initialize(owner, defaultGateway, address(0), counterpartGateway, inbox);
 
         vm.deal(owner, 100 ether);
         vm.deal(user, 100 ether);
@@ -71,6 +64,48 @@ contract L1GatewayRouterTest is GatewayRouterTest {
     function test_postUpgradeInit_revert_NotFromAdmin() public {
         vm.expectRevert("NOT_FROM_ADMIN");
         l1Router.postUpgradeInit();
+    }
+
+    function test_getGateway_DisabledGateway() public {
+        address token = makeAddr("some token");
+
+        address[] memory tokens = new address[](1);
+        tokens[0] = token;
+        address[] memory gateways = new address[](1);
+        gateways[0] = address(1);
+
+        vm.prank(owner);
+        l1Router.setGateways{ value: retryableCost }(
+            tokens,
+            gateways,
+            maxGas,
+            gasPriceBid,
+            maxSubmissionCost
+        );
+
+        address gateway = router.getGateway(token);
+        assertEq(gateway, address(0), "Invalid gateway");
+    }
+
+    function test_getGateway_CustomGateway(address token) public {
+        address token = makeAddr("some token");
+
+        address[] memory tokens = new address[](1);
+        tokens[0] = token;
+        address[] memory gateways = new address[](1);
+        gateways[0] = address(new L1ERC20Gateway());
+
+        vm.prank(owner);
+        l1Router.setGateways{ value: retryableCost }(
+            tokens,
+            gateways,
+            maxGas,
+            gasPriceBid,
+            maxSubmissionCost
+        );
+
+        address gateway = router.getGateway(token);
+        assertEq(gateway, gateways[0], "Invalid gateway");
     }
 
     function test_setDefaultGateway() public {
@@ -183,11 +218,11 @@ contract L1GatewayRouterTest is GatewayRouterTest {
 
         // register token to gateway
         vm.prank(address(customToken));
-        customGateway.registerTokenToL2{ value: 4000040000 }(
+        customGateway.registerTokenToL2{ value: retryableCost }(
             makeAddr("tokenL2Address"),
-            1000000000,
-            3,
-            40000,
+            maxGas,
+            gasPriceBid,
+            maxSubmissionCost,
             makeAddr("creditBackAddress")
         );
 
@@ -445,11 +480,11 @@ contract L1GatewayRouterTest is GatewayRouterTest {
             // register tokens to gateways
             vm.deal(tokens[i], 100 ether);
             vm.prank(tokens[i]);
-            L1CustomGateway(gateways[i]).registerTokenToL2{ value: 4000040000 }(
+            L1CustomGateway(gateways[i]).registerTokenToL2{ value: retryableCost }(
                 makeAddr("tokenL2Address"),
-                1000000000,
-                3,
-                40000,
+                maxGas,
+                gasPriceBid,
+                maxSubmissionCost,
                 makeAddr("creditBackAddress")
             );
         }
