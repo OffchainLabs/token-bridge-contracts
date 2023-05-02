@@ -65,7 +65,24 @@ contract L1GatewayRouter is
         uint256 _maxGas,
         uint256 _gasPriceBid,
         uint256 _maxSubmissionCost
-    ) external payable onlyOwner returns (uint256) {
+    ) external payable virtual onlyOwner returns (uint256) {
+        return
+            _setDefaultGateway(
+                newL1DefaultGateway,
+                _maxGas,
+                _gasPriceBid,
+                _maxSubmissionCost,
+                msg.value
+            );
+    }
+
+    function _setDefaultGateway(
+        address newL1DefaultGateway,
+        uint256 _maxGas,
+        uint256 _gasPriceBid,
+        uint256 _maxSubmissionCost,
+        uint256 feeAmount
+    ) internal returns (uint256) {
         defaultGateway = newL1DefaultGateway;
 
         emit DefaultGatewayUpdated(newL1DefaultGateway);
@@ -86,7 +103,7 @@ contract L1GatewayRouter is
                 inbox,
                 counterpartGateway,
                 msg.sender,
-                msg.value,
+                feeAmount,
                 0,
                 L2GasParams({
                     _maxSubmissionCost: _maxSubmissionCost,
@@ -109,7 +126,8 @@ contract L1GatewayRouter is
         uint256 _maxGas,
         uint256 _gasPriceBid,
         uint256 _maxSubmissionCost,
-        address _creditBackAddress
+        address _creditBackAddress,
+        uint256 feeAmount
     ) internal returns (uint256) {
         require(_token.length == _gateway.length, "WRONG_LENGTH");
 
@@ -140,7 +158,7 @@ contract L1GatewayRouter is
                 inbox,
                 counterpartGateway,
                 _creditBackAddress,
-                msg.value,
+                feeAmount,
                 0,
                 L2GasParams({
                     _maxSubmissionCost: _maxSubmissionCost,
@@ -164,7 +182,7 @@ contract L1GatewayRouter is
         uint256 _maxGas,
         uint256 _gasPriceBid,
         uint256 _maxSubmissionCost
-    ) external payable override returns (uint256) {
+    ) external payable virtual override returns (uint256) {
         return setGateway(_gateway, _maxGas, _gasPriceBid, _maxSubmissionCost, msg.sender);
     }
 
@@ -183,7 +201,26 @@ contract L1GatewayRouter is
         uint256 _gasPriceBid,
         uint256 _maxSubmissionCost,
         address _creditBackAddress
-    ) public payable override returns (uint256) {
+    ) public payable virtual override returns (uint256) {
+        return
+            _setGatewayWithCreditBack(
+                _gateway,
+                _maxGas,
+                _gasPriceBid,
+                _maxSubmissionCost,
+                _creditBackAddress,
+                msg.value
+            );
+    }
+
+    function _setGatewayWithCreditBack(
+        address _gateway,
+        uint256 _maxGas,
+        uint256 _gasPriceBid,
+        uint256 _maxSubmissionCost,
+        address _creditBackAddress,
+        uint256 feeAmount
+    ) internal returns (uint256) {
         require(
             ArbitrumEnabledToken(msg.sender).isArbitrumEnabled() == uint8(0xb1),
             "NOT_ARB_ENABLED"
@@ -210,7 +247,8 @@ contract L1GatewayRouter is
                 _maxGas,
                 _gasPriceBid,
                 _maxSubmissionCost,
-                _creditBackAddress
+                _creditBackAddress,
+                feeAmount
             );
     }
 
@@ -220,11 +258,19 @@ contract L1GatewayRouter is
         uint256 _maxGas,
         uint256 _gasPriceBid,
         uint256 _maxSubmissionCost
-    ) external payable onlyOwner returns (uint256) {
+    ) external payable virtual onlyOwner returns (uint256) {
         // it is assumed that token and gateway are both contracts
         // require(_token[i].isContract() && _gateway[i].isContract(), "NOT_CONTRACT");
         return
-            _setGateways(_token, _gateway, _maxGas, _gasPriceBid, _maxSubmissionCost, msg.sender);
+            _setGateways(
+                _token,
+                _gateway,
+                _maxGas,
+                _gasPriceBid,
+                _maxSubmissionCost,
+                msg.sender,
+                msg.value
+            );
     }
 
     function outboundTransfer(
@@ -291,12 +337,9 @@ contract L1GatewayRouter is
         _;
     }
 
-    function supportsInterface(bytes4 interfaceId)
-        public
-        view
-        override(ERC165, IERC165)
-        returns (bool)
-    {
+    function supportsInterface(
+        bytes4 interfaceId
+    ) public view override(ERC165, IERC165) returns (bool) {
         // registering interfaces that is added after arb-bridge-peripherals >1.0.11
         // using function selector instead of single function interfaces to reduce bloat
         return

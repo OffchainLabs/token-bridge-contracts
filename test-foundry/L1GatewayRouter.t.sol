@@ -20,14 +20,16 @@ contract L1GatewayRouterTest is GatewayRouterTest {
     address public counterpartGateway = makeAddr("counterpartGateway");
     address public inbox;
 
-    function setUp() public {
+    function setUp() public virtual {
         inbox = address(new InboxMock());
-
         defaultGateway = address(new L1ERC20Gateway());
 
         router = new L1GatewayRouter();
         l1Router = L1GatewayRouter(address(router));
         l1Router.initialize(owner, defaultGateway, address(0), counterpartGateway, inbox);
+
+        maxSubmissionCost = 50000;
+        retryableCost = maxSubmissionCost + maxGas * gasPriceBid;
 
         vm.deal(owner, 100 ether);
         vm.deal(user, 100 ether);
@@ -66,7 +68,7 @@ contract L1GatewayRouterTest is GatewayRouterTest {
         l1Router.postUpgradeInit();
     }
 
-    function test_getGateway_DisabledGateway() public {
+    function test_getGateway_DisabledGateway() public virtual {
         address token = makeAddr("some token");
 
         address[] memory tokens = new address[](1);
@@ -87,7 +89,7 @@ contract L1GatewayRouterTest is GatewayRouterTest {
         assertEq(gateway, address(0), "Invalid gateway");
     }
 
-    function test_getGateway_CustomGateway(address token) public {
+    function test_getGateway_CustomGateway() public virtual {
         address token = makeAddr("some token");
 
         address[] memory tokens = new address[](1);
@@ -108,7 +110,7 @@ contract L1GatewayRouterTest is GatewayRouterTest {
         assertEq(gateway, gateways[0], "Invalid gateway");
     }
 
-    function test_setDefaultGateway() public {
+    function test_setDefaultGateway() public virtual {
         L1ERC20Gateway newL1DefaultGateway = new L1ERC20Gateway();
         address newDefaultGatewayCounterpart = makeAddr("newDefaultGatewayCounterpart");
         newL1DefaultGateway.initialize(
@@ -160,7 +162,7 @@ contract L1GatewayRouterTest is GatewayRouterTest {
         assertEq(seqNum, 0, "Invalid seqNum");
     }
 
-    function test_setDefaultGateway_AddressZero() public {
+    function test_setDefaultGateway_AddressZero() public virtual {
         address newL1DefaultGateway = address(0);
 
         // event checkers
@@ -201,7 +203,7 @@ contract L1GatewayRouterTest is GatewayRouterTest {
         assertEq(seqNum, 0, "Invalid seqNum");
     }
 
-    function test_setGateway() public {
+    function test_setGateway() public virtual {
         // create gateway
         L1CustomGateway customGateway = new L1CustomGateway();
         address l2Counterpart = makeAddr("l2Counterpart");
@@ -269,7 +271,7 @@ contract L1GatewayRouterTest is GatewayRouterTest {
         assertEq(seqNum, 0, "Invalid seqNum");
     }
 
-    function test_setGateway_CustomCreditback() public {
+    function test_setGateway_CustomCreditback() public virtual {
         // create gateway
         L1CustomGateway customGateway = new L1CustomGateway();
         address l2Counterpart = makeAddr("l2Counterpart");
@@ -338,7 +340,7 @@ contract L1GatewayRouterTest is GatewayRouterTest {
         assertEq(seqNum, 0, "Invalid seqNum");
     }
 
-    function test_setGateway_revert_NotArbEnabled() public {
+    function test_setGateway_revert_NotArbEnabled() public virtual {
         address nonArbEnabledToken = address(new ERC20("X", "Y"));
         vm.deal(nonArbEnabledToken, 100 ether);
         vm.mockCall(
@@ -358,7 +360,7 @@ contract L1GatewayRouterTest is GatewayRouterTest {
         );
     }
 
-    function test_setGateway_revert_NotToContract() public {
+    function test_setGateway_revert_NotToContract() public virtual {
         address token = address(new ERC20("X", "Y"));
         vm.deal(token, 100 ether);
         vm.mockCall(token, abi.encodeWithSignature("isArbitrumEnabled()"), abi.encode(uint8(0xb1)));
@@ -376,7 +378,7 @@ contract L1GatewayRouterTest is GatewayRouterTest {
         );
     }
 
-    function test_setGateway_revert_NoUpdateToDifferentAddress() public {
+    function test_setGateway_revert_NoUpdateToDifferentAddress() public virtual {
         // create gateway
         address initialGateway = address(new L1CustomGateway());
         address l2Counterpart = makeAddr("l2Counterpart");
@@ -431,7 +433,7 @@ contract L1GatewayRouterTest is GatewayRouterTest {
         );
     }
 
-    function test_setGateway_revert_TokenNotHandledByGateway() public {
+    function test_setGateway_revert_TokenNotHandledByGateway() public virtual {
         // create gateway
         L1CustomGateway gateway = new L1CustomGateway();
 
@@ -451,7 +453,7 @@ contract L1GatewayRouterTest is GatewayRouterTest {
         );
     }
 
-    function test_setGateways() public {
+    function test_setGateways() public virtual {
         // create tokens and gateways
         address[] memory tokens = new address[](2);
         tokens[0] = address(new ERC20("1", "1"));
@@ -530,7 +532,7 @@ contract L1GatewayRouterTest is GatewayRouterTest {
         assertEq(seqNum, 0, "Invalid seqNum");
     }
 
-    function test_setGateways_revert_WrongLength() public {
+    function test_setGateways_revert_WrongLength() public virtual {
         address[] memory tokens = new address[](2);
         tokens[0] = address(new ERC20("1", "1"));
         tokens[1] = address(new ERC20("2", "2"));
@@ -549,7 +551,7 @@ contract L1GatewayRouterTest is GatewayRouterTest {
         );
     }
 
-    function test_setGateways_SetZeroAddr() public {
+    function test_setGateways_SetZeroAddr() public virtual {
         // create gateway
         address initialGateway = address(new L1CustomGateway());
         address l2Counterpart = makeAddr("l2Counterpart");
@@ -674,7 +676,7 @@ contract L1GatewayRouterTest is GatewayRouterTest {
         assertEq(l1Router.supportsInterface(iface), expected, "Interface shouldn't be supported");
     }
 
-    function test_outboundTransfer() public {
+    function test_outboundTransfer() public virtual {
         // init default gateway
         L1ERC20Gateway(defaultGateway).initialize(
             makeAddr("defaultGatewayCounterpart"),
@@ -686,7 +688,7 @@ contract L1GatewayRouterTest is GatewayRouterTest {
 
         // set default gateway
         vm.prank(owner);
-        l1Router.setDefaultGateway{ value: retryableCost }(
+        l1Router.setDefaultGateway{ value: _getValue() }(
             address(defaultGateway),
             maxGas,
             gasPriceBid,
@@ -706,8 +708,7 @@ contract L1GatewayRouterTest is GatewayRouterTest {
         /// deposit data
         address to = address(401);
         uint256 amount = 103;
-        bytes memory callHookData = "";
-        bytes memory userEncodedData = abi.encode(maxSubmissionCost, callHookData);
+        bytes memory userEncodedData = _buildUserEncodedData("");
 
         // expect event
         vm.expectEmit(true, true, true, true);
@@ -715,7 +716,7 @@ contract L1GatewayRouterTest is GatewayRouterTest {
 
         /// deposit it
         vm.prank(user);
-        l1Router.outboundTransfer{ value: retryableCost }(
+        l1Router.outboundTransfer{ value: _getValue() }(
             address(token),
             to,
             amount,
@@ -736,7 +737,7 @@ contract L1GatewayRouterTest is GatewayRouterTest {
         );
     }
 
-    function test_outboundTransferCustomRefund() public {
+    function test_outboundTransferCustomRefund() public virtual {
         // init default gateway
         L1ERC20Gateway(defaultGateway).initialize(
             makeAddr("defaultGatewayCounterpart"),
@@ -748,7 +749,7 @@ contract L1GatewayRouterTest is GatewayRouterTest {
 
         // set default gateway
         vm.prank(owner);
-        l1Router.setDefaultGateway{ value: retryableCost }(
+        l1Router.setDefaultGateway{ value: _getValue() }(
             address(defaultGateway),
             maxGas,
             gasPriceBid,
@@ -769,8 +770,7 @@ contract L1GatewayRouterTest is GatewayRouterTest {
         address refundTo = address(400);
         address to = address(401);
         uint256 amount = 103;
-        bytes memory callHookData = "";
-        bytes memory userEncodedData = abi.encode(maxSubmissionCost, callHookData);
+        bytes memory userEncodedData = _buildUserEncodedData("");
 
         // expect event
         vm.expectEmit(true, true, true, true);
@@ -778,7 +778,7 @@ contract L1GatewayRouterTest is GatewayRouterTest {
 
         /// deposit it
         vm.prank(user);
-        l1Router.outboundTransferCustomRefund{ value: retryableCost }(
+        l1Router.outboundTransferCustomRefund{ value: _getValue() }(
             address(token),
             refundTo,
             to,
@@ -798,6 +798,20 @@ contract L1GatewayRouterTest is GatewayRouterTest {
             amount,
             "Wrong defaultGateway balance"
         );
+    }
+
+    ////
+    // Helper functions
+    ////
+    function _buildUserEncodedData(
+        bytes memory callHookData
+    ) internal view virtual returns (bytes memory) {
+        bytes memory userEncodedData = abi.encode(maxSubmissionCost, callHookData);
+        return userEncodedData;
+    }
+
+    function _getValue() internal view virtual returns (uint256) {
+        return retryableCost;
     }
 
     ////
