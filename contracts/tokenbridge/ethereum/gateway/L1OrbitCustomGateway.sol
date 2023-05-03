@@ -2,16 +2,76 @@
 
 pragma solidity ^0.8.0;
 
-import { L1ERC20Gateway, IERC20 } from "./L1ERC20Gateway.sol";
+import { L1CustomGateway } from "./L1CustomGateway.sol";
 import { IERC20Inbox } from "../L1ArbitrumMessenger.sol";
 
 /**
- * @title Layer 1 Gateway contract for bridging standard ERC20s in ERC20-based rollup
- * @notice This contract handles token deposits, holds the escrowed tokens on layer 1, and (ultimately) finalizes withdrawals.
- * @dev Any ERC20 that requires non-standard functionality should use a separate gateway.
- * Messages to layer 2 use the inbox's createRetryableTicket method.
+ * @title Gateway for "custom" bridging functionality in an ERC20-based rollup.
+ * @notice Adds new entrypoints that have `_feeAmount` as parameter, while entrypoints without that parameter are reverted.
  */
-contract L1OrbitERC20Gateway is L1ERC20Gateway {
+contract L1OrbitCustomGateway is L1CustomGateway {
+    function registerTokenToL2(
+        address _l2Address,
+        uint256 _maxGas,
+        uint256 _gasPriceBid,
+        uint256 _maxSubmissionCost,
+        uint256 _feeAmount
+    ) external returns (uint256) {
+        return
+            registerTokenToL2(
+                _l2Address,
+                _maxGas,
+                _gasPriceBid,
+                _maxSubmissionCost,
+                msg.sender,
+                _feeAmount
+            );
+    }
+
+    function registerTokenToL2(
+        address _l2Address,
+        uint256 _maxGas,
+        uint256 _gasPriceBid,
+        uint256 _maxSubmissionCost,
+        address _creditBackAddress,
+        uint256 _feeAmount
+    ) public returns (uint256) {
+        return
+            _registerTokenToL2(
+                _l2Address,
+                _maxGas,
+                _gasPriceBid,
+                _maxSubmissionCost,
+                _creditBackAddress,
+                _feeAmount
+            );
+    }
+
+    /**
+     * @notice Revert 'registerTokenToL2' entrypoint which doesn't have total amount of token fees as an argument.
+     */
+    function registerTokenToL2(
+        address,
+        uint256,
+        uint256,
+        uint256,
+        address
+    ) public payable override returns (uint256) {
+        revert("NOT_SUPPORTED_IN_ORBIT");
+    }
+
+    /**
+     * @notice Revert 'registerTokenToL2' entrypoint which doesn't have total amount of token fees as an argument.
+     */
+    function registerTokenToL2(
+        address,
+        uint256,
+        uint256,
+        uint256
+    ) external payable override returns (uint256) {
+        revert("NOT_SUPPORTED_IN_ORBIT");
+    }
+
     function _parseUserEncodedData(
         bytes memory data
     )
