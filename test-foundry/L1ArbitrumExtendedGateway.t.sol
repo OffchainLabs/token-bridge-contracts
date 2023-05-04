@@ -4,10 +4,26 @@ pragma solidity ^0.8.0;
 
 import "forge-std/Test.sol";
 import "contracts/tokenbridge/ethereum/gateway/L1ArbitrumExtendedGateway.sol";
+import { TestERC20 } from "contracts/tokenbridge/test/TestERC20.sol";
+import { InboxMock } from "contracts/tokenbridge/test/InboxMock.sol";
 
 abstract contract L1ArbitrumExtendedGatewayTest is Test {
     IL1ArbitrumGateway public l1Gateway;
+    IERC20 public token;
 
+    address public l2Gateway = makeAddr("l2Gateway");
+    address public router = makeAddr("router");
+    address public inbox;
+    address public user = makeAddr("user");
+
+    // retryable params
+    uint256 public maxSubmissionCost;
+    uint256 public maxGas = 1000000000;
+    uint256 public gasPriceBid = 3;
+    uint256 public retryableCost;
+    address public creditBackAddress = makeAddr("creditBackAddress");
+
+    /* solhint-disable func-name-mixedcase */
     function test_encodeWithdrawal(uint256 exitNum, address dest) public {
         bytes32 encodedWithdrawal = L1ArbitrumExtendedGateway(address(l1Gateway)).encodeWithdrawal(
             exitNum,
@@ -16,6 +32,57 @@ abstract contract L1ArbitrumExtendedGatewayTest is Test {
         bytes32 expectedEncoding = keccak256(abi.encode(exitNum, dest));
 
         assertEq(encodedWithdrawal, expectedEncoding, "Invalid encodeWithdrawal");
+    }
+
+    function test_finalizeInboundTransfer() public {
+        // fund gateway with tokens being withdrawn
+        vm.prank(address(l1Gateway));
+        TestERC20(address(token)).mint();
+
+        // snapshot state before
+        uint256 userBalanceBefore = token.balanceOf(user);
+        uint256 l1GatewayBalanceBefore = token.balanceOf(address(l1Gateway));
+
+        // withdrawal params
+        address from = address(3000);
+        uint256 withdrawalAmount = 25;
+        uint256 exitNum = 7;
+        bytes memory callHookData = "";
+        bytes memory data = abi.encode(exitNum, callHookData);
+
+        InboxMock(address(inbox)).setL2ToL1Sender(l2Gateway);
+
+        // trigger withdrawal
+        vm.prank(address(IInbox(l1Gateway.inbox()).bridge()));
+        l1Gateway.finalizeInboundTransfer(address(token), from, user, withdrawalAmount, data);
+
+        // check tokens are properly released
+        uint256 userBalanceAfter = token.balanceOf(user);
+        assertEq(userBalanceAfter - userBalanceBefore, withdrawalAmount, "Wrong user balance");
+
+        uint256 l1GatewayBalanceAfter = token.balanceOf(address(l1Gateway));
+        assertEq(
+            l1GatewayBalanceBefore - l1GatewayBalanceAfter,
+            withdrawalAmount,
+            "Wrong l1 gateway balance"
+        );
+    }
+
+    function test_finalizeInboundTransfer_revert_NotFromBridge() public {
+        address notBridge = address(300);
+        vm.prank(notBridge);
+        vm.expectRevert("NOT_FROM_BRIDGE");
+        l1Gateway.finalizeInboundTransfer(address(token), user, user, 100, "");
+    }
+
+    function test_finalizeInboundTransfer_revert_OnlyCounterpartGateway() public {
+        address notCounterPartGateway = address(400);
+        InboxMock(address(inbox)).setL2ToL1Sender(notCounterPartGateway);
+
+        // trigger withdrawal
+        vm.prank(address(IInbox(l1Gateway.inbox()).bridge()));
+        vm.expectRevert("ONLY_COUNTERPART_GATEWAY");
+        l1Gateway.finalizeInboundTransfer(address(token), user, user, 100, "");
     }
 
     function test_getExternalCall(uint256 exitNum, address dest, bytes memory data) public {
@@ -37,8 +104,7 @@ abstract contract L1ArbitrumExtendedGatewayTest is Test {
     function test_getExternalCall_Redirected(
         uint256 exitNum,
         address initialDest,
-        address newDest,
-        bytes memory data
+        address newDest
     ) public {
         // redirect
         vm.prank(initialDest);
@@ -64,6 +130,64 @@ abstract contract L1ArbitrumExtendedGatewayTest is Test {
         assertEq(isExit, true, "Invalid isExit");
         assertEq(newTo, newDest, "Invalid _newTo");
         assertEq(newData.length, 0, "Invalid _newData");
+    }
+
+    function test_outboundTransferCustomRefund_revert_ExtraDataDisabled() public {
+        bytes memory callHookData = abi.encodeWithSignature("doSomething()");
+        bytes memory routerEncodedData = buildRouterEncodedData(callHookData);
+
+        vm.prank(router);
+        vm.expectRevert("EXTRA_DATA_DISABLED");
+        l1Gateway.outboundTransferCustomRefund{ value: 1 ether }(
+            address(token),
+            user,
+            user,
+            400,
+            0.1 ether,
+            0.01 ether,
+            routerEncodedData
+        );
+    }
+
+    function test_outboundTransferCustomRefund_revert_L1NotContract() public {
+        address invalidTokenAddress = address(70);
+
+        vm.prank(router);
+        vm.expectRevert("L1_NOT_CONTRACT");
+        l1Gateway.outboundTransferCustomRefund{ value: 1 ether }(
+            address(invalidTokenAddress),
+            user,
+            user,
+            400,
+            0.1 ether,
+            0.01 ether,
+            buildRouterEncodedData("")
+        );
+    }
+
+    function test_outboundTransferCustomRefund_revert_NotFromRouter() public {
+        vm.expectRevert("NOT_FROM_ROUTER");
+        l1Gateway.outboundTransferCustomRefund{ value: 1 ether }(
+            address(token),
+            user,
+            user,
+            400,
+            0.1 ether,
+            0.01 ether,
+            ""
+        );
+    }
+
+    function test_supportsInterface(bytes4 iface) public {
+        bool expected = false;
+        if (
+            iface == type(IERC165).interfaceId ||
+            iface == IL1ArbitrumGateway.outboundTransferCustomRefund.selector
+        ) {
+            expected = true;
+        }
+
+        assertEq(l1Gateway.supportsInterface(iface), expected, "Interface shouldn't be supported");
     }
 
     function test_transferExitAndCall_EmptyData_NotRedirected(
@@ -293,6 +417,18 @@ abstract contract L1ArbitrumExtendedGatewayTest is Test {
             "",
             failData
         );
+    }
+
+    ////
+    // Helper functions
+    ////
+    function buildRouterEncodedData(
+        bytes memory callHookData
+    ) internal view virtual returns (bytes memory) {
+        bytes memory userEncodedData = abi.encode(maxSubmissionCost, callHookData);
+        bytes memory routerEncodedData = abi.encode(user, userEncodedData);
+
+        return routerEncodedData;
     }
 
     /////

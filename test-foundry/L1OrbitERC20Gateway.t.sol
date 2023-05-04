@@ -188,7 +188,6 @@ contract L1OrbitERC20GatewayTest is L1ERC20GatewayTest {
         bytes memory callHookData
     ) internal view override returns (bytes memory) {
         uint256 nativeTokenTotalFee = 350;
-        uint256 maxSubmissionCost = 20;
 
         bytes memory userEncodedData = abi.encode(
             maxSubmissionCost,

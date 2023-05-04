@@ -234,7 +234,26 @@ contract L1CustomGateway is L1ArbitrumExtendedGateway, ICustomGateway {
         uint256 _maxGas,
         uint256 _gasPriceBid,
         uint256 _maxSubmissionCost
-    ) external payable onlyOwner returns (uint256) {
+    ) external payable virtual onlyOwner returns (uint256) {
+        return
+            _forceRegisterTokenToL2(
+                _l1Addresses,
+                _l2Addresses,
+                _maxGas,
+                _gasPriceBid,
+                _maxSubmissionCost,
+                msg.value
+            );
+    }
+
+    function _forceRegisterTokenToL2(
+        address[] calldata _l1Addresses,
+        address[] calldata _l2Addresses,
+        uint256 _maxGas,
+        uint256 _gasPriceBid,
+        uint256 _maxSubmissionCost,
+        uint256 _feeAmount
+    ) internal returns (uint256) {
         require(_l1Addresses.length == _l2Addresses.length, "INVALID_LENGTHS");
 
         for (uint256 i = 0; i < _l1Addresses.length; i++) {
@@ -255,7 +274,7 @@ contract L1CustomGateway is L1ArbitrumExtendedGateway, ICustomGateway {
                 inbox,
                 counterpartGateway,
                 msg.sender,
-                msg.value,
+                _feeAmount,
                 0,
                 _maxSubmissionCost,
                 _maxGas,

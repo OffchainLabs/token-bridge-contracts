@@ -47,6 +47,25 @@ contract L1OrbitCustomGateway is L1CustomGateway {
             );
     }
 
+    function forceRegisterTokenToL2(
+        address[] calldata _l1Addresses,
+        address[] calldata _l2Addresses,
+        uint256 _maxGas,
+        uint256 _gasPriceBid,
+        uint256 _maxSubmissionCost,
+        uint256 _feeAmount
+    ) external payable virtual onlyOwner returns (uint256) {
+        return
+            _forceRegisterTokenToL2(
+                _l1Addresses,
+                _l2Addresses,
+                _maxGas,
+                _gasPriceBid,
+                _maxSubmissionCost,
+                _feeAmount
+            );
+    }
+
     /**
      * @notice Revert 'registerTokenToL2' entrypoint which doesn't have total amount of token fees as an argument.
      */
@@ -69,6 +88,19 @@ contract L1OrbitCustomGateway is L1CustomGateway {
         uint256,
         uint256
     ) external payable override returns (uint256) {
+        revert("NOT_SUPPORTED_IN_ORBIT");
+    }
+
+    /**
+     * @notice Revert 'forceRegisterTokenToL2' entrypoint which doesn't have total amount of token fees as an argument.
+     */
+    function forceRegisterTokenToL2(
+        address[] calldata,
+        address[] calldata,
+        uint256,
+        uint256,
+        uint256
+    ) external payable override onlyOwner returns (uint256) {
         revert("NOT_SUPPORTED_IN_ORBIT");
     }
 
