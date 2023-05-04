@@ -268,7 +268,7 @@ contract L1GatewayRouterTest is GatewayRouterTest {
             "Gateway not set"
         );
 
-        assertEq(seqNum, 0, "Invalid seqNum");
+        assertEq(seqNum, 1, "Invalid seqNum");
     }
 
     function test_setGateway_CustomCreditback() public virtual {
@@ -337,7 +337,7 @@ contract L1GatewayRouterTest is GatewayRouterTest {
             "Gateway not set"
         );
 
-        assertEq(seqNum, 0, "Invalid seqNum");
+        assertEq(seqNum, 1, "Invalid seqNum");
     }
 
     function test_setGateway_revert_NotArbEnabled() public virtual {
@@ -529,7 +529,7 @@ contract L1GatewayRouterTest is GatewayRouterTest {
 
         assertEq(l1Router.l1TokenToGateway(tokens[0]), gateways[0], "Gateway[0] not set");
         assertEq(l1Router.l1TokenToGateway(tokens[1]), gateways[1], "Gateway[1] not set");
-        assertEq(seqNum, 0, "Invalid seqNum");
+        assertEq(seqNum, 2, "Invalid seqNum");
     }
 
     function test_setGateways_revert_WrongLength() public virtual {
@@ -631,7 +631,7 @@ contract L1GatewayRouterTest is GatewayRouterTest {
         ///// checks
 
         assertEq(l1Router.l1TokenToGateway(token), address(0), "Custom gateway not cleared");
-        assertEq(seqNum, 0, "Invalid seqNum");
+        assertEq(seqNum, 2, "Invalid seqNum");
     }
 
     function test_setGateways_revert_notOwner() public {

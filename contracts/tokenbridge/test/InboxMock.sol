@@ -22,7 +22,8 @@ import "@arbitrum/nitro-contracts/src/bridge/IOutbox.sol";
 import "@arbitrum/nitro-contracts/src/bridge/IBridge.sol";
 
 abstract contract AbsInboxMock {
-    address l2ToL1SenderMock = address(0);
+    address public l2ToL1SenderMock = address(0);
+    uint256 public seqNum = 0;
 
     event TicketData(uint256 maxSubmissionCost);
     event RefundAddresses(address excessFeeRefundAddress, address callValueRefundAddress);
@@ -62,7 +63,7 @@ contract InboxMock is AbsInboxMock {
         emit TicketData(maxSubmissionCost);
         emit RefundAddresses(excessFeeRefundAddress, callValueRefundAddress);
         emit InboxRetryableTicket(msg.sender, to, l2CallValue, gasLimit, data);
-        return 0;
+        return seqNum++;
     }
 }
 
@@ -104,6 +105,6 @@ contract ERC20InboxMock is AbsInboxMock {
             tokenTotalFeeAmount,
             data
         );
-        return 0;
+        return seqNum++;
     }
 }

@@ -2,26 +2,25 @@
 
 pragma solidity ^0.8.0;
 
-import { L1ArbitrumExtendedGatewayTest } from "./L1ArbitrumExtendedGateway.t.sol";
-import { L1CustomGateway, IInbox, ITokenGateway, IERC165, IL1ArbitrumGateway, IERC20 } from "contracts/tokenbridge/ethereum/gateway/L1CustomGateway.sol";
-import { L2CustomGateway } from "contracts/tokenbridge/arbitrum/gateway/L2CustomGateway.sol";
+import { L1CustomGatewayTest, IERC20, L2CustomGateway } from "./L1CustomGateway.t.sol";
+import { L1OrbitCustomGateway } from "contracts/tokenbridge/ethereum/gateway/L1OrbitCustomGateway.sol";
+
 import { TestERC20 } from "contracts/tokenbridge/test/TestERC20.sol";
-import { InboxMock } from "contracts/tokenbridge/test/InboxMock.sol";
+import { ERC20InboxMock } from "contracts/tokenbridge/test/InboxMock.sol";
 
-contract L1CustomGatewayTest is L1ArbitrumExtendedGatewayTest {
-    // gateway params
-    address public owner = makeAddr("owner");
+contract L1OrbitCustomGatewayTest is L1CustomGatewayTest {
+    uint256 public nativeTokenTotalFee;
 
-    function setUp() public virtual {
-        inbox = address(new InboxMock());
+    function setUp() public override {
+        inbox = address(new ERC20InboxMock());
 
-        l1Gateway = new L1CustomGateway();
-        L1CustomGateway(address(l1Gateway)).initialize(l2Gateway, router, inbox, owner);
+        l1Gateway = new L1OrbitCustomGateway();
+        L1OrbitCustomGateway(address(l1Gateway)).initialize(l2Gateway, router, inbox, owner);
 
         token = IERC20(address(new TestERC20()));
 
-        maxSubmissionCost = 20;
-        retryableCost = maxSubmissionCost + gasPriceBid * maxGas;
+        maxSubmissionCost = 0;
+        nativeTokenTotalFee = maxGas * gasPriceBid;
 
         // fund user and router
         vm.prank(user);
@@ -32,7 +31,7 @@ contract L1CustomGatewayTest is L1ArbitrumExtendedGatewayTest {
     }
 
     /* solhint-disable func-name-mixedcase */
-    function test_calculateL2TokenAddress(address l1Token, address l2Token) public virtual {
+    function test_calculateL2TokenAddress(address l1Token, address l2Token) public override {
         vm.deal(l1Token, 100 ether);
 
         // register token to gateway
@@ -42,18 +41,19 @@ contract L1CustomGatewayTest is L1ArbitrumExtendedGatewayTest {
             abi.encode(uint8(0xb1))
         );
         vm.prank(address(l1Token));
-        L1CustomGateway(address(l1Gateway)).registerTokenToL2{ value: retryableCost }(
+        L1OrbitCustomGateway(address(l1Gateway)).registerTokenToL2(
             l2Token,
             maxGas,
             gasPriceBid,
             maxSubmissionCost,
-            makeAddr("creditBackAddress")
+            makeAddr("creditBackAddress"),
+            nativeTokenTotalFee
         );
 
         assertEq(l1Gateway.calculateL2TokenAddress(l1Token), l2Token, "Invalid L2 token address");
     }
 
-    function test_forceRegisterTokenToL2() public virtual {
+    function test_forceRegisterTokenToL2() public override {
         address[] memory l1Tokens = new address[](2);
         l1Tokens[0] = makeAddr("l1Token1");
         l1Tokens[1] = makeAddr("l1Token2");
@@ -75,29 +75,36 @@ contract L1CustomGatewayTest is L1ArbitrumExtendedGatewayTest {
         emit RefundAddresses(owner, owner);
 
         vm.expectEmit(true, true, true, true);
-        emit InboxRetryableTicket(
+        emit ERC20InboxRetryableTicket(
             address(l1Gateway),
             l2Gateway,
             0,
             maxGas,
+            gasPriceBid,
+            nativeTokenTotalFee,
             abi.encodeWithSelector(L2CustomGateway.registerTokenFromL1.selector, l1Tokens, l2Tokens)
         );
 
         // register token to gateway
         vm.prank(owner);
-        uint256 seqNum = L1CustomGateway(address(l1Gateway)).forceRegisterTokenToL2{
-            value: retryableCost
-        }(l1Tokens, l2Tokens, maxGas, gasPriceBid, maxSubmissionCost);
+        uint256 seqNum = L1OrbitCustomGateway(address(l1Gateway)).forceRegisterTokenToL2(
+            l1Tokens,
+            l2Tokens,
+            maxGas,
+            gasPriceBid,
+            maxSubmissionCost,
+            nativeTokenTotalFee
+        );
 
         ///// checks
         assertEq(
-            L1CustomGateway(address(l1Gateway)).l1ToL2Token(l1Tokens[0]),
+            L1OrbitCustomGateway(address(l1Gateway)).l1ToL2Token(l1Tokens[0]),
             l2Tokens[0],
             "Invalid L2 token"
         );
 
         assertEq(
-            L1CustomGateway(address(l1Gateway)).l1ToL2Token(l1Tokens[1]),
+            L1OrbitCustomGateway(address(l1Gateway)).l1ToL2Token(l1Tokens[1]),
             l2Tokens[1],
             "Invalid L2 token"
         );
@@ -105,62 +112,20 @@ contract L1CustomGatewayTest is L1ArbitrumExtendedGatewayTest {
         assertEq(seqNum, 0, "Invalid seqNum");
     }
 
-    function test_forceRegisterTokenToL2_revert_InvalidLength() public virtual {
+    function test_forceRegisterTokenToL2_revert_InvalidLength() public override {
         vm.prank(owner);
         vm.expectRevert("INVALID_LENGTHS");
-        L1CustomGateway(address(l1Gateway)).forceRegisterTokenToL2{ value: retryableCost }(
+        L1OrbitCustomGateway(address(l1Gateway)).forceRegisterTokenToL2(
             new address[](1),
             new address[](2),
             maxGas,
             gasPriceBid,
-            maxSubmissionCost
+            maxSubmissionCost,
+            nativeTokenTotalFee
         );
     }
 
-    function test_forceRegisterTokenToL2_revert_OnlyOwner() public {
-        vm.expectRevert("ONLY_OWNER");
-        L1CustomGateway(address(l1Gateway)).forceRegisterTokenToL2{ value: retryableCost }(
-            new address[](1),
-            new address[](1),
-            maxGas,
-            gasPriceBid,
-            maxSubmissionCost
-        );
-    }
-
-    function test_getOutboundCalldata() public {
-        bytes memory outboundCalldata = l1Gateway.getOutboundCalldata({
-            _token: address(token),
-            _from: user,
-            _to: address(800),
-            _amount: 355,
-            _data: abi.encode("doStuff()")
-        });
-
-        bytes memory expectedCalldata = abi.encodeWithSelector(
-            ITokenGateway.finalizeInboundTransfer.selector,
-            address(token),
-            user,
-            address(800),
-            355,
-            abi.encode("", abi.encode("doStuff()"))
-        );
-
-        assertEq(outboundCalldata, expectedCalldata, "Invalid outboundCalldata");
-    }
-
-    function test_initialize() public virtual {
-        L1CustomGateway gateway = new L1CustomGateway();
-        gateway.initialize(l2Gateway, router, inbox, owner);
-
-        assertEq(gateway.counterpartGateway(), l2Gateway, "Invalid counterpartGateway");
-        assertEq(gateway.router(), router, "Invalid router");
-        assertEq(gateway.inbox(), inbox, "Invalid inbox");
-        assertEq(gateway.owner(), owner, "Invalid owner");
-        assertEq(gateway.whitelist(), address(0), "Invalid whitelist");
-    }
-
-    function test_outboundTransfer() public virtual {
+    function test_outboundTransfer() public override {
         // snapshot state before
         uint256 userBalanceBefore = token.balanceOf(user);
         uint256 l1GatewayBalanceBefore = token.balanceOf(address(l1Gateway));
@@ -176,9 +141,14 @@ contract L1CustomGatewayTest is L1ArbitrumExtendedGatewayTest {
             abi.encode(uint8(0xb1))
         );
         vm.prank(address(token));
-        uint256 seqNum0 = L1CustomGateway(address(l1Gateway)).registerTokenToL2{
-            value: retryableCost
-        }(makeAddr("tokenL2Address"), maxGas, gasPriceBid, maxSubmissionCost, creditBackAddress);
+        uint256 seqNum0 = L1OrbitCustomGateway(address(l1Gateway)).registerTokenToL2(
+            makeAddr("tokenL2Address"),
+            maxGas,
+            gasPriceBid,
+            maxSubmissionCost,
+            creditBackAddress,
+            nativeTokenTotalFee
+        );
 
         // approve token
         vm.prank(user);
@@ -192,11 +162,13 @@ contract L1CustomGatewayTest is L1ArbitrumExtendedGatewayTest {
         emit RefundAddresses(user, user);
 
         vm.expectEmit(true, true, true, true);
-        emit InboxRetryableTicket(
+        emit ERC20InboxRetryableTicket(
             address(l1Gateway),
             l2Gateway,
             0,
             maxGas,
+            gasPriceBid,
+            nativeTokenTotalFee,
             l1Gateway.getOutboundCalldata(address(token), user, user, depositAmount, callHookData)
         );
 
@@ -205,7 +177,7 @@ contract L1CustomGatewayTest is L1ArbitrumExtendedGatewayTest {
 
         // trigger deposit
         vm.prank(router);
-        bytes memory seqNum1 = l1Gateway.outboundTransfer{ value: retryableCost }(
+        bytes memory seqNum1 = l1Gateway.outboundTransfer(
             address(token),
             user,
             depositAmount,
@@ -229,7 +201,7 @@ contract L1CustomGatewayTest is L1ArbitrumExtendedGatewayTest {
         assertEq(seqNum1, abi.encode(1), "Invalid seqNum1");
     }
 
-    function test_outboundTransferCustomRefund() public virtual {
+    function test_outboundTransferCustomRefund() public override {
         // snapshot state before
         uint256 userBalanceBefore = token.balanceOf(user);
         uint256 l1GatewayBalanceBefore = token.balanceOf(address(l1Gateway));
@@ -245,9 +217,14 @@ contract L1CustomGatewayTest is L1ArbitrumExtendedGatewayTest {
             abi.encode(uint8(0xb1))
         );
         vm.prank(address(token));
-        uint256 seqNum0 = L1CustomGateway(address(l1Gateway)).registerTokenToL2{
-            value: retryableCost
-        }(makeAddr("tokenL2Address"), maxGas, gasPriceBid, maxSubmissionCost, creditBackAddress);
+        uint256 seqNum0 = L1OrbitCustomGateway(address(l1Gateway)).registerTokenToL2(
+            makeAddr("tokenL2Address"),
+            maxGas,
+            gasPriceBid,
+            maxSubmissionCost,
+            creditBackAddress,
+            nativeTokenTotalFee
+        );
 
         // approve token
         vm.prank(user);
@@ -261,11 +238,13 @@ contract L1CustomGatewayTest is L1ArbitrumExtendedGatewayTest {
         emit RefundAddresses(creditBackAddress, user);
 
         vm.expectEmit(true, true, true, true);
-        emit InboxRetryableTicket(
+        emit ERC20InboxRetryableTicket(
             address(l1Gateway),
             l2Gateway,
             0,
             maxGas,
+            gasPriceBid,
+            nativeTokenTotalFee,
             l1Gateway.getOutboundCalldata(address(token), user, user, depositAmount, callHookData)
         );
 
@@ -274,7 +253,7 @@ contract L1CustomGatewayTest is L1ArbitrumExtendedGatewayTest {
 
         // trigger deposit
         vm.prank(router);
-        bytes memory seqNum1 = l1Gateway.outboundTransferCustomRefund{ value: retryableCost }(
+        bytes memory seqNum1 = l1Gateway.outboundTransferCustomRefund(
             address(token),
             creditBackAddress,
             user,
@@ -299,7 +278,7 @@ contract L1CustomGatewayTest is L1ArbitrumExtendedGatewayTest {
         assertEq(seqNum1, abi.encode(1), "Invalid seqNum1");
     }
 
-    function test_outboundTransferCustomRefund_revert_InsufficientAllowance() public virtual {
+    function test_outboundTransferCustomRefund_revert_InsufficientAllowance() public override {
         uint256 tooManyTokens = 500 ether;
 
         // register token to gateway
@@ -309,12 +288,13 @@ contract L1CustomGatewayTest is L1ArbitrumExtendedGatewayTest {
             abi.encode(uint8(0xb1))
         );
         vm.prank(address(token));
-        L1CustomGateway(address(l1Gateway)).registerTokenToL2{ value: retryableCost }(
+        L1OrbitCustomGateway(address(l1Gateway)).registerTokenToL2(
             makeAddr("tokenL2Address"),
             maxGas,
             gasPriceBid,
             maxSubmissionCost,
-            makeAddr("creditBackAddress")
+            creditBackAddress,
+            nativeTokenTotalFee
         );
 
         vm.prank(router);
@@ -330,7 +310,7 @@ contract L1CustomGatewayTest is L1ArbitrumExtendedGatewayTest {
         );
     }
 
-    function test_registerTokenToL2(address l1Token, address l2Token) public virtual {
+    function test_registerTokenToL2(address l1Token, address l2Token) public override {
         vm.assume(l1Token != FOUNDRY_CHEATCODE_ADDRESS && l2Token != FOUNDRY_CHEATCODE_ADDRESS);
         vm.deal(l1Token, 100 ether);
 
@@ -349,11 +329,13 @@ contract L1CustomGatewayTest is L1ArbitrumExtendedGatewayTest {
         address[] memory l2Tokens = new address[](1);
         l2Tokens[0] = address(l2Token);
         vm.expectEmit(true, true, true, true);
-        emit InboxRetryableTicket(
+        emit ERC20InboxRetryableTicket(
             address(l1Gateway),
             l2Gateway,
             0,
             maxGas,
+            gasPriceBid,
+            nativeTokenTotalFee,
             abi.encodeWithSelector(L2CustomGateway.registerTokenFromL1.selector, l1Tokens, l2Tokens)
         );
 
@@ -364,21 +346,22 @@ contract L1CustomGatewayTest is L1ArbitrumExtendedGatewayTest {
             abi.encode(uint8(0xb1))
         );
         vm.prank(address(l1Token));
-        L1CustomGateway(address(l1Gateway)).registerTokenToL2{ value: retryableCost }(
+        L1OrbitCustomGateway(address(l1Gateway)).registerTokenToL2(
             l2Token,
             maxGas,
             gasPriceBid,
-            maxSubmissionCost
+            maxSubmissionCost,
+            nativeTokenTotalFee
         );
 
         assertEq(
-            L1CustomGateway(address(l1Gateway)).l1ToL2Token(l1Token),
+            L1OrbitCustomGateway(address(l1Gateway)).l1ToL2Token(l1Token),
             l2Token,
             "Invalid L2 token"
         );
     }
 
-    function test_registerTokenToL2_CustomRefund(address l1Token, address l2Token) public virtual {
+    function test_registerTokenToL2_CustomRefund(address l1Token, address l2Token) public override {
         vm.assume(l1Token != FOUNDRY_CHEATCODE_ADDRESS && l2Token != FOUNDRY_CHEATCODE_ADDRESS);
         vm.deal(l1Token, 100 ether);
 
@@ -397,11 +380,13 @@ contract L1CustomGatewayTest is L1ArbitrumExtendedGatewayTest {
         address[] memory l2Tokens = new address[](1);
         l2Tokens[0] = address(l2Token);
         vm.expectEmit(true, true, true, true);
-        emit InboxRetryableTicket(
+        emit ERC20InboxRetryableTicket(
             address(l1Gateway),
             l2Gateway,
             0,
             maxGas,
+            gasPriceBid,
+            nativeTokenTotalFee,
             abi.encodeWithSelector(L2CustomGateway.registerTokenFromL1.selector, l1Tokens, l2Tokens)
         );
 
@@ -412,22 +397,23 @@ contract L1CustomGatewayTest is L1ArbitrumExtendedGatewayTest {
             abi.encode(uint8(0xb1))
         );
         vm.prank(address(l1Token));
-        L1CustomGateway(address(l1Gateway)).registerTokenToL2{ value: retryableCost }(
+        L1OrbitCustomGateway(address(l1Gateway)).registerTokenToL2(
             l2Token,
             maxGas,
             gasPriceBid,
             maxSubmissionCost,
-            creditBackAddress
+            creditBackAddress,
+            nativeTokenTotalFee
         );
 
         assertEq(
-            L1CustomGateway(address(l1Gateway)).l1ToL2Token(l1Token),
+            L1OrbitCustomGateway(address(l1Gateway)).l1ToL2Token(l1Token),
             l2Token,
             "Invalid L2 token"
         );
     }
 
-    function test_registerTokenToL2_revert_NotArbEnabled() public virtual {
+    function test_registerTokenToL2_revert_NotArbEnabled() public override {
         // wrong answer
         vm.mockCall(
             address(token),
@@ -437,16 +423,17 @@ contract L1CustomGatewayTest is L1ArbitrumExtendedGatewayTest {
 
         vm.prank(address(token));
         vm.expectRevert("NOT_ARB_ENABLED");
-        L1CustomGateway(address(l1Gateway)).registerTokenToL2{ value: retryableCost }(
+        L1OrbitCustomGateway(address(l1Gateway)).registerTokenToL2(
             address(102),
             maxGas,
             gasPriceBid,
             maxSubmissionCost,
-            creditBackAddress
+            creditBackAddress,
+            nativeTokenTotalFee
         );
     }
 
-    function test_registerTokenToL2_revert_NoUpdateToDifferentAddress() public virtual {
+    function test_registerTokenToL2_revert_NoUpdateToDifferentAddress() public override {
         // register token to gateway
         vm.mockCall(
             address(token),
@@ -457,14 +444,15 @@ contract L1CustomGatewayTest is L1ArbitrumExtendedGatewayTest {
         // set initial address
         address initialL2TokenAddress = makeAddr("initial");
         vm.prank(address(token));
-        L1CustomGateway(address(l1Gateway)).registerTokenToL2{ value: retryableCost }(
+        L1OrbitCustomGateway(address(l1Gateway)).registerTokenToL2(
             initialL2TokenAddress,
             maxGas,
             gasPriceBid,
-            maxSubmissionCost
+            maxSubmissionCost,
+            nativeTokenTotalFee
         );
         assertEq(
-            L1CustomGateway(address(l1Gateway)).l1ToL2Token(address(token)),
+            L1OrbitCustomGateway(address(l1Gateway)).l1ToL2Token(address(token)),
             initialL2TokenAddress
         );
 
@@ -472,52 +460,38 @@ contract L1CustomGatewayTest is L1ArbitrumExtendedGatewayTest {
         address differentL2TokenAddress = makeAddr("different");
         vm.prank(address(token));
         vm.expectRevert("NO_UPDATE_TO_DIFFERENT_ADDR");
-        L1CustomGateway(address(l1Gateway)).registerTokenToL2{ value: retryableCost }(
+        L1OrbitCustomGateway(address(l1Gateway)).registerTokenToL2(
             differentL2TokenAddress,
             maxGas,
             gasPriceBid,
-            maxSubmissionCost
+            maxSubmissionCost,
+            nativeTokenTotalFee
         );
     }
 
-    function test_setOwner(address newOwner) public {
-        vm.assume(newOwner != address(0));
+    ///
+    // Helper functions
+    ///
+    function buildRouterEncodedData(
+        bytes memory callHookData
+    ) internal view override returns (bytes memory) {
+        bytes memory userEncodedData = abi.encode(
+            maxSubmissionCost,
+            callHookData,
+            nativeTokenTotalFee
+        );
+        bytes memory routerEncodedData = abi.encode(user, userEncodedData);
 
-        vm.prank(owner);
-        L1CustomGateway(address(l1Gateway)).setOwner(newOwner);
-
-        assertEq(L1CustomGateway(address(l1Gateway)).owner(), newOwner, "Invalid owner");
+        return routerEncodedData;
     }
 
-    function test_setOwner_revert_InvalidOwner() public {
-        address invalidOwner = address(0);
-
-        vm.prank(owner);
-        vm.expectRevert("INVALID_OWNER");
-        L1CustomGateway(address(l1Gateway)).setOwner(invalidOwner);
-    }
-
-    function test_setOwner_revert_OnlyOwner() public {
-        address nonOwner = address(250);
-
-        vm.prank(nonOwner);
-        vm.expectRevert("ONLY_OWNER");
-        L1CustomGateway(address(l1Gateway)).setOwner(address(300));
-    }
-
-    ////
-    // Event declarations
-    ////
-    event TokenSet(address indexed l1Address, address indexed l2Address);
-
-    event DepositInitiated(
-        address l1Token,
-        address indexed _from,
-        address indexed _to,
-        uint256 indexed _sequenceNumber,
-        uint256 _amount
+    event ERC20InboxRetryableTicket(
+        address from,
+        address to,
+        uint256 l2CallValue,
+        uint256 maxGas,
+        uint256 gasPriceBid,
+        uint256 tokenTotalFeeAmount,
+        bytes data
     );
-    event TicketData(uint256 maxSubmissionCost);
-    event RefundAddresses(address excessFeeRefundAddress, address callValueRefundAddress);
-    event InboxRetryableTicket(address from, address to, uint256 value, uint256 maxGas, bytes data);
 }

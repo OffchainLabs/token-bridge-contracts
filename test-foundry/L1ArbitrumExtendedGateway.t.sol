@@ -23,6 +23,10 @@ abstract contract L1ArbitrumExtendedGatewayTest is Test {
     uint256 public retryableCost;
     address public creditBackAddress = makeAddr("creditBackAddress");
 
+    // fuzzer behaves weirdly when it picks up this address which is used internally for issuing cheatcodes
+    address internal constant FOUNDRY_CHEATCODE_ADDRESS =
+        0x7109709ECfa91a80626fF3989D68f67F5b1DD12D;
+
     /* solhint-disable func-name-mixedcase */
     function test_encodeWithdrawal(uint256 exitNum, address dest) public {
         bytes32 encodedWithdrawal = L1ArbitrumExtendedGateway(address(l1Gateway)).encodeWithdrawal(
