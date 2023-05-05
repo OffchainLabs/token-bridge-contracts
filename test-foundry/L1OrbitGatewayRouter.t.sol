@@ -550,6 +550,22 @@ contract L1OrbitGatewayRouterTest is L1GatewayRouterTest {
         );
     }
 
+    function test_setGateway_revert_NotSupportedInOrbit() public {
+        vm.expectRevert("NOT_SUPPORTED_IN_ORBIT");
+        l1OrbitRouter.setGateway(address(102), maxGas, gasPriceBid, maxSubmissionCost);
+    }
+
+    function test_setGateway_revert_CustomCreaditbackNotSupportedInOrbit() public {
+        vm.expectRevert("NOT_SUPPORTED_IN_ORBIT");
+        l1OrbitRouter.setGateway(
+            address(103),
+            maxGas,
+            gasPriceBid,
+            maxSubmissionCost,
+            creditBackAddress
+        );
+    }
+
     function test_setGateway_revert_TokenNotHandledByGateway() public override {
         // create gateway
         L1OrbitCustomGateway gateway = new L1OrbitCustomGateway();
@@ -759,6 +775,18 @@ contract L1OrbitGatewayRouterTest is L1GatewayRouterTest {
             gasPriceBid,
             maxSubmissionCost,
             nativeTokenTotalFee
+        );
+    }
+
+    function test_setGateways_revert_NotSupportedInOrbit() public {
+        vm.prank(owner);
+        vm.expectRevert("NOT_SUPPORTED_IN_ORBIT");
+        l1OrbitRouter.setGateways(
+            new address[](2),
+            new address[](2),
+            maxGas,
+            gasPriceBid,
+            maxSubmissionCost
         );
     }
 

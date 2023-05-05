@@ -6,16 +6,25 @@ import { L1GatewayRouter } from "./L1GatewayRouter.sol";
 import { IERC20Inbox } from "../L1ArbitrumMessenger.sol";
 
 /**
- * @title Handles deposits from Ethereum into L2 in ERC20-based rollups where custom token is used to pay for fees. Tokens are routed to their appropriate L1 gateway.
+ * @title Handles deposits from L1 into L2 in ERC20-based rollups where custom token is used to pay for fees. Tokens are routed to their appropriate L1 gateway.
  * @notice Router itself also conforms to the Gateway interface. Router also serves as an L1-L2 token address oracle.
  */
 contract L1OrbitGatewayRouter is L1GatewayRouter {
+    /**
+     * @notice Allows owner to register the default gateway.
+     * @param newL1DefaultGateway default gateway address
+     * @param _maxGas max gas for L2 retryable execution
+     * @param _gasPriceBid gas price for L2 retryable ticket
+     * @param _maxSubmissionCost base submission cost for L2 retryable ticket
+     * @param _feeAmount total amount of fees in native token to cover for retryable ticket costs. This amount will be transferred from user to bridge.
+     * @return Retryable ticket ID
+     */
     function setDefaultGateway(
         address newL1DefaultGateway,
         uint256 _maxGas,
         uint256 _gasPriceBid,
         uint256 _maxSubmissionCost,
-        uint256 feeAmount
+        uint256 _feeAmount
     ) external onlyOwner returns (uint256) {
         return
             _setDefaultGateway(
@@ -23,17 +32,49 @@ contract L1OrbitGatewayRouter is L1GatewayRouter {
                 _maxGas,
                 _gasPriceBid,
                 _maxSubmissionCost,
-                feeAmount
+                _feeAmount
             );
     }
 
+    /**
+     * @notice Allows L1 Token contract to trustlessly register its gateway.
+     * @dev Other setGateway method allows excess eth recovery from _maxSubmissionCost and is recommended.
+     * @param _gateway l1 gateway address
+     * @param _maxGas max gas for L2 retryable execution
+     * @param _gasPriceBid gas price for L2 retryable ticket
+     * @param _maxSubmissionCost base submission cost for L2 retryable ticket
+     * @param _feeAmount total amount of fees in native token to cover for retryable ticket costs. This amount will be transferred from user to bridge.
+     * @return Retryable ticket ID
+     */
+    function setGateway(
+        address _gateway,
+        uint256 _maxGas,
+        uint256 _gasPriceBid,
+        uint256 _maxSubmissionCost,
+        uint256 _feeAmount
+    ) external returns (uint256) {
+        return
+            setGateway(_gateway, _maxGas, _gasPriceBid, _maxSubmissionCost, msg.sender, _feeAmount);
+    }
+
+    /**
+     * @notice Allows L1 Token contract to trustlessly register its gateway.
+     * @dev Other setGateway method allows excess eth recovery from _maxSubmissionCost and is recommended.
+     * @param _gateway l1 gateway address
+     * @param _maxGas max gas for L2 retryable execution
+     * @param _gasPriceBid gas price for L2 retryable ticket
+     * @param _maxSubmissionCost base submission cost  L2 retryable tick3et
+     * @param _creditBackAddress address for crediting back overpayment of _maxSubmissionCost
+     * @param _feeAmount total amount of fees in native token to cover for retryable ticket costs. This amount will be transferred from user to bridge.
+     * @return Retryable ticket ID
+     */
     function setGateway(
         address _gateway,
         uint256 _maxGas,
         uint256 _gasPriceBid,
         uint256 _maxSubmissionCost,
         address _creditBackAddress,
-        uint256 feeAmount
+        uint256 _feeAmount
     ) public returns (uint256) {
         return
             _setGatewayWithCreditBack(
@@ -42,28 +83,27 @@ contract L1OrbitGatewayRouter is L1GatewayRouter {
                 _gasPriceBid,
                 _maxSubmissionCost,
                 _creditBackAddress,
-                feeAmount
+                _feeAmount
             );
     }
 
-    function setGateway(
-        address _gateway,
-        uint256 _maxGas,
-        uint256 _gasPriceBid,
-        uint256 _maxSubmissionCost,
-        uint256 feeAmount
-    ) external returns (uint256) {
-        return
-            setGateway(_gateway, _maxGas, _gasPriceBid, _maxSubmissionCost, msg.sender, feeAmount);
-    }
-
+    /**
+     * @notice Allows owner to register gateways for specific tokens.
+     * @param _token list of L1 token addresses
+     * @param _gateway list of L1 gateway addresses
+     * @param _maxGas max gas for L2 retryable execution
+     * @param _gasPriceBid gas price for L2 retryable ticket
+     * @param _maxSubmissionCost base submission cost for L2 retryable ticket
+     * @param _feeAmount total amount of fees in native token to cover for retryable ticket costs. This amount will be transferred from user to bridge.
+     * @return Retryable ticket ID
+     */
     function setGateways(
         address[] memory _token,
         address[] memory _gateway,
         uint256 _maxGas,
         uint256 _gasPriceBid,
         uint256 _maxSubmissionCost,
-        uint256 feeAmount
+        uint256 _feeAmount
     ) external payable onlyOwner returns (uint256) {
         return
             _setGateways(
@@ -73,7 +113,7 @@ contract L1OrbitGatewayRouter is L1GatewayRouter {
                 _gasPriceBid,
                 _maxSubmissionCost,
                 msg.sender,
-                feeAmount
+                _feeAmount
             );
     }
 

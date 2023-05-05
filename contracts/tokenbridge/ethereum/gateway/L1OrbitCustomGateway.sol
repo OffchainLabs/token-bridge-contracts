@@ -10,6 +10,15 @@ import { IERC20Inbox } from "../L1ArbitrumMessenger.sol";
  * @notice Adds new entrypoints that have `_feeAmount` as parameter, while entrypoints without that parameter are reverted.
  */
 contract L1OrbitCustomGateway is L1CustomGateway {
+    /**
+     * @notice Allows L1 Token contract to trustlessly register its custom L2 counterpart, in an ERC20-based rollup. Retryable costs are paid in native token.
+     * @param _l2Address counterpart address of L1 token
+     * @param _maxGas max gas for L2 retryable execution
+     * @param _gasPriceBid gas price for L2 retryable ticket
+     * @param _maxSubmissionCost base submission cost for L2 retryable ticket
+     * @param _feeAmount total amount of fees in native token to cover for retryable ticket costs. This amount will be transferred from user to bridge.
+     * @return Retryable ticket ID
+     */
     function registerTokenToL2(
         address _l2Address,
         uint256 _maxGas,
@@ -28,6 +37,16 @@ contract L1OrbitCustomGateway is L1CustomGateway {
             );
     }
 
+    /**
+     * @notice Allows L1 Token contract to trustlessly register its custom L2 counterpart, in an ERC20-based rollup. Retryable costs are paid in native token.
+     * @param _l2Address counterpart address of L1 token
+     * @param _maxGas max gas for L2 retryable execution
+     * @param _gasPriceBid gas price for L2 retryable ticket
+     * @param _maxSubmissionCost base submission cost for L2 retryable ticket
+     * @param _creditBackAddress address for crediting back overpayment of _maxSubmissionCost
+     * @param _feeAmount total amount of fees in native token to cover for retryable ticket costs. This amount will be transferred from user to bridge.
+     * @return Retryable ticket ID
+     */
     function registerTokenToL2(
         address _l2Address,
         uint256 _maxGas,
@@ -47,6 +66,17 @@ contract L1OrbitCustomGateway is L1CustomGateway {
             );
     }
 
+    /**
+     * @notice Allows owner to force register a custom L1/L2 token pair.
+     * @dev _l1Addresses[i] counterpart is assumed to be _l2Addresses[i]
+     * @param _l1Addresses array of L1 addresses
+     * @param _l2Addresses array of L2 addresses
+     * @param _maxGas max gas for L2 retryable execution
+     * @param _gasPriceBid gas price for L2 retryable ticket
+     * @param _maxSubmissionCost base submission cost for L2 retryable ticket
+     * @param _feeAmount total amount of fees in native token to cover for retryable ticket costs. This amount will be transferred from user to bridge.
+     * @return Retryable ticket ID
+     */
     function forceRegisterTokenToL2(
         address[] calldata _l1Addresses,
         address[] calldata _l2Addresses,
