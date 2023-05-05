@@ -120,55 +120,6 @@ contract L1GatewayRouter is
         owner = newOwner;
     }
 
-    function _setGateways(
-        address[] memory _token,
-        address[] memory _gateway,
-        uint256 _maxGas,
-        uint256 _gasPriceBid,
-        uint256 _maxSubmissionCost,
-        address _creditBackAddress,
-        uint256 feeAmount
-    ) internal returns (uint256) {
-        require(_token.length == _gateway.length, "WRONG_LENGTH");
-
-        for (uint256 i = 0; i < _token.length; i++) {
-            l1TokenToGateway[_token[i]] = _gateway[i];
-            emit GatewaySet(_token[i], _gateway[i]);
-            // overwrite memory so the L2 router receives the L2 address of each gateway
-            if (_gateway[i] != address(0) && _gateway[i] != DISABLED) {
-                // if we are assigning a gateway to the token, the address oracle of the gateway
-                // must return something other than the 0 address
-                // this check helps avoid misconfiguring gateways
-                require(
-                    TokenGateway(_gateway[i]).calculateL2TokenAddress(_token[i]) != address(0),
-                    "TOKEN_NOT_HANDLED_BY_GATEWAY"
-                );
-                _gateway[i] = TokenGateway(_gateway[i]).counterpartGateway();
-            }
-        }
-
-        bytes memory data = abi.encodeWithSelector(
-            L2GatewayRouter.setGateway.selector,
-            _token,
-            _gateway
-        );
-
-        return
-            sendTxToL2(
-                inbox,
-                counterpartGateway,
-                _creditBackAddress,
-                feeAmount,
-                0,
-                L2GasParams({
-                    _maxSubmissionCost: _maxSubmissionCost,
-                    _maxGas: _maxGas,
-                    _gasPriceBid: _gasPriceBid
-                }),
-                data
-            );
-    }
-
     /**
      * @notice Allows L1 Token contract to trustlessly register its gateway. (other setGateway method allows excess eth recovery from _maxSubmissionCost and is recommended)
      * @param _gateway l1 gateway address
@@ -270,6 +221,55 @@ contract L1GatewayRouter is
                 _maxSubmissionCost,
                 msg.sender,
                 msg.value
+            );
+    }
+
+    function _setGateways(
+        address[] memory _token,
+        address[] memory _gateway,
+        uint256 _maxGas,
+        uint256 _gasPriceBid,
+        uint256 _maxSubmissionCost,
+        address _creditBackAddress,
+        uint256 feeAmount
+    ) internal returns (uint256) {
+        require(_token.length == _gateway.length, "WRONG_LENGTH");
+
+        for (uint256 i = 0; i < _token.length; i++) {
+            l1TokenToGateway[_token[i]] = _gateway[i];
+            emit GatewaySet(_token[i], _gateway[i]);
+            // overwrite memory so the L2 router receives the L2 address of each gateway
+            if (_gateway[i] != address(0) && _gateway[i] != DISABLED) {
+                // if we are assigning a gateway to the token, the address oracle of the gateway
+                // must return something other than the 0 address
+                // this check helps avoid misconfiguring gateways
+                require(
+                    TokenGateway(_gateway[i]).calculateL2TokenAddress(_token[i]) != address(0),
+                    "TOKEN_NOT_HANDLED_BY_GATEWAY"
+                );
+                _gateway[i] = TokenGateway(_gateway[i]).counterpartGateway();
+            }
+        }
+
+        bytes memory data = abi.encodeWithSelector(
+            L2GatewayRouter.setGateway.selector,
+            _token,
+            _gateway
+        );
+
+        return
+            sendTxToL2(
+                inbox,
+                counterpartGateway,
+                _creditBackAddress,
+                feeAmount,
+                0,
+                L2GasParams({
+                    _maxSubmissionCost: _maxSubmissionCost,
+                    _maxGas: _maxGas,
+                    _gasPriceBid: _gasPriceBid
+                }),
+                data
             );
     }
 

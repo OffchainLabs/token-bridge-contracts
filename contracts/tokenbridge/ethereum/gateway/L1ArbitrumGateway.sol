@@ -371,7 +371,7 @@ abstract contract L1ArbitrumGateway is
      * @notice Intermediate internal function that passes on parameters needed to trigger creation of retryable ticket.
      * @param _refundTo Account, or its L2 alias if it have code in L1, to be credited with excess gas refund in L2
      * @param _from Initiator of deposit
-     * @param _amount Token of token being deposited
+     * @param _amount Token amount being deposited
      * @param _maxGas Max gas deducted from user's L2 balance to cover L2 execution
      * @param _gasPriceBid Gas price for L2 execution
      * @param _maxSubmissionCost Max gas deducted from user's L2 balance to cover base submission fee

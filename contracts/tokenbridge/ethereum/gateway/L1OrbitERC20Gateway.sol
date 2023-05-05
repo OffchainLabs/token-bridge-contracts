@@ -29,7 +29,7 @@ contract L1OrbitERC20Gateway is L1ERC20Gateway {
     function _initiateDeposit(
         address _refundTo,
         address _from,
-        uint256,
+        uint256, // _amount, this info is already contained in _data
         uint256 _maxGas,
         uint256 _gasPriceBid,
         uint256 _maxSubmissionCost,

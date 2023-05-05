@@ -84,7 +84,7 @@ contract L1OrbitCustomGateway is L1CustomGateway {
         uint256 _gasPriceBid,
         uint256 _maxSubmissionCost,
         uint256 _feeAmount
-    ) external payable virtual onlyOwner returns (uint256) {
+    ) external payable onlyOwner returns (uint256) {
         return
             _forceRegisterTokenToL2(
                 _l1Addresses,
@@ -151,7 +151,7 @@ contract L1OrbitCustomGateway is L1CustomGateway {
     function _initiateDeposit(
         address _refundTo,
         address _from,
-        uint256,
+        uint256, // _amount, this info is already contained in _data
         uint256 _maxGas,
         uint256 _gasPriceBid,
         uint256 _maxSubmissionCost,
