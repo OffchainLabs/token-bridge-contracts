@@ -33,6 +33,7 @@ contract L1CustomGatewayTest is L1ArbitrumExtendedGatewayTest {
 
     /* solhint-disable func-name-mixedcase */
     function test_calculateL2TokenAddress(address l1Token, address l2Token) public virtual {
+        vm.assume(l1Token != FOUNDRY_CHEATCODE_ADDRESS && l2Token != FOUNDRY_CHEATCODE_ADDRESS);
         vm.deal(l1Token, 100 ether);
 
         // register token to gateway

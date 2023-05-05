@@ -288,12 +288,12 @@ contract L1GatewayRouterTest is GatewayRouterTest {
 
         // register token to gateway
         vm.prank(address(customToken));
-        customGateway.registerTokenToL2{ value: 4000040000 }(
+        customGateway.registerTokenToL2{ value: retryableCost }(
             makeAddr("tokenL2Address"),
-            1000000000,
-            3,
-            40000,
-            makeAddr("creditBackAddress")
+            maxGas,
+            gasPriceBid,
+            maxSubmissionCost,
+            creditBackAddress
         );
 
         // expect events
@@ -369,12 +369,12 @@ contract L1GatewayRouterTest is GatewayRouterTest {
 
         vm.prank(token);
         vm.expectRevert("NOT_TO_CONTRACT");
-        l1Router.setGateway{ value: 400000 }(
+        l1Router.setGateway{ value: retryableCost }(
             gatewayNotContract,
-            100000,
-            3,
-            200,
-            makeAddr("creditback")
+            maxGas,
+            gasPriceBid,
+            maxSubmissionCost,
+            creditBackAddress
         );
     }
 
@@ -444,12 +444,12 @@ contract L1GatewayRouterTest is GatewayRouterTest {
 
         vm.prank(token);
         vm.expectRevert("TOKEN_NOT_HANDLED_BY_GATEWAY");
-        l1Router.setGateway{ value: 400000 }(
+        l1Router.setGateway{ value: retryableCost }(
             address(gateway),
-            100000,
-            3,
-            200,
-            makeAddr("creditback")
+            maxGas,
+            gasPriceBid,
+            maxSubmissionCost,
+            creditBackAddress
         );
     }
 
@@ -688,7 +688,7 @@ contract L1GatewayRouterTest is GatewayRouterTest {
 
         // set default gateway
         vm.prank(owner);
-        l1Router.setDefaultGateway{ value: _getValue() }(
+        l1Router.setDefaultGateway{ value: retryableCost }(
             address(defaultGateway),
             maxGas,
             gasPriceBid,
@@ -708,7 +708,7 @@ contract L1GatewayRouterTest is GatewayRouterTest {
         /// deposit data
         address to = address(401);
         uint256 amount = 103;
-        bytes memory userEncodedData = _buildUserEncodedData("");
+        bytes memory userEncodedData = abi.encode(maxSubmissionCost, "");
 
         // expect event
         vm.expectEmit(true, true, true, true);
@@ -716,7 +716,7 @@ contract L1GatewayRouterTest is GatewayRouterTest {
 
         /// deposit it
         vm.prank(user);
-        l1Router.outboundTransfer{ value: _getValue() }(
+        l1Router.outboundTransfer{ value: retryableCost }(
             address(token),
             to,
             amount,
@@ -749,7 +749,7 @@ contract L1GatewayRouterTest is GatewayRouterTest {
 
         // set default gateway
         vm.prank(owner);
-        l1Router.setDefaultGateway{ value: _getValue() }(
+        l1Router.setDefaultGateway{ value: retryableCost }(
             address(defaultGateway),
             maxGas,
             gasPriceBid,
@@ -770,7 +770,7 @@ contract L1GatewayRouterTest is GatewayRouterTest {
         address refundTo = address(400);
         address to = address(401);
         uint256 amount = 103;
-        bytes memory userEncodedData = _buildUserEncodedData("");
+        bytes memory userEncodedData = abi.encode(maxSubmissionCost, "");
 
         // expect event
         vm.expectEmit(true, true, true, true);
@@ -778,7 +778,7 @@ contract L1GatewayRouterTest is GatewayRouterTest {
 
         /// deposit it
         vm.prank(user);
-        l1Router.outboundTransferCustomRefund{ value: _getValue() }(
+        l1Router.outboundTransferCustomRefund{ value: retryableCost }(
             address(token),
             refundTo,
             to,
@@ -798,20 +798,6 @@ contract L1GatewayRouterTest is GatewayRouterTest {
             amount,
             "Wrong defaultGateway balance"
         );
-    }
-
-    ////
-    // Helper functions
-    ////
-    function _buildUserEncodedData(
-        bytes memory callHookData
-    ) internal view virtual returns (bytes memory) {
-        bytes memory userEncodedData = abi.encode(maxSubmissionCost, callHookData);
-        return userEncodedData;
-    }
-
-    function _getValue() internal view virtual returns (uint256) {
-        return retryableCost;
     }
 
     ////

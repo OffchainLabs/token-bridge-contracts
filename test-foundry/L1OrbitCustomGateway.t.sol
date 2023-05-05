@@ -32,6 +32,7 @@ contract L1OrbitCustomGatewayTest is L1CustomGatewayTest {
 
     /* solhint-disable func-name-mixedcase */
     function test_calculateL2TokenAddress(address l1Token, address l2Token) public override {
+        vm.assume(l1Token != FOUNDRY_CHEATCODE_ADDRESS && l2Token != FOUNDRY_CHEATCODE_ADDRESS);
         vm.deal(l1Token, 100 ether);
 
         // register token to gateway
