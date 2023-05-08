@@ -11,7 +11,7 @@ import { ERC20InboxMock } from "contracts/tokenbridge/test/InboxMock.sol";
 contract L1OrbitCustomGatewayTest is L1CustomGatewayTest {
     uint256 public nativeTokenTotalFee;
 
-    function setUp() public override {
+    function setUp() public virtual override {
         inbox = address(new ERC20InboxMock());
 
         l1Gateway = new L1OrbitCustomGateway();
@@ -139,7 +139,7 @@ contract L1OrbitCustomGatewayTest is L1CustomGatewayTest {
         );
     }
 
-    function test_outboundTransfer() public override {
+    function test_outboundTransfer() public virtual override {
         // snapshot state before
         uint256 userBalanceBefore = token.balanceOf(user);
         uint256 l1GatewayBalanceBefore = token.balanceOf(address(l1Gateway));
@@ -215,7 +215,7 @@ contract L1OrbitCustomGatewayTest is L1CustomGatewayTest {
         assertEq(seqNum1, abi.encode(1), "Invalid seqNum1");
     }
 
-    function test_outboundTransferCustomRefund() public override {
+    function test_outboundTransferCustomRefund() public virtual override {
         // snapshot state before
         uint256 userBalanceBefore = token.balanceOf(user);
         uint256 l1GatewayBalanceBefore = token.balanceOf(address(l1Gateway));
@@ -292,7 +292,7 @@ contract L1OrbitCustomGatewayTest is L1CustomGatewayTest {
         assertEq(seqNum1, abi.encode(1), "Invalid seqNum1");
     }
 
-    function test_outboundTransferCustomRefund_revert_InsufficientAllowance() public override {
+    function test_outboundTransferCustomRefund_revert_InsufficientAllowance() public virtual override {
         uint256 tooManyTokens = 500 ether;
 
         // register token to gateway

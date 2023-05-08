@@ -2,21 +2,22 @@
 
 pragma solidity ^0.8.0;
 
-import { L1CustomGatewayTest, InboxMock, IERC20, IInbox, TestERC20 } from "./L1CustomGateway.t.sol";
-import { L1ReverseCustomGateway } from "contracts/tokenbridge/ethereum/gateway/L1ReverseCustomGateway.sol";
+import { L1OrbitCustomGatewayTest, ERC20InboxMock, TestERC20, IERC20 } from "./L1OrbitCustomGateway.t.sol";
+import { L1OrbitReverseCustomGateway } from "contracts/tokenbridge/ethereum/gateway/L1OrbitReverseCustomGateway.sol";
 import { MintableTestCustomTokenL1, ReverseTestCustomTokenL1 } from "contracts/tokenbridge/test/TestCustomTokenL1.sol";
+import { IInbox } from "contracts/tokenbridge/ethereum/L1ArbitrumMessenger.sol";
 
-contract L1ReverseCustomGatewayTest is L1CustomGatewayTest {
-    function setUp() public virtual override {
-        inbox = address(new InboxMock());
+contract L1OrbitReverseCustomGatewayTest is L1OrbitCustomGatewayTest {
+    function setUp() public override {
+        inbox = address(new ERC20InboxMock());
 
-        l1Gateway = new L1ReverseCustomGateway();
-        L1ReverseCustomGateway(address(l1Gateway)).initialize(l2Gateway, router, inbox, owner);
+        l1Gateway = new L1OrbitReverseCustomGateway();
+        L1OrbitReverseCustomGateway(address(l1Gateway)).initialize(l2Gateway, router, inbox, owner);
 
         token = IERC20(address(new TestERC20()));
 
-        maxSubmissionCost = 20;
-        retryableCost = maxSubmissionCost + gasPriceBid * maxGas;
+        maxSubmissionCost = 0;
+        nativeTokenTotalFee = maxGas * gasPriceBid;
 
         // fund user and router
         vm.prank(user);
@@ -46,11 +47,17 @@ contract L1ReverseCustomGatewayTest is L1CustomGatewayTest {
         bytes memory callHookData = "";
         bytes memory data = abi.encode(exitNum, callHookData);
 
-        InboxMock(address(inbox)).setL2ToL1Sender(l2Gateway);
+        ERC20InboxMock(address(inbox)).setL2ToL1Sender(l2Gateway);
 
         // trigger deposit
         vm.prank(address(IInbox(l1Gateway.inbox()).bridge()));
-        l1Gateway.finalizeInboundTransfer(address(bridgedToken), from, user, amount, data);
+        L1OrbitReverseCustomGateway(address(l1Gateway)).finalizeInboundTransfer(
+            address(bridgedToken),
+            from,
+            user,
+            amount,
+            data
+        );
 
         // check tokens are minted
         uint256 userBalanceAfter = bridgedToken.balanceOf(user);
@@ -81,9 +88,14 @@ contract L1ReverseCustomGatewayTest is L1CustomGatewayTest {
         );
         vm.deal(address(bridgedToken), 100 ether);
         vm.prank(address(bridgedToken));
-        uint256 seqNum0 = L1ReverseCustomGateway(address(l1Gateway)).registerTokenToL2{
-            value: retryableCost
-        }(makeAddr("tokenL2Address"), maxGas, gasPriceBid, maxSubmissionCost, creditBackAddress);
+        uint256 seqNum0 = L1OrbitReverseCustomGateway(address(l1Gateway)).registerTokenToL2(
+            makeAddr("tokenL2Address"),
+            maxGas,
+            gasPriceBid,
+            maxSubmissionCost,
+            creditBackAddress,
+            nativeTokenTotalFee
+        );
 
         // approve token
         vm.prank(user);
@@ -97,11 +109,13 @@ contract L1ReverseCustomGatewayTest is L1CustomGatewayTest {
         emit RefundAddresses(user, user);
 
         vm.expectEmit(true, true, true, true);
-        emit InboxRetryableTicket(
+        emit ERC20InboxRetryableTicket(
             address(l1Gateway),
             l2Gateway,
             0,
             maxGas,
+            gasPriceBid,
+            nativeTokenTotalFee,
             l1Gateway.getOutboundCalldata(address(bridgedToken), user, user, amount, callHookData)
         );
 
@@ -110,7 +124,7 @@ contract L1ReverseCustomGatewayTest is L1CustomGatewayTest {
 
         // trigger transfer
         vm.prank(router);
-        bytes memory seqNum1 = l1Gateway.outboundTransfer{ value: retryableCost }(
+        bytes memory seqNum1 = L1OrbitReverseCustomGateway(address(l1Gateway)).outboundTransfer(
             address(bridgedToken),
             user,
             amount,
@@ -151,9 +165,14 @@ contract L1ReverseCustomGatewayTest is L1CustomGatewayTest {
         );
         vm.deal(address(bridgedToken), 100 ether);
         vm.prank(address(bridgedToken));
-        uint256 seqNum0 = L1ReverseCustomGateway(address(l1Gateway)).registerTokenToL2{
-            value: retryableCost
-        }(makeAddr("tokenL2Address"), maxGas, gasPriceBid, maxSubmissionCost, creditBackAddress);
+        uint256 seqNum0 = L1OrbitReverseCustomGateway(address(l1Gateway)).registerTokenToL2(
+            makeAddr("tokenL2Address"),
+            maxGas,
+            gasPriceBid,
+            maxSubmissionCost,
+            creditBackAddress,
+            nativeTokenTotalFee
+        );
 
         // approve token
         vm.prank(user);
@@ -167,11 +186,13 @@ contract L1ReverseCustomGatewayTest is L1CustomGatewayTest {
         emit RefundAddresses(creditBackAddress, user);
 
         vm.expectEmit(true, true, true, true);
-        emit InboxRetryableTicket(
+        emit ERC20InboxRetryableTicket(
             address(l1Gateway),
             l2Gateway,
             0,
             maxGas,
+            gasPriceBid,
+            nativeTokenTotalFee,
             l1Gateway.getOutboundCalldata(address(bridgedToken), user, user, amount, callHookData)
         );
 
@@ -180,15 +201,16 @@ contract L1ReverseCustomGatewayTest is L1CustomGatewayTest {
 
         // trigger deposit
         vm.prank(router);
-        bytes memory seqNum1 = l1Gateway.outboundTransferCustomRefund{ value: retryableCost }(
-            address(bridgedToken),
-            creditBackAddress,
-            user,
-            amount,
-            maxGas,
-            gasPriceBid,
-            routerEncodedData
-        );
+        bytes memory seqNum1 = L1OrbitReverseCustomGateway(address(l1Gateway))
+            .outboundTransferCustomRefund(
+                address(bridgedToken),
+                creditBackAddress,
+                user,
+                amount,
+                maxGas,
+                gasPriceBid,
+                routerEncodedData
+            );
 
         // check tokens are escrowed
         uint256 userBalanceAfter = bridgedToken.balanceOf(user);
@@ -217,17 +239,18 @@ contract L1ReverseCustomGatewayTest is L1CustomGatewayTest {
         );
         vm.deal(address(bridgedToken), 100 ether);
         vm.prank(address(bridgedToken));
-        L1ReverseCustomGateway(address(l1Gateway)).registerTokenToL2{ value: retryableCost }(
+        L1OrbitReverseCustomGateway(address(l1Gateway)).registerTokenToL2(
             makeAddr("tokenL2Address"),
             maxGas,
             gasPriceBid,
             maxSubmissionCost,
-            makeAddr("creditBackAddress")
+            makeAddr("creditBackAddress"),
+            nativeTokenTotalFee
         );
 
         vm.prank(router);
         vm.expectRevert("ERC20: burn amount exceeds balance");
-        l1Gateway.outboundTransferCustomRefund{ value: 1 ether }(
+        l1Gateway.outboundTransferCustomRefund(
             address(bridgedToken),
             user,
             user,
