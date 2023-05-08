@@ -38,7 +38,7 @@ abstract contract L1ArbitrumExtendedGatewayTest is Test {
         assertEq(encodedWithdrawal, expectedEncoding, "Invalid encodeWithdrawal");
     }
 
-    function test_finalizeInboundTransfer() public {
+    function test_finalizeInboundTransfer() public virtual {
         // fund gateway with tokens being withdrawn
         vm.prank(address(l1Gateway));
         TestERC20(address(token)).mint();
