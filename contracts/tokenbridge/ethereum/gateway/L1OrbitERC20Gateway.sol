@@ -12,6 +12,29 @@ import { IERC20Inbox } from "../L1ArbitrumMessenger.sol";
  * Messages to layer 2 use the inbox's createRetryableTicket method.
  */
 contract L1OrbitERC20Gateway is L1ERC20Gateway {
+    function outboundTransferCustomRefund(
+        address _l1Token,
+        address _refundTo,
+        address _to,
+        uint256 _amount,
+        uint256 _maxGas,
+        uint256 _gasPriceBid,
+        bytes calldata _data
+    ) public payable override returns (bytes memory res) {
+        require(_l1Token != _getNativeFeeToken(), "NOT_ALLOWED_TO_BRIDGE_FEE_TOKEN");
+
+        return
+            super.outboundTransferCustomRefund(
+                _l1Token,
+                _refundTo,
+                _to,
+                _amount,
+                _maxGas,
+                _gasPriceBid,
+                _data
+            );
+    }
+
     function _parseUserEncodedData(
         bytes memory data
     )
@@ -78,4 +101,19 @@ contract L1OrbitERC20Gateway is L1ERC20Gateway {
                 _data
             );
     }
+
+    /**
+     * @notice get rollup's native token that's used to pay for fees
+     */
+    function _getNativeFeeToken() internal returns (address) {
+        address bridge = address(getBridge(inbox));
+        return IERC20Bridge(bridge).nativeToken();
+    }
+}
+
+interface IERC20Bridge {
+    /**
+     * @dev token that is escrowed in bridge on L1 side and minted on L2 as native currency. Also fees are paid in this token.
+     */
+    function nativeToken() external returns (address);
 }

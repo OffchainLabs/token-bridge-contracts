@@ -68,6 +68,8 @@ contract InboxMock is AbsInboxMock {
 }
 
 contract ERC20InboxMock is AbsInboxMock {
+    address public nativeToken = address(50000);
+
     event ERC20InboxRetryableTicket(
         address from,
         address to,

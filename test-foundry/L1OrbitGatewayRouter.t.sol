@@ -133,6 +133,34 @@ contract L1OrbitGatewayRouterTest is L1GatewayRouterTest {
         );
     }
 
+    function test_outboundTransfer_revert_NotAllowedToBridgeFeeToken() public {
+        address nativeFeeToken = address(50000);
+
+        // init default gateway
+        L1OrbitERC20Gateway(defaultGateway).initialize(
+            makeAddr("defaultGatewayCounterpart"),
+            address(l1Router),
+            inbox,
+            0x0000000000000000000000000000000000000000000000000000000000000001,
+            makeAddr("l2BeaconProxyFactory")
+        );
+
+        // set default gateway
+        vm.prank(owner);
+        l1OrbitRouter.setDefaultGateway(
+            address(defaultGateway),
+            maxGas,
+            gasPriceBid,
+            maxSubmissionCost,
+            nativeTokenTotalFee
+        );
+
+        /// deposit it
+        vm.prank(user);
+        vm.expectRevert("NOT_ALLOWED_TO_BRIDGE_FEE_TOKEN");
+        l1Router.outboundTransfer(nativeFeeToken, user, 100, maxGas, gasPriceBid, "");
+    }
+
     function test_outboundTransferCustomRefund() public override {
         // init default gateway
         L1OrbitERC20Gateway(defaultGateway).initialize(
@@ -194,6 +222,42 @@ contract L1OrbitGatewayRouterTest is L1GatewayRouterTest {
             l1GatewayBalanceAfter - l1GatewayBalanceBefore,
             amount,
             "Wrong defaultGateway balance"
+        );
+    }
+
+    function test_outboundTransferCustomRefund_revert_NotAllowedToBridgeFeeToken() public {
+        address nativeFeeToken = address(50000);
+
+        // init default gateway
+        L1OrbitERC20Gateway(defaultGateway).initialize(
+            makeAddr("defaultGatewayCounterpart"),
+            address(l1Router),
+            inbox,
+            0x0000000000000000000000000000000000000000000000000000000000000001,
+            makeAddr("l2BeaconProxyFactory")
+        );
+
+        // set default gateway
+        vm.prank(owner);
+        l1OrbitRouter.setDefaultGateway(
+            address(defaultGateway),
+            maxGas,
+            gasPriceBid,
+            maxSubmissionCost,
+            nativeTokenTotalFee
+        );
+
+        /// deposit it
+        vm.prank(user);
+        vm.expectRevert("NOT_ALLOWED_TO_BRIDGE_FEE_TOKEN");
+        l1Router.outboundTransferCustomRefund(
+            nativeFeeToken,
+            user,
+            user,
+            100,
+            maxGas,
+            gasPriceBid,
+            ""
         );
     }
 

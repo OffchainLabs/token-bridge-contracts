@@ -103,6 +103,15 @@ contract L1OrbitERC20GatewayTest is L1ERC20GatewayTest {
         );
     }
 
+    function test_outboundTransfer_revert_NotAllowedToBridgeFeeToken() public {
+        address nativeFeeToken = address(50000);
+
+        // trigger deposit
+        vm.prank(router);
+        vm.expectRevert("NOT_ALLOWED_TO_BRIDGE_FEE_TOKEN");
+        l1Gateway.outboundTransfer(nativeFeeToken, user, 100, maxGas, gasPriceBid, "");
+    }
+
     function test_outboundTransferCustomRefund() public override {
         // snapshot state before
         uint256 userBalanceBefore = token.balanceOf(user);
@@ -159,6 +168,23 @@ contract L1OrbitERC20GatewayTest is L1ERC20GatewayTest {
             l1GatewayBalanceAfter - l1GatewayBalanceBefore,
             depositAmount,
             "Wrong l1 gateway balance"
+        );
+    }
+
+    function test_outboundTransferCustomRefund_revert_NotAllowedToBridgeFeeToken() public {
+        address nativeFeeToken = address(50000);
+
+        // trigger deposit
+        vm.prank(router);
+        vm.expectRevert("NOT_ALLOWED_TO_BRIDGE_FEE_TOKEN");
+        l1Gateway.outboundTransferCustomRefund(
+            nativeFeeToken,
+            creditBackAddress,
+            user,
+            100,
+            maxGas,
+            gasPriceBid,
+            ""
         );
     }
 
