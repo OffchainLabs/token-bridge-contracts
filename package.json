@@ -19,7 +19,7 @@
     "test:l2": "hardhat test test/*.l2.ts",
     "test:unit": "forge test",
     "test:storage": "./scripts/storage_layout_test.bash",
-    "test:deploy:tokenbridge": "ts-node ./scripts/genTokenBridge.ts",
+    "test:deploy:tokenbridge": "ts-node ./scripts/local-deployment/genTokenBridge.ts",
     "typechain": "hardhat typechain",
     "deploy:tokenbridge": "hardhat run scripts/deploy_token_bridge_l1.ts --network mainnet",
     "gen:uml": "sol2uml ./contracts/tokenbridge/arbitrum,./contracts/tokenbridge/ethereum,./contracts/tokenbridge/libraries -o ./gatewayUML.svg",

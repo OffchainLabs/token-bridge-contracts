@@ -4,13 +4,17 @@ import { L1Network, L2Network, addCustomNetwork } from '@arbitrum/sdk'
 import { execSync } from 'child_process'
 import { Bridge__factory } from '@arbitrum/sdk/dist/lib/abi/factories/Bridge__factory'
 import { RollupAdminLogic__factory } from '@arbitrum/sdk/dist/lib/abi/factories/RollupAdminLogic__factory'
-import { Signer } from 'ethers'
+import { Signer, Wallet } from 'ethers'
+import { L2GatewayRouter__factory } from '../../build/types'
+import { deployErc20AndInit } from './deployBridge'
 
 dotenv.config()
 
 export const config = {
   arbUrl: process.env['ARB_URL'] as string,
   ethUrl: process.env['ETH_URL'] as string,
+  arbKey: process.env['ARB_KEY'] as string,
+  ethKey: process.env['ETH_KEY'] as string,
 }
 
 export const getCustomNetworks = async (
@@ -92,27 +96,40 @@ export const getCustomNetworks = async (
   }
 }
 
-export const setupNetworks = async (l1Url: string, l2Url: string) => {
+export const setupNetworks = async (
+  l1Deployer: Signer,
+  l2Deployer: Signer,
+  l1Url: string,
+  l2Url: string
+) => {
   const { l1Network, l2Network: coreL2Network } = await getCustomNetworks(
     l1Url,
     l2Url
   )
-  const l2Network: L2Network & { nativeToken: string } = {
+
+  new L2GatewayRouter__factory(l1Deployer).deploy()
+
+  const { l1: l1Contracts, l2: l2Contracts } = await deployErc20AndInit(
+    l1Deployer,
+    l2Deployer,
+    coreL2Network.ethBridge.inbox
+  )
+  const l2Network: L2Network = {
     ...coreL2Network,
     tokenBridge: {
-      l1CustomGateway: '',
-      l1ERC20Gateway: '',
-      l1GatewayRouter: '',
+      l1CustomGateway: l1Contracts.customGateway.address,
+      l1ERC20Gateway: l1Contracts.standardGateway.address,
+      l1GatewayRouter: l1Contracts.router.address,
       l1MultiCall: '',
-      l1ProxyAdmin: '',
+      l1ProxyAdmin: l1Contracts.proxyAdmin.address,
       l1Weth: '',
       l1WethGateway: '',
 
-      l2CustomGateway: '',
-      l2ERC20Gateway: '',
-      l2GatewayRouter: '',
+      l2CustomGateway: l2Contracts.customGateway.address,
+      l2ERC20Gateway: l2Contracts.standardGateway.address,
+      l2GatewayRouter: l2Contracts.router.address,
       l2Multicall: '',
-      l2ProxyAdmin: '',
+      l2ProxyAdmin: l2Contracts.proxyAdmin.address,
       l2Weth: '',
       l2WethGateway: '',
     },
@@ -127,6 +144,13 @@ export const setupNetworks = async (l1Url: string, l2Url: string) => {
     l1Network,
     l2Network,
   }
+}
+
+export const getSigner = (provider: JsonRpcProvider, key?: string) => {
+  if (!key && !provider)
+    throw new Error('Provide at least one of key or provider.')
+  if (key) return new Wallet(key).connect(provider)
+  else return provider.getSigner(0)
 }
 
 export function sleep(ms: number) {
