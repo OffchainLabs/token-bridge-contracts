@@ -4,6 +4,8 @@ pragma solidity ^0.8.0;
 
 import { L1ERC20Gateway, IERC20 } from "./L1ERC20Gateway.sol";
 import { IERC20Inbox } from "../L1ArbitrumMessenger.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { IERC20Bridge } from "../../libraries/IERC20Bridge.sol";
 
 /**
  * @title Layer 1 Gateway contract for bridging standard ERC20s in ERC20-based rollup
@@ -12,6 +14,8 @@ import { IERC20Inbox } from "../L1ArbitrumMessenger.sol";
  * Messages to layer 2 use the inbox's createRetryableTicket method.
  */
 contract L1OrbitERC20Gateway is L1ERC20Gateway {
+    using SafeERC20 for IERC20;
+
     function outboundTransferCustomRefund(
         address _l1Token,
         address _refundTo,
@@ -88,6 +92,13 @@ contract L1OrbitERC20Gateway is L1ERC20Gateway {
         uint256 _gasPriceBid,
         bytes memory _data
     ) internal override returns (uint256) {
+        {
+            // Transfer native token amount needed to pay for retryable fees to the inbox.
+            // Tokens are transferred from `_user` - that's the msg.sender account in the router's context.
+            address nativeFeeToken = _getNativeFeeToken();
+            IERC20(nativeFeeToken).safeTransferFrom(_user, _inbox, _totalFeeAmount);
+        }
+
         return
             IERC20Inbox(_inbox).createRetryableTicket(
                 _to,
@@ -109,11 +120,4 @@ contract L1OrbitERC20Gateway is L1ERC20Gateway {
         address bridge = address(getBridge(inbox));
         return IERC20Bridge(bridge).nativeToken();
     }
-}
-
-interface IERC20Bridge {
-    /**
-     * @dev token that is escrowed in bridge on L1 side and minted on L2 as native currency. Also fees are paid in this token.
-     */
-    function nativeToken() external returns (address);
 }

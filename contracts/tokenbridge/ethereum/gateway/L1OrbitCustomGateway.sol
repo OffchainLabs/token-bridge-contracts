@@ -4,12 +4,17 @@ pragma solidity ^0.8.0;
 
 import { L1CustomGateway } from "./L1CustomGateway.sol";
 import { IERC20Inbox } from "../L1ArbitrumMessenger.sol";
+import { IERC20Bridge } from "../../libraries/IERC20Bridge.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
  * @title Gateway for "custom" bridging functionality in an ERC20-based rollup.
  * @notice Adds new entrypoints that have `_feeAmount` as parameter, while entrypoints without that parameter are reverted.
  */
 contract L1OrbitCustomGateway is L1CustomGateway {
+    using SafeERC20 for IERC20;
+
     /**
      * @notice Allows L1 Token contract to trustlessly register its custom L2 counterpart, in an ERC20-based rollup. Retryable costs are paid in native token.
      * @param _l2Address counterpart address of L1 token
@@ -187,6 +192,14 @@ contract L1OrbitCustomGateway is L1CustomGateway {
         uint256 _gasPriceBid,
         bytes memory _data
     ) internal override returns (uint256) {
+        {
+            // Transfer native token amount needed to pay for retryable fees to the inbox.
+            // Tokens are transferred from `_user` - that's the msg.sender account in the router's context.
+            address bridge = address(getBridge(_inbox));
+            address nativeFeeToken = IERC20Bridge(bridge).nativeToken();
+            IERC20(nativeFeeToken).safeTransferFrom(_user, _inbox, _totalFeeAmount);
+        }
+
         return
             IERC20Inbox(_inbox).createRetryableTicket(
                 _to,
