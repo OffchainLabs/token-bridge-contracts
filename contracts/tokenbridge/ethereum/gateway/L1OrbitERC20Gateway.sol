@@ -99,7 +99,7 @@ contract L1OrbitERC20Gateway is L1ERC20Gateway {
             address nativeFeeToken = _getNativeFeeToken();
             uint256 inboxNativeTokenBalance = IERC20(nativeFeeToken).balanceOf(_inbox);
             if (inboxNativeTokenBalance < _totalFeeAmount) {
-                address transferFrom = msg.sender == router ? _user : msg.sender;
+                address transferFrom = isRouter(msg.sender) ? _user : msg.sender;
                 IERC20(nativeFeeToken).safeTransferFrom(
                     transferFrom,
                     _inbox,

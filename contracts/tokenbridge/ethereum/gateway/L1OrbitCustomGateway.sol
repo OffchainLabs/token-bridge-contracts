@@ -199,7 +199,7 @@ contract L1OrbitCustomGateway is L1CustomGateway {
             address nativeFeeToken = IERC20Bridge(address(getBridge(_inbox))).nativeToken();
             uint256 inboxNativeTokenBalance = IERC20(nativeFeeToken).balanceOf(_inbox);
             if (inboxNativeTokenBalance < _totalFeeAmount) {
-                address transferFrom = msg.sender == router ? _user : msg.sender;
+                address transferFrom = isRouter(msg.sender) ? _user : msg.sender;
                 IERC20(nativeFeeToken).safeTransferFrom(
                     transferFrom,
                     _inbox,
