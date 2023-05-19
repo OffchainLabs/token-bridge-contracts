@@ -432,7 +432,9 @@ contract L1OrbitCustomGatewayTest is L1CustomGatewayTest {
         vm.assume(
             l1Token != FOUNDRY_CHEATCODE_ADDRESS &&
                 l2Token != FOUNDRY_CHEATCODE_ADDRESS &&
-                l1Token != address(0)
+                l1Token != address(0) &&
+                l1Token != router &&
+                l1Token != creditBackAddress
         );
         vm.deal(l1Token, 100 ether);
 
