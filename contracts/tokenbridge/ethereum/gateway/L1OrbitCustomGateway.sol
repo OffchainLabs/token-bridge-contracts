@@ -194,10 +194,18 @@ contract L1OrbitCustomGateway is L1CustomGateway {
     ) internal override returns (uint256) {
         {
             // Transfer native token amount needed to pay for retryable fees to the inbox.
-            // Tokens are transferred from `_user` - that's the msg.sender account in the router's context.
-            address bridge = address(getBridge(_inbox));
-            address nativeFeeToken = IERC20Bridge(bridge).nativeToken();
-            IERC20(nativeFeeToken).safeTransferFrom(_user, _inbox, _totalFeeAmount);
+            // Fee tokens will be transferred from user who initiated the action - that's `_user` account in
+            // case call was routed by router, or msg.sender in case gateway's entrypoint was called directly.
+            address nativeFeeToken = IERC20Bridge(address(getBridge(_inbox))).nativeToken();
+            uint256 inboxNativeTokenBalance = IERC20(nativeFeeToken).balanceOf(_inbox);
+            if (inboxNativeTokenBalance < _totalFeeAmount) {
+                address transferFrom = msg.sender == router ? _user : msg.sender;
+                IERC20(nativeFeeToken).safeTransferFrom(
+                    transferFrom,
+                    _inbox,
+                    _totalFeeAmount - inboxNativeTokenBalance
+                );
+            }
         }
 
         return

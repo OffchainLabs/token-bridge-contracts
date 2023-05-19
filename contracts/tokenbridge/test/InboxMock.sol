@@ -20,6 +20,7 @@ pragma solidity ^0.8.0;
 
 import "@arbitrum/nitro-contracts/src/bridge/IOutbox.sol";
 import "@arbitrum/nitro-contracts/src/bridge/IBridge.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 abstract contract AbsInboxMock {
     address public l2ToL1SenderMock = address(0);
@@ -68,7 +69,7 @@ contract InboxMock is AbsInboxMock {
 }
 
 contract ERC20InboxMock is AbsInboxMock {
-    address public nativeToken = address(50000);
+    address public nativeToken;
 
     event ERC20InboxRetryableTicket(
         address from,
@@ -107,6 +108,17 @@ contract ERC20InboxMock is AbsInboxMock {
             tokenTotalFeeAmount,
             data
         );
+
+        // transfer out received native tokens (to simulate bridge spending those funds)
+        uint256 balance = IERC20(address(nativeToken)).balanceOf(address(this));
+        if (balance > 0) {
+            IERC20(address(nativeToken)).transfer(address(1), balance);
+        }
+
         return seqNum++;
+    }
+
+    function setMockNativeToken(address _nativeToken) external {
+        nativeToken = _nativeToken;
     }
 }

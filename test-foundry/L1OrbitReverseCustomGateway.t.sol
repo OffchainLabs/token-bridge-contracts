@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.0;
 
-import { L1OrbitCustomGatewayTest, ERC20InboxMock, TestERC20, IERC20 } from "./L1OrbitCustomGateway.t.sol";
+import { L1OrbitCustomGatewayTest, ERC20InboxMock, TestERC20, IERC20, ERC20, ERC20PresetMinterPauser } from "./L1OrbitCustomGateway.t.sol";
 import { L1OrbitReverseCustomGateway } from "contracts/tokenbridge/ethereum/gateway/L1OrbitReverseCustomGateway.sol";
 import { MintableTestCustomTokenL1, ReverseTestCustomTokenL1 } from "contracts/tokenbridge/test/TestCustomTokenL1.sol";
 import { IInbox } from "contracts/tokenbridge/ethereum/L1ArbitrumMessenger.sol";
@@ -10,6 +10,10 @@ import { IInbox } from "contracts/tokenbridge/ethereum/L1ArbitrumMessenger.sol";
 contract L1OrbitReverseCustomGatewayTest is L1OrbitCustomGatewayTest {
     function setUp() public override {
         inbox = address(new ERC20InboxMock());
+        nativeToken = ERC20(address(new ERC20PresetMinterPauser("X", "Y")));
+        ERC20PresetMinterPauser(address(nativeToken)).mint(user, 1_000_000 ether);
+        ERC20PresetMinterPauser(address(nativeToken)).mint(owner, 1_000_000 ether);
+        ERC20InboxMock(inbox).setMockNativeToken(address(nativeToken));
 
         l1Gateway = new L1OrbitReverseCustomGateway();
         L1OrbitReverseCustomGateway(address(l1Gateway)).initialize(l2Gateway, router, inbox, owner);
@@ -80,6 +84,14 @@ contract L1OrbitReverseCustomGatewayTest is L1OrbitCustomGatewayTest {
         bytes memory callHookData = "";
         bytes memory routerEncodedData = buildRouterEncodedData(callHookData);
 
+        // approve fees
+        ERC20PresetMinterPauser(address(nativeToken)).mint(
+            address(bridgedToken),
+            nativeTokenTotalFee
+        );
+        vm.prank(address(bridgedToken));
+        nativeToken.approve(address(l1Gateway), nativeTokenTotalFee);
+
         // register token to gateway
         vm.mockCall(
             address(bridgedToken),
@@ -100,6 +112,10 @@ contract L1OrbitReverseCustomGatewayTest is L1OrbitCustomGatewayTest {
         // approve token
         vm.prank(user);
         bridgedToken.approve(address(l1Gateway), amount);
+
+        // approve fees
+        vm.prank(user);
+        nativeToken.approve(address(l1Gateway), nativeTokenTotalFee);
 
         // event checkers
         vm.expectEmit(true, true, true, true);
@@ -157,6 +173,14 @@ contract L1OrbitReverseCustomGatewayTest is L1OrbitCustomGatewayTest {
         bytes memory callHookData = "";
         bytes memory routerEncodedData = buildRouterEncodedData(callHookData);
 
+        // approve fees
+        ERC20PresetMinterPauser(address(nativeToken)).mint(
+            address(bridgedToken),
+            nativeTokenTotalFee
+        );
+        vm.prank(address(bridgedToken));
+        nativeToken.approve(address(l1Gateway), nativeTokenTotalFee);
+
         // register token to gateway
         vm.mockCall(
             address(bridgedToken),
@@ -177,6 +201,10 @@ contract L1OrbitReverseCustomGatewayTest is L1OrbitCustomGatewayTest {
         // approve token
         vm.prank(user);
         bridgedToken.approve(address(l1Gateway), amount);
+
+        // approve fees
+        vm.prank(user);
+        nativeToken.approve(address(l1Gateway), nativeTokenTotalFee);
 
         // event checkers
         vm.expectEmit(true, true, true, true);
@@ -231,6 +259,14 @@ contract L1OrbitReverseCustomGatewayTest is L1OrbitCustomGatewayTest {
 
         uint256 tooManyTokens = 500 ether;
 
+        // approve fees
+        ERC20PresetMinterPauser(address(nativeToken)).mint(
+            address(bridgedToken),
+            nativeTokenTotalFee
+        );
+        vm.prank(address(bridgedToken));
+        nativeToken.approve(address(l1Gateway), nativeTokenTotalFee);
+
         // register token to gateway
         vm.mockCall(
             address(bridgedToken),
@@ -244,9 +280,12 @@ contract L1OrbitReverseCustomGatewayTest is L1OrbitCustomGatewayTest {
             maxGas,
             gasPriceBid,
             maxSubmissionCost,
-            makeAddr("creditBackAddress"),
+            creditBackAddress,
             nativeTokenTotalFee
         );
+
+        vm.prank(user);
+        nativeToken.approve(address(l1Gateway), nativeTokenTotalFee);
 
         vm.prank(router);
         vm.expectRevert("ERC20: burn amount exceeds balance");

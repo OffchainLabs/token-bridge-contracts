@@ -94,9 +94,18 @@ contract L1OrbitERC20Gateway is L1ERC20Gateway {
     ) internal override returns (uint256) {
         {
             // Transfer native token amount needed to pay for retryable fees to the inbox.
-            // Tokens are transferred from `_user` - that's the msg.sender account in the router's context.
+            // Fee tokens will be transferred from user who initiated the action - that's `_user` account in
+            // case call was routed by router, or msg.sender in case gateway's entrypoint was called directly.
             address nativeFeeToken = _getNativeFeeToken();
-            IERC20(nativeFeeToken).safeTransferFrom(_user, _inbox, _totalFeeAmount);
+            uint256 inboxNativeTokenBalance = IERC20(nativeFeeToken).balanceOf(_inbox);
+            if (inboxNativeTokenBalance < _totalFeeAmount) {
+                address transferFrom = msg.sender == router ? _user : msg.sender;
+                IERC20(nativeFeeToken).safeTransferFrom(
+                    transferFrom,
+                    _inbox,
+                    _totalFeeAmount - inboxNativeTokenBalance
+                );
+            }
         }
 
         return

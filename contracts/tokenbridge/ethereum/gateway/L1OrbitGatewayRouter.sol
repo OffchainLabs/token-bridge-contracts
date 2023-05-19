@@ -135,10 +135,14 @@ contract L1OrbitGatewayRouter is L1GatewayRouter {
         bytes memory _data
     ) internal override returns (uint256) {
         {
-            // Transfer native token amount needed to pay fees to the inbox
-            address bridge = address(getBridge(_inbox));
-            address nativeFeeToken = IERC20Bridge(bridge).nativeToken();
-            IERC20(nativeFeeToken).safeTransferFrom(msg.sender, _inbox, _totalFeeAmount);
+            // Transfer native token amount needed to pay for retryable fees to the inbox.
+            // Fee tokens will be transferred from msg.sender
+            address nativeFeeToken = IERC20Bridge(address(getBridge(_inbox))).nativeToken();
+            uint256 inboxNativeTokenBalance = IERC20(nativeFeeToken).balanceOf(_inbox);
+            if (inboxNativeTokenBalance < _totalFeeAmount) {
+                uint256 diff = _totalFeeAmount - inboxNativeTokenBalance;
+                IERC20(nativeFeeToken).safeTransferFrom(msg.sender, _inbox, diff);
+            }
         }
 
         return
