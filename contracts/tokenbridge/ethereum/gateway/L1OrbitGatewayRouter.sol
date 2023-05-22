@@ -4,12 +4,17 @@ pragma solidity ^0.8.0;
 
 import { L1GatewayRouter } from "./L1GatewayRouter.sol";
 import { IERC20Inbox } from "../L1ArbitrumMessenger.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { IERC20Bridge } from "../../libraries/IERC20Bridge.sol";
 
 /**
  * @title Handles deposits from L1 into L2 in ERC20-based rollups where custom token is used to pay for fees. Tokens are routed to their appropriate L1 gateway.
  * @notice Router itself also conforms to the Gateway interface. Router also serves as an L1-L2 token address oracle.
  */
 contract L1OrbitGatewayRouter is L1GatewayRouter {
+    using SafeERC20 for IERC20;
+
     /**
      * @notice Allows owner to register the default gateway.
      * @param newL1DefaultGateway default gateway address
@@ -129,6 +134,17 @@ contract L1OrbitGatewayRouter is L1GatewayRouter {
         uint256 _gasPriceBid,
         bytes memory _data
     ) internal override returns (uint256) {
+        {
+            // Transfer native token amount needed to pay for retryable fees to the inbox.
+            // Fee tokens will be transferred from msg.sender
+            address nativeFeeToken = IERC20Bridge(address(getBridge(_inbox))).nativeToken();
+            uint256 inboxNativeTokenBalance = IERC20(nativeFeeToken).balanceOf(_inbox);
+            if (inboxNativeTokenBalance < _totalFeeAmount) {
+                uint256 diff = _totalFeeAmount - inboxNativeTokenBalance;
+                IERC20(nativeFeeToken).safeTransferFrom(msg.sender, _inbox, diff);
+            }
+        }
+
         return
             IERC20Inbox(_inbox).createRetryableTicket(
                 _to,
