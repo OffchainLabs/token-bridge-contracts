@@ -1,21 +1,10 @@
 import { JsonRpcProvider } from '@ethersproject/providers'
-import dotenv from 'dotenv'
 import { L1Network, L2Network, addCustomNetwork } from '@arbitrum/sdk'
 import { execSync } from 'child_process'
 import { Bridge__factory } from '@arbitrum/sdk/dist/lib/abi/factories/Bridge__factory'
 import { RollupAdminLogic__factory } from '@arbitrum/sdk/dist/lib/abi/factories/RollupAdminLogic__factory'
 import { Signer, Wallet } from 'ethers'
-import { L2GatewayRouter__factory } from '../../build/types'
-import { deployErc20AndInit } from './deployBridge'
-
-dotenv.config()
-
-export const config = {
-  arbUrl: process.env['ARB_URL'] as string,
-  ethUrl: process.env['ETH_URL'] as string,
-  arbKey: process.env['ARB_KEY'] as string,
-  ethKey: process.env['ETH_KEY'] as string,
-}
+import { deployOrbitTokenBridgeAndInit } from './orbitTokenBridgeDeployer'
 
 export const getCustomNetworks = async (
   l1Url: string,
@@ -96,7 +85,7 @@ export const getCustomNetworks = async (
   }
 }
 
-export const setupNetworks = async (
+export const setupOrbitTokenBridge = async (
   l1Deployer: Signer,
   l2Deployer: Signer,
   l1Url: string,
@@ -107,13 +96,13 @@ export const setupNetworks = async (
     l2Url
   )
 
-  new L2GatewayRouter__factory(l1Deployer).deploy()
-
-  const { l1: l1Contracts, l2: l2Contracts } = await deployErc20AndInit(
-    l1Deployer,
-    l2Deployer,
-    coreL2Network.ethBridge.inbox
-  )
+  const { l1: l1Contracts, l2: l2Contracts } =
+    await deployOrbitTokenBridgeAndInit(
+      l1Deployer,
+      l2Deployer,
+      coreL2Network.ethBridge.inbox,
+      coreL2Network.nativeToken
+    )
   const l2Network: L2Network = {
     ...coreL2Network,
     tokenBridge: {
