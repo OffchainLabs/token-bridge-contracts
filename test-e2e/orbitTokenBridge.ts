@@ -263,7 +263,7 @@ describe('orbitTokenBridge', () => {
 
     const messages = await l2Receipt.getL2ToL1Messages(userL1Wallet)
     const l2ToL1Msg = messages[0]
-    const timeToWaitMs = 60 * 1000
+    const timeToWaitMs = 1000
     await l2ToL1Msg.waitUntilReadyToExecute(l2Provider, timeToWaitMs)
 
     // execute on L1
