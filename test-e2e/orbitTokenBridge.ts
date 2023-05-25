@@ -4,20 +4,28 @@ import {
   L1ToL2MessageStatus,
   L1TransactionReceipt,
   L2Network,
+  L2TransactionReceipt,
 } from '@arbitrum/sdk'
 import { getBaseFee } from '@arbitrum/sdk/dist/lib/utils/lib'
 import { JsonRpcProvider } from '@ethersproject/providers'
 import { expect } from 'chai'
 import { ethers, Wallet } from '@arbitrum/sdk/node_modules/ethers'
-import { setupOrbitTokenBridge } from '../scripts/local-deployment/testSetup'
 import {
+  setupOrbitTokenBridge,
+  sleep,
+} from '../scripts/local-deployment/testSetup'
+import {
+  ERC20,
   ERC20__factory,
   L1OrbitERC20Gateway__factory,
   L1OrbitGatewayRouter__factory,
+  L2GatewayRouter__factory,
+  TestERC20,
   TestERC20__factory,
 } from '../build/types'
 import { defaultAbiCoder } from 'ethers/lib/utils'
 import { BigNumber } from 'ethers'
+import { IERC20Inbox__factory } from '../build/types'
 
 const config = {
   arbUrl: 'http://localhost:8547',
@@ -35,6 +43,10 @@ let userL2Wallet: Wallet
 
 let _l1Network: L1Network
 let _l2Network: L2Network & { nativeToken: string }
+
+let token: TestERC20
+let l2Token: ERC20
+let nativeToken: ERC20
 
 describe('orbitTokenBridge', () => {
   // configure orbit token bridge
@@ -63,11 +75,10 @@ describe('orbitTokenBridge', () => {
     const userKey = ethers.utils.sha256(ethers.utils.toUtf8Bytes('user_wallet'))
     userL1Wallet = new ethers.Wallet(userKey, l1Provider)
     userL2Wallet = new ethers.Wallet(userKey, l2Provider)
-    console.log('fund userL1Wallet')
     await (
       await deployerL1Wallet.sendTransaction({
         to: userL1Wallet.address,
-        value: ethers.utils.parseEther('1.0'),
+        value: ethers.utils.parseEther('10.0'),
       })
     ).wait()
   })
@@ -89,10 +100,7 @@ describe('orbitTokenBridge', () => {
 
   it('can deposit token via default gateway', async function () {
     // fund user to be able to pay retryable fees
-    const nativeToken = ERC20__factory.connect(
-      _l2Network.nativeToken,
-      userL1Wallet
-    )
+    nativeToken = ERC20__factory.connect(_l2Network.nativeToken, userL1Wallet)
     await (
       await nativeToken
         .connect(deployerL1Wallet)
@@ -101,7 +109,7 @@ describe('orbitTokenBridge', () => {
 
     // create token to be bridged
     const tokenFactory = await new TestERC20__factory(userL1Wallet).deploy()
-    const token = await tokenFactory.deployed()
+    token = await tokenFactory.deployed()
     await (await token.mint()).wait()
 
     // snapshot state before
@@ -192,7 +200,7 @@ describe('orbitTokenBridge', () => {
     ///// checks
 
     const l2TokenAddress = await router.calculateL2TokenAddress(token.address)
-    const l2Token = ERC20__factory.connect(l2TokenAddress, l2Provider)
+    l2Token = ERC20__factory.connect(l2TokenAddress, l2Provider)
     expect(await l2Token.balanceOf(userL2Wallet.address)).to.be.eq(
       depositAmount
     )
@@ -212,7 +220,6 @@ describe('orbitTokenBridge', () => {
     const userNativeTokenBalanceAfter = await nativeToken.balanceOf(
       userL1Wallet.address
     )
-    console.log('userNativeTokenBalanceAfter', userNativeTokenBalanceAfter)
     expect(
       userNativeTokenBalanceBefore.sub(userNativeTokenBalanceAfter)
     ).to.be.eq(tokenTotalFeeAmount)
@@ -224,7 +231,108 @@ describe('orbitTokenBridge', () => {
       bridgeNativeTokenBalanceAfter.sub(bridgeNativeTokenBalanceBefore)
     ).to.be.eq(tokenTotalFeeAmount)
   })
+
+  it('can withdraw token via default gateway', async function () {
+    // fund userL2Wallet so it can pay for L2 withdraw TX
+    await depositNativeToL2()
+
+    // snapshot state before
+    const userL1TokenBalanceBefore = await token.balanceOf(userL1Wallet.address)
+    const userL2TokenBalanceBefore = await l2Token.balanceOf(
+      userL2Wallet.address
+    )
+    const l1GatewayTokenBalanceBefore = await token.balanceOf(
+      _l2Network.tokenBridge.l1ERC20Gateway
+    )
+    const l2TokenSupplyBefore = await l2Token.totalSupply()
+
+    // start withdrawal
+    const withdrawalAmount = 250
+    const l2Router = L2GatewayRouter__factory.connect(
+      _l2Network.tokenBridge.l2GatewayRouter,
+      userL2Wallet
+    )
+    const withdrawTx = await l2Router[
+      'outboundTransfer(address,address,uint256,bytes)'
+    ](token.address, userL1Wallet.address, withdrawalAmount, '0x')
+    const withdrawReceipt = await withdrawTx.wait()
+    const l2Receipt = new L2TransactionReceipt(withdrawReceipt)
+
+    // wait until dispute period passes and withdrawal is ready for execution
+    await sleep(5 * 1000)
+
+    const messages = await l2Receipt.getL2ToL1Messages(userL1Wallet)
+    const l2ToL1Msg = messages[0]
+    const timeToWaitMs = 60 * 1000
+    await l2ToL1Msg.waitUntilReadyToExecute(l2Provider, timeToWaitMs)
+
+    // execute on L1
+    await (await l2ToL1Msg.execute(l2Provider)).wait()
+
+    //// checks
+    const userL1TokenBalanceAfter = await token.balanceOf(userL1Wallet.address)
+    expect(userL1TokenBalanceAfter.sub(userL1TokenBalanceBefore)).to.be.eq(
+      withdrawalAmount
+    )
+
+    const userL2TokenBalanceAfter = await l2Token.balanceOf(
+      userL2Wallet.address
+    )
+    expect(userL2TokenBalanceBefore.sub(userL2TokenBalanceAfter)).to.be.eq(
+      withdrawalAmount
+    )
+
+    const l1GatewayTokenBalanceAfter = await token.balanceOf(
+      _l2Network.tokenBridge.l1ERC20Gateway
+    )
+    expect(
+      l1GatewayTokenBalanceBefore.sub(l1GatewayTokenBalanceAfter)
+    ).to.be.eq(withdrawalAmount)
+
+    const l2TokenSupplyAfter = await l2Token.totalSupply()
+    expect(l2TokenSupplyBefore.sub(l2TokenSupplyAfter)).to.be.eq(
+      withdrawalAmount
+    )
+  })
 })
+
+/**
+ * helper function to fund user wallet on L2
+ */
+async function depositNativeToL2() {
+  /// deposit tokens
+  const amountToDeposit = ethers.utils.parseEther('2.0')
+  await (
+    await nativeToken
+      .connect(userL1Wallet)
+      .approve(_l2Network.ethBridge.inbox, amountToDeposit)
+  ).wait()
+
+  const depositFuncSig = {
+    name: 'depositERC20',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      {
+        name: 'amount',
+        type: 'uint256',
+      },
+    ],
+  }
+  const inbox = new ethers.Contract(
+    _l2Network.ethBridge.inbox,
+    [depositFuncSig],
+    userL1Wallet
+  )
+
+  const depositTx = await inbox.depositERC20(amountToDeposit)
+
+  // wait for deposit to be processed
+  const depositRec = await L1TransactionReceipt.monkeyPatchEthDepositWait(
+    depositTx
+  ).wait()
+  await depositRec.waitForL2(l2Provider)
+}
 
 async function waitOnL2Msg(tx: ethers.ContractTransaction) {
   const retryableReceipt = await tx.wait()
