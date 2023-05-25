@@ -103,7 +103,9 @@ export const setupOrbitTokenBridge = async (
       coreL2Network.ethBridge.inbox,
       coreL2Network.nativeToken
     )
-  const l2Network: L2Network = {
+  const l2Network: L2Network & {
+    nativeToken: string
+  } = {
     ...coreL2Network,
     tokenBridge: {
       l1CustomGateway: l1Contracts.customGateway.address,
