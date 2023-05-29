@@ -2,24 +2,15 @@
 
 pragma solidity ^0.8.0;
 
-import { L1ArbitrumExtendedGatewayTest } from "./L1ArbitrumExtendedGateway.t.sol";
+import { L1ArbitrumExtendedGatewayTest, InboxMock, TestERC20 } from "./L1ArbitrumExtendedGateway.t.sol";
 import "contracts/tokenbridge/ethereum/gateway/L1ERC20Gateway.sol";
-import { TestERC20 } from "contracts/tokenbridge/test/TestERC20.sol";
-import { InboxMock } from "contracts/tokenbridge/test/InboxMock.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract L1ERC20GatewayTest is L1ArbitrumExtendedGatewayTest {
-    IERC20 public token;
-
     // gateway params
-    address public l2Gateway = address(1000);
-    address public router = address(1001);
-    address public inbox;
-    address public l2BeaconProxyFactory = address(1003);
+    address public l2BeaconProxyFactory = makeAddr("l2BeaconProxyFactory");
     bytes32 public cloneableProxyHash =
         0x0000000000000000000000000000000000000000000000000000000000000001;
-
-    address public user = address(1004);
 
     function setUp() public virtual {
         inbox = address(new InboxMock());
@@ -34,6 +25,9 @@ contract L1ERC20GatewayTest is L1ArbitrumExtendedGatewayTest {
         );
 
         token = IERC20(address(new TestERC20()));
+
+        maxSubmissionCost = 70;
+        retryableCost = maxSubmissionCost + gasPriceBid * maxGas;
 
         // fund user and router
         vm.prank(user);
@@ -75,13 +69,9 @@ contract L1ERC20GatewayTest is L1ArbitrumExtendedGatewayTest {
         uint256 l1GatewayBalanceBefore = token.balanceOf(address(l1Gateway));
 
         // retryable params
-        uint256 maxSubmissionCost = 1;
-        uint256 maxGas = 1000000000;
-        uint256 gasPrice = 3;
         uint256 depositAmount = 300;
         bytes memory callHookData = "";
-        bytes memory userEncodedData = abi.encode(maxSubmissionCost, callHookData);
-        bytes memory routerEncodedData = abi.encode(user, userEncodedData);
+        bytes memory routerEncodedData = buildRouterEncodedData(callHookData);
 
         // approve token
         vm.prank(user);
@@ -108,12 +98,12 @@ contract L1ERC20GatewayTest is L1ArbitrumExtendedGatewayTest {
 
         // trigger deposit
         vm.prank(router);
-        l1Gateway.outboundTransfer{ value: maxSubmissionCost + maxGas * gasPrice }(
+        l1Gateway.outboundTransfer{ value: retryableCost }(
             address(token),
             user,
             depositAmount,
             maxGas,
-            gasPrice,
+            gasPriceBid,
             routerEncodedData
         );
 
@@ -135,14 +125,10 @@ contract L1ERC20GatewayTest is L1ArbitrumExtendedGatewayTest {
         uint256 l1GatewayBalanceBefore = token.balanceOf(address(l1Gateway));
 
         // retryable params
-        uint256 maxSubmissionCost = 2;
-        uint256 maxGas = 2000000000;
-        uint256 gasPrice = 7;
         uint256 depositAmount = 450;
         address refundTo = address(2000);
         bytes memory callHookData = "";
-        bytes memory userEncodedData = abi.encode(maxSubmissionCost, callHookData);
-        bytes memory routerEncodedData = abi.encode(user, userEncodedData);
+        bytes memory routerEncodedData = buildRouterEncodedData(callHookData);
 
         // approve token
         vm.prank(user);
@@ -169,13 +155,13 @@ contract L1ERC20GatewayTest is L1ArbitrumExtendedGatewayTest {
 
         // trigger deposit
         vm.prank(router);
-        l1Gateway.outboundTransferCustomRefund{ value: maxSubmissionCost + maxGas * gasPrice }(
+        l1Gateway.outboundTransferCustomRefund{ value: retryableCost }(
             address(token),
             refundTo,
             user,
             depositAmount,
             maxGas,
-            gasPrice,
+            gasPriceBid,
             routerEncodedData
         );
 
@@ -188,52 +174,6 @@ contract L1ERC20GatewayTest is L1ArbitrumExtendedGatewayTest {
             l1GatewayBalanceAfter - l1GatewayBalanceBefore,
             depositAmount,
             "Wrong l1 gateway balance"
-        );
-    }
-
-    function test_outboundTransferCustomRefund_revert_NotFromRouter() public {
-        vm.expectRevert("NOT_FROM_ROUTER");
-        l1Gateway.outboundTransferCustomRefund{ value: 1 ether }(
-            address(token),
-            user,
-            user,
-            400,
-            0.1 ether,
-            0.01 ether,
-            ""
-        );
-    }
-
-    function test_outboundTransferCustomRefund_revert_ExtraDataDisabled() public {
-        bytes memory callHookData = abi.encodeWithSignature("doSomething()");
-        bytes memory routerEncodedData = buildRouterEncodedData(callHookData);
-
-        vm.prank(router);
-        vm.expectRevert("EXTRA_DATA_DISABLED");
-        l1Gateway.outboundTransferCustomRefund{ value: 1 ether }(
-            address(token),
-            user,
-            user,
-            400,
-            0.1 ether,
-            0.01 ether,
-            routerEncodedData
-        );
-    }
-
-    function test_outboundTransferCustomRefund_revert_L1NotContract() public {
-        address invalidTokenAddress = address(70);
-
-        vm.prank(router);
-        vm.expectRevert("L1_NOT_CONTRACT");
-        l1Gateway.outboundTransferCustomRefund{ value: 1 ether }(
-            address(invalidTokenAddress),
-            user,
-            user,
-            400,
-            0.1 ether,
-            0.01 ether,
-            buildRouterEncodedData("")
         );
     }
 
@@ -251,57 +191,6 @@ contract L1ERC20GatewayTest is L1ArbitrumExtendedGatewayTest {
             0.01 ether,
             buildRouterEncodedData("")
         );
-    }
-
-    function test_finalizeInboundTransfer() public {
-        // fund gateway with tokens being withdrawn
-        vm.prank(address(l1Gateway));
-        TestERC20(address(token)).mint();
-
-        // snapshot state before
-        uint256 userBalanceBefore = token.balanceOf(user);
-        uint256 l1GatewayBalanceBefore = token.balanceOf(address(l1Gateway));
-
-        // withdrawal params
-        address from = address(3000);
-        uint256 withdrawalAmount = 25;
-        uint256 exitNum = 7;
-        bytes memory callHookData = "";
-        bytes memory data = abi.encode(exitNum, callHookData);
-
-        InboxMock(address(inbox)).setL2ToL1Sender(l2Gateway);
-
-        // trigger withdrawal
-        vm.prank(address(IInbox(l1Gateway.inbox()).bridge()));
-        l1Gateway.finalizeInboundTransfer(address(token), from, user, withdrawalAmount, data);
-
-        // check tokens are properly released
-        uint256 userBalanceAfter = token.balanceOf(user);
-        assertEq(userBalanceAfter - userBalanceBefore, withdrawalAmount, "Wrong user balance");
-
-        uint256 l1GatewayBalanceAfter = token.balanceOf(address(l1Gateway));
-        assertEq(
-            l1GatewayBalanceBefore - l1GatewayBalanceAfter,
-            withdrawalAmount,
-            "Wrong l1 gateway balance"
-        );
-    }
-
-    function test_finalizeInboundTransfer_revert_NotFromBridge() public {
-        address notBridge = address(300);
-        vm.prank(notBridge);
-        vm.expectRevert("NOT_FROM_BRIDGE");
-        l1Gateway.finalizeInboundTransfer(address(token), user, user, 100, "");
-    }
-
-    function test_finalizeInboundTransfer_revert_OnlyCounterpartGateway() public {
-        address notCounterPartGateway = address(400);
-        InboxMock(address(inbox)).setL2ToL1Sender(notCounterPartGateway);
-
-        // trigger withdrawal
-        vm.prank(address(IInbox(l1Gateway.inbox()).bridge()));
-        vm.expectRevert("ONLY_COUNTERPART_GATEWAY");
-        l1Gateway.finalizeInboundTransfer(address(token), user, user, 100, "");
     }
 
     function test_getOutboundCalldata() public {
@@ -328,18 +217,6 @@ contract L1ERC20GatewayTest is L1ArbitrumExtendedGatewayTest {
         assertEq(outboundCalldata, expectedCalldata, "Invalid outboundCalldata");
     }
 
-    function test_supportsInterface(bytes4 iface) public {
-        bool expected = false;
-        if (
-            iface == type(IERC165).interfaceId ||
-            iface == IL1ArbitrumGateway.outboundTransferCustomRefund.selector
-        ) {
-            expected = true;
-        }
-
-        assertEq(l1Gateway.supportsInterface(iface), expected, "Interface shouldn't be supported");
-    }
-
     function test_calculateL2TokenAddress(address tokenAddress) public {
         address l2TokenAddress = l1Gateway.calculateL2TokenAddress(tokenAddress);
 
@@ -350,25 +227,6 @@ contract L1ERC20GatewayTest is L1ArbitrumExtendedGatewayTest {
         );
 
         assertEq(l2TokenAddress, expectedL2TokenAddress, "Invalid calculateL2TokenAddress");
-    }
-
-    function test_postUpgradeInit_revert_NotFromAdmin() public {
-        vm.expectRevert("NOT_FROM_ADMIN");
-        L1ERC20Gateway(address(l1Gateway)).postUpgradeInit();
-    }
-
-    ////
-    // Helper functions
-    ////
-    function buildRouterEncodedData(
-        bytes memory callHookData
-    ) internal view virtual returns (bytes memory) {
-        uint256 maxSubmissionCost = 20;
-
-        bytes memory userEncodedData = abi.encode(maxSubmissionCost, callHookData);
-        bytes memory routerEncodedData = abi.encode(user, userEncodedData);
-
-        return routerEncodedData;
     }
 
     ////
