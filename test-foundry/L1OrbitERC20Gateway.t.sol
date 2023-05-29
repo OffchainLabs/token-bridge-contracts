@@ -4,13 +4,20 @@ pragma solidity ^0.8.0;
 
 import { L1ERC20GatewayTest } from "./L1ERC20Gateway.t.sol";
 import "contracts/tokenbridge/ethereum/gateway/L1OrbitERC20Gateway.sol";
-
+import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { ERC20PresetMinterPauser } from "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetMinterPauser.sol";
 import { TestERC20 } from "contracts/tokenbridge/test/TestERC20.sol";
 import { ERC20InboxMock } from "contracts/tokenbridge/test/InboxMock.sol";
 
 contract L1OrbitERC20GatewayTest is L1ERC20GatewayTest {
+    ERC20 public nativeToken;
+    uint256 public nativeTokenTotalFee;
+
     function setUp() public override {
         inbox = address(new ERC20InboxMock());
+        nativeToken = ERC20(address(new ERC20PresetMinterPauser("X", "Y")));
+        ERC20PresetMinterPauser(address(nativeToken)).mint(user, 1_000_000 ether);
+        ERC20InboxMock(inbox).setMockNativeToken(address(nativeToken));
 
         l1Gateway = new L1OrbitERC20Gateway();
         L1OrbitERC20Gateway(address(l1Gateway)).initialize(
@@ -22,6 +29,8 @@ contract L1OrbitERC20GatewayTest is L1ERC20GatewayTest {
         );
 
         token = IERC20(address(new TestERC20()));
+        maxSubmissionCost = 0;
+        nativeTokenTotalFee = maxGas * gasPriceBid;
 
         // fund user and router
         vm.prank(user);
@@ -47,24 +56,17 @@ contract L1OrbitERC20GatewayTest is L1ERC20GatewayTest {
         uint256 l1GatewayBalanceBefore = token.balanceOf(address(l1Gateway));
 
         // retryable params
-        uint256 maxSubmissionCost = 0;
-        uint256 maxGas = 1000000000;
-        uint256 gasPrice = 3;
-
         uint256 depositAmount = 300;
-        uint256 nativeTokenTotalFee = maxGas * gasPrice;
-
         bytes memory callHookData = "";
-        bytes memory userEncodedData = abi.encode(
-            maxSubmissionCost,
-            callHookData,
-            nativeTokenTotalFee
-        );
-        bytes memory routerEncodedData = abi.encode(user, userEncodedData);
+        bytes memory routerEncodedData = buildRouterEncodedData(callHookData);
 
         // approve token
         vm.prank(user);
         token.approve(address(l1Gateway), depositAmount);
+
+        // approve fees
+        vm.prank(user);
+        nativeToken.approve(address(l1Gateway), nativeTokenTotalFee);
 
         // expect events
         vm.expectEmit(true, true, true, true);
@@ -79,7 +81,7 @@ contract L1OrbitERC20GatewayTest is L1ERC20GatewayTest {
             l2Gateway,
             0,
             maxGas,
-            gasPrice,
+            gasPriceBid,
             nativeTokenTotalFee,
             l1Gateway.getOutboundCalldata(address(token), user, user, 300, "")
         );
@@ -94,7 +96,7 @@ contract L1OrbitERC20GatewayTest is L1ERC20GatewayTest {
             user,
             depositAmount,
             maxGas,
-            gasPrice,
+            gasPriceBid,
             routerEncodedData
         );
 
@@ -110,27 +112,26 @@ contract L1OrbitERC20GatewayTest is L1ERC20GatewayTest {
         );
     }
 
+    function test_outboundTransfer_revert_NotAllowedToBridgeFeeToken() public {
+        // trigger deposit
+        vm.prank(router);
+        vm.expectRevert("NOT_ALLOWED_TO_BRIDGE_FEE_TOKEN");
+        l1Gateway.outboundTransfer(address(nativeToken), user, 100, maxGas, gasPriceBid, "");
+    }
+
     function test_outboundTransferCustomRefund() public override {
         // snapshot state before
         uint256 userBalanceBefore = token.balanceOf(user);
         uint256 l1GatewayBalanceBefore = token.balanceOf(address(l1Gateway));
 
         // retryable params
-        uint256 maxSubmissionCost = 0;
-        uint256 maxGas = 200000000;
-        uint256 gasPrice = 4;
-
         uint256 depositAmount = 700;
-        uint256 nativeTokenTotalFee = maxGas * gasPrice;
-        address refundTo = address(3000);
-
         bytes memory callHookData = "";
-        bytes memory userEncodedData = abi.encode(
-            maxSubmissionCost,
-            callHookData,
-            nativeTokenTotalFee
-        );
-        bytes memory routerEncodedData = abi.encode(user, userEncodedData);
+        bytes memory routerEncodedData = buildRouterEncodedData(callHookData);
+
+        // approve fees
+        vm.prank(user);
+        nativeToken.approve(address(l1Gateway), nativeTokenTotalFee);
 
         // approve token
         vm.prank(user);
@@ -141,7 +142,7 @@ contract L1OrbitERC20GatewayTest is L1ERC20GatewayTest {
         emit TicketData(maxSubmissionCost);
 
         vm.expectEmit(true, true, true, true);
-        emit RefundAddresses(refundTo, user);
+        emit RefundAddresses(creditBackAddress, user);
 
         vm.expectEmit(true, true, true, true);
         emit ERC20InboxRetryableTicket(
@@ -149,7 +150,7 @@ contract L1OrbitERC20GatewayTest is L1ERC20GatewayTest {
             l2Gateway,
             0,
             maxGas,
-            gasPrice,
+            gasPriceBid,
             nativeTokenTotalFee,
             l1Gateway.getOutboundCalldata(address(token), user, user, 700, "")
         );
@@ -161,11 +162,11 @@ contract L1OrbitERC20GatewayTest is L1ERC20GatewayTest {
         vm.prank(router);
         l1Gateway.outboundTransferCustomRefund(
             address(token),
-            refundTo,
+            creditBackAddress,
             user,
             depositAmount,
             maxGas,
-            gasPrice,
+            gasPriceBid,
             routerEncodedData
         );
 
@@ -181,15 +182,27 @@ contract L1OrbitERC20GatewayTest is L1ERC20GatewayTest {
         );
     }
 
+    function test_outboundTransferCustomRefund_revert_NotAllowedToBridgeFeeToken() public {
+        // trigger deposit
+        vm.prank(router);
+        vm.expectRevert("NOT_ALLOWED_TO_BRIDGE_FEE_TOKEN");
+        l1Gateway.outboundTransferCustomRefund(
+            address(nativeToken),
+            creditBackAddress,
+            user,
+            100,
+            maxGas,
+            gasPriceBid,
+            ""
+        );
+    }
+
     ////
     // Helper functions
     ////
     function buildRouterEncodedData(
         bytes memory callHookData
     ) internal view override returns (bytes memory) {
-        uint256 nativeTokenTotalFee = 350;
-        uint256 maxSubmissionCost = 20;
-
         bytes memory userEncodedData = abi.encode(
             maxSubmissionCost,
             callHookData,
@@ -205,7 +218,7 @@ contract L1OrbitERC20GatewayTest is L1ERC20GatewayTest {
         address to,
         uint256 l2CallValue,
         uint256 maxGas,
-        uint256 gasPrice,
+        uint256 gasPriceBid,
         uint256 tokenTotalFeeAmount,
         bytes data
     );
