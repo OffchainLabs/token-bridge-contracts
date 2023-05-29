@@ -149,7 +149,12 @@ contract L1ERC20Gateway is L1ArbitrumExtendedGateway {
         return outboundCalldata;
     }
 
-    function calculateL2TokenAddress(address l1ERC20) public view override(ITokenGateway, TokenGateway) returns (address) {
+    function calculateL2TokenAddress(address l1ERC20)
+        public
+        view
+        override(ITokenGateway, TokenGateway)
+        returns (address)
+    {
         bytes32 salt = getSalt(l1ERC20);
         return Create2.computeAddress(salt, cloneableProxyHash, l2BeaconProxyFactory);
     }

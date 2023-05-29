@@ -337,9 +337,12 @@ contract L1GatewayRouter is
         _;
     }
 
-    function supportsInterface(
-        bytes4 interfaceId
-    ) public view override(ERC165, IERC165) returns (bool) {
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        override(ERC165, IERC165)
+        returns (bool)
+    {
         // registering interfaces that is added after arb-bridge-peripherals >1.0.11
         // using function selector instead of single function interfaces to reduce bloat
         return
