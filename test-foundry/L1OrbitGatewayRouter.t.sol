@@ -12,12 +12,19 @@ import { L1OrbitCustomGateway } from "contracts/tokenbridge/ethereum/gateway/L1O
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { ERC20PresetMinterPauser } from "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetMinterPauser.sol";
 
+import "forge-std/console.sol";
+
 contract L1OrbitGatewayRouterTest is L1GatewayRouterTest {
     L1OrbitGatewayRouter public l1OrbitRouter;
+    ERC20 public nativeToken;
     uint256 public nativeTokenTotalFee;
 
     function setUp() public override {
         inbox = address(new ERC20InboxMock());
+        nativeToken = ERC20(address(new ERC20PresetMinterPauser("X", "Y")));
+        ERC20PresetMinterPauser(address(nativeToken)).mint(user, 1_000_000 ether);
+        ERC20PresetMinterPauser(address(nativeToken)).mint(owner, 1_000_000 ether);
+        ERC20InboxMock(inbox).setMockNativeToken(address(nativeToken));
 
         defaultGateway = address(new L1OrbitERC20Gateway());
 
@@ -42,7 +49,8 @@ contract L1OrbitGatewayRouterTest is L1GatewayRouterTest {
         address[] memory gateways = new address[](1);
         gateways[0] = address(new L1OrbitERC20Gateway());
 
-        vm.prank(owner);
+        vm.startPrank(owner);
+        nativeToken.approve(address(l1OrbitRouter), nativeTokenTotalFee);
         l1OrbitRouter.setGateways(
             tokens,
             gateways,
@@ -64,7 +72,8 @@ contract L1OrbitGatewayRouterTest is L1GatewayRouterTest {
         address[] memory gateways = new address[](1);
         gateways[0] = address(1);
 
-        vm.prank(owner);
+        vm.startPrank(owner);
+        nativeToken.approve(address(l1OrbitRouter), nativeTokenTotalFee);
         l1OrbitRouter.setGateways(
             tokens,
             gateways,
@@ -89,7 +98,8 @@ contract L1OrbitGatewayRouterTest is L1GatewayRouterTest {
         );
 
         // set default gateway
-        vm.prank(owner);
+        vm.startPrank(owner);
+        nativeToken.approve(address(l1OrbitRouter), nativeTokenTotalFee);
         l1OrbitRouter.setDefaultGateway(
             address(defaultGateway),
             maxGas,
@@ -97,21 +107,29 @@ contract L1OrbitGatewayRouterTest is L1GatewayRouterTest {
             maxSubmissionCost,
             nativeTokenTotalFee
         );
+        vm.stopPrank();
 
         // create token
         ERC20PresetMinterPauser token = new ERC20PresetMinterPauser("X", "Y");
         token.mint(user, 10000);
-        vm.prank(user);
-        token.approve(defaultGateway, 103);
 
         // snapshot state before
         uint256 userBalanceBefore = token.balanceOf(user);
         uint256 l1GatewayBalanceBefore = token.balanceOf(address(defaultGateway));
+        uint256 userNativeTokenBalanceBefore = nativeToken.balanceOf(user);
 
         /// deposit data
-        address to = address(401);
         uint256 amount = 103;
+        address to = address(401);
         bytes memory userEncodedData = abi.encode(maxSubmissionCost, "", nativeTokenTotalFee);
+
+        /// approve tokens
+        vm.prank(user);
+        token.approve(address(defaultGateway), amount);
+
+        // approve fees
+        vm.prank(user);
+        nativeToken.approve(address(defaultGateway), nativeTokenTotalFee);
 
         // expect event
         vm.expectEmit(true, true, true, true);
@@ -131,6 +149,41 @@ contract L1OrbitGatewayRouterTest is L1GatewayRouterTest {
             amount,
             "Wrong defaultGateway balance"
         );
+
+        uint256 userNativeTokenBalanceAfter = nativeToken.balanceOf(user);
+        assertEq(
+            userNativeTokenBalanceBefore - userNativeTokenBalanceAfter,
+            nativeTokenTotalFee,
+            "Wrong user native token balance"
+        );
+    }
+
+    function test_outboundTransfer_revert_NotAllowedToBridgeFeeToken() public {
+        // init default gateway
+        L1OrbitERC20Gateway(defaultGateway).initialize(
+            makeAddr("defaultGatewayCounterpart"),
+            address(l1Router),
+            inbox,
+            0x0000000000000000000000000000000000000000000000000000000000000001,
+            makeAddr("l2BeaconProxyFactory")
+        );
+
+        // set default gateway
+        vm.startPrank(owner);
+        nativeToken.approve(address(l1OrbitRouter), nativeTokenTotalFee);
+        l1OrbitRouter.setDefaultGateway(
+            address(defaultGateway),
+            maxGas,
+            gasPriceBid,
+            maxSubmissionCost,
+            nativeTokenTotalFee
+        );
+        vm.stopPrank();
+
+        /// deposit it
+        vm.prank(user);
+        vm.expectRevert("NOT_ALLOWED_TO_BRIDGE_FEE_TOKEN");
+        l1Router.outboundTransfer(address(nativeToken), user, 100, maxGas, gasPriceBid, "");
     }
 
     function test_outboundTransferCustomRefund() public override {
@@ -144,7 +197,8 @@ contract L1OrbitGatewayRouterTest is L1GatewayRouterTest {
         );
 
         // set default gateway
-        vm.prank(owner);
+        vm.startPrank(owner);
+        nativeToken.approve(address(l1OrbitRouter), nativeTokenTotalFee);
         l1OrbitRouter.setDefaultGateway(
             address(defaultGateway),
             maxGas,
@@ -152,22 +206,30 @@ contract L1OrbitGatewayRouterTest is L1GatewayRouterTest {
             maxSubmissionCost,
             nativeTokenTotalFee
         );
+        vm.stopPrank();
 
         // create token
         ERC20PresetMinterPauser token = new ERC20PresetMinterPauser("X", "Y");
         token.mint(user, 10000);
-        vm.prank(user);
-        token.approve(defaultGateway, 103);
 
         // snapshot state before
         uint256 userBalanceBefore = token.balanceOf(user);
         uint256 l1GatewayBalanceBefore = token.balanceOf(address(defaultGateway));
+        uint256 userNativeTokenBalanceBefore = nativeToken.balanceOf(user);
 
         /// deposit data
         address refundTo = address(400);
         address to = address(401);
         uint256 amount = 103;
         bytes memory userEncodedData = abi.encode(maxSubmissionCost, "", nativeTokenTotalFee);
+
+        // approve fees
+        vm.prank(user);
+        nativeToken.approve(defaultGateway, nativeTokenTotalFee);
+
+        // approve tokens
+        vm.prank(user);
+        token.approve(defaultGateway, amount);
 
         // expect event
         vm.expectEmit(true, true, true, true);
@@ -195,6 +257,49 @@ contract L1OrbitGatewayRouterTest is L1GatewayRouterTest {
             amount,
             "Wrong defaultGateway balance"
         );
+
+        uint256 userNativeTokenBalanceAfter = nativeToken.balanceOf(user);
+        assertEq(
+            userNativeTokenBalanceBefore - userNativeTokenBalanceAfter,
+            nativeTokenTotalFee,
+            "Wrong user native token balance"
+        );
+    }
+
+    function test_outboundTransferCustomRefund_revert_NotAllowedToBridgeFeeToken() public {
+        // init default gateway
+        L1OrbitERC20Gateway(defaultGateway).initialize(
+            makeAddr("defaultGatewayCounterpart"),
+            address(l1Router),
+            inbox,
+            0x0000000000000000000000000000000000000000000000000000000000000001,
+            makeAddr("l2BeaconProxyFactory")
+        );
+
+        // set default gateway
+        vm.startPrank(owner);
+        nativeToken.approve(address(l1OrbitRouter), nativeTokenTotalFee);
+        l1OrbitRouter.setDefaultGateway(
+            address(defaultGateway),
+            maxGas,
+            gasPriceBid,
+            maxSubmissionCost,
+            nativeTokenTotalFee
+        );
+        vm.stopPrank();
+
+        /// deposit it
+        vm.prank(user);
+        vm.expectRevert("NOT_ALLOWED_TO_BRIDGE_FEE_TOKEN");
+        l1Router.outboundTransferCustomRefund(
+            address(nativeToken),
+            user,
+            user,
+            100,
+            maxGas,
+            gasPriceBid,
+            ""
+        );
     }
 
     function test_setDefaultGateway() public override {
@@ -207,6 +312,10 @@ contract L1OrbitGatewayRouterTest is L1GatewayRouterTest {
             0x0000000000000000000000000000000000000000000000000000000000000001,
             makeAddr("l2BeaconProxyFactory")
         );
+
+        // approve fees
+        vm.prank(owner);
+        nativeToken.approve(address(l1OrbitRouter), nativeTokenTotalFee);
 
         // event checkers
         vm.expectEmit(true, true, true, true);
@@ -254,6 +363,10 @@ contract L1OrbitGatewayRouterTest is L1GatewayRouterTest {
 
     function test_setDefaultGateway_AddressZero() public override {
         address newL1DefaultGateway = address(0);
+
+        // approve fees
+        vm.prank(owner);
+        nativeToken.approve(address(l1OrbitRouter), nativeTokenTotalFee);
 
         // event checkers
         vm.expectEmit(true, true, true, true);
@@ -317,6 +430,14 @@ contract L1OrbitGatewayRouterTest is L1GatewayRouterTest {
         ERC20 customToken = new ERC20("X", "Y");
         vm.deal(address(customToken), 100 ether);
 
+        // approve fees
+        ERC20PresetMinterPauser(address(nativeToken)).mint(
+            address(customToken),
+            nativeTokenTotalFee
+        );
+        vm.prank(address(customToken));
+        nativeToken.approve(address(customGateway), nativeTokenTotalFee);
+
         // register token to gateway
         vm.mockCall(
             address(customToken),
@@ -332,6 +453,18 @@ contract L1OrbitGatewayRouterTest is L1GatewayRouterTest {
             creditBackAddress,
             nativeTokenTotalFee
         );
+
+        ERC20PresetMinterPauser(address(nativeToken)).mint(
+            address(customToken),
+            nativeTokenTotalFee
+        );
+
+        // snapshot state before
+        uint256 senderNativeTokenBalanceBefore = nativeToken.balanceOf(address(customToken));
+
+        // approve fees
+        vm.prank(address(customToken));
+        nativeToken.approve(address(l1OrbitRouter), nativeTokenTotalFee);
 
         // expect events
         vm.expectEmit(true, true, true, true);
@@ -376,6 +509,13 @@ contract L1OrbitGatewayRouterTest is L1GatewayRouterTest {
             "Gateway not set"
         );
 
+        uint256 senderNativeTokenBalanceAfter = nativeToken.balanceOf(address(customToken));
+        assertEq(
+            senderNativeTokenBalanceBefore - senderNativeTokenBalanceAfter,
+            nativeTokenTotalFee,
+            "Wrong sender native token balance"
+        );
+
         assertEq(seqNum, 1, "Invalid seqNum");
     }
 
@@ -390,6 +530,13 @@ contract L1OrbitGatewayRouterTest is L1GatewayRouterTest {
         vm.deal(address(customToken), 100 ether);
 
         // register token to gateway
+        ERC20PresetMinterPauser(address(nativeToken)).mint(
+            address(customToken),
+            nativeTokenTotalFee
+        );
+        vm.prank(address(customToken));
+        nativeToken.approve(address(customGateway), nativeTokenTotalFee);
+
         vm.mockCall(
             address(customToken),
             abi.encodeWithSignature("isArbitrumEnabled()"),
@@ -404,6 +551,14 @@ contract L1OrbitGatewayRouterTest is L1GatewayRouterTest {
             creditBackAddress,
             nativeTokenTotalFee
         );
+
+        // approve fees
+        ERC20PresetMinterPauser(address(nativeToken)).mint(
+            address(customToken),
+            nativeTokenTotalFee
+        );
+        vm.prank(address(customToken));
+        nativeToken.approve(address(l1OrbitRouter), nativeTokenTotalFee);
 
         // expect events
         vm.expectEmit(true, true, true, true);
@@ -468,6 +623,10 @@ contract L1OrbitGatewayRouterTest is L1GatewayRouterTest {
         vm.deal(address(token), 100 ether);
 
         // register token to gateway
+        ERC20PresetMinterPauser(address(nativeToken)).mint(address(token), nativeTokenTotalFee);
+        vm.prank(token);
+        nativeToken.approve(address(initialGateway), nativeTokenTotalFee);
+
         vm.mockCall(
             address(token),
             abi.encodeWithSignature("isArbitrumEnabled()"),
@@ -484,6 +643,10 @@ contract L1OrbitGatewayRouterTest is L1GatewayRouterTest {
         );
 
         // initially set gateway for token
+        ERC20PresetMinterPauser(address(nativeToken)).mint(address(token), nativeTokenTotalFee);
+        vm.prank(address(token));
+        nativeToken.approve(address(l1OrbitRouter), nativeTokenTotalFee);
+
         vm.prank(address(token));
         l1OrbitRouter.setGateway(
             initialGateway,
@@ -614,6 +777,10 @@ contract L1OrbitGatewayRouterTest is L1GatewayRouterTest {
             );
 
             // register tokens to gateways
+            ERC20PresetMinterPauser(address(nativeToken)).mint(tokens[i], nativeTokenTotalFee);
+            vm.prank(tokens[i]);
+            nativeToken.approve(address(gateways[i]), nativeTokenTotalFee);
+
             vm.deal(tokens[i], 100 ether);
             vm.prank(tokens[i]);
             L1OrbitCustomGateway(gateways[i]).registerTokenToL2(
@@ -625,6 +792,10 @@ contract L1OrbitGatewayRouterTest is L1GatewayRouterTest {
                 nativeTokenTotalFee
             );
         }
+
+        // approve fees
+        vm.prank(owner);
+        nativeToken.approve(address(l1OrbitRouter), nativeTokenTotalFee);
 
         // expect events
         vm.expectEmit(true, true, true, true);
@@ -686,6 +857,10 @@ contract L1OrbitGatewayRouterTest is L1GatewayRouterTest {
         vm.deal(address(token), 100 ether);
 
         // register token to gateway
+        ERC20PresetMinterPauser(address(nativeToken)).mint(address(token), nativeTokenTotalFee);
+        vm.prank(address(token));
+        nativeToken.approve(initialGateway, nativeTokenTotalFee);
+
         vm.mockCall(
             address(token),
             abi.encodeWithSignature("isArbitrumEnabled()"),
@@ -702,6 +877,10 @@ contract L1OrbitGatewayRouterTest is L1GatewayRouterTest {
         );
 
         // initially set gateway for token
+        ERC20PresetMinterPauser(address(nativeToken)).mint(address(token), nativeTokenTotalFee);
+        vm.prank(address(token));
+        nativeToken.approve(address(l1OrbitRouter), nativeTokenTotalFee);
+
         vm.prank(address(token));
         l1OrbitRouter.setGateway(
             initialGateway,
@@ -715,6 +894,10 @@ contract L1OrbitGatewayRouterTest is L1GatewayRouterTest {
 
         //// now set to zero addr
         address newGateway = address(0);
+
+        // approve fees
+        vm.prank(owner);
+        nativeToken.approve(address(l1OrbitRouter), nativeTokenTotalFee);
 
         // expect events
         vm.expectEmit(true, true, true, true);

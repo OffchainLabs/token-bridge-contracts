@@ -4,15 +4,21 @@ pragma solidity ^0.8.0;
 
 import { L1CustomGatewayTest, IERC20, L2CustomGateway } from "./L1CustomGateway.t.sol";
 import { L1OrbitCustomGateway } from "contracts/tokenbridge/ethereum/gateway/L1OrbitCustomGateway.sol";
-
+import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { ERC20PresetMinterPauser } from "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetMinterPauser.sol";
 import { TestERC20 } from "contracts/tokenbridge/test/TestERC20.sol";
 import { ERC20InboxMock } from "contracts/tokenbridge/test/InboxMock.sol";
 
 contract L1OrbitCustomGatewayTest is L1CustomGatewayTest {
+    ERC20 public nativeToken;
     uint256 public nativeTokenTotalFee;
 
-    function setUp() public override {
+    function setUp() public virtual override {
         inbox = address(new ERC20InboxMock());
+        nativeToken = ERC20(address(new ERC20PresetMinterPauser("X", "Y")));
+        ERC20PresetMinterPauser(address(nativeToken)).mint(user, 1_000_000 ether);
+        ERC20PresetMinterPauser(address(nativeToken)).mint(owner, 1_000_000 ether);
+        ERC20InboxMock(inbox).setMockNativeToken(address(nativeToken));
 
         l1Gateway = new L1OrbitCustomGateway();
         L1OrbitCustomGateway(address(l1Gateway)).initialize(l2Gateway, router, inbox, owner);
@@ -32,8 +38,18 @@ contract L1OrbitCustomGatewayTest is L1CustomGatewayTest {
 
     /* solhint-disable func-name-mixedcase */
     function test_calculateL2TokenAddress(address l1Token, address l2Token) public override {
-        vm.assume(l1Token != FOUNDRY_CHEATCODE_ADDRESS && l2Token != FOUNDRY_CHEATCODE_ADDRESS);
+        vm.assume(
+            l1Token != FOUNDRY_CHEATCODE_ADDRESS &&
+                l2Token != FOUNDRY_CHEATCODE_ADDRESS &&
+                l1Token != address(0) &&
+                l1Token != router
+        );
         vm.deal(l1Token, 100 ether);
+
+        // approve fees
+        ERC20PresetMinterPauser(address(nativeToken)).mint(address(l1Token), nativeTokenTotalFee);
+        vm.prank(address(l1Token));
+        nativeToken.approve(address(l1Gateway), nativeTokenTotalFee);
 
         // register token to gateway
         vm.mockCall(
@@ -47,7 +63,7 @@ contract L1OrbitCustomGatewayTest is L1CustomGatewayTest {
             maxGas,
             gasPriceBid,
             maxSubmissionCost,
-            makeAddr("creditBackAddress"),
+            creditBackAddress,
             nativeTokenTotalFee
         );
 
@@ -61,6 +77,10 @@ contract L1OrbitCustomGatewayTest is L1CustomGatewayTest {
         address[] memory l2Tokens = new address[](2);
         l2Tokens[0] = makeAddr("l2Token1");
         l2Tokens[1] = makeAddr("l2Token2");
+
+        // approve fees
+        vm.prank(owner);
+        nativeToken.approve(address(l1Gateway), nativeTokenTotalFee);
 
         // expect events
         vm.expectEmit(true, true, true, true);
@@ -139,7 +159,7 @@ contract L1OrbitCustomGatewayTest is L1CustomGatewayTest {
         );
     }
 
-    function test_outboundTransfer() public override {
+    function test_outboundTransfer() public virtual override {
         // snapshot state before
         uint256 userBalanceBefore = token.balanceOf(user);
         uint256 l1GatewayBalanceBefore = token.balanceOf(address(l1Gateway));
@@ -149,6 +169,10 @@ contract L1OrbitCustomGatewayTest is L1CustomGatewayTest {
         bytes memory routerEncodedData = buildRouterEncodedData(callHookData);
 
         // register token to gateway
+        ERC20PresetMinterPauser(address(nativeToken)).mint(address(token), nativeTokenTotalFee);
+        vm.prank(address(token));
+        nativeToken.approve(address(l1Gateway), nativeTokenTotalFee);
+
         vm.mockCall(
             address(token),
             abi.encodeWithSignature("isArbitrumEnabled()"),
@@ -167,6 +191,10 @@ contract L1OrbitCustomGatewayTest is L1CustomGatewayTest {
         // approve token
         vm.prank(user);
         token.approve(address(l1Gateway), depositAmount);
+
+        // approve fees
+        vm.prank(user);
+        nativeToken.approve(address(l1Gateway), nativeTokenTotalFee);
 
         // event checkers
         vm.expectEmit(true, true, true, true);
@@ -215,7 +243,7 @@ contract L1OrbitCustomGatewayTest is L1CustomGatewayTest {
         assertEq(seqNum1, abi.encode(1), "Invalid seqNum1");
     }
 
-    function test_outboundTransferCustomRefund() public override {
+    function test_outboundTransferCustomRefund() public virtual override {
         // snapshot state before
         uint256 userBalanceBefore = token.balanceOf(user);
         uint256 l1GatewayBalanceBefore = token.balanceOf(address(l1Gateway));
@@ -225,6 +253,10 @@ contract L1OrbitCustomGatewayTest is L1CustomGatewayTest {
         bytes memory routerEncodedData = buildRouterEncodedData(callHookData);
 
         // register token to gateway
+        ERC20PresetMinterPauser(address(nativeToken)).mint(address(token), nativeTokenTotalFee);
+        vm.prank(address(token));
+        nativeToken.approve(address(l1Gateway), nativeTokenTotalFee);
+
         vm.mockCall(
             address(token),
             abi.encodeWithSignature("isArbitrumEnabled()"),
@@ -243,6 +275,10 @@ contract L1OrbitCustomGatewayTest is L1CustomGatewayTest {
         // approve token
         vm.prank(user);
         token.approve(address(l1Gateway), depositAmount);
+
+        // approve fees
+        vm.prank(user);
+        nativeToken.approve(address(l1Gateway), nativeTokenTotalFee);
 
         // event checkers
         vm.expectEmit(true, true, true, true);
@@ -292,10 +328,18 @@ contract L1OrbitCustomGatewayTest is L1CustomGatewayTest {
         assertEq(seqNum1, abi.encode(1), "Invalid seqNum1");
     }
 
-    function test_outboundTransferCustomRefund_revert_InsufficientAllowance() public override {
+    function test_outboundTransferCustomRefund_revert_InsufficientAllowance()
+        public
+        virtual
+        override
+    {
         uint256 tooManyTokens = 500 ether;
 
         // register token to gateway
+        ERC20PresetMinterPauser(address(nativeToken)).mint(address(token), nativeTokenTotalFee);
+        vm.prank(address(token));
+        nativeToken.approve(address(l1Gateway), nativeTokenTotalFee);
+
         vm.mockCall(
             address(token),
             abi.encodeWithSignature("isArbitrumEnabled()"),
@@ -313,7 +357,7 @@ contract L1OrbitCustomGatewayTest is L1CustomGatewayTest {
 
         vm.prank(router);
         vm.expectRevert("ERC20: insufficient allowance");
-        l1Gateway.outboundTransferCustomRefund{ value: 1 ether }(
+        l1Gateway.outboundTransferCustomRefund(
             address(token),
             user,
             user,
@@ -325,8 +369,17 @@ contract L1OrbitCustomGatewayTest is L1CustomGatewayTest {
     }
 
     function test_registerTokenToL2(address l1Token, address l2Token) public override {
-        vm.assume(l1Token != FOUNDRY_CHEATCODE_ADDRESS && l2Token != FOUNDRY_CHEATCODE_ADDRESS);
+        vm.assume(
+            l1Token != FOUNDRY_CHEATCODE_ADDRESS &&
+                l2Token != FOUNDRY_CHEATCODE_ADDRESS &&
+                l1Token != address(0)
+        );
         vm.deal(l1Token, 100 ether);
+
+        // approve fees
+        ERC20PresetMinterPauser(address(nativeToken)).mint(address(l1Token), nativeTokenTotalFee);
+        vm.prank(address(l1Token));
+        nativeToken.approve(address(l1Gateway), nativeTokenTotalFee);
 
         // event checkers
         vm.expectEmit(true, true, true, true);
@@ -376,8 +429,19 @@ contract L1OrbitCustomGatewayTest is L1CustomGatewayTest {
     }
 
     function test_registerTokenToL2_CustomRefund(address l1Token, address l2Token) public override {
-        vm.assume(l1Token != FOUNDRY_CHEATCODE_ADDRESS && l2Token != FOUNDRY_CHEATCODE_ADDRESS);
+        vm.assume(
+            l1Token != FOUNDRY_CHEATCODE_ADDRESS &&
+                l2Token != FOUNDRY_CHEATCODE_ADDRESS &&
+                l1Token != address(0) &&
+                l1Token != router &&
+                l1Token != creditBackAddress
+        );
         vm.deal(l1Token, 100 ether);
+
+        // approve fees
+        ERC20PresetMinterPauser(address(nativeToken)).mint(address(l1Token), nativeTokenTotalFee);
+        vm.prank(address(l1Token));
+        nativeToken.approve(address(l1Gateway), nativeTokenTotalFee);
 
         // event checkers
         vm.expectEmit(true, true, true, true);
@@ -448,6 +512,8 @@ contract L1OrbitCustomGatewayTest is L1CustomGatewayTest {
     }
 
     function test_registerTokenToL2_revert_NoUpdateToDifferentAddress() public override {
+        ERC20PresetMinterPauser(address(nativeToken)).mint(address(token), nativeTokenTotalFee);
+
         // register token to gateway
         vm.mockCall(
             address(token),
@@ -457,7 +523,8 @@ contract L1OrbitCustomGatewayTest is L1CustomGatewayTest {
 
         // set initial address
         address initialL2TokenAddress = makeAddr("initial");
-        vm.prank(address(token));
+        vm.startPrank(address(token));
+        nativeToken.approve(address(l1Gateway), nativeTokenTotalFee);
         L1OrbitCustomGateway(address(l1Gateway)).registerTokenToL2(
             initialL2TokenAddress,
             maxGas,
@@ -465,6 +532,7 @@ contract L1OrbitCustomGatewayTest is L1CustomGatewayTest {
             maxSubmissionCost,
             nativeTokenTotalFee
         );
+        vm.stopPrank();
         assertEq(
             L1OrbitCustomGateway(address(l1Gateway)).l1ToL2Token(address(token)),
             initialL2TokenAddress
@@ -472,7 +540,9 @@ contract L1OrbitCustomGatewayTest is L1CustomGatewayTest {
 
         // try to set different one
         address differentL2TokenAddress = makeAddr("different");
-        vm.prank(address(token));
+        vm.startPrank(address(token));
+        nativeToken.approve(address(l1Gateway), nativeTokenTotalFee);
+
         vm.expectRevert("NO_UPDATE_TO_DIFFERENT_ADDR");
         L1OrbitCustomGateway(address(l1Gateway)).registerTokenToL2(
             differentL2TokenAddress,

@@ -4,15 +4,20 @@ pragma solidity ^0.8.0;
 
 import { L1ERC20GatewayTest } from "./L1ERC20Gateway.t.sol";
 import "contracts/tokenbridge/ethereum/gateway/L1OrbitERC20Gateway.sol";
-
+import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { ERC20PresetMinterPauser } from "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetMinterPauser.sol";
 import { TestERC20 } from "contracts/tokenbridge/test/TestERC20.sol";
 import { ERC20InboxMock } from "contracts/tokenbridge/test/InboxMock.sol";
 
 contract L1OrbitERC20GatewayTest is L1ERC20GatewayTest {
+    ERC20 public nativeToken;
     uint256 public nativeTokenTotalFee;
 
     function setUp() public override {
         inbox = address(new ERC20InboxMock());
+        nativeToken = ERC20(address(new ERC20PresetMinterPauser("X", "Y")));
+        ERC20PresetMinterPauser(address(nativeToken)).mint(user, 1_000_000 ether);
+        ERC20InboxMock(inbox).setMockNativeToken(address(nativeToken));
 
         l1Gateway = new L1OrbitERC20Gateway();
         L1OrbitERC20Gateway(address(l1Gateway)).initialize(
@@ -59,6 +64,10 @@ contract L1OrbitERC20GatewayTest is L1ERC20GatewayTest {
         vm.prank(user);
         token.approve(address(l1Gateway), depositAmount);
 
+        // approve fees
+        vm.prank(user);
+        nativeToken.approve(address(l1Gateway), nativeTokenTotalFee);
+
         // expect events
         vm.expectEmit(true, true, true, true);
         emit TicketData(maxSubmissionCost);
@@ -103,6 +112,13 @@ contract L1OrbitERC20GatewayTest is L1ERC20GatewayTest {
         );
     }
 
+    function test_outboundTransfer_revert_NotAllowedToBridgeFeeToken() public {
+        // trigger deposit
+        vm.prank(router);
+        vm.expectRevert("NOT_ALLOWED_TO_BRIDGE_FEE_TOKEN");
+        l1Gateway.outboundTransfer(address(nativeToken), user, 100, maxGas, gasPriceBid, "");
+    }
+
     function test_outboundTransferCustomRefund() public override {
         // snapshot state before
         uint256 userBalanceBefore = token.balanceOf(user);
@@ -112,6 +128,10 @@ contract L1OrbitERC20GatewayTest is L1ERC20GatewayTest {
         uint256 depositAmount = 700;
         bytes memory callHookData = "";
         bytes memory routerEncodedData = buildRouterEncodedData(callHookData);
+
+        // approve fees
+        vm.prank(user);
+        nativeToken.approve(address(l1Gateway), nativeTokenTotalFee);
 
         // approve token
         vm.prank(user);
@@ -159,6 +179,21 @@ contract L1OrbitERC20GatewayTest is L1ERC20GatewayTest {
             l1GatewayBalanceAfter - l1GatewayBalanceBefore,
             depositAmount,
             "Wrong l1 gateway balance"
+        );
+    }
+
+    function test_outboundTransferCustomRefund_revert_NotAllowedToBridgeFeeToken() public {
+        // trigger deposit
+        vm.prank(router);
+        vm.expectRevert("NOT_ALLOWED_TO_BRIDGE_FEE_TOKEN");
+        l1Gateway.outboundTransferCustomRefund(
+            address(nativeToken),
+            creditBackAddress,
+            user,
+            100,
+            maxGas,
+            gasPriceBid,
+            ""
         );
     }
 

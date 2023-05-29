@@ -4,6 +4,8 @@ pragma solidity ^0.8.0;
 
 import { L1ERC20Gateway, IERC20 } from "./L1ERC20Gateway.sol";
 import { IERC20Inbox } from "../L1ArbitrumMessenger.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { IERC20Bridge } from "../../libraries/IERC20Bridge.sol";
 
 /**
  * @title Layer 1 Gateway contract for bridging standard ERC20s in ERC20-based rollup
@@ -12,6 +14,31 @@ import { IERC20Inbox } from "../L1ArbitrumMessenger.sol";
  * Messages to layer 2 use the inbox's createRetryableTicket method.
  */
 contract L1OrbitERC20Gateway is L1ERC20Gateway {
+    using SafeERC20 for IERC20;
+
+    function outboundTransferCustomRefund(
+        address _l1Token,
+        address _refundTo,
+        address _to,
+        uint256 _amount,
+        uint256 _maxGas,
+        uint256 _gasPriceBid,
+        bytes calldata _data
+    ) public payable override returns (bytes memory res) {
+        require(_l1Token != _getNativeFeeToken(), "NOT_ALLOWED_TO_BRIDGE_FEE_TOKEN");
+
+        return
+            super.outboundTransferCustomRefund(
+                _l1Token,
+                _refundTo,
+                _to,
+                _amount,
+                _maxGas,
+                _gasPriceBid,
+                _data
+            );
+    }
+
     function _parseUserEncodedData(
         bytes memory data
     )
@@ -65,6 +92,22 @@ contract L1OrbitERC20Gateway is L1ERC20Gateway {
         uint256 _gasPriceBid,
         bytes memory _data
     ) internal override returns (uint256) {
+        {
+            // Transfer native token amount needed to pay for retryable fees to the inbox.
+            // Fee tokens will be transferred from user who initiated the action - that's `_user` account in
+            // case call was routed by router, or msg.sender in case gateway's entrypoint was called directly.
+            address nativeFeeToken = _getNativeFeeToken();
+            uint256 inboxNativeTokenBalance = IERC20(nativeFeeToken).balanceOf(_inbox);
+            if (inboxNativeTokenBalance < _totalFeeAmount) {
+                address transferFrom = isRouter(msg.sender) ? _user : msg.sender;
+                IERC20(nativeFeeToken).safeTransferFrom(
+                    transferFrom,
+                    _inbox,
+                    _totalFeeAmount - inboxNativeTokenBalance
+                );
+            }
+        }
+
         return
             IERC20Inbox(_inbox).createRetryableTicket(
                 _to,
@@ -77,5 +120,13 @@ contract L1OrbitERC20Gateway is L1ERC20Gateway {
                 _totalFeeAmount,
                 _data
             );
+    }
+
+    /**
+     * @notice get rollup's native token that's used to pay for fees
+     */
+    function _getNativeFeeToken() internal returns (address) {
+        address bridge = address(getBridge(inbox));
+        return IERC20Bridge(bridge).nativeToken();
     }
 }
