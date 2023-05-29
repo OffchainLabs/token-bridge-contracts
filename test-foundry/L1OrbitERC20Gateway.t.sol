@@ -200,9 +200,12 @@ contract L1OrbitERC20GatewayTest is L1ERC20GatewayTest {
     ////
     // Helper functions
     ////
-    function buildRouterEncodedData(
-        bytes memory callHookData
-    ) internal view override returns (bytes memory) {
+    function buildRouterEncodedData(bytes memory callHookData)
+        internal
+        view
+        override
+        returns (bytes memory)
+    {
         bytes memory userEncodedData = abi.encode(
             maxSubmissionCost,
             callHookData,

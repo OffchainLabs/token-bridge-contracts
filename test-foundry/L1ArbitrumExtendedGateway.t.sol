@@ -89,7 +89,11 @@ abstract contract L1ArbitrumExtendedGatewayTest is Test {
         l1Gateway.finalizeInboundTransfer(address(token), user, user, 100, "");
     }
 
-    function test_getExternalCall(uint256 exitNum, address dest, bytes memory data) public {
+    function test_getExternalCall(
+        uint256 exitNum,
+        address dest,
+        bytes memory data
+    ) public {
         (address target, bytes memory extData) = L1ArbitrumExtendedGateway(address(l1Gateway))
             .getExternalCall(exitNum, dest, data);
 
@@ -263,10 +267,9 @@ abstract contract L1ArbitrumExtendedGatewayTest is Test {
         assertEq(exitData.length, 0, "Invalid exitData");
     }
 
-    function test_transferExitAndCall_NonEmptyData(
-        uint256 exitNum,
-        address initialDestination
-    ) public {
+    function test_transferExitAndCall_NonEmptyData(uint256 exitNum, address initialDestination)
+        public
+    {
         bytes memory newData;
         bytes memory data = abi.encode("fun()");
         address newDestination = address(new TestExitReceiver());
@@ -426,9 +429,12 @@ abstract contract L1ArbitrumExtendedGatewayTest is Test {
     ////
     // Helper functions
     ////
-    function buildRouterEncodedData(
-        bytes memory callHookData
-    ) internal view virtual returns (bytes memory) {
+    function buildRouterEncodedData(bytes memory callHookData)
+        internal
+        view
+        virtual
+        returns (bytes memory)
+    {
         bytes memory userEncodedData = abi.encode(maxSubmissionCost, callHookData);
         bytes memory routerEncodedData = abi.encode(user, userEncodedData);
 
