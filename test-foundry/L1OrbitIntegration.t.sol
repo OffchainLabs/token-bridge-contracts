@@ -14,11 +14,11 @@ import { ERC20, IERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { ERC20PresetMinterPauser } from "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetMinterPauser.sol";
 import { TestERC20 } from "contracts/tokenbridge/test/TestERC20.sol";
 import { TestOrbitCustomTokenL1 } from "contracts/tokenbridge/test/TestCustomTokenL1.sol";
-import { ERC20Inbox } from "lib/nitro-contracts/contracts/src/bridge/ERC20Inbox.sol";
-import { ERC20Bridge } from "lib/nitro-contracts/contracts/src/bridge/ERC20Bridge.sol";
+import { ERC20Inbox } from "lib/nitro-contracts/src/bridge/ERC20Inbox.sol";
+import { ERC20Bridge } from "lib/nitro-contracts/src/bridge/ERC20Bridge.sol";
 import { ERC20PresetFixedSupply } from "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
-import { IOwnable } from "lib/nitro-contracts/contracts/src/bridge/IOwnable.sol";
-import { ISequencerInbox } from "lib/nitro-contracts/contracts/src/bridge/ISequencerInbox.sol";
+import { IOwnable } from "lib/nitro-contracts/src/bridge/IOwnable.sol";
+import { ISequencerInbox } from "lib/nitro-contracts/src/bridge/ISequencerInbox.sol";
 import "./util/TestUtil.sol";
 
 contract IntegrationTest is Test {
