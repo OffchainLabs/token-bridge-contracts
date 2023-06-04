@@ -39,13 +39,15 @@ contract L1OrbitERC20Gateway is L1ERC20Gateway {
             );
     }
 
-    function _parseUserEncodedData(
-        bytes memory data
-    )
+    function _parseUserEncodedData(bytes memory data)
         internal
         pure
         override
-        returns (uint256 maxSubmissionCost, bytes memory callHookData, uint256 tokenTotalFeeAmount)
+        returns (
+            uint256 maxSubmissionCost,
+            bytes memory callHookData,
+            uint256 tokenTotalFeeAmount
+        )
     {
         (maxSubmissionCost, callHookData, tokenTotalFeeAmount) = abi.decode(
             data,

@@ -577,9 +577,12 @@ contract L1OrbitCustomGatewayTest is L1CustomGatewayTest {
     ///
     // Helper functions
     ///
-    function buildRouterEncodedData(
-        bytes memory callHookData
-    ) internal view override returns (bytes memory) {
+    function buildRouterEncodedData(bytes memory callHookData)
+        internal
+        view
+        override
+        returns (bytes memory)
+    {
         bytes memory userEncodedData = abi.encode(
             maxSubmissionCost,
             callHookData,

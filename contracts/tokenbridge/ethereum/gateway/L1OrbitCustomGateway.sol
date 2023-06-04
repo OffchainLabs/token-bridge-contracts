@@ -139,13 +139,15 @@ contract L1OrbitCustomGateway is L1CustomGateway {
         revert("NOT_SUPPORTED_IN_ORBIT");
     }
 
-    function _parseUserEncodedData(
-        bytes memory data
-    )
+    function _parseUserEncodedData(bytes memory data)
         internal
         pure
         override
-        returns (uint256 maxSubmissionCost, bytes memory callHookData, uint256 tokenTotalFeeAmount)
+        returns (
+            uint256 maxSubmissionCost,
+            bytes memory callHookData,
+            uint256 tokenTotalFeeAmount
+        )
     {
         (maxSubmissionCost, callHookData, tokenTotalFeeAmount) = abi.decode(
             data,

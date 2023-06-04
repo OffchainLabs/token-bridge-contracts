@@ -356,13 +356,15 @@ abstract contract L1ArbitrumGateway is
      * @return callHookData Calldata for extra call in inboundEscrowAndCall on L2
      * @return tokenTotalFeeAmount Amount of fees to be deposited in native token to cover for retryable ticket cost (used only in ERC20-based rollups, otherwise 0)
      */
-    function _parseUserEncodedData(
-        bytes memory data
-    )
+    function _parseUserEncodedData(bytes memory data)
         internal
         pure
         virtual
-        returns (uint256 maxSubmissionCost, bytes memory callHookData, uint256 tokenTotalFeeAmount)
+        returns (
+            uint256 maxSubmissionCost,
+            bytes memory callHookData,
+            uint256 tokenTotalFeeAmount
+        )
     {
         (maxSubmissionCost, callHookData) = abi.decode(data, (uint256, bytes));
     }

@@ -31,6 +31,8 @@ interface ITradeableExitReceiver {
 }
 
 abstract contract L1ArbitrumExtendedGateway is L1ArbitrumGateway {
+    using Address for address;
+
     struct ExitData {
         bool isExit;
         address _newTo;
@@ -78,7 +80,7 @@ abstract contract L1ArbitrumExtendedGateway is L1ArbitrumGateway {
         setRedirectedExit(_exitNum, _initialDestination, _newDestination, _newData);
 
         if (_data.length > 0) {
-            require(Address.isContract(_newDestination), "TO_NOT_CONTRACT");
+            require(_newDestination.isContract(), "TO_NOT_CONTRACT");
             bool success = ITradeableExitReceiver(_newDestination).onExitTransfer(
                 expectedSender,
                 _exitNum,
