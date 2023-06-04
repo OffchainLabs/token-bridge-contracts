@@ -8,7 +8,7 @@
  *      The library lets you concatenate, slice and type cast bytes arrays both in memory and storage.
  */
 
-pragma solidity ^0.6.11;
+pragma solidity ^0.8.0;
 
 /* solhint-disable no-inline-assembly */
 library BytesLib {

@@ -16,14 +16,14 @@
  * limitations under the License.
  */
 
-pragma solidity ^0.6.11;
+pragma solidity ^0.8.0;
 
 import "../libraries/ITransferAndCall.sol";
 
 contract L2Called is ITransferAndCallReceiver {
     event Called(uint256 num);
 
-    constructor() public {}
+    constructor() {}
 
     // This function can be anything
     function postDepositHook(uint256 num) public {

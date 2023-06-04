@@ -13,7 +13,7 @@
     "lint": "yarn lint:solidity && yarn lint:js",
     "format": "prettier './**/*.{js,json,md,ts,yml,sol}' --write && yarn lint --fix",
     "test:compatibility": "yarn run build:0.6 && yarn run build:0.7 && yarn run build:0.8",
-    "test": "hardhat test test/*",
+    "test": "hardhat test test/*.ts",
     "test:e2e": "hardhat test test/*.e2e.ts",
     "test:l1": "hardhat test test/*.l1.ts",
     "test:l2": "hardhat test test/*.l2.ts",
@@ -32,8 +32,8 @@
   ],
   "dependencies": {
     "@arbitrum/nitro-contracts": "^1.0.0-beta.8",
-    "@openzeppelin/contracts": "3.4.2",
-    "@openzeppelin/contracts-upgradeable": "3.4.2"
+    "@openzeppelin/contracts": "4.8.3",
+    "@openzeppelin/contracts-upgradeable": "4.8.3"
   },
   "devDependencies": {
     "@nomiclabs/hardhat-ethers": "^2.0.1",
@@ -73,6 +73,6 @@
     "typescript": "^4.2.2"
   },
   "optionalDependencies": {
-    "@openzeppelin/upgrades-core": "^1.7.6"
+    "@openzeppelin/upgrades-core": "^1.24.1"
   }
 }

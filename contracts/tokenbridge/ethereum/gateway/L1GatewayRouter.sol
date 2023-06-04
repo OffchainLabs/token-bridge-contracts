@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-pragma solidity ^0.6.11;
+pragma solidity ^0.8.0;
 
 import "../../libraries/Whitelist.sol";
 
@@ -39,6 +39,8 @@ contract L1GatewayRouter is
     ERC165,
     IL1GatewayRouter
 {
+    using Address for address;
+
     address public override owner;
     address public override inbox;
 
@@ -185,9 +187,10 @@ contract L1GatewayRouter is
         address _creditBackAddress
     ) public payable override returns (uint256) {
         require(
-            ArbitrumEnabledToken(msg.sender).isArbitrumEnabled() == uint8(0xa4b1),
+            ArbitrumEnabledToken(msg.sender).isArbitrumEnabled() == uint8(0xb1),
             "NOT_ARB_ENABLED"
         );
+
         require(_gateway.isContract(), "NOT_TO_CONTRACT");
 
         address currGateway = getGateway(msg.sender);

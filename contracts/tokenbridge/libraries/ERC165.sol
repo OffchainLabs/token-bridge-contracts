@@ -4,7 +4,7 @@
 // With pragma modification to support ^0.6.11
 // https://github.com/OpenZeppelin/openzeppelin-contracts/blob/release-v4.6/contracts/utils/introspection/ERC165.sol
 
-pragma solidity ^0.6.11;
+pragma solidity ^0.8.0;
 
 import "./IERC165.sol";
 
