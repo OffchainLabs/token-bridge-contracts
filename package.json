@@ -18,6 +18,7 @@
     "test:l1": "hardhat test test/*.l1.ts",
     "test:l2": "hardhat test test/*.l2.ts",
     "test:unit": "forge test",
+    "test:e2e:local-env": "yarn hardhat test test-e2e/*",
     "test:storage": "./scripts/storage_layout_test.bash",
     "typechain": "hardhat typechain",
     "deploy:tokenbridge": "hardhat run scripts/deploy_token_bridge_l1.ts --network mainnet",
