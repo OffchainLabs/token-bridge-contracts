@@ -18,6 +18,7 @@
     "test:l1": "hardhat test test/*.l1.ts",
     "test:l2": "hardhat test test/*.l2.ts",
     "test:storage": "./scripts/storage_layout_test.bash",
+    "test:deploy:tokenbridge": "ts-node ./scripts/local-deployment/tokenBridgeDeployer.ts",
     "typechain": "hardhat typechain",
     "deploy:tokenbridge": "hardhat run scripts/deploy_token_bridge_l1.ts --network mainnet",
     "gen:uml": "sol2uml ./contracts/tokenbridge/arbitrum,./contracts/tokenbridge/ethereum,./contracts/tokenbridge/libraries -o ./gatewayUML.svg",
@@ -32,6 +33,7 @@
   ],
   "dependencies": {
     "@arbitrum/nitro-contracts": "^1.0.0-beta.8",
+    "@arbitrum/sdk": "^3.1.5",
     "@openzeppelin/contracts": "4.8.3",
     "@openzeppelin/contracts-upgradeable": "4.8.3"
   },
