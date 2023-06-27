@@ -6,3 +6,4 @@ build
 artifacts
 deployment.json
 test/storage/*-old.dot
+network.json
