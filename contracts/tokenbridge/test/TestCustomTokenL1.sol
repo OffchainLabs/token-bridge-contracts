@@ -151,10 +151,11 @@ contract TestOrbitCustomTokenL1 is TestCustomTokenL1 {
         bool prev = shouldRegisterGateway;
         shouldRegisterGateway = true;
 
+        address inbox = IOrbitGatewayRouter(router).inbox();
+        address bridge = address(IInbox(inbox).bridge());
+
         // transfer fees from user to here, and approve router to use it
         {
-            address inbox = IOrbitGatewayRouter(router).inbox();
-            address bridge = address(IInbox(inbox).bridge());
             address nativeToken = IERC20Bridge(bridge).nativeToken();
 
             IERC20(nativeToken).safeTransferFrom(
@@ -183,6 +184,14 @@ contract TestOrbitCustomTokenL1 is TestCustomTokenL1 {
             creditBackAddress,
             valueForRouter
         );
+
+        // reset allowance back to 0 in case not all approved native tokens are spent
+        {
+            address nativeToken = IERC20Bridge(bridge).nativeToken();
+
+            IERC20(nativeToken).approve(router, 0);
+            IERC20(nativeToken).approve(gateway, 0);
+        }
 
         shouldRegisterGateway = prev;
     }
