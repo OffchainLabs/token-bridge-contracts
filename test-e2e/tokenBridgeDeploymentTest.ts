@@ -44,7 +44,7 @@ describe('tokenBridge', () => {
   // configure token bridge
   before(async function () {})
 
-  it('should have deployed token bridge contracts', async function () {
+  it('should have deployed and initialized token bridge contracts', async function () {
     const { l1Network, l1Provider, l2Network, l2Provider } =
       await getProvidersAndSetupNetworks({
         l1Url: config.ethUrl,

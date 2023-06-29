@@ -10,12 +10,6 @@ import { ProxyAdmin } from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin
 import { TransparentUpgradeableProxy } from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 contract L2TokenBridgeFactory {
-    L2GatewayRouter public router;
-    L2ERC20Gateway public standardGateway;
-    L2CustomGateway public customGateway;
-    UpgradeableBeacon public beacon;
-    BeaconProxyFactory public beaconProxyFactory;
-
     event OrbitL2TokenBridgeCreated(
         address router,
         address standardGateway,
@@ -24,23 +18,30 @@ contract L2TokenBridgeFactory {
         address proxyAdmin
     );
 
-    constructor() {
+    constructor(address l1Router, address l1StandardGateway, address l1CustomGateway) {
         address proxyAdmin = address(new ProxyAdmin());
 
         // create router/gateways
-        router = L2GatewayRouter(_deployBehindProxy(address(new L2GatewayRouter()), proxyAdmin));
-        standardGateway = L2ERC20Gateway(
+        L2GatewayRouter router = L2GatewayRouter(
+            _deployBehindProxy(address(new L2GatewayRouter()), proxyAdmin)
+        );
+        L2ERC20Gateway standardGateway = L2ERC20Gateway(
             _deployBehindProxy(address(new L2ERC20Gateway()), proxyAdmin)
         );
-        customGateway = L2CustomGateway(
+        L2CustomGateway customGateway = L2CustomGateway(
             _deployBehindProxy(address(new L2CustomGateway()), proxyAdmin)
         );
 
-        // create and init beacon
+        // create beacon
         StandardArbERC20 standardArbERC20 = new StandardArbERC20();
-        beacon = new UpgradeableBeacon(address(standardArbERC20));
-        beaconProxyFactory = new BeaconProxyFactory();
+        UpgradeableBeacon beacon = new UpgradeableBeacon(address(standardArbERC20));
+        BeaconProxyFactory beaconProxyFactory = new BeaconProxyFactory();
+
+        // init contracts
+        router.initialize(l1Router, address(standardGateway));
         beaconProxyFactory.initialize(address(beacon));
+        standardGateway.initialize(l1StandardGateway, address(router), address(beaconProxyFactory));
+        customGateway.initialize(l1CustomGateway, address(router));
 
         emit OrbitL2TokenBridgeCreated(
             address(router),
@@ -49,17 +50,6 @@ contract L2TokenBridgeFactory {
             address(beaconProxyFactory),
             proxyAdmin
         );
-    }
-
-    function initTokenBridge(
-        address l1Router,
-        address l1StandardGateway,
-        address l1CustomGateway
-    ) external {
-        //// init router/gateways
-        router.initialize(l1Router, address(standardGateway));
-        standardGateway.initialize(l1StandardGateway, address(router), address(beaconProxyFactory));
-        customGateway.initialize(l1CustomGateway, address(router));
     }
 
     function _deployBehindProxy(address logic, address proxyAdmin) internal returns (address) {

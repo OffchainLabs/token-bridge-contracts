@@ -97,10 +97,10 @@ export const deployTokenBridgeAndInit = async (
     proxyAdmin: l1ProxyAdmin,
   } = parsedLog[0].args
 
-  // deploy L2 side
+  // deploy+init L2 side
   const l2TokenBridgeFactory = await new L2TokenBridgeFactory__factory(
     l2Signer
-  ).deploy()
+  ).deploy(l1Router, l1StandardGateway, l1CustomGateway)
   await l2TokenBridgeFactory.deployed()
   const l2Receipt = await l2Signer.provider!.getTransactionReceipt(
     l2TokenBridgeFactory.deployTransaction.hash
@@ -136,15 +136,6 @@ export const deployTokenBridgeAndInit = async (
       l2CustomGateway,
       cloneableProxyHash,
       beaconProxyFactory
-    )
-  ).wait()
-
-  // init L2 side
-  await (
-    await l2TokenBridgeFactory.initTokenBridge(
-      l1Router,
-      l1StandardGateway,
-      l1CustomGateway
     )
   ).wait()
 
