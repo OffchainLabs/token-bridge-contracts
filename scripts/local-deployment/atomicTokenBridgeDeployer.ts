@@ -7,6 +7,7 @@ import {
   L2AtomicTokenBridgeFactory__factory,
   L2GatewayRouter__factory,
   L2ERC20Gateway__factory,
+  L2CustomGateway__factory,
 } from '../../build/types'
 import { JsonRpcProvider } from '@ethersproject/providers'
 import {
@@ -116,6 +117,7 @@ export const deployTokenBridgeAndInit = async (
     l2TokenBridgeFactoryOnL1,
     l2GatewayRouterOnL1,
     l2StandardGatewayAddressOnL1,
+    l2CustomGatewayAddressOnL1,
   } = await deployL2TemplatesOnL1(l1Signer)
 
   // create token bridge
@@ -128,6 +130,7 @@ export const deployTokenBridgeAndInit = async (
       l2TokenBridgeFactoryOnL1.address,
       l2GatewayRouterOnL1.address,
       l2StandardGatewayAddressOnL1.address,
+      l2CustomGatewayAddressOnL1.address,
       inboxAddress,
       maxSubmissionCost,
       maxGas,
@@ -145,7 +148,7 @@ export const deployTokenBridgeAndInit = async (
   const messageResult = await messages[0].waitForStatus()
   if (messageResult.status !== L1ToL2MessageStatus.REDEEMED) {
     console.error(
-      `L2 retryable ticket is failed with status ${
+      `1 L2 retryable ticket is failed with status ${
         L1ToL2MessageStatus[messageResult.status]
       }`
     )
@@ -163,19 +166,30 @@ export const deployTokenBridgeAndInit = async (
   const messageRouterResult = await messages[1].waitForStatus()
   if (messageRouterResult.status !== L1ToL2MessageStatus.REDEEMED) {
     console.error(
-      `L2 retryable ticket is failed with status ${
+      `2 L2 retryable ticket is failed with status ${
         L1ToL2MessageStatus[messageRouterResult.status]
       }`
     )
     exit()
   }
 
-  // 3rd msg - deploy router
+  // 3rd msg - deploy standard gw
   const messageStdGwResult = await messages[2].waitForStatus()
   if (messageRouterResult.status !== L1ToL2MessageStatus.REDEEMED) {
     console.error(
-      `L2 retryable ticket is failed with status ${
+      `3 L2 retryable ticket is failed with status ${
         L1ToL2MessageStatus[messageStdGwResult.status]
+      }`
+    )
+    exit()
+  }
+
+  // 4th msg - deploy custom gw
+  const messageCustomGwResult = await messages[3].waitForStatus()
+  if (messageCustomGwResult.status !== L1ToL2MessageStatus.REDEEMED) {
+    console.error(
+      `4 L2 retryable ticket is failed with status ${
+        L1ToL2MessageStatus[messageCustomGwResult.status]
       }`
     )
     exit()
@@ -195,16 +209,20 @@ export const deployTokenBridgeAndInit = async (
 
   /// get L2 router
   const l2Router = await l2AtomicTokenBridgeFactory.router()
-  console.log('l2Router', l2Router)
 
   /// get L2 standard gateway
-  const l2StandardGateway = await l2AtomicTokenBridgeFactory.standardGateway()
-  console.log('l2StandardGateway', l2StandardGateway)
+  const l2StandardGateway = L2ERC20Gateway__factory.connect(
+    await l2AtomicTokenBridgeFactory.standardGateway(),
+    l2Signer
+  )
+  const beaconProxyFactory = await l2StandardGateway.beaconProxyFactory()
 
-  // placeholder
-  const l2CustomGateway = ethers.constants.AddressZero
-  const beaconProxyFactory = ethers.constants.AddressZero
-  const l2ProxyAdmin = ethers.constants.AddressZero
+  /// get L2 standard gateway
+  const l2CustomGateway = await l2AtomicTokenBridgeFactory.customGateway()
+  console.log('l2CustomGateway', l2CustomGateway)
+
+  /// get L2 proxy admin
+  const l2ProxyAdmin = await l2AtomicTokenBridgeFactory.proxyAdmin()
 
   return {
     l1Router,
@@ -212,7 +230,7 @@ export const deployTokenBridgeAndInit = async (
     l1CustomGateway,
     l1ProxyAdmin,
     l2Router,
-    l2StandardGateway,
+    l2StandardGateway: l2StandardGateway.address,
     l2CustomGateway,
     beaconProxyFactory,
     l2ProxyAdmin,
@@ -276,7 +294,6 @@ const deployL2TemplatesOnL1 = async (l1Signer: Signer) => {
   const l2TokenBridgeFactoryOnL1 =
     await new L2AtomicTokenBridgeFactory__factory(l1Signer).deploy()
   await l2TokenBridgeFactoryOnL1.deployed()
-  console.log('l2TokenBridgeFactoryOnL1', l2TokenBridgeFactoryOnL1.address)
 
   /// deploy router
   console.log('Deploy L2AtomicTokenBridgeFactory')
@@ -284,7 +301,6 @@ const deployL2TemplatesOnL1 = async (l1Signer: Signer) => {
     l1Signer
   ).deploy()
   await l2GatewayRouterOnL1.deployed()
-  console.log('l2GatewayRouteronL1', l2GatewayRouterOnL1.address)
 
   /// deploy standard gateway
   console.log('Deploy L2ERC20Gateway')
@@ -292,15 +308,19 @@ const deployL2TemplatesOnL1 = async (l1Signer: Signer) => {
     l1Signer
   ).deploy()
   await l2StandardGatewayAddressOnL1.deployed()
-  console.log(
-    'l2StandardGatewayAddressOnL1',
-    l2StandardGatewayAddressOnL1.address
-  )
+
+  /// deploy custom gateway
+  console.log('Deploy L2CustomGateway')
+  const l2CustomGatewayAddressOnL1 = await new L2CustomGateway__factory(
+    l1Signer
+  ).deploy()
+  await l2CustomGatewayAddressOnL1.deployed()
 
   return {
     l2TokenBridgeFactoryOnL1,
     l2GatewayRouterOnL1,
     l2StandardGatewayAddressOnL1,
+    l2CustomGatewayAddressOnL1,
   }
 }
 

@@ -12,11 +12,10 @@ import { TransparentUpgradeableProxy } from "@openzeppelin/contracts/proxy/trans
 import { CREATE3 } from "solmate/src/utils/CREATE3.sol";
 
 contract L2AtomicTokenBridgeFactory {
-    event OrbitL2TokenBridgeCreated(address router);
-
     address public proxyAdmin;
     L2GatewayRouter public router;
     L2ERC20Gateway public standardGateway;
+    L2CustomGateway public customGateway;
 
     function deployRouter(
         bytes memory creationCode,
@@ -38,8 +37,6 @@ contract L2AtomicTokenBridgeFactory {
 
         // init proxy
         router.initialize(l1Router, address(standardGateway));
-
-        emit OrbitL2TokenBridgeCreated(address(router));
     }
 
     function deployStandardGateway(bytes memory creationCode, address l1StandardGateway) external {
@@ -74,7 +71,7 @@ contract L2AtomicTokenBridgeFactory {
         );
 
         // create proxy
-        L2CustomGateway customGateway = L2CustomGateway(
+        customGateway = L2CustomGateway(
             address(
                 new TransparentUpgradeableProxy(customGatewayLogicAddress, proxyAdmin, bytes(""))
             )

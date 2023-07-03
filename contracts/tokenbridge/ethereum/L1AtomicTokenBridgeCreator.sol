@@ -39,6 +39,7 @@ contract L1AtomicTokenBridgeCreator is Ownable {
         address l2FactoryAddressOnL1,
         address l2RouterAddressOnL1,
         address l2StandardGatewayAddressOnL1,
+        address l2CustomGatewayAddressOnL1,
         address inbox,
         uint256 maxSubmissionCost,
         uint256 maxGas,
@@ -92,17 +93,14 @@ contract L1AtomicTokenBridgeCreator is Ownable {
             maxGas,
             gasPriceBid
         );
-
-        // _deployL2TokenBridgeViaRetryable(
-        //     l2TokenBridgeFactoryViaRetryables,
-        //     inbox,
-        //     address(router),
-        //     address(standardGateway),
-        //     address(customGateway),
-        //     maxSubmissionCost,
-        //     maxGas,
-        //     gasPriceBid
-        // );
+        _deployL2CustomGateway(
+            l2CustomGatewayAddressOnL1,
+            address(customGateway),
+            inbox,
+            maxSubmissionCost,
+            maxGas,
+            gasPriceBid
+        );
 
         //// init contracts
         // {
@@ -190,8 +188,42 @@ contract L1AtomicTokenBridgeCreator is Ownable {
         bytes memory data = abi.encodeWithSelector(
             L2AtomicTokenBridgeFactory.deployStandardGateway.selector,
             creationCode,
-            l1StandardGateway,
-            address(1337)
+            l1StandardGateway
+        );
+
+        uint256 value = maxSubmissionCost + maxGas * gasPriceBid;
+        address l2FactoryAddress = calculateAddress(
+            AddressAliasHelper.applyL1ToL2Alias(address(this)),
+            0
+        );
+        uint256 ticketID = IInbox(inbox).createRetryableTicket{ value: value }(
+            l2FactoryAddress,
+            0,
+            maxSubmissionCost,
+            msg.sender,
+            msg.sender,
+            maxGas,
+            gasPriceBid,
+            data
+        );
+        return ticketID;
+    }
+
+    function _deployL2CustomGateway(
+        address l2CustomGatewayAddressOnL1,
+        address l1CustomGateway,
+        address inbox,
+        uint256 maxSubmissionCost,
+        uint256 maxGas,
+        uint256 gasPriceBid
+    ) internal returns (uint256) {
+        // encode L2 custom gateway bytecode
+        bytes memory creationCode = creationCodeFor(l2CustomGatewayAddressOnL1.code);
+
+        bytes memory data = abi.encodeWithSelector(
+            L2AtomicTokenBridgeFactory.deployCustomGateway.selector,
+            creationCode,
+            l1CustomGateway
         );
 
         uint256 value = maxSubmissionCost + maxGas * gasPriceBid;
