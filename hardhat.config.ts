@@ -6,6 +6,7 @@ import 'solidity-coverage'
 import 'hardhat-gas-reporter'
 import '@nomiclabs/hardhat-etherscan'
 import 'hardhat-deploy'
+import 'hardhat-contract-sizer'
 
 import { task } from 'hardhat/config'
 import '@nomiclabs/hardhat-ethers'
