@@ -9,7 +9,7 @@ import { BeaconProxyFactory } from "../libraries/ClonableBeaconProxy.sol";
 import { UpgradeableBeacon } from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import { ProxyAdmin } from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import { TransparentUpgradeableProxy } from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import { CREATE3 } from "solmate/src/utils/CREATE3.sol";
+import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
 
 contract L2AtomicTokenBridgeFactory {
     address public proxyAdmin;
@@ -20,43 +20,55 @@ contract L2AtomicTokenBridgeFactory {
     function deployRouter(
         bytes memory creationCode,
         address l1Router,
-        address standardGateway
+        address l2StandardGatewayExpectedAddress
     ) external {
         proxyAdmin = address(new ProxyAdmin());
 
-        address routerLogicAddress = CREATE3.deploy(
-            keccak256(bytes("OrbitL2GatewayRouter")),
-            creationCode,
-            0
+        address routerLogicAddress = Create2.deploy(
+            0,
+            keccak256(bytes("OrbitL2GatewayRouterLogic")),
+            creationCode
         );
 
         // create proxy
         router = L2GatewayRouter(
-            address(new TransparentUpgradeableProxy(routerLogicAddress, proxyAdmin, bytes("")))
+            address(
+                new TransparentUpgradeableProxy{
+                    salt: keccak256(bytes("OrbitL2GatewayRouterProxy"))
+                }(routerLogicAddress, proxyAdmin, bytes(""))
+            )
         );
 
         // init proxy
-        router.initialize(l1Router, address(standardGateway));
+        router.initialize(l1Router, l2StandardGatewayExpectedAddress);
     }
 
     function deployStandardGateway(bytes memory creationCode, address l1StandardGateway) external {
-        address standardGatewayLogicAddress = CREATE3.deploy(
-            keccak256(bytes("OrbitL2StandardGateway")),
-            creationCode,
-            0
+        address standardGatewayLogicAddress = Create2.deploy(
+            0,
+            keccak256(bytes("OrbitL2StandardGatewayLogic")),
+            creationCode
         );
 
         // create proxy
         standardGateway = L2ERC20Gateway(
             address(
-                new TransparentUpgradeableProxy(standardGatewayLogicAddress, proxyAdmin, bytes(""))
+                new TransparentUpgradeableProxy{
+                    salt: keccak256(bytes("OrbitL2StandardGatewayProxy"))
+                }(standardGatewayLogicAddress, proxyAdmin, bytes(""))
             )
         );
 
         // create beacon
-        StandardArbERC20 standardArbERC20 = new StandardArbERC20();
-        UpgradeableBeacon beacon = new UpgradeableBeacon(address(standardArbERC20));
-        BeaconProxyFactory beaconProxyFactory = new BeaconProxyFactory();
+        StandardArbERC20 standardArbERC20 = new StandardArbERC20{
+            salt: keccak256(bytes("OrbitStandardArbERC20"))
+        }();
+        UpgradeableBeacon beacon = new UpgradeableBeacon{
+            salt: keccak256(bytes("OrbitUpgradeableBeacon"))
+        }(address(standardArbERC20));
+        BeaconProxyFactory beaconProxyFactory = new BeaconProxyFactory{
+            salt: keccak256(bytes("OrbitBeaconProxyFactory"))
+        }();
 
         // init contracts
         beaconProxyFactory.initialize(address(beacon));
@@ -64,16 +76,18 @@ contract L2AtomicTokenBridgeFactory {
     }
 
     function deployCustomGateway(bytes memory creationCode, address l1CustomGateway) external {
-        address customGatewayLogicAddress = CREATE3.deploy(
-            keccak256(bytes("OrbitL2CustomGateway")),
-            creationCode,
-            0
+        address customGatewayLogicAddress = Create2.deploy(
+            0,
+            keccak256(bytes("OrbitL2CustomGatewayLogic")),
+            creationCode
         );
 
         // create proxy
         customGateway = L2CustomGateway(
             address(
-                new TransparentUpgradeableProxy(customGatewayLogicAddress, proxyAdmin, bytes(""))
+                new TransparentUpgradeableProxy{
+                    salt: keccak256(bytes("OrbitL2CustomGatewayProxy"))
+                }(customGatewayLogicAddress, proxyAdmin, bytes(""))
             )
         );
 
