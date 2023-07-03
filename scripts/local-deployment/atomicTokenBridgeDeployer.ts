@@ -5,6 +5,7 @@ import {
   L1GatewayRouter__factory,
   L1AtomicTokenBridgeCreator__factory,
   L2AtomicTokenBridgeFactory__factory,
+  L2GatewayRouter__factory,
 } from '../../build/types'
 import { JsonRpcProvider } from '@ethersproject/providers'
 import {
@@ -14,11 +15,11 @@ import {
   L2Network,
   addCustomNetwork,
 } from '@arbitrum/sdk'
-import { execSync } from 'child_process'
 import { Bridge__factory } from '@arbitrum/sdk/dist/lib/abi/factories/Bridge__factory'
 import { RollupAdminLogic__factory } from '@arbitrum/sdk/dist/lib/abi/factories/RollupAdminLogic__factory'
 import * as fs from 'fs'
 import { exit } from 'process'
+import { execSync } from 'child_process'
 
 export const setupTokenBridge = async (
   l1Deployer: Signer,
@@ -110,16 +111,18 @@ export const deployTokenBridgeAndInit = async (
   const l1TokenBridgeCreator = await deployTokenBridgeFactory(l1Signer)
 
   // deploy L2 contracts as templates on L1
-  const l2TokenBridgeFactoryOnL1 = await deployL2TemplatesOnL1(l1Signer)
+  const { l2TokenBridgeFactoryOnL1, l2GatewayRouterOnL1 } =
+    await deployL2TemplatesOnL1(l1Signer)
 
   // create token bridge
   const maxSubmissionCost = ethers.utils.parseEther('0.1')
   const maxGas = 10000000
   const gasPriceBid = ethers.utils.parseUnits('0.5', 'gwei')
-  const value = gasPriceBid.mul(maxGas).add(maxSubmissionCost).mul(2)
+  const value = gasPriceBid.mul(maxGas).add(maxSubmissionCost).mul(5)
   const receipt = await (
     await l1TokenBridgeCreator.createTokenBridge(
-      l2TokenBridgeFactoryOnL1,
+      l2TokenBridgeFactoryOnL1.address,
+      l2GatewayRouterOnL1.address,
       inboxAddress,
       maxSubmissionCost,
       maxGas,
@@ -132,12 +135,9 @@ export const deployTokenBridgeAndInit = async (
   /// wait for retryable execution
   const l1TxReceipt = new L1TransactionReceipt(receipt)
   const messages = await l1TxReceipt.getL1ToL2Messages(l2Signer)
-  const message = messages[0]
-  console.log(
-    'Waiting for the L2 execution of the transaction. This may take up to 10-15 minutes ⏰'
-  )
-  const messageResult = await message.waitForStatus()
 
+  // 1st msg - deploy factory
+  const messageResult = await messages[0].waitForStatus()
   if (messageResult.status !== L1ToL2MessageStatus.REDEEMED) {
     console.error(
       `L2 retryable ticket is failed with status ${
@@ -147,23 +147,39 @@ export const deployTokenBridgeAndInit = async (
     exit()
   }
 
-  const L2AtomicTokenBridgeFactory = messageResult.l2TxReceipt.contractAddress
-  console.log('L2AtomicTokenBridgeFactory', L2AtomicTokenBridgeFactory)
-
-  // get L1 deployed contracts
-  const iface = l1TokenBridgeCreator.interface
-  const eventFragment = iface.getEvent('OrbitTokenBridgeCreated')
-  const parsedLog = receipt.logs
-    .filter(
-      (curr: any) => curr.topics[0] === iface.getEventTopic(eventFragment)
+  const l2AtomicTokenBridgeFactory =
+    L2AtomicTokenBridgeFactory__factory.connect(
+      messageResult.l2TxReceipt.contractAddress,
+      l2Signer
     )
-    .map((curr: any) => iface.parseLog(curr))
+  console.log('L2AtomicTokenBridgeFactory', l2AtomicTokenBridgeFactory.address)
+
+  // 2nd msg - deploy router
+  const messageRouterResult = await messages[1].waitForStatus()
+  if (messageRouterResult.status !== L1ToL2MessageStatus.REDEEMED) {
+    console.error(
+      `L2 retryable ticket is failed with status ${
+        L1ToL2MessageStatus[messageRouterResult.status]
+      }`
+    )
+    exit()
+  }
+
+  /// get L1 deployed contracts
   const {
     router: l1Router,
     standardGateway: l1StandardGateway,
     customGateway: l1CustomGateway,
     proxyAdmin: l1ProxyAdmin,
-  } = parsedLog[0].args
+  } = getParsedLogs(
+    receipt.logs,
+    l1TokenBridgeCreator.interface,
+    'OrbitTokenBridgeCreated'
+  )[0].args
+
+  /// get L2 router
+  const l2Router = await l2AtomicTokenBridgeFactory.router()
+  console.log('l2Router', l2Router)
 
   // deploy+init L2 side
   // const l2TokenBridgeFactory = await new L2TokenBridgeFactory__factory(
@@ -207,7 +223,7 @@ export const deployTokenBridgeAndInit = async (
   //   )
   // ).wait()
 
-  const l2Router = ethers.constants.AddressZero
+  // const l2Router = ethers.constants.AddressZero
   const l2StandardGateway = ethers.constants.AddressZero
   const l2CustomGateway = ethers.constants.AddressZero
   const beaconProxyFactory = ethers.constants.AddressZero
@@ -224,6 +240,20 @@ export const deployTokenBridgeAndInit = async (
     beaconProxyFactory,
     l2ProxyAdmin,
   }
+}
+
+const getParsedLogs = (
+  logs: ethers.providers.Log[],
+  iface: ethers.utils.Interface,
+  eventName: string
+) => {
+  const eventFragment = iface.getEvent(eventName)
+  const parsedLogs = logs
+    .filter(
+      (curr: any) => curr.topics[0] === iface.getEventTopic(eventFragment)
+    )
+    .map((curr: any) => iface.parseLog(curr))
+  return parsedLogs
 }
 
 const deployTokenBridgeFactory = async (l1Signer: Signer) => {
@@ -266,28 +296,23 @@ const deployTokenBridgeFactory = async (l1Signer: Signer) => {
 const deployL2TemplatesOnL1 = async (l1Signer: Signer) => {
   /// deploy factory
   console.log('Deploy L2AtomicTokenBridgeFactory')
-
   const l2TokenBridgeFactoryOnL1 =
     await new L2AtomicTokenBridgeFactory__factory(l1Signer).deploy()
   await l2TokenBridgeFactoryOnL1.deployed()
   console.log('l2TokenBridgeFactoryOnL1', l2TokenBridgeFactoryOnL1.address)
 
-  return l2TokenBridgeFactoryOnL1.address
-}
+  /// deploy router
+  console.log('Deploy L2AtomicTokenBridgeFactory')
+  const l2GatewayRouterOnL1 = await new L2GatewayRouter__factory(
+    l1Signer
+  ).deploy()
+  await l2GatewayRouterOnL1.deployed()
+  console.log('l2GatewayRouteronL1', l2GatewayRouterOnL1.address)
 
-const bridgeFundsToL2Deployer = async (
-  l1Signer: Signer,
-  inboxAddress: string
-) => {
-  console.log('fund L2 deployer')
-
-  const depositAmount = ethers.utils.parseUnits('3', 'ether')
-
-  // bridge it
-  const InboxAbi = ['function depositEth() public payable returns (uint256)']
-  const Inbox = new Contract(inboxAddress, InboxAbi, l1Signer)
-  await (await Inbox.depositEth({ value: depositAmount })).wait()
-  await sleep(30 * 1000)
+  return {
+    l2TokenBridgeFactoryOnL1,
+    l2GatewayRouterOnL1,
+  }
 }
 
 export const getLocalNetworks = async (
