@@ -16,6 +16,7 @@ contract L2AtomicTokenBridgeFactory {
 
     address public proxyAdmin;
     L2GatewayRouter public router;
+    L2ERC20Gateway public standardGateway;
 
     function deployRouter(
         bytes memory creationCode,
@@ -49,7 +50,7 @@ contract L2AtomicTokenBridgeFactory {
         );
 
         // create proxy
-        L2ERC20Gateway standardGateway = L2ERC20Gateway(
+        standardGateway = L2ERC20Gateway(
             address(
                 new TransparentUpgradeableProxy(standardGatewayLogicAddress, proxyAdmin, bytes(""))
             )

@@ -38,6 +38,7 @@ contract L1AtomicTokenBridgeCreator is Ownable {
     function createTokenBridge(
         address l2FactoryAddressOnL1,
         address l2RouterAddressOnL1,
+        address l2StandardGatewayAddressOnL1,
         address inbox,
         uint256 maxSubmissionCost,
         uint256 maxGas,
@@ -78,6 +79,14 @@ contract L1AtomicTokenBridgeCreator is Ownable {
         _deployL2Router(
             l2RouterAddressOnL1,
             address(router),
+            inbox,
+            maxSubmissionCost,
+            maxGas,
+            gasPriceBid
+        );
+        _deployL2StandardGateway(
+            l2StandardGatewayAddressOnL1,
+            address(standardGateway),
             inbox,
             maxSubmissionCost,
             maxGas,
@@ -146,6 +155,42 @@ contract L1AtomicTokenBridgeCreator is Ownable {
             L2AtomicTokenBridgeFactory.deployRouter.selector,
             creationCode,
             l1Router,
+            address(1337)
+        );
+
+        uint256 value = maxSubmissionCost + maxGas * gasPriceBid;
+        address l2FactoryAddress = calculateAddress(
+            AddressAliasHelper.applyL1ToL2Alias(address(this)),
+            0
+        );
+        uint256 ticketID = IInbox(inbox).createRetryableTicket{ value: value }(
+            l2FactoryAddress,
+            0,
+            maxSubmissionCost,
+            msg.sender,
+            msg.sender,
+            maxGas,
+            gasPriceBid,
+            data
+        );
+        return ticketID;
+    }
+
+    function _deployL2StandardGateway(
+        address l2StandardGatewayAddressOnL1,
+        address l1StandardGateway,
+        address inbox,
+        uint256 maxSubmissionCost,
+        uint256 maxGas,
+        uint256 gasPriceBid
+    ) internal returns (uint256) {
+        // encode L2 gateway bytecode
+        bytes memory creationCode = creationCodeFor(l2StandardGatewayAddressOnL1.code);
+
+        bytes memory data = abi.encodeWithSelector(
+            L2AtomicTokenBridgeFactory.deployStandardGateway.selector,
+            creationCode,
+            l1StandardGateway,
             address(1337)
         );
 

@@ -6,6 +6,7 @@ import {
   L1AtomicTokenBridgeCreator__factory,
   L2AtomicTokenBridgeFactory__factory,
   L2GatewayRouter__factory,
+  L2ERC20Gateway__factory,
 } from '../../build/types'
 import { JsonRpcProvider } from '@ethersproject/providers'
 import {
@@ -111,8 +112,11 @@ export const deployTokenBridgeAndInit = async (
   const l1TokenBridgeCreator = await deployTokenBridgeFactory(l1Signer)
 
   // deploy L2 contracts as templates on L1
-  const { l2TokenBridgeFactoryOnL1, l2GatewayRouterOnL1 } =
-    await deployL2TemplatesOnL1(l1Signer)
+  const {
+    l2TokenBridgeFactoryOnL1,
+    l2GatewayRouterOnL1,
+    l2StandardGatewayAddressOnL1,
+  } = await deployL2TemplatesOnL1(l1Signer)
 
   // create token bridge
   const maxSubmissionCost = ethers.utils.parseEther('0.1')
@@ -123,6 +127,7 @@ export const deployTokenBridgeAndInit = async (
     await l1TokenBridgeCreator.createTokenBridge(
       l2TokenBridgeFactoryOnL1.address,
       l2GatewayRouterOnL1.address,
+      l2StandardGatewayAddressOnL1.address,
       inboxAddress,
       maxSubmissionCost,
       maxGas,
@@ -165,6 +170,17 @@ export const deployTokenBridgeAndInit = async (
     exit()
   }
 
+  // 3rd msg - deploy router
+  const messageStdGwResult = await messages[2].waitForStatus()
+  if (messageRouterResult.status !== L1ToL2MessageStatus.REDEEMED) {
+    console.error(
+      `L2 retryable ticket is failed with status ${
+        L1ToL2MessageStatus[messageStdGwResult.status]
+      }`
+    )
+    exit()
+  }
+
   /// get L1 deployed contracts
   const {
     router: l1Router,
@@ -181,50 +197,11 @@ export const deployTokenBridgeAndInit = async (
   const l2Router = await l2AtomicTokenBridgeFactory.router()
   console.log('l2Router', l2Router)
 
-  // deploy+init L2 side
-  // const l2TokenBridgeFactory = await new L2TokenBridgeFactory__factory(
-  //   l2Signer
-  // ).deploy(l1Router, l1StandardGateway, l1CustomGateway)
-  // await l2TokenBridgeFactory.deployed()
-  // const l2Receipt = await l2Signer.provider!.getTransactionReceipt(
-  //   l2TokenBridgeFactory.deployTransaction.hash
-  // )
+  /// get L2 standard gateway
+  const l2StandardGateway = await l2AtomicTokenBridgeFactory.standardGateway()
+  console.log('l2StandardGateway', l2StandardGateway)
 
-  // const l2Iface = l2TokenBridgeFactory.interface
-  // const l2Event = l2Iface.getEvent('OrbitL2TokenBridgeCreated')
-  // const parsedL2Log = l2Receipt.logs
-  //   .filter((curr: any) => curr.topics[0] === l2Iface.getEventTopic(l2Event))
-  //   .map((curr: any) => l2Iface.parseLog(curr))
-  // const {
-  //   router: l2Router,
-  //   standardGateway: l2StandardGateway,
-  //   customGateway: l2CustomGateway,
-  //   beaconProxyFactory,
-  //   proxyAdmin: l2ProxyAdmin,
-  // } = parsedL2Log[0].args
-
-  // init L1 side
-  // const cloneableProxyHash = await BeaconProxyFactory__factory.connect(
-  //   beaconProxyFactory,
-  //   l2Signer
-  // ).cloneableProxyHash()
-  // await (
-  //   await l1TokenBridgeCreator.initTokenBridge(
-  //     l1Router,
-  //     l1StandardGateway,
-  //     l1CustomGateway,
-  //     await l1Signer.getAddress(),
-  //     inboxAddress,
-  //     l2Router,
-  //     l2StandardGateway,
-  //     l2CustomGateway,
-  //     cloneableProxyHash,
-  //     beaconProxyFactory
-  //   )
-  // ).wait()
-
-  // const l2Router = ethers.constants.AddressZero
-  const l2StandardGateway = ethers.constants.AddressZero
+  // placeholder
   const l2CustomGateway = ethers.constants.AddressZero
   const beaconProxyFactory = ethers.constants.AddressZero
   const l2ProxyAdmin = ethers.constants.AddressZero
@@ -309,9 +286,21 @@ const deployL2TemplatesOnL1 = async (l1Signer: Signer) => {
   await l2GatewayRouterOnL1.deployed()
   console.log('l2GatewayRouteronL1', l2GatewayRouterOnL1.address)
 
+  /// deploy standard gateway
+  console.log('Deploy L2ERC20Gateway')
+  const l2StandardGatewayAddressOnL1 = await new L2ERC20Gateway__factory(
+    l1Signer
+  ).deploy()
+  await l2StandardGatewayAddressOnL1.deployed()
+  console.log(
+    'l2StandardGatewayAddressOnL1',
+    l2StandardGatewayAddressOnL1.address
+  )
+
   return {
     l2TokenBridgeFactoryOnL1,
     l2GatewayRouterOnL1,
+    l2StandardGatewayAddressOnL1,
   }
 }
 
