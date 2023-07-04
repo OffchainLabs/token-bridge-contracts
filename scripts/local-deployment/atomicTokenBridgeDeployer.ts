@@ -1,4 +1,4 @@
-import { Contract, Signer, Wallet, ethers } from 'ethers'
+import { Signer, Wallet, ethers } from 'ethers'
 import {
   L1CustomGateway__factory,
   L1ERC20Gateway__factory,
@@ -8,6 +8,7 @@ import {
   L2GatewayRouter__factory,
   L2ERC20Gateway__factory,
   L2CustomGateway__factory,
+  L1AtomicTokenBridgeCreator,
 } from '../../build/types'
 import { JsonRpcProvider } from '@ethersproject/providers'
 import {
@@ -34,6 +35,7 @@ export const setupTokenBridge = async (
     l2Url
   )
 
+  // register - needed for retryables
   addCustomNetwork({
     customL1Network: l1Network,
     customL2Network: {
@@ -58,9 +60,14 @@ export const setupTokenBridge = async (
     },
   })
 
-  const deployedContracts = await deployTokenBridgeAndInit(
+  // prerequisite - deploy L1 creator and set templates
+  const l1TokenBridgeCreator = await deployL1TokenBridgeCreator(l1Deployer)
+
+  // create token bridge
+  const deployedContracts = await createTokenBridge(
     l1Deployer,
     l2Deployer,
+    l1TokenBridgeCreator,
     coreL2Network.ethBridge.inbox
   )
 
@@ -85,6 +92,7 @@ export const setupTokenBridge = async (
     },
   }
 
+  // can't re-add
   // addCustomNetwork({
   //   customL1Network: l1Network,
   //   customL2Network: l2Network,
@@ -97,21 +105,19 @@ export const setupTokenBridge = async (
 }
 
 /**
- * Deploy all the L1 and L2 contracts and do the initialization.
+ * Use already deployed L1TokenBridgeCreator to create and token bridge contracts.
  *
  * @param l1Signer
  * @param l2Signer
  * @param inboxAddress
  * @returns
  */
-export const deployTokenBridgeAndInit = async (
+export const createTokenBridge = async (
   l1Signer: Signer,
   l2Signer: Signer,
+  l1TokenBridgeCreator: L1AtomicTokenBridgeCreator,
   inboxAddress: string
 ) => {
-  // deploy L1 creator and set templates
-  const l1TokenBridgeCreator = await deployTokenBridgeFactory(l1Signer)
-
   // create token bridge
   const maxSubmissionCost = ethers.utils.parseEther('0.1')
   const maxGas = 10000000
@@ -132,59 +138,37 @@ export const deployTokenBridgeAndInit = async (
   /// wait for retryable execution
   const l1TxReceipt = new L1TransactionReceipt(receipt)
   const messages = await l1TxReceipt.getL1ToL2Messages(l2Signer)
+  const messageResults = await Promise.all(
+    messages.map(message => message.waitForStatus())
+  )
 
-  // 1st msg - deploy factory
-  const messageResult = await messages[0].waitForStatus()
-  if (messageResult.status !== L1ToL2MessageStatus.REDEEMED) {
-    console.error(
-      `1 L2 retryable ticket is failed with status ${
-        L1ToL2MessageStatus[messageResult.status]
+  // if both tickets are not redeemed log it and exit
+  if (
+    messageResults[0].status !== L1ToL2MessageStatus.REDEEMED ||
+    messageResults[1].status !== L1ToL2MessageStatus.REDEEMED
+  ) {
+    console.log(
+      `Retryable ticket (ID ${messages[0].retryableCreationId}) status: ${
+        L1ToL2MessageStatus[messageResults[0].status]
+      }`
+    )
+    console.log(
+      `Retryable ticket (ID ${messages[1].retryableCreationId}) status: ${
+        L1ToL2MessageStatus[messageResults[1].status]
       }`
     )
     exit()
   }
 
+  /// pick up L2 factory address from 1st ticket
   const l2AtomicTokenBridgeFactory =
     L2AtomicTokenBridgeFactory__factory.connect(
-      messageResult.l2TxReceipt.contractAddress,
+      messageResults[0].l2TxReceipt.contractAddress,
       l2Signer
     )
   console.log('L2AtomicTokenBridgeFactory', l2AtomicTokenBridgeFactory.address)
 
-  // 2nd msg - deploy router
-  const messageRouterResult = await messages[1].waitForStatus()
-  if (messageRouterResult.status !== L1ToL2MessageStatus.REDEEMED) {
-    console.error(
-      `2 L2 retryable ticket is failed with status ${
-        L1ToL2MessageStatus[messageRouterResult.status]
-      }`
-    )
-    exit()
-  }
-
-  // 3rd msg - deploy standard gw
-  const messageStdGwResult = await messages[2].waitForStatus()
-  if (messageRouterResult.status !== L1ToL2MessageStatus.REDEEMED) {
-    console.error(
-      `3 L2 retryable ticket is failed with status ${
-        L1ToL2MessageStatus[messageStdGwResult.status]
-      }`
-    )
-    exit()
-  }
-
-  // 4th msg - deploy custom gw
-  const messageCustomGwResult = await messages[3].waitForStatus()
-  if (messageCustomGwResult.status !== L1ToL2MessageStatus.REDEEMED) {
-    console.error(
-      `4 L2 retryable ticket is failed with status ${
-        L1ToL2MessageStatus[messageCustomGwResult.status]
-      }`
-    )
-    exit()
-  }
-
-  /// get L1 deployed contracts
+  /// pick up L1 contracts from events
   const {
     router: l1Router,
     standardGateway: l1StandardGateway,
@@ -196,21 +180,14 @@ export const deployTokenBridgeAndInit = async (
     'OrbitTokenBridgeCreated'
   )[0].args
 
-  /// get L2 router
+  /// pick up L2 contracts from L1 factory contract
   const l2Router = await l2AtomicTokenBridgeFactory.router()
-
-  /// get L2 standard gateway
   const l2StandardGateway = L2ERC20Gateway__factory.connect(
     await l2AtomicTokenBridgeFactory.standardGateway(),
     l2Signer
   )
   const beaconProxyFactory = await l2StandardGateway.beaconProxyFactory()
-
-  /// get L2 standard gateway
   const l2CustomGateway = await l2AtomicTokenBridgeFactory.customGateway()
-  console.log('l2CustomGateway', l2CustomGateway)
-
-  /// get L2 proxy admin
   const l2ProxyAdmin = await l2AtomicTokenBridgeFactory.proxyAdmin()
 
   return {
@@ -240,19 +217,15 @@ const getParsedLogs = (
   return parsedLogs
 }
 
-const deployTokenBridgeFactory = async (l1Signer: Signer) => {
+const deployL1TokenBridgeCreator = async (l1Signer: Signer) => {
   /// deploy factory
-  console.log('Deploy L1AtomicTokenBridgeCreator')
-
   const l1TokenBridgeCreator = await new L1AtomicTokenBridgeCreator__factory(
     l1Signer
   ).deploy()
   await l1TokenBridgeCreator.deployed()
-  console.log('l1TokenBridgeCreator', l1TokenBridgeCreator.address)
+  console.log('L1TokenBridgeCreator', l1TokenBridgeCreator.address)
 
   /// deploy logic contracts
-  console.log('Create and set logic contracts')
-
   const routerTemplate = await new L1GatewayRouter__factory(l1Signer).deploy()
   await routerTemplate.deployed()
 

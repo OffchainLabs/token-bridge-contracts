@@ -17,11 +17,25 @@ contract L2AtomicTokenBridgeFactory {
     L2ERC20Gateway public standardGateway;
     L2CustomGateway public customGateway;
 
-    function deployRouter(
+    function deployL2Contracts(
+        bytes memory routerCreationCode,
+        bytes memory standardGatewayCreationCode,
+        bytes memory customGatewayCreationCode,
+        address l1Router,
+        address l1StandardGateway,
+        address l1CustomGateway,
+        address l2StandardGatewayExpectedAddress
+    ) external {
+        _deployRouter(routerCreationCode, l1Router, l2StandardGatewayExpectedAddress);
+        _deployStandardGateway(standardGatewayCreationCode, l1StandardGateway);
+        _deployCustomGateway(customGatewayCreationCode, l1CustomGateway);
+    }
+
+    function _deployRouter(
         bytes memory creationCode,
         address l1Router,
         address l2StandardGatewayExpectedAddress
-    ) external {
+    ) internal {
         // first create proxyAdmin which will be used for all contracts
         proxyAdmin = address(new ProxyAdmin{ salt: L2Salts.PROXY_ADMIN }());
 
@@ -41,7 +55,7 @@ contract L2AtomicTokenBridgeFactory {
         router.initialize(l1Router, l2StandardGatewayExpectedAddress);
     }
 
-    function deployStandardGateway(bytes memory creationCode, address l1StandardGateway) external {
+    function _deployStandardGateway(bytes memory creationCode, address l1StandardGateway) internal {
         // create logic and proxy
         address standardGatewayLogicAddress = Create2.deploy(
             0,
@@ -72,7 +86,7 @@ contract L2AtomicTokenBridgeFactory {
         standardGateway.initialize(l1StandardGateway, address(router), address(beaconProxyFactory));
     }
 
-    function deployCustomGateway(bytes memory creationCode, address l1CustomGateway) external {
+    function _deployCustomGateway(bytes memory creationCode, address l1CustomGateway) internal {
         address customGatewayLogicAddress = Create2.deploy(
             0,
             L2Salts.CUSTOM_GATEWAY_LOGIC,

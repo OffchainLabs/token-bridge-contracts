@@ -115,23 +115,72 @@ contract L1AtomicTokenBridgeCreator is Ownable {
             proxyAdmin
         );
 
+        /// deploy factory and then L2 contracts through L2 factory, using 2 retryables calls
         _deployL2Factory(inbox, maxSubmissionCost, maxGas, gasPriceBid);
-
-        /// deploy L2 contracts through L2 factory
-        _deployL2Router(address(router), inbox, maxSubmissionCost, maxGas, gasPriceBid);
-        _deployL2StandardGateway(
+        _deployL2Contracts(
+            address(router),
             address(standardGateway),
-            inbox,
-            maxSubmissionCost,
-            maxGas,
-            gasPriceBid
-        );
-        _deployL2CustomGateway(
             address(customGateway),
             inbox,
             maxSubmissionCost,
             maxGas,
             gasPriceBid
+        );
+    }
+
+    function _deployL2Factory(
+        address inbox,
+        uint256 maxSubmissionCost,
+        uint256 maxGas,
+        uint256 gasPriceBid
+    ) internal returns (uint256) {
+        // encode L2 factory bytecode
+        bytes memory deploymentData = _creationCodeFor(l2TokenBridgeFactoryTemplate.code);
+
+        uint256 value = maxSubmissionCost + maxGas * gasPriceBid;
+        uint256 ticketID = IInbox(inbox).createRetryableTicket{ value: value }(
+            address(0),
+            0,
+            maxSubmissionCost,
+            msg.sender,
+            msg.sender,
+            maxGas,
+            gasPriceBid,
+            deploymentData
+        );
+
+        return ticketID;
+    }
+
+    function _deployL2Contracts(
+        address l1Router,
+        address l1StandardGateway,
+        address l1CustomGateway,
+        address inbox,
+        uint256 maxSubmissionCost,
+        uint256 maxGas,
+        uint256 gasPriceBid
+    ) internal {
+        bytes memory data = abi.encodeWithSelector(
+            L2AtomicTokenBridgeFactory.deployL2Contracts.selector,
+            _creationCodeFor(l2RouterTemplate.code),
+            _creationCodeFor(l2StandardGatewayTemplate.code),
+            _creationCodeFor(l2CustomGatewayTemplate.code),
+            l1Router,
+            l1StandardGateway,
+            l1CustomGateway,
+            _computeExpectedL2StandardGatewayAddress()
+        );
+
+        IInbox(inbox).createRetryableTicket{ value: maxSubmissionCost + maxGas * gasPriceBid }(
+            expectedL2FactoryAddress,
+            0,
+            maxSubmissionCost,
+            msg.sender,
+            msg.sender,
+            maxGas,
+            gasPriceBid,
+            data
         );
     }
 
@@ -185,122 +234,6 @@ contract L1AtomicTokenBridgeCreator is Ownable {
         );
 
         return customGateway;
-    }
-
-    function _deployL2Factory(
-        address inbox,
-        uint256 maxSubmissionCost,
-        uint256 maxGas,
-        uint256 gasPriceBid
-    ) internal returns (uint256) {
-        // encode L2 factory bytecode
-        bytes memory deploymentData = _creationCodeFor(l2TokenBridgeFactoryTemplate.code);
-
-        uint256 value = maxSubmissionCost + maxGas * gasPriceBid;
-        uint256 ticketID = IInbox(inbox).createRetryableTicket{ value: value }(
-            address(0),
-            0,
-            maxSubmissionCost,
-            msg.sender,
-            msg.sender,
-            maxGas,
-            gasPriceBid,
-            deploymentData
-        );
-
-        return ticketID;
-    }
-
-    function _deployL2Router(
-        address l1Router,
-        address inbox,
-        uint256 maxSubmissionCost,
-        uint256 maxGas,
-        uint256 gasPriceBid
-    ) internal returns (uint256) {
-        // get L2 factory bytecode
-        bytes memory creationCode = _creationCodeFor(l2RouterTemplate.code);
-
-        /// send retryable
-        bytes memory data = abi.encodeWithSelector(
-            L2AtomicTokenBridgeFactory.deployRouter.selector,
-            creationCode,
-            l1Router,
-            _computeExpectedL2StandardGatewayAddress()
-        );
-        uint256 ticketID = IInbox(inbox).createRetryableTicket{
-            value: maxSubmissionCost + maxGas * gasPriceBid
-        }(
-            expectedL2FactoryAddress,
-            0,
-            maxSubmissionCost,
-            msg.sender,
-            msg.sender,
-            maxGas,
-            gasPriceBid,
-            data
-        );
-        return ticketID;
-    }
-
-    function _deployL2StandardGateway(
-        address l1StandardGateway,
-        address inbox,
-        uint256 maxSubmissionCost,
-        uint256 maxGas,
-        uint256 gasPriceBid
-    ) internal returns (uint256) {
-        // get L2 standard gateway bytecode
-        bytes memory creationCode = _creationCodeFor(l2StandardGatewayTemplate.code);
-
-        /// send retryable
-        bytes memory data = abi.encodeWithSelector(
-            L2AtomicTokenBridgeFactory.deployStandardGateway.selector,
-            creationCode,
-            l1StandardGateway
-        );
-        uint256 value = maxSubmissionCost + maxGas * gasPriceBid;
-        uint256 ticketID = IInbox(inbox).createRetryableTicket{ value: value }(
-            expectedL2FactoryAddress,
-            0,
-            maxSubmissionCost,
-            msg.sender,
-            msg.sender,
-            maxGas,
-            gasPriceBid,
-            data
-        );
-        return ticketID;
-    }
-
-    function _deployL2CustomGateway(
-        address l1CustomGateway,
-        address inbox,
-        uint256 maxSubmissionCost,
-        uint256 maxGas,
-        uint256 gasPriceBid
-    ) internal returns (uint256) {
-        // encode L2 custom gateway bytecode
-        bytes memory creationCode = _creationCodeFor(l2CustomGatewayTemplate.code);
-
-        /// send retryable
-        bytes memory data = abi.encodeWithSelector(
-            L2AtomicTokenBridgeFactory.deployCustomGateway.selector,
-            creationCode,
-            l1CustomGateway
-        );
-        uint256 value = maxSubmissionCost + maxGas * gasPriceBid;
-        uint256 ticketID = IInbox(inbox).createRetryableTicket{ value: value }(
-            expectedL2FactoryAddress,
-            0,
-            maxSubmissionCost,
-            msg.sender,
-            msg.sender,
-            maxGas,
-            gasPriceBid,
-            data
-        );
-        return ticketID;
     }
 
     /**
