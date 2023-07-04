@@ -22,7 +22,7 @@ contract L2AtomicTokenBridgeFactory {
         address l1Router,
         address l2StandardGatewayExpectedAddress
     ) external {
-        proxyAdmin = address(new ProxyAdmin());
+        proxyAdmin = address(new ProxyAdmin{ salt: keccak256(bytes("OrbitL2ProxyAdmin")) }());
 
         address routerLogicAddress = Create2.deploy(
             0,

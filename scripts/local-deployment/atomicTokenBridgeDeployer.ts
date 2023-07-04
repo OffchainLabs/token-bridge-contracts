@@ -117,9 +117,11 @@ export const deployTokenBridgeAndInit = async (
   const maxGas = 10000000
   const gasPriceBid = ethers.utils.parseUnits('0.5', 'gwei')
   const value = gasPriceBid.mul(maxGas).add(maxSubmissionCost).mul(5)
+  const owner = await l1Signer.getAddress()
   const receipt = await (
     await l1TokenBridgeCreator.createTokenBridge(
       inboxAddress,
+      owner,
       maxSubmissionCost,
       maxGas,
       gasPriceBid,

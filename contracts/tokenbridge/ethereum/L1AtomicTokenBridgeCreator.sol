@@ -11,6 +11,7 @@ import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { IInbox } from "@arbitrum/nitro-contracts/src/bridge/IInbox.sol";
 import { AddressAliasHelper } from "../libraries/AddressAliasHelper.sol";
 import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
+import { BeaconProxyFactory, ClonableBeaconProxy } from "../libraries/ClonableBeaconProxy.sol";
 
 contract L1AtomicTokenBridgeCreator is Ownable {
     event OrbitTokenBridgeCreated(
@@ -29,6 +30,29 @@ contract L1AtomicTokenBridgeCreator is Ownable {
     address public l2RouterOnL1;
     address public l2StandardGatewayOnL1;
     address public l2CustomGatewayOnL1;
+
+    address public immutable expectedL2FactoryAddress;
+    address public immutable expectedL2ProxyAdminAddress;
+    address public immutable expectedL2BeaconProxyFactoryAddress;
+
+    constructor() Ownable() {
+        expectedL2FactoryAddress = computeAddress(
+            AddressAliasHelper.applyL1ToL2Alias(address(this)),
+            0
+        );
+
+        expectedL2ProxyAdminAddress = Create2.computeAddress(
+            keccak256(bytes("OrbitL2ProxyAdmin")),
+            keccak256(type(ProxyAdmin).creationCode),
+            expectedL2FactoryAddress
+        );
+
+        expectedL2BeaconProxyFactoryAddress = Create2.computeAddress(
+            keccak256(bytes("OrbitBeaconProxyFactory")),
+            keccak256(type(BeaconProxyFactory).creationCode),
+            expectedL2FactoryAddress
+        );
+    }
 
     function setTemplates(
         L1GatewayRouter _router,
@@ -53,6 +77,7 @@ contract L1AtomicTokenBridgeCreator is Ownable {
 
     function createTokenBridge(
         address inbox,
+        address owner,
         uint256 maxSubmissionCost,
         uint256 maxGas,
         uint256 gasPriceBid
@@ -62,23 +87,25 @@ contract L1AtomicTokenBridgeCreator is Ownable {
         L1GatewayRouter router = L1GatewayRouter(
             address(new TransparentUpgradeableProxy(address(routerTemplate), proxyAdmin, bytes("")))
         );
-        L1ERC20Gateway standardGateway = L1ERC20Gateway(
-            address(
-                new TransparentUpgradeableProxy(
-                    address(standardGatewayTemplate),
-                    proxyAdmin,
-                    bytes("")
-                )
-            )
+        L1ERC20Gateway standardGateway = _deployL1StandardGateway(
+            proxyAdmin,
+            address(router),
+            inbox
         );
-        L1CustomGateway customGateway = L1CustomGateway(
-            address(
-                new TransparentUpgradeableProxy(
-                    address(customGatewayTemplate),
-                    proxyAdmin,
-                    bytes("")
-                )
-            )
+        L1CustomGateway customGateway = _deployL1CustomGateway(
+            proxyAdmin,
+            address(router),
+            inbox,
+            owner
+        );
+
+        // init router
+        router.initialize(
+            owner,
+            address(standardGateway),
+            address(0),
+            _computeExpectedL2RouterAddress(),
+            inbox
         );
 
         emit OrbitTokenBridgeCreated(
@@ -90,22 +117,10 @@ contract L1AtomicTokenBridgeCreator is Ownable {
 
         _deployL2Factory(inbox, maxSubmissionCost, maxGas, gasPriceBid);
 
-        /// deploy L2 contracts thorugh L2 factory
-        address l2FactoryExpectedAddress = computeAddress(
-            AddressAliasHelper.applyL1ToL2Alias(address(this)),
-            0
-        );
-        _deployL2Router(
-            address(router),
-            l2FactoryExpectedAddress,
-            inbox,
-            maxSubmissionCost,
-            maxGas,
-            gasPriceBid
-        );
+        /// deploy L2 contracts through L2 factory
+        _deployL2Router(address(router), inbox, maxSubmissionCost, maxGas, gasPriceBid);
         _deployL2StandardGateway(
             address(standardGateway),
-            l2FactoryExpectedAddress,
             inbox,
             maxSubmissionCost,
             maxGas,
@@ -113,20 +128,63 @@ contract L1AtomicTokenBridgeCreator is Ownable {
         );
         _deployL2CustomGateway(
             address(customGateway),
-            l2FactoryExpectedAddress,
             inbox,
             maxSubmissionCost,
             maxGas,
             gasPriceBid
         );
+    }
 
-        //// init contracts
-        // {
-        //     /// dependencies - l2Router, l2StandardGateway, l2CustomGateway, cloneableProxyHash, l2BeaconProxyFactory, owner, inbox
-        //     router.initialize(address(1), address(standardGateway), address(0), address(1), inbox);
-        //     standardGateway.initialize(address(1), address(router), inbox, "abc", address(1));
-        //     customGateway.initialize(address(1), address(router), inbox, address(1));
-        // }
+    function _deployL1StandardGateway(
+        address proxyAdmin,
+        address router,
+        address inbox
+    ) internal returns (L1ERC20Gateway) {
+        L1ERC20Gateway standardGateway = L1ERC20Gateway(
+            address(
+                new TransparentUpgradeableProxy(
+                    address(standardGatewayTemplate),
+                    proxyAdmin,
+                    bytes("")
+                )
+            )
+        );
+
+        standardGateway.initialize(
+            _computeExpectedL2StandardGatewayAddress(),
+            router,
+            inbox,
+            keccak256(type(ClonableBeaconProxy).creationCode),
+            expectedL2BeaconProxyFactoryAddress
+        );
+
+        return standardGateway;
+    }
+
+    function _deployL1CustomGateway(
+        address proxyAdmin,
+        address router,
+        address inbox,
+        address owner
+    ) internal returns (L1CustomGateway) {
+        L1CustomGateway customGateway = L1CustomGateway(
+            address(
+                new TransparentUpgradeableProxy(
+                    address(customGatewayTemplate),
+                    proxyAdmin,
+                    bytes("")
+                )
+            )
+        );
+
+        customGateway.initialize(
+            _computeExpectedL2CustomGatewayAddress(),
+            address(router),
+            inbox,
+            owner
+        );
+
+        return customGateway;
     }
 
     function _deployL2Factory(
@@ -155,7 +213,6 @@ contract L1AtomicTokenBridgeCreator is Ownable {
 
     function _deployL2Router(
         address l1Router,
-        address l2Factory,
         address inbox,
         uint256 maxSubmissionCost,
         uint256 maxGas,
@@ -165,22 +222,29 @@ contract L1AtomicTokenBridgeCreator is Ownable {
         bytes memory creationCode = _creationCodeFor(l2RouterOnL1.code);
 
         /// send retryable
-        address l2StandardGatewayExpectedAddress = _getExpectedL2StandardGatewayAddress(l2Factory);
         bytes memory data = abi.encodeWithSelector(
             L2AtomicTokenBridgeFactory.deployRouter.selector,
             creationCode,
             l1Router,
-            l2StandardGatewayExpectedAddress
+            _computeExpectedL2StandardGatewayAddress()
         );
         uint256 ticketID = IInbox(inbox).createRetryableTicket{
             value: maxSubmissionCost + maxGas * gasPriceBid
-        }(l2Factory, 0, maxSubmissionCost, msg.sender, msg.sender, maxGas, gasPriceBid, data);
+        }(
+            expectedL2FactoryAddress,
+            0,
+            maxSubmissionCost,
+            msg.sender,
+            msg.sender,
+            maxGas,
+            gasPriceBid,
+            data
+        );
         return ticketID;
     }
 
     function _deployL2StandardGateway(
         address l1StandardGateway,
-        address l2Factory,
         address inbox,
         uint256 maxSubmissionCost,
         uint256 maxGas,
@@ -197,7 +261,7 @@ contract L1AtomicTokenBridgeCreator is Ownable {
         );
         uint256 value = maxSubmissionCost + maxGas * gasPriceBid;
         uint256 ticketID = IInbox(inbox).createRetryableTicket{ value: value }(
-            l2Factory,
+            expectedL2FactoryAddress,
             0,
             maxSubmissionCost,
             msg.sender,
@@ -211,7 +275,6 @@ contract L1AtomicTokenBridgeCreator is Ownable {
 
     function _deployL2CustomGateway(
         address l1CustomGateway,
-        address l2Factory,
         address inbox,
         uint256 maxSubmissionCost,
         uint256 maxGas,
@@ -228,7 +291,7 @@ contract L1AtomicTokenBridgeCreator is Ownable {
         );
         uint256 value = maxSubmissionCost + maxGas * gasPriceBid;
         uint256 ticketID = IInbox(inbox).createRetryableTicket{ value: value }(
-            l2Factory,
+            expectedL2FactoryAddress,
             0,
             maxSubmissionCost,
             msg.sender,
@@ -238,33 +301,6 @@ contract L1AtomicTokenBridgeCreator is Ownable {
             data
         );
         return ticketID;
-    }
-
-    function _getExpectedL2StandardGatewayAddress(
-        address deployer
-    ) internal view returns (address expectedL2StandardGatewayAddress) {
-        address l2StandardGatewayLogicExpected = Create2.computeAddress(
-            keccak256(bytes("OrbitL2StandardGatewayLogic")),
-            keccak256(_creationCodeFor(l2StandardGatewayOnL1.code)),
-            deployer
-        );
-
-        address proxyAdminExpected = Create2.computeAddress(
-            keccak256(bytes("OrbitL2ProxyAdmin")),
-            keccak256(type(ProxyAdmin).creationCode),
-            deployer
-        );
-
-        bytes memory tupCode = abi.encodePacked(
-            type(TransparentUpgradeableProxy).creationCode,
-            abi.encode(l2StandardGatewayLogicExpected, proxyAdminExpected, bytes(""))
-        );
-
-        expectedL2StandardGatewayAddress = Create2.computeAddress(
-            keccak256(bytes("OrbitL2StandardGatewayProxy")),
-            keccak256(tupCode),
-            deployer
-        );
     }
 
     /**
@@ -327,5 +363,72 @@ contract L1AtomicTokenBridgeCreator is Ownable {
                 uint32(_nonce)
             );
         return address(uint160(uint256(keccak256(data))));
+    }
+
+    function _computeExpectedL2RouterAddress() internal returns (address) {
+        address expectedL2RouterLogic = Create2.computeAddress(
+            keccak256(bytes("OrbitL2GatewayRouterLogic")),
+            keccak256(_creationCodeFor(l2RouterOnL1.code)),
+            expectedL2FactoryAddress
+        );
+
+        return
+            Create2.computeAddress(
+                keccak256(bytes("OrbitL2GatewayRouterProxy")),
+                keccak256(
+                    abi.encodePacked(
+                        type(TransparentUpgradeableProxy).creationCode,
+                        abi.encode(expectedL2RouterLogic, expectedL2ProxyAdminAddress, bytes(""))
+                    )
+                ),
+                expectedL2FactoryAddress
+            );
+    }
+
+    function _computeExpectedL2StandardGatewayAddress() internal view returns (address) {
+        address expectedL2StandardGatewayLogic = Create2.computeAddress(
+            keccak256(bytes("OrbitL2StandardGatewayLogic")),
+            keccak256(_creationCodeFor(l2StandardGatewayOnL1.code)),
+            expectedL2FactoryAddress
+        );
+        return
+            Create2.computeAddress(
+                keccak256(bytes("OrbitL2StandardGatewayProxy")),
+                keccak256(
+                    abi.encodePacked(
+                        type(TransparentUpgradeableProxy).creationCode,
+                        abi.encode(
+                            expectedL2StandardGatewayLogic,
+                            expectedL2ProxyAdminAddress,
+                            bytes("")
+                        )
+                    )
+                ),
+                expectedL2FactoryAddress
+            );
+    }
+
+    function _computeExpectedL2CustomGatewayAddress() internal view returns (address) {
+        address expectedL2CustomGatewayLogic = Create2.computeAddress(
+            keccak256(bytes("OrbitL2CustomGatewayLogic")),
+            keccak256(_creationCodeFor(l2CustomGatewayOnL1.code)),
+            expectedL2FactoryAddress
+        );
+
+        return
+            Create2.computeAddress(
+                keccak256(bytes("OrbitL2CustomGatewayProxy")),
+                keccak256(
+                    abi.encodePacked(
+                        type(TransparentUpgradeableProxy).creationCode,
+                        abi.encode(
+                            expectedL2CustomGatewayLogic,
+                            expectedL2ProxyAdminAddress,
+                            bytes("")
+                        )
+                    )
+                ),
+                expectedL2FactoryAddress
+            );
     }
 }
