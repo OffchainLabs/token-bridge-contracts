@@ -22,52 +22,49 @@ contract L2AtomicTokenBridgeFactory {
         address l1Router,
         address l2StandardGatewayExpectedAddress
     ) external {
-        proxyAdmin = address(new ProxyAdmin{ salt: keccak256(bytes("OrbitL2ProxyAdmin")) }());
+        // first create proxyAdmin which will be used for all contracts
+        proxyAdmin = address(new ProxyAdmin{ salt: L2Salts.PROXY_ADMIN }());
 
-        address routerLogicAddress = Create2.deploy(
-            0,
-            keccak256(bytes("OrbitL2GatewayRouterLogic")),
-            creationCode
-        );
-
-        // create proxy
+        // create logic and proxy
+        address routerLogicAddress = Create2.deploy(0, L2Salts.ROUTER_LOGIC, creationCode);
         router = L2GatewayRouter(
             address(
-                new TransparentUpgradeableProxy{
-                    salt: keccak256(bytes("OrbitL2GatewayRouterProxy"))
-                }(routerLogicAddress, proxyAdmin, bytes(""))
+                new TransparentUpgradeableProxy{ salt: L2Salts.ROUTER }(
+                    routerLogicAddress,
+                    proxyAdmin,
+                    bytes("")
+                )
             )
         );
 
-        // init proxy
+        // init
         router.initialize(l1Router, l2StandardGatewayExpectedAddress);
     }
 
     function deployStandardGateway(bytes memory creationCode, address l1StandardGateway) external {
+        // create logic and proxy
         address standardGatewayLogicAddress = Create2.deploy(
             0,
-            keccak256(bytes("OrbitL2StandardGatewayLogic")),
+            L2Salts.STANDARD_GATEWAY_LOGIC,
             creationCode
         );
-
-        // create proxy
         standardGateway = L2ERC20Gateway(
             address(
-                new TransparentUpgradeableProxy{
-                    salt: keccak256(bytes("OrbitL2StandardGatewayProxy"))
-                }(standardGatewayLogicAddress, proxyAdmin, bytes(""))
+                new TransparentUpgradeableProxy{ salt: L2Salts.STANDARD_GATEWAY }(
+                    standardGatewayLogicAddress,
+                    proxyAdmin,
+                    bytes("")
+                )
             )
         );
 
         // create beacon
-        StandardArbERC20 standardArbERC20 = new StandardArbERC20{
-            salt: keccak256(bytes("OrbitStandardArbERC20"))
-        }();
-        UpgradeableBeacon beacon = new UpgradeableBeacon{
-            salt: keccak256(bytes("OrbitUpgradeableBeacon"))
-        }(address(standardArbERC20));
+        StandardArbERC20 standardArbERC20 = new StandardArbERC20{ salt: L2Salts.STANDARD_ERC20 }();
+        UpgradeableBeacon beacon = new UpgradeableBeacon{ salt: L2Salts.UPGRADEABLE_BEACON }(
+            address(standardArbERC20)
+        );
         BeaconProxyFactory beaconProxyFactory = new BeaconProxyFactory{
-            salt: keccak256(bytes("OrbitBeaconProxyFactory"))
+            salt: L2Salts.BEACON_PROXY_FACTORY
         }();
 
         // init contracts
@@ -78,19 +75,39 @@ contract L2AtomicTokenBridgeFactory {
     function deployCustomGateway(bytes memory creationCode, address l1CustomGateway) external {
         address customGatewayLogicAddress = Create2.deploy(
             0,
-            keccak256(bytes("OrbitL2CustomGatewayLogic")),
+            L2Salts.CUSTOM_GATEWAY_LOGIC,
             creationCode
         );
 
-        // create proxy
+        // create logic and proxy
         customGateway = L2CustomGateway(
             address(
-                new TransparentUpgradeableProxy{
-                    salt: keccak256(bytes("OrbitL2CustomGatewayProxy"))
-                }(customGatewayLogicAddress, proxyAdmin, bytes(""))
+                new TransparentUpgradeableProxy{ salt: L2Salts.CUSTOM_GATEWAY }(
+                    customGatewayLogicAddress,
+                    proxyAdmin,
+                    bytes("")
+                )
             )
         );
 
+        // init
         customGateway.initialize(l1CustomGateway, address(router));
     }
+}
+
+/**
+ * Collection of salts used in CREATE2 deployment of L2 token bridge contracts.
+ */
+library L2Salts {
+    bytes32 public constant PROXY_ADMIN = keccak256(bytes("OrbitL2ProxyAdmin"));
+    bytes32 public constant ROUTER_LOGIC = keccak256(bytes("OrbitL2GatewayRouterLogic"));
+    bytes32 public constant ROUTER = keccak256(bytes("OrbitL2GatewayRouterProxy"));
+    bytes32 public constant STANDARD_GATEWAY_LOGIC =
+        keccak256(bytes("OrbitL2StandardGatewayLogic"));
+    bytes32 public constant STANDARD_GATEWAY = keccak256(bytes("OrbitL2StandardGatewayProxy"));
+    bytes32 public constant CUSTOM_GATEWAY_LOGIC = keccak256(bytes("OrbitL2CustomGatewayLogic"));
+    bytes32 public constant CUSTOM_GATEWAY = keccak256(bytes("OrbitL2CustomGatewayProxy"));
+    bytes32 public constant STANDARD_ERC20 = keccak256(bytes("OrbitStandardArbERC20"));
+    bytes32 public constant UPGRADEABLE_BEACON = keccak256(bytes("OrbitUpgradeableBeacon"));
+    bytes32 public constant BEACON_PROXY_FACTORY = keccak256(bytes("OrbitBeaconProxyFactory"));
 }

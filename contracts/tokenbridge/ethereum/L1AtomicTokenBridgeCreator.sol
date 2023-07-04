@@ -6,7 +6,7 @@ import { L1ERC20Gateway } from "./gateway/L1ERC20Gateway.sol";
 import { L1CustomGateway } from "./gateway/L1CustomGateway.sol";
 import { ProxyAdmin } from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import { TransparentUpgradeableProxy } from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import { L2AtomicTokenBridgeFactory } from "../arbitrum/L2AtomicTokenBridgeFactory.sol";
+import { L2AtomicTokenBridgeFactory, L2Salts } from "../arbitrum/L2AtomicTokenBridgeFactory.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { IInbox } from "@arbitrum/nitro-contracts/src/bridge/IInbox.sol";
 import { AddressAliasHelper } from "../libraries/AddressAliasHelper.sol";
@@ -26,29 +26,29 @@ contract L1AtomicTokenBridgeCreator is Ownable {
     L1ERC20Gateway public standardGatewayTemplate;
     L1CustomGateway public customGatewayTemplate;
 
-    address public l2TokenBridgeFactoryOnL1;
-    address public l2RouterOnL1;
-    address public l2StandardGatewayOnL1;
-    address public l2CustomGatewayOnL1;
+    address public l2TokenBridgeFactoryTemplate;
+    address public l2RouterTemplate;
+    address public l2StandardGatewayTemplate;
+    address public l2CustomGatewayTemplate;
 
     address public immutable expectedL2FactoryAddress;
     address public immutable expectedL2ProxyAdminAddress;
     address public immutable expectedL2BeaconProxyFactoryAddress;
 
     constructor() Ownable() {
-        expectedL2FactoryAddress = computeAddress(
+        expectedL2FactoryAddress = _computeAddress(
             AddressAliasHelper.applyL1ToL2Alias(address(this)),
             0
         );
 
         expectedL2ProxyAdminAddress = Create2.computeAddress(
-            keccak256(bytes("OrbitL2ProxyAdmin")),
+            L2Salts.PROXY_ADMIN,
             keccak256(type(ProxyAdmin).creationCode),
             expectedL2FactoryAddress
         );
 
         expectedL2BeaconProxyFactoryAddress = Create2.computeAddress(
-            keccak256(bytes("OrbitBeaconProxyFactory")),
+            L2Salts.BEACON_PROXY_FACTORY,
             keccak256(type(BeaconProxyFactory).creationCode),
             expectedL2FactoryAddress
         );
@@ -58,19 +58,19 @@ contract L1AtomicTokenBridgeCreator is Ownable {
         L1GatewayRouter _router,
         L1ERC20Gateway _standardGateway,
         L1CustomGateway _customGateway,
-        address _l2TokenBridgeFactoryOnL1,
-        address _l2RouterOnL1,
-        address _l2StandardGatewayOnL1,
-        address _l2CustomGatewayOnL1
+        address _l2TokenBridgeFactoryTemplate,
+        address _l2RouterTemplate,
+        address _l2StandardGatewayTemplate,
+        address _l2CustomGatewayTemplate
     ) external onlyOwner {
         routerTemplate = _router;
         standardGatewayTemplate = _standardGateway;
         customGatewayTemplate = _customGateway;
 
-        l2TokenBridgeFactoryOnL1 = _l2TokenBridgeFactoryOnL1;
-        l2RouterOnL1 = _l2RouterOnL1;
-        l2StandardGatewayOnL1 = _l2StandardGatewayOnL1;
-        l2CustomGatewayOnL1 = _l2CustomGatewayOnL1;
+        l2TokenBridgeFactoryTemplate = _l2TokenBridgeFactoryTemplate;
+        l2RouterTemplate = _l2RouterTemplate;
+        l2StandardGatewayTemplate = _l2StandardGatewayTemplate;
+        l2CustomGatewayTemplate = _l2CustomGatewayTemplate;
 
         emit OrbitTokenBridgeTemplatesUpdated();
     }
@@ -194,7 +194,7 @@ contract L1AtomicTokenBridgeCreator is Ownable {
         uint256 gasPriceBid
     ) internal returns (uint256) {
         // encode L2 factory bytecode
-        bytes memory deploymentData = _creationCodeFor(l2TokenBridgeFactoryOnL1.code);
+        bytes memory deploymentData = _creationCodeFor(l2TokenBridgeFactoryTemplate.code);
 
         uint256 value = maxSubmissionCost + maxGas * gasPriceBid;
         uint256 ticketID = IInbox(inbox).createRetryableTicket{ value: value }(
@@ -219,7 +219,7 @@ contract L1AtomicTokenBridgeCreator is Ownable {
         uint256 gasPriceBid
     ) internal returns (uint256) {
         // get L2 factory bytecode
-        bytes memory creationCode = _creationCodeFor(l2RouterOnL1.code);
+        bytes memory creationCode = _creationCodeFor(l2RouterTemplate.code);
 
         /// send retryable
         bytes memory data = abi.encodeWithSelector(
@@ -251,7 +251,7 @@ contract L1AtomicTokenBridgeCreator is Ownable {
         uint256 gasPriceBid
     ) internal returns (uint256) {
         // get L2 standard gateway bytecode
-        bytes memory creationCode = _creationCodeFor(l2StandardGatewayOnL1.code);
+        bytes memory creationCode = _creationCodeFor(l2StandardGatewayTemplate.code);
 
         /// send retryable
         bytes memory data = abi.encodeWithSelector(
@@ -281,7 +281,7 @@ contract L1AtomicTokenBridgeCreator is Ownable {
         uint256 gasPriceBid
     ) internal returns (uint256) {
         // encode L2 custom gateway bytecode
-        bytes memory creationCode = _creationCodeFor(l2CustomGatewayOnL1.code);
+        bytes memory creationCode = _creationCodeFor(l2CustomGatewayTemplate.code);
 
         /// send retryable
         bytes memory data = abi.encodeWithSelector(
@@ -324,7 +324,7 @@ contract L1AtomicTokenBridgeCreator is Ownable {
             abi.encodePacked(hex"63", uint32(code.length), hex"80_60_0E_60_00_39_60_00_F3", code);
     }
 
-    function computeAddress(address _origin, uint _nonce) public pure returns (address) {
+    function _computeAddress(address _origin, uint _nonce) public pure returns (address) {
         bytes memory data;
         if (_nonce == 0x00)
             data = abi.encodePacked(bytes1(0xd6), bytes1(0x94), _origin, bytes1(0x80));
@@ -365,16 +365,16 @@ contract L1AtomicTokenBridgeCreator is Ownable {
         return address(uint160(uint256(keccak256(data))));
     }
 
-    function _computeExpectedL2RouterAddress() internal returns (address) {
+    function _computeExpectedL2RouterAddress() internal view returns (address) {
         address expectedL2RouterLogic = Create2.computeAddress(
-            keccak256(bytes("OrbitL2GatewayRouterLogic")),
-            keccak256(_creationCodeFor(l2RouterOnL1.code)),
+            L2Salts.ROUTER_LOGIC,
+            keccak256(_creationCodeFor(l2RouterTemplate.code)),
             expectedL2FactoryAddress
         );
 
         return
             Create2.computeAddress(
-                keccak256(bytes("OrbitL2GatewayRouterProxy")),
+                L2Salts.ROUTER,
                 keccak256(
                     abi.encodePacked(
                         type(TransparentUpgradeableProxy).creationCode,
@@ -387,13 +387,13 @@ contract L1AtomicTokenBridgeCreator is Ownable {
 
     function _computeExpectedL2StandardGatewayAddress() internal view returns (address) {
         address expectedL2StandardGatewayLogic = Create2.computeAddress(
-            keccak256(bytes("OrbitL2StandardGatewayLogic")),
-            keccak256(_creationCodeFor(l2StandardGatewayOnL1.code)),
+            L2Salts.STANDARD_GATEWAY_LOGIC,
+            keccak256(_creationCodeFor(l2StandardGatewayTemplate.code)),
             expectedL2FactoryAddress
         );
         return
             Create2.computeAddress(
-                keccak256(bytes("OrbitL2StandardGatewayProxy")),
+                L2Salts.STANDARD_GATEWAY,
                 keccak256(
                     abi.encodePacked(
                         type(TransparentUpgradeableProxy).creationCode,
@@ -410,14 +410,14 @@ contract L1AtomicTokenBridgeCreator is Ownable {
 
     function _computeExpectedL2CustomGatewayAddress() internal view returns (address) {
         address expectedL2CustomGatewayLogic = Create2.computeAddress(
-            keccak256(bytes("OrbitL2CustomGatewayLogic")),
-            keccak256(_creationCodeFor(l2CustomGatewayOnL1.code)),
+            L2Salts.CUSTOM_GATEWAY_LOGIC,
+            keccak256(_creationCodeFor(l2CustomGatewayTemplate.code)),
             expectedL2FactoryAddress
         );
 
         return
             Create2.computeAddress(
-                keccak256(bytes("OrbitL2CustomGatewayProxy")),
+                L2Salts.CUSTOM_GATEWAY,
                 keccak256(
                     abi.encodePacked(
                         type(TransparentUpgradeableProxy).creationCode,
