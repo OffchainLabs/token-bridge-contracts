@@ -109,16 +109,8 @@ export const deployTokenBridgeAndInit = async (
   l2Signer: Signer,
   inboxAddress: string
 ) => {
-  // deploy L1 creator
+  // deploy L1 creator and set templates
   const l1TokenBridgeCreator = await deployTokenBridgeFactory(l1Signer)
-
-  // deploy L2 contracts as templates on L1
-  const {
-    l2TokenBridgeFactoryOnL1,
-    l2GatewayRouterOnL1,
-    l2StandardGatewayAddressOnL1,
-    l2CustomGatewayAddressOnL1,
-  } = await deployL2TemplatesOnL1(l1Signer)
 
   // create token bridge
   const maxSubmissionCost = ethers.utils.parseEther('0.1')
@@ -127,10 +119,6 @@ export const deployTokenBridgeAndInit = async (
   const value = gasPriceBid.mul(maxGas).add(maxSubmissionCost).mul(5)
   const receipt = await (
     await l1TokenBridgeCreator.createTokenBridge(
-      l2TokenBridgeFactoryOnL1.address,
-      l2GatewayRouterOnL1.address,
-      l2StandardGatewayAddressOnL1.address,
-      l2CustomGatewayAddressOnL1.address,
       inboxAddress,
       maxSubmissionCost,
       maxGas,
@@ -138,7 +126,6 @@ export const deployTokenBridgeAndInit = async (
       { value: value }
     )
   ).wait()
-  console.log('createTokenBridge done')
 
   /// wait for retryable execution
   const l1TxReceipt = new L1TransactionReceipt(receipt)
@@ -277,51 +264,43 @@ const deployTokenBridgeFactory = async (l1Signer: Signer) => {
   ).deploy()
   await customGatewayTemplate.deployed()
 
-  await (
-    await l1TokenBridgeCreator.setTemplates(
-      routerTemplate.address,
-      standardGatewayTemplate.address,
-      customGatewayTemplate.address
-    )
-  ).wait()
+  /// deploy L2 contracts as placeholders on L1
 
-  return l1TokenBridgeCreator
-}
-
-const deployL2TemplatesOnL1 = async (l1Signer: Signer) => {
-  /// deploy factory
-  console.log('Deploy L2AtomicTokenBridgeFactory')
   const l2TokenBridgeFactoryOnL1 =
     await new L2AtomicTokenBridgeFactory__factory(l1Signer).deploy()
   await l2TokenBridgeFactoryOnL1.deployed()
 
   /// deploy router
-  console.log('Deploy L2AtomicTokenBridgeFactory')
   const l2GatewayRouterOnL1 = await new L2GatewayRouter__factory(
     l1Signer
   ).deploy()
   await l2GatewayRouterOnL1.deployed()
 
   /// deploy standard gateway
-  console.log('Deploy L2ERC20Gateway')
   const l2StandardGatewayAddressOnL1 = await new L2ERC20Gateway__factory(
     l1Signer
   ).deploy()
   await l2StandardGatewayAddressOnL1.deployed()
 
   /// deploy custom gateway
-  console.log('Deploy L2CustomGateway')
   const l2CustomGatewayAddressOnL1 = await new L2CustomGateway__factory(
     l1Signer
   ).deploy()
   await l2CustomGatewayAddressOnL1.deployed()
 
-  return {
-    l2TokenBridgeFactoryOnL1,
-    l2GatewayRouterOnL1,
-    l2StandardGatewayAddressOnL1,
-    l2CustomGatewayAddressOnL1,
-  }
+  await (
+    await l1TokenBridgeCreator.setTemplates(
+      routerTemplate.address,
+      standardGatewayTemplate.address,
+      customGatewayTemplate.address,
+      l2TokenBridgeFactoryOnL1.address,
+      l2GatewayRouterOnL1.address,
+      l2StandardGatewayAddressOnL1.address,
+      l2CustomGatewayAddressOnL1.address
+    )
+  ).wait()
+
+  return l1TokenBridgeCreator
 }
 
 export const getLocalNetworks = async (

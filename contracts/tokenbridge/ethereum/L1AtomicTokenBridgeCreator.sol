@@ -10,6 +10,7 @@ import { L2AtomicTokenBridgeFactory } from "../arbitrum/L2AtomicTokenBridgeFacto
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { IInbox } from "@arbitrum/nitro-contracts/src/bridge/IInbox.sol";
 import { AddressAliasHelper } from "../libraries/AddressAliasHelper.sol";
+import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
 
 contract L1AtomicTokenBridgeCreator is Ownable {
     event OrbitTokenBridgeCreated(
@@ -24,22 +25,33 @@ contract L1AtomicTokenBridgeCreator is Ownable {
     L1ERC20Gateway public standardGatewayTemplate;
     L1CustomGateway public customGatewayTemplate;
 
+    address public l2TokenBridgeFactoryOnL1;
+    address public l2RouterOnL1;
+    address public l2StandardGatewayOnL1;
+    address public l2CustomGatewayOnL1;
+
     function setTemplates(
         L1GatewayRouter _router,
         L1ERC20Gateway _standardGateway,
-        L1CustomGateway _customGateway
+        L1CustomGateway _customGateway,
+        address _l2TokenBridgeFactoryOnL1,
+        address _l2RouterOnL1,
+        address _l2StandardGatewayOnL1,
+        address _l2CustomGatewayOnL1
     ) external onlyOwner {
         routerTemplate = _router;
         standardGatewayTemplate = _standardGateway;
         customGatewayTemplate = _customGateway;
+
+        l2TokenBridgeFactoryOnL1 = _l2TokenBridgeFactoryOnL1;
+        l2RouterOnL1 = _l2RouterOnL1;
+        l2StandardGatewayOnL1 = _l2StandardGatewayOnL1;
+        l2CustomGatewayOnL1 = _l2CustomGatewayOnL1;
+
         emit OrbitTokenBridgeTemplatesUpdated();
     }
 
     function createTokenBridge(
-        address l2FactoryAddressOnL1,
-        address l2RouterAddressOnL1,
-        address l2StandardGatewayAddressOnL1,
-        address l2CustomGatewayAddressOnL1,
         address inbox,
         uint256 maxSubmissionCost,
         uint256 maxGas,
@@ -76,26 +88,32 @@ contract L1AtomicTokenBridgeCreator is Ownable {
             proxyAdmin
         );
 
-        _deployL2Factory(l2FactoryAddressOnL1, inbox, maxSubmissionCost, maxGas, gasPriceBid);
+        _deployL2Factory(inbox, maxSubmissionCost, maxGas, gasPriceBid);
+
+        /// deploy L2 contracts thorugh L2 factory
+        address l2FactoryExpectedAddress = computeAddress(
+            AddressAliasHelper.applyL1ToL2Alias(address(this)),
+            0
+        );
         _deployL2Router(
-            l2RouterAddressOnL1,
             address(router),
+            l2FactoryExpectedAddress,
             inbox,
             maxSubmissionCost,
             maxGas,
             gasPriceBid
         );
         _deployL2StandardGateway(
-            l2StandardGatewayAddressOnL1,
             address(standardGateway),
+            l2FactoryExpectedAddress,
             inbox,
             maxSubmissionCost,
             maxGas,
             gasPriceBid
         );
         _deployL2CustomGateway(
-            l2CustomGatewayAddressOnL1,
             address(customGateway),
+            l2FactoryExpectedAddress,
             inbox,
             maxSubmissionCost,
             maxGas,
@@ -112,14 +130,13 @@ contract L1AtomicTokenBridgeCreator is Ownable {
     }
 
     function _deployL2Factory(
-        address l2FactoryAddressOnL1,
         address inbox,
         uint256 maxSubmissionCost,
         uint256 maxGas,
         uint256 gasPriceBid
     ) internal returns (uint256) {
         // encode L2 factory bytecode
-        bytes memory deploymentData = creationCodeFor(l2FactoryAddressOnL1.code);
+        bytes memory deploymentData = _creationCodeFor(l2TokenBridgeFactoryOnL1.code);
 
         uint256 value = maxSubmissionCost + maxGas * gasPriceBid;
         uint256 ticketID = IInbox(inbox).createRetryableTicket{ value: value }(
@@ -137,67 +154,50 @@ contract L1AtomicTokenBridgeCreator is Ownable {
     }
 
     function _deployL2Router(
-        address l2RouterAddressOnL1,
         address l1Router,
+        address l2Factory,
         address inbox,
         uint256 maxSubmissionCost,
         uint256 maxGas,
         uint256 gasPriceBid
     ) internal returns (uint256) {
-        // encode L2 factory bytecode
-        bytes memory creationCode = creationCodeFor(l2RouterAddressOnL1.code);
+        // get L2 factory bytecode
+        bytes memory creationCode = _creationCodeFor(l2RouterOnL1.code);
 
-        // address l2StandardGateway = address(1337);
-
+        /// send retryable
+        address l2StandardGatewayExpectedAddress = _getExpectedL2StandardGatewayAddress(l2Factory);
         bytes memory data = abi.encodeWithSelector(
             L2AtomicTokenBridgeFactory.deployRouter.selector,
             creationCode,
             l1Router,
-            address(1337)
+            l2StandardGatewayExpectedAddress
         );
-
-        uint256 value = maxSubmissionCost + maxGas * gasPriceBid;
-        address l2FactoryAddress = calculateAddress(
-            AddressAliasHelper.applyL1ToL2Alias(address(this)),
-            0
-        );
-        uint256 ticketID = IInbox(inbox).createRetryableTicket{ value: value }(
-            l2FactoryAddress,
-            0,
-            maxSubmissionCost,
-            msg.sender,
-            msg.sender,
-            maxGas,
-            gasPriceBid,
-            data
-        );
+        uint256 ticketID = IInbox(inbox).createRetryableTicket{
+            value: maxSubmissionCost + maxGas * gasPriceBid
+        }(l2Factory, 0, maxSubmissionCost, msg.sender, msg.sender, maxGas, gasPriceBid, data);
         return ticketID;
     }
 
     function _deployL2StandardGateway(
-        address l2StandardGatewayAddressOnL1,
         address l1StandardGateway,
+        address l2Factory,
         address inbox,
         uint256 maxSubmissionCost,
         uint256 maxGas,
         uint256 gasPriceBid
     ) internal returns (uint256) {
-        // encode L2 gateway bytecode
-        bytes memory creationCode = creationCodeFor(l2StandardGatewayAddressOnL1.code);
+        // get L2 standard gateway bytecode
+        bytes memory creationCode = _creationCodeFor(l2StandardGatewayOnL1.code);
 
+        /// send retryable
         bytes memory data = abi.encodeWithSelector(
             L2AtomicTokenBridgeFactory.deployStandardGateway.selector,
             creationCode,
             l1StandardGateway
         );
-
         uint256 value = maxSubmissionCost + maxGas * gasPriceBid;
-        address l2FactoryAddress = calculateAddress(
-            AddressAliasHelper.applyL1ToL2Alias(address(this)),
-            0
-        );
         uint256 ticketID = IInbox(inbox).createRetryableTicket{ value: value }(
-            l2FactoryAddress,
+            l2Factory,
             0,
             maxSubmissionCost,
             msg.sender,
@@ -210,29 +210,25 @@ contract L1AtomicTokenBridgeCreator is Ownable {
     }
 
     function _deployL2CustomGateway(
-        address l2CustomGatewayAddressOnL1,
         address l1CustomGateway,
+        address l2Factory,
         address inbox,
         uint256 maxSubmissionCost,
         uint256 maxGas,
         uint256 gasPriceBid
     ) internal returns (uint256) {
         // encode L2 custom gateway bytecode
-        bytes memory creationCode = creationCodeFor(l2CustomGatewayAddressOnL1.code);
+        bytes memory creationCode = _creationCodeFor(l2CustomGatewayOnL1.code);
 
+        /// send retryable
         bytes memory data = abi.encodeWithSelector(
             L2AtomicTokenBridgeFactory.deployCustomGateway.selector,
             creationCode,
             l1CustomGateway
         );
-
         uint256 value = maxSubmissionCost + maxGas * gasPriceBid;
-        address l2FactoryAddress = calculateAddress(
-            AddressAliasHelper.applyL1ToL2Alias(address(this)),
-            0
-        );
         uint256 ticketID = IInbox(inbox).createRetryableTicket{ value: value }(
-            l2FactoryAddress,
+            l2Factory,
             0,
             maxSubmissionCost,
             msg.sender,
@@ -244,12 +240,39 @@ contract L1AtomicTokenBridgeCreator is Ownable {
         return ticketID;
     }
 
+    function _getExpectedL2StandardGatewayAddress(
+        address deployer
+    ) internal view returns (address expectedL2StandardGatewayAddress) {
+        address l2StandardGatewayLogicExpected = Create2.computeAddress(
+            keccak256(bytes("OrbitL2StandardGatewayLogic")),
+            keccak256(_creationCodeFor(l2StandardGatewayOnL1.code)),
+            deployer
+        );
+
+        address proxyAdminExpected = Create2.computeAddress(
+            keccak256(bytes("OrbitL2ProxyAdmin")),
+            keccak256(type(ProxyAdmin).creationCode),
+            deployer
+        );
+
+        bytes memory tupCode = abi.encodePacked(
+            type(TransparentUpgradeableProxy).creationCode,
+            abi.encode(l2StandardGatewayLogicExpected, proxyAdminExpected, bytes(""))
+        );
+
+        expectedL2StandardGatewayAddress = Create2.computeAddress(
+            keccak256(bytes("OrbitL2StandardGatewayProxy")),
+            keccak256(tupCode),
+            deployer
+        );
+    }
+
     /**
      * @notice Generate a creation code that results on a contract with `_code` as bytecode
-     * @param _code The returning value of the resulting `creationCode`
+     * @param code The returning value of the resulting `creationCode`
      * @return creationCode (constructor) for new contract
      */
-    function creationCodeFor(bytes memory _code) internal pure returns (bytes memory) {
+    function _creationCodeFor(bytes memory code) internal pure returns (bytes memory) {
         /*
             0x00    0x63         0x63XXXXXX  PUSH4 _code.length  size
             0x01    0x80         0x80        DUP1                size size
@@ -262,10 +285,10 @@ contract L1AtomicTokenBridgeCreator is Ownable {
         */
 
         return
-            abi.encodePacked(hex"63", uint32(_code.length), hex"80_60_0E_60_00_39_60_00_F3", _code);
+            abi.encodePacked(hex"63", uint32(code.length), hex"80_60_0E_60_00_39_60_00_F3", code);
     }
 
-    function calculateAddress(address _origin, uint _nonce) public pure returns (address) {
+    function computeAddress(address _origin, uint _nonce) public pure returns (address) {
         bytes memory data;
         if (_nonce == 0x00)
             data = abi.encodePacked(bytes1(0xd6), bytes1(0x94), _origin, bytes1(0x80));
