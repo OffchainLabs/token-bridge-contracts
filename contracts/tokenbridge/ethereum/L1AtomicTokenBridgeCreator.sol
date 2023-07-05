@@ -4,6 +4,7 @@ pragma solidity ^0.8.4;
 import {L1GatewayRouter} from "./gateway/L1GatewayRouter.sol";
 import {L1ERC20Gateway} from "./gateway/L1ERC20Gateway.sol";
 import {L1CustomGateway} from "./gateway/L1CustomGateway.sol";
+import {L1WethGateway} from "./gateway/L1WethGateway.sol";
 import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {L2AtomicTokenBridgeFactory, L2Salts} from "../arbitrum/L2AtomicTokenBridgeFactory.sol";
@@ -25,15 +26,21 @@ contract L1AtomicTokenBridgeCreator is Ownable {
     L1GatewayRouter public routerTemplate;
     L1ERC20Gateway public standardGatewayTemplate;
     L1CustomGateway public customGatewayTemplate;
+    L1WethGateway public wethGatewayTemplate;
 
     address public l2TokenBridgeFactoryTemplate;
     address public l2RouterTemplate;
     address public l2StandardGatewayTemplate;
     address public l2CustomGatewayTemplate;
+    address public l2WethGatewayTemplate;
+    address public l2WethTemplate;
+
+    address public l1Weth;
 
     address public immutable expectedL2FactoryAddress;
     address public immutable expectedL2ProxyAdminAddress;
     address public immutable expectedL2BeaconProxyFactoryAddress;
+    address public immutable expectedL2WethAddress;
 
     constructor() Ownable() {
         expectedL2FactoryAddress = _computeAddress(AddressAliasHelper.applyL1ToL2Alias(address(this)), 0);
@@ -47,6 +54,21 @@ contract L1AtomicTokenBridgeCreator is Ownable {
             keccak256(type(BeaconProxyFactory).creationCode),
             expectedL2FactoryAddress
         );
+
+        address expectedL2WethLogicAddress = Create2.computeAddress(
+            _getSaltFrom(L2Salts.WETH_LOGIC), keccak256(type(BeaconProxyFactory).creationCode), expectedL2FactoryAddress
+        );
+
+        expectedL2WethAddress = Create2.computeAddress(
+            _getSaltFrom(L2Salts.BEACON_PROXY_FACTORY),
+            keccak256(
+                abi.encodePacked(
+                    type(TransparentUpgradeableProxy).creationCode,
+                    abi.encode(expectedL2WethLogicAddress, expectedL2ProxyAdminAddress, bytes(""))
+                )
+            ),
+            expectedL2FactoryAddress
+        );
     }
 
     /**
@@ -58,19 +80,28 @@ contract L1AtomicTokenBridgeCreator is Ownable {
         L1GatewayRouter _router,
         L1ERC20Gateway _standardGateway,
         L1CustomGateway _customGateway,
+        L1WethGateway _wethGatewayTemplate,
         address _l2TokenBridgeFactoryTemplate,
         address _l2RouterTemplate,
         address _l2StandardGatewayTemplate,
-        address _l2CustomGatewayTemplate
+        address _l2CustomGatewayTemplate,
+        address _l2WethGatewayTemplate,
+        address _l2WethTemplate,
+        address _l1Weth
     ) external onlyOwner {
         routerTemplate = _router;
         standardGatewayTemplate = _standardGateway;
         customGatewayTemplate = _customGateway;
+        wethGatewayTemplate = _wethGatewayTemplate;
 
         l2TokenBridgeFactoryTemplate = _l2TokenBridgeFactoryTemplate;
         l2RouterTemplate = _l2RouterTemplate;
         l2StandardGatewayTemplate = _l2StandardGatewayTemplate;
         l2CustomGatewayTemplate = _l2CustomGatewayTemplate;
+        l2WethGatewayTemplate = _l2WethGatewayTemplate;
+        l2WethTemplate = _l2WethTemplate;
+
+        l1Weth = _l1Weth;
 
         emit OrbitTokenBridgeTemplatesUpdated();
     }
@@ -90,14 +121,16 @@ contract L1AtomicTokenBridgeCreator is Ownable {
         uint256 gasPriceBid
     ) external payable {
         address owner = msg.sender;
-        (address router, address standardGateway, address customGateway) = _deployL1Contracts(inbox, owner);
+        (address router, address standardGateway, address customGateway, address wethGateway) =
+            _deployL1Contracts(inbox, owner);
 
         /// deploy factory and then L2 contracts through L2 factory, using 2 retryables calls
         _deployL2Factory(inbox, maxSubmissionCostForFactory, maxGasForFactory, gasPriceBid);
         _deployL2Contracts(
-            address(router),
-            address(standardGateway),
-            address(customGateway),
+            router,
+            standardGateway,
+            customGateway,
+            wethGateway,
             inbox,
             maxSubmissionCostForContracts,
             maxGasForContracts,
@@ -107,7 +140,7 @@ contract L1AtomicTokenBridgeCreator is Ownable {
 
     function _deployL1Contracts(address inbox, address owner)
         internal
-        returns (address router, address standardGateway, address customGateway)
+        returns (address router, address standardGateway, address customGateway, address wethGateway)
     {
         address proxyAdmin = address(new ProxyAdmin());
 
@@ -115,8 +148,9 @@ contract L1AtomicTokenBridgeCreator is Ownable {
         router = address(new TransparentUpgradeableProxy(address(routerTemplate), proxyAdmin, bytes("")));
 
         // deploy and init gateways
-        standardGateway = _deployL1StandardGateway(proxyAdmin, address(router), inbox);
-        customGateway = _deployL1CustomGateway(proxyAdmin, address(router), inbox, owner);
+        standardGateway = _deployL1StandardGateway(proxyAdmin, router, inbox);
+        customGateway = _deployL1CustomGateway(proxyAdmin, router, inbox, owner);
+        wethGateway = _deployL1WethGateway(proxyAdmin, router, inbox);
 
         // init router
         L1GatewayRouter(router).initialize(
@@ -166,9 +200,28 @@ contract L1AtomicTokenBridgeCreator is Ownable {
             )
         );
 
-        customGateway.initialize(computeExpectedL2CustomGatewayAddress(), address(router), inbox, owner);
+        customGateway.initialize(computeExpectedL2CustomGatewayAddress(), router, inbox, owner);
 
         return address(customGateway);
+    }
+
+    function _deployL1WethGateway(address proxyAdmin, address router, address inbox) internal returns (address) {
+        L1WethGateway wethGateway = L1WethGateway(
+            payable(
+                address(
+                    new TransparentUpgradeableProxy(
+                        address(wethGatewayTemplate),
+                        proxyAdmin,
+                        bytes("")
+                    )
+                )
+            )
+        );
+
+        // wethGateway.initialize(computeExpectedL2WethGatewayAddress(), router, l1Weth, l2Weth);
+        wethGateway.initialize(computeExpectedL2WethGatewayAddress(), router, inbox, l1Weth, address(2));
+
+        return address(wethGateway);
     }
 
     function _deployL2Factory(address inbox, uint256 maxSubmissionCost, uint256 maxGas, uint256 gasPriceBid) internal {
@@ -185,6 +238,7 @@ contract L1AtomicTokenBridgeCreator is Ownable {
         address l1Router,
         address l1StandardGateway,
         address l1CustomGateway,
+        address l1WethGateway,
         address inbox,
         uint256 maxSubmissionCost,
         uint256 maxGas,
@@ -196,9 +250,13 @@ contract L1AtomicTokenBridgeCreator is Ownable {
             _creationCodeFor(l2RouterTemplate.code),
             _creationCodeFor(l2StandardGatewayTemplate.code),
             _creationCodeFor(l2CustomGatewayTemplate.code),
+            _creationCodeFor(l2WethGatewayTemplate.code),
+            _creationCodeFor(l2WethTemplate.code),
             l1Router,
             l1StandardGateway,
             l1CustomGateway,
+            l1WethGateway,
+            l1Weth,
             computeExpectedL2StandardGatewayAddress(),
             proxyAdminOwner
         );
@@ -258,6 +316,25 @@ contract L1AtomicTokenBridgeCreator is Ownable {
                 abi.encodePacked(
                     type(TransparentUpgradeableProxy).creationCode,
                     abi.encode(expectedL2CustomGatewayLogic, expectedL2ProxyAdminAddress, bytes(""))
+                )
+            ),
+            expectedL2FactoryAddress
+        );
+    }
+
+    function computeExpectedL2WethGatewayAddress() public view returns (address) {
+        address expectedL2WethGatewayLogic = Create2.computeAddress(
+            _getSaltFrom(L2Salts.WETH_GATEWAY_LOGIC),
+            keccak256(_creationCodeFor(l2WethGatewayTemplate.code)),
+            expectedL2FactoryAddress
+        );
+
+        return Create2.computeAddress(
+            _getSaltFrom(L2Salts.WETH_GATEWAY),
+            keccak256(
+                abi.encodePacked(
+                    type(TransparentUpgradeableProxy).creationCode,
+                    abi.encode(expectedL2WethGatewayLogic, expectedL2ProxyAdminAddress, bytes(""))
                 )
             ),
             expectedL2FactoryAddress

@@ -9,6 +9,9 @@ import {
   L2ERC20Gateway__factory,
   L2CustomGateway__factory,
   L1AtomicTokenBridgeCreator,
+  L2WethGateway__factory,
+  AeWETH__factory,
+  L1WethGateway__factory,
 } from '../../build/types'
 import { JsonRpcProvider } from '@ethersproject/providers'
 import {
@@ -157,6 +160,10 @@ export const createTokenBridge = async (
       L2GatewayRouter__factory.bytecode,
       L2ERC20Gateway__factory.bytecode,
       L2CustomGateway__factory.bytecode,
+      L2WethGateway__factory.bytecode,
+      AeWETH__factory.bytecode,
+      ethers.Wallet.createRandom().address,
+      ethers.Wallet.createRandom().address,
       ethers.Wallet.createRandom().address,
       ethers.Wallet.createRandom().address,
       ethers.Wallet.createRandom().address,
@@ -263,7 +270,7 @@ const deployL1TokenBridgeCreator = async (l1Signer: Signer) => {
   ).deploy()
   await l1TokenBridgeCreator.deployed()
 
-  /// deploy logic contracts
+  /// deploy L1 logic contracts
   const routerTemplate = await new L1GatewayRouter__factory(l1Signer).deploy()
   await routerTemplate.deployed()
 
@@ -277,39 +284,55 @@ const deployL1TokenBridgeCreator = async (l1Signer: Signer) => {
   ).deploy()
   await customGatewayTemplate.deployed()
 
+  const wethGatewayTemplate = await new L1WethGateway__factory(
+    l1Signer
+  ).deploy()
+  await wethGatewayTemplate.deployed()
+
   /// deploy L2 contracts as placeholders on L1
 
   const l2TokenBridgeFactoryOnL1 =
     await new L2AtomicTokenBridgeFactory__factory(l1Signer).deploy()
   await l2TokenBridgeFactoryOnL1.deployed()
 
-  /// deploy router
   const l2GatewayRouterOnL1 = await new L2GatewayRouter__factory(
     l1Signer
   ).deploy()
   await l2GatewayRouterOnL1.deployed()
 
-  /// deploy standard gateway
   const l2StandardGatewayAddressOnL1 = await new L2ERC20Gateway__factory(
     l1Signer
   ).deploy()
   await l2StandardGatewayAddressOnL1.deployed()
 
-  /// deploy custom gateway
   const l2CustomGatewayAddressOnL1 = await new L2CustomGateway__factory(
     l1Signer
   ).deploy()
   await l2CustomGatewayAddressOnL1.deployed()
+
+  const l2WethGatewayAddressOnL1 = await new L2WethGateway__factory(
+    l1Signer
+  ).deploy()
+  await l2WethGatewayAddressOnL1.deployed()
+
+  const l2WethAddressOnL1 = await new AeWETH__factory(l1Signer).deploy()
+  await l2WethAddressOnL1.deployed()
+
+  const weth = ethers.Wallet.createRandom().address
 
   await (
     await l1TokenBridgeCreator.setTemplates(
       routerTemplate.address,
       standardGatewayTemplate.address,
       customGatewayTemplate.address,
+      wethGatewayTemplate.address,
       l2TokenBridgeFactoryOnL1.address,
       l2GatewayRouterOnL1.address,
       l2StandardGatewayAddressOnL1.address,
-      l2CustomGatewayAddressOnL1.address
+      l2CustomGatewayAddressOnL1.address,
+      l2WethGatewayAddressOnL1.address,
+      l2WethAddressOnL1.address,
+      weth
     )
   ).wait()
 
