@@ -98,16 +98,16 @@ export const setupTokenBridgeInLocalEnv = async (
       l1GatewayRouter: deployedContracts.l1Router,
       l1MultiCall: '',
       l1ProxyAdmin: deployedContracts.l1ProxyAdmin,
-      l1Weth: '',
-      l1WethGateway: '',
+      l1Weth: deployedContracts.l1Weth,
+      l1WethGateway: deployedContracts.l1WethGateway,
 
       l2CustomGateway: deployedContracts.l2CustomGateway,
       l2ERC20Gateway: deployedContracts.l2StandardGateway,
       l2GatewayRouter: deployedContracts.l2Router,
       l2Multicall: '',
       l2ProxyAdmin: deployedContracts.l2ProxyAdmin,
-      l2Weth: '',
-      l2WethGateway: '',
+      l2Weth: deployedContracts.l2Weth,
+      l2WethGateway: deployedContracts.l2WethGateway,
     },
   }
 
@@ -232,6 +232,7 @@ export const createTokenBridge = async (
     router: l1Router,
     standardGateway: l1StandardGateway,
     customGateway: l1CustomGateway,
+    wethGateway: l1WethGateway,
     proxyAdmin: l1ProxyAdmin,
   } = getParsedLogs(
     receipt.logs,
@@ -239,7 +240,7 @@ export const createTokenBridge = async (
     'OrbitTokenBridgeCreated'
   )[0].args
 
-  /// pick up L2 contracts from L1 factory contract
+  /// pick up L2 contracts
   const l2Router = await l1TokenBridgeCreator.computeExpectedL2RouterAddress()
   const l2StandardGateway = L2ERC20Gateway__factory.connect(
     await l1TokenBridgeCreator.computeExpectedL2StandardGatewayAddress(),
@@ -248,16 +249,26 @@ export const createTokenBridge = async (
   const beaconProxyFactory = await l2StandardGateway.beaconProxyFactory()
   const l2CustomGateway =
     await l1TokenBridgeCreator.computeExpectedL2CustomGatewayAddress()
+  const l2WethGateway = L2WethGateway__factory.connect(
+    await l1TokenBridgeCreator.computeExpectedL2WethGatewayAddress(),
+    l2Signer
+  )
+  const l1Weth = await l2WethGateway.l1Weth()
+  const l2Weth = await l2WethGateway.l2Weth()
   const l2ProxyAdmin = await l1TokenBridgeCreator.expectedL2ProxyAdminAddress()
 
   return {
     l1Router,
     l1StandardGateway,
     l1CustomGateway,
+    l1WethGateway,
     l1ProxyAdmin,
     l2Router,
     l2StandardGateway: l2StandardGateway.address,
     l2CustomGateway,
+    l2WethGateway: l2WethGateway.address,
+    l1Weth,
+    l2Weth,
     beaconProxyFactory,
     l2ProxyAdmin,
   }

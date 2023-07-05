@@ -80,12 +80,12 @@ describe('tokenBridge', () => {
       )
     )
 
-    // await checkL1WethGatewayInitialization(
-    //   L1WethGateway__factory.connect(
-    //     _l2Network.tokenBridge.l1WethGateway,
-    //     l1Provider
-    //   )
-    // )
+    await checkL1WethGatewayInitialization(
+      L1WethGateway__factory.connect(
+        _l2Network.tokenBridge.l1WethGateway,
+        l1Provider
+      )
+    )
 
     //// L2 checks
 
@@ -129,12 +129,12 @@ describe('tokenBridge', () => {
       )
     )
 
-    // await checkL2WethGatewayInitialization(
-    //   L2WethGateway__factory.connect(
-    //     _l2Network.tokenBridge.l2WethGateway,
-    //     l2Provider
-    //   )
-    // )
+    await checkL2WethGatewayInitialization(
+      L2WethGateway__factory.connect(
+        _l2Network.tokenBridge.l2WethGateway,
+        l2Provider
+      )
+    )
   })
 })
 
