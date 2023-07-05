@@ -1,4 +1,4 @@
-import { Signer, Wallet, ethers } from 'ethers'
+import { BigNumber, Signer, Wallet, ethers } from 'ethers'
 import {
   L1CustomGateway__factory,
   L1ERC20Gateway__factory,
@@ -13,6 +13,7 @@ import {
 import { JsonRpcProvider } from '@ethersproject/providers'
 import {
   L1Network,
+  L1ToL2MessageGasEstimator,
   L1ToL2MessageStatus,
   L1TransactionReceipt,
   L2Network,
@@ -23,6 +24,7 @@ import { RollupAdminLogic__factory } from '@arbitrum/sdk/dist/lib/abi/factories/
 import * as fs from 'fs'
 import { exit } from 'process'
 import { execSync } from 'child_process'
+const { getBaseFee } = require('@arbitrum/sdk/dist/lib/utils/lib')
 
 export const setupTokenBridge = async (
   l1Deployer: Signer,
@@ -62,6 +64,7 @@ export const setupTokenBridge = async (
 
   // prerequisite - deploy L1 creator and set templates
   const l1TokenBridgeCreator = await deployL1TokenBridgeCreator(l1Deployer)
+  console.log('L1TokenBridgeCreator', l1TokenBridgeCreator.address)
 
   // create token bridge
   const deployedContracts = await createTokenBridge(
@@ -105,7 +108,7 @@ export const setupTokenBridge = async (
 }
 
 /**
- * Use already deployed L1TokenBridgeCreator to create and token bridge contracts.
+ * Use already deployed L1TokenBridgeCreator to create and init token bridge contracts.
  *
  * @param l1Signer
  * @param l2Signer
@@ -118,24 +121,67 @@ export const createTokenBridge = async (
   l1TokenBridgeCreator: L1AtomicTokenBridgeCreator,
   inboxAddress: string
 ) => {
-  // create token bridge
-  const maxSubmissionCost = ethers.utils.parseEther('0.1')
-  const maxGas = 10000000
-  const gasPriceBid = ethers.utils.parseUnits('0.5', 'gwei')
-  const value = gasPriceBid.mul(maxGas).add(maxSubmissionCost).mul(5)
+  const deployerAddress = await l1Signer.getAddress()
+  const gasPrice = await l2Signer.provider!.getGasPrice()
+
+  //// run retryable estimate for deploying L2 factory
+  const l1ToL2MsgGasEstimate = new L1ToL2MessageGasEstimator(l2Signer.provider!)
+  const deployFactoryGasParams = await l1ToL2MsgGasEstimate.estimateAll(
+    {
+      from: l1TokenBridgeCreator.address,
+      to: ethers.constants.AddressZero,
+      l2CallValue: BigNumber.from(0),
+      excessFeeRefundAddress: deployerAddress,
+      callValueRefundAddress: deployerAddress,
+      data: L2AtomicTokenBridgeFactory__factory.bytecode,
+    },
+    await getBaseFee(l1Signer.provider!),
+    l1Signer.provider!
+  )
+
+  //// run retryable estimate for deploying L2 contracts
+  //// we do this estimate using L2 factory template on L1 because on L2 factory does not yet exist
+  const l2FactoryTemplate = L2AtomicTokenBridgeFactory__factory.connect(
+    await l1TokenBridgeCreator.l2TokenBridgeFactoryTemplate(),
+    l1Signer
+  )
+  const gasEstimateToDeployContracts =
+    await l2FactoryTemplate.estimateGas.deployL2Contracts(
+      L2GatewayRouter__factory.bytecode,
+      L2ERC20Gateway__factory.bytecode,
+      L2CustomGateway__factory.bytecode,
+      ethers.Wallet.createRandom().address,
+      ethers.Wallet.createRandom().address,
+      ethers.Wallet.createRandom().address,
+      ethers.Wallet.createRandom().address
+    )
+  const maxGasForContracts = gasEstimateToDeployContracts.mul(2)
+  const maxSubmissionCostForContracts =
+    deployFactoryGasParams.maxSubmissionCost.mul(5)
+
+  let retryableValue = deployFactoryGasParams.maxSubmissionCost.add(
+    deployFactoryGasParams.gasLimit.mul(gasPrice)
+  )
+  retryableValue = retryableValue.add(
+    maxSubmissionCostForContracts.add(maxGasForContracts.mul(gasPrice))
+  )
+
+  /// do it - create token bridge
   const owner = await l1Signer.getAddress()
   const receipt = await (
     await l1TokenBridgeCreator.createTokenBridge(
       inboxAddress,
       owner,
-      maxSubmissionCost,
-      maxGas,
-      gasPriceBid,
-      { value: value }
+      deployFactoryGasParams.maxSubmissionCost,
+      deployFactoryGasParams.gasLimit,
+      maxSubmissionCostForContracts,
+      maxGasForContracts,
+      gasPrice,
+      { value: retryableValue }
     )
   ).wait()
 
-  /// wait for retryable execution
+  /// wait for execution of both tickets
   const l1TxReceipt = new L1TransactionReceipt(receipt)
   const messages = await l1TxReceipt.getL1ToL2Messages(l2Signer)
   const messageResults = await Promise.all(
@@ -223,7 +269,6 @@ const deployL1TokenBridgeCreator = async (l1Signer: Signer) => {
     l1Signer
   ).deploy()
   await l1TokenBridgeCreator.deployed()
-  console.log('L1TokenBridgeCreator', l1TokenBridgeCreator.address)
 
   /// deploy logic contracts
   const routerTemplate = await new L1GatewayRouter__factory(l1Signer).deploy()

@@ -78,29 +78,47 @@ contract L1AtomicTokenBridgeCreator is Ownable {
     function createTokenBridge(
         address inbox,
         address owner,
-        uint256 maxSubmissionCost,
-        uint256 maxGas,
+        uint256 maxSubmissionCostForFactory,
+        uint256 maxGasForFactory,
+        uint256 maxSubmissionCostForContracts,
+        uint256 maxGasForContracts,
         uint256 gasPriceBid
     ) external payable {
-        address proxyAdmin = address(new ProxyAdmin());
-
-        L1GatewayRouter router = L1GatewayRouter(
-            address(new TransparentUpgradeableProxy(address(routerTemplate), proxyAdmin, bytes("")))
-        );
-        L1ERC20Gateway standardGateway = _deployL1StandardGateway(
-            proxyAdmin,
-            address(router),
-            inbox
-        );
-        L1CustomGateway customGateway = _deployL1CustomGateway(
-            proxyAdmin,
-            address(router),
+        (address router, address standardGateway, address customGateway) = _deployL1Contracts(
             inbox,
             owner
         );
 
+        /// deploy factory and then L2 contracts through L2 factory, using 2 retryables calls
+        _deployL2Factory(inbox, maxSubmissionCostForFactory, maxGasForFactory, gasPriceBid);
+        _deployL2Contracts(
+            address(router),
+            address(standardGateway),
+            address(customGateway),
+            inbox,
+            maxSubmissionCostForContracts,
+            maxGasForContracts,
+            gasPriceBid
+        );
+    }
+
+    function _deployL1Contracts(
+        address inbox,
+        address owner
+    ) internal returns (address router, address standardGateway, address customGateway) {
+        address proxyAdmin = address(new ProxyAdmin());
+
+        // deploy router
+        router = address(
+            new TransparentUpgradeableProxy(address(routerTemplate), proxyAdmin, bytes(""))
+        );
+
+        // deploy and init gateways
+        standardGateway = _deployL1StandardGateway(proxyAdmin, address(router), inbox);
+        customGateway = _deployL1CustomGateway(proxyAdmin, address(router), inbox, owner);
+
         // init router
-        router.initialize(
+        L1GatewayRouter(router).initialize(
             owner,
             address(standardGateway),
             address(0),
@@ -108,24 +126,65 @@ contract L1AtomicTokenBridgeCreator is Ownable {
             inbox
         );
 
+        // emit it
         emit OrbitTokenBridgeCreated(
             address(router),
             address(standardGateway),
             address(customGateway),
             proxyAdmin
         );
+    }
 
-        /// deploy factory and then L2 contracts through L2 factory, using 2 retryables calls
-        _deployL2Factory(inbox, maxSubmissionCost, maxGas, gasPriceBid);
-        _deployL2Contracts(
-            address(router),
-            address(standardGateway),
-            address(customGateway),
-            inbox,
-            maxSubmissionCost,
-            maxGas,
-            gasPriceBid
+    function _deployL1StandardGateway(
+        address proxyAdmin,
+        address router,
+        address inbox
+    ) internal returns (address) {
+        L1ERC20Gateway standardGateway = L1ERC20Gateway(
+            address(
+                new TransparentUpgradeableProxy(
+                    address(standardGatewayTemplate),
+                    proxyAdmin,
+                    bytes("")
+                )
+            )
         );
+
+        standardGateway.initialize(
+            _computeExpectedL2StandardGatewayAddress(),
+            router,
+            inbox,
+            keccak256(type(ClonableBeaconProxy).creationCode),
+            expectedL2BeaconProxyFactoryAddress
+        );
+
+        return address(standardGateway);
+    }
+
+    function _deployL1CustomGateway(
+        address proxyAdmin,
+        address router,
+        address inbox,
+        address owner
+    ) internal returns (address) {
+        L1CustomGateway customGateway = L1CustomGateway(
+            address(
+                new TransparentUpgradeableProxy(
+                    address(customGatewayTemplate),
+                    proxyAdmin,
+                    bytes("")
+                )
+            )
+        );
+
+        customGateway.initialize(
+            _computeExpectedL2CustomGatewayAddress(),
+            address(router),
+            inbox,
+            owner
+        );
+
+        return address(customGateway);
     }
 
     function _deployL2Factory(
@@ -133,12 +192,12 @@ contract L1AtomicTokenBridgeCreator is Ownable {
         uint256 maxSubmissionCost,
         uint256 maxGas,
         uint256 gasPriceBid
-    ) internal returns (uint256) {
+    ) internal {
         // encode L2 factory bytecode
         bytes memory deploymentData = _creationCodeFor(l2TokenBridgeFactoryTemplate.code);
 
         uint256 value = maxSubmissionCost + maxGas * gasPriceBid;
-        uint256 ticketID = IInbox(inbox).createRetryableTicket{ value: value }(
+        IInbox(inbox).createRetryableTicket{ value: value }(
             address(0),
             0,
             maxSubmissionCost,
@@ -148,8 +207,6 @@ contract L1AtomicTokenBridgeCreator is Ownable {
             gasPriceBid,
             deploymentData
         );
-
-        return ticketID;
     }
 
     function _deployL2Contracts(
@@ -182,58 +239,6 @@ contract L1AtomicTokenBridgeCreator is Ownable {
             gasPriceBid,
             data
         );
-    }
-
-    function _deployL1StandardGateway(
-        address proxyAdmin,
-        address router,
-        address inbox
-    ) internal returns (L1ERC20Gateway) {
-        L1ERC20Gateway standardGateway = L1ERC20Gateway(
-            address(
-                new TransparentUpgradeableProxy(
-                    address(standardGatewayTemplate),
-                    proxyAdmin,
-                    bytes("")
-                )
-            )
-        );
-
-        standardGateway.initialize(
-            _computeExpectedL2StandardGatewayAddress(),
-            router,
-            inbox,
-            keccak256(type(ClonableBeaconProxy).creationCode),
-            expectedL2BeaconProxyFactoryAddress
-        );
-
-        return standardGateway;
-    }
-
-    function _deployL1CustomGateway(
-        address proxyAdmin,
-        address router,
-        address inbox,
-        address owner
-    ) internal returns (L1CustomGateway) {
-        L1CustomGateway customGateway = L1CustomGateway(
-            address(
-                new TransparentUpgradeableProxy(
-                    address(customGatewayTemplate),
-                    proxyAdmin,
-                    bytes("")
-                )
-            )
-        );
-
-        customGateway.initialize(
-            _computeExpectedL2CustomGatewayAddress(),
-            address(router),
-            inbox,
-            owner
-        );
-
-        return customGateway;
     }
 
     /**

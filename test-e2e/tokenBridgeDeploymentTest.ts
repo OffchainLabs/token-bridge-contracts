@@ -161,10 +161,12 @@ async function checkL1StandardGatewayInitialization(
   )
 
   expect((await l1ERC20Gateway.l2BeaconProxyFactory()).toLowerCase()).to.be.eq(
-    await L2ERC20Gateway__factory.connect(
-      await l1ERC20Gateway.counterpartGateway(),
-      _l2Provider
-    ).beaconProxyFactory()
+    (
+      await L2ERC20Gateway__factory.connect(
+        await l1ERC20Gateway.counterpartGateway(),
+        _l2Provider
+      ).beaconProxyFactory()
+    ).toLowerCase()
   )
 
   expect((await l1ERC20Gateway.cloneableProxyHash()).toLowerCase()).to.be.eq(
@@ -254,10 +256,12 @@ async function checkL2StandardGatewayInitialization(
   )
 
   expect((await l2ERC20Gateway.beaconProxyFactory()).toLowerCase()).to.be.eq(
-    await L1ERC20Gateway__factory.connect(
-      await l2ERC20Gateway.counterpartGateway(),
-      _l1Provider
-    ).l2BeaconProxyFactory()
+    (
+      await L1ERC20Gateway__factory.connect(
+        await l2ERC20Gateway.counterpartGateway(),
+        _l1Provider
+      ).l2BeaconProxyFactory()
+    ).toLowerCase()
   )
 
   expect((await l2ERC20Gateway.cloneableProxyHash()).toLowerCase()).to.be.eq(
