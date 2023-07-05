@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.4;
 
 import { L1GatewayRouter } from "./gateway/L1GatewayRouter.sol";
 import { L1ERC20Gateway } from "./gateway/L1ERC20Gateway.sol";

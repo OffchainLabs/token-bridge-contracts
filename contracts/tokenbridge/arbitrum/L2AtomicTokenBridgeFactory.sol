@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.4;
 
 import { L2GatewayRouter } from "./gateway/L2GatewayRouter.sol";
 import { L2ERC20Gateway } from "./gateway/L2ERC20Gateway.sol";
@@ -10,6 +10,8 @@ import { UpgradeableBeacon } from "@openzeppelin/contracts/proxy/beacon/Upgradea
 import { ProxyAdmin } from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import { TransparentUpgradeableProxy } from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
+
+error L2AtomicTokenBridgeFactory_AlreadyInitialized();
 
 contract L2AtomicTokenBridgeFactory {
     address public proxyAdmin;
@@ -26,6 +28,7 @@ contract L2AtomicTokenBridgeFactory {
         address l1CustomGateway,
         address l2StandardGatewayExpectedAddress
     ) external {
+        if (address(router) != address(0)) revert L2AtomicTokenBridgeFactory_AlreadyInitialized();
         _deployRouter(routerCreationCode, l1Router, l2StandardGatewayExpectedAddress);
         _deployStandardGateway(standardGatewayCreationCode, l1StandardGateway);
         _deployCustomGateway(customGatewayCreationCode, l1CustomGateway);
