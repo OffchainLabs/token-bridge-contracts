@@ -11,14 +11,7 @@ import { ProxyAdmin } from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin
 import { TransparentUpgradeableProxy } from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
 
-error L2AtomicTokenBridgeFactory_AlreadyInitialized();
-
 contract L2AtomicTokenBridgeFactory {
-    address public proxyAdmin;
-    L2GatewayRouter public router;
-    L2ERC20Gateway public standardGateway;
-    L2CustomGateway public customGateway;
-
     function deployL2Contracts(
         bytes memory routerCreationCode,
         bytes memory standardGatewayCreationCode,
@@ -26,27 +19,40 @@ contract L2AtomicTokenBridgeFactory {
         address l1Router,
         address l1StandardGateway,
         address l1CustomGateway,
-        address l2StandardGatewayExpectedAddress
+        address l2StandardGatewayExpectedAddress,
+        address proxyAdminOwner
     ) external {
-        if (address(router) != address(0)) revert L2AtomicTokenBridgeFactory_AlreadyInitialized();
-        _deployRouter(routerCreationCode, l1Router, l2StandardGatewayExpectedAddress);
-        _deployStandardGateway(standardGatewayCreationCode, l1StandardGateway);
-        _deployCustomGateway(customGatewayCreationCode, l1CustomGateway);
+        // create proxyAdmin which will be used for all contracts
+        address proxyAdmin = address(new ProxyAdmin{ salt: _getSaltFrom(L2Salts.PROXY_ADMIN) }());
+
+        address router = _deployRouter(
+            routerCreationCode,
+            l1Router,
+            l2StandardGatewayExpectedAddress,
+            proxyAdmin
+        );
+        _deployStandardGateway(standardGatewayCreationCode, l1StandardGateway, router, proxyAdmin);
+        _deployCustomGateway(customGatewayCreationCode, l1CustomGateway, router, proxyAdmin);
+
+        // transfer ownership to L1Creator's msg.sender
+        ProxyAdmin(proxyAdmin).transferOwnership(proxyAdminOwner);
     }
 
     function _deployRouter(
         bytes memory creationCode,
         address l1Router,
-        address l2StandardGatewayExpectedAddress
-    ) internal {
-        // first create proxyAdmin which will be used for all contracts
-        proxyAdmin = address(new ProxyAdmin{ salt: L2Salts.PROXY_ADMIN }());
-
+        address l2StandardGatewayExpectedAddress,
+        address proxyAdmin
+    ) internal returns (address) {
         // create logic and proxy
-        address routerLogicAddress = Create2.deploy(0, L2Salts.ROUTER_LOGIC, creationCode);
-        router = L2GatewayRouter(
+        address routerLogicAddress = Create2.deploy(
+            0,
+            _getSaltFrom(L2Salts.ROUTER_LOGIC),
+            creationCode
+        );
+        L2GatewayRouter router = L2GatewayRouter(
             address(
-                new TransparentUpgradeableProxy{ salt: L2Salts.ROUTER }(
+                new TransparentUpgradeableProxy{ salt: _getSaltFrom(L2Salts.ROUTER) }(
                     routerLogicAddress,
                     proxyAdmin,
                     bytes("")
@@ -56,18 +62,25 @@ contract L2AtomicTokenBridgeFactory {
 
         // init
         router.initialize(l1Router, l2StandardGatewayExpectedAddress);
+
+        return address(router);
     }
 
-    function _deployStandardGateway(bytes memory creationCode, address l1StandardGateway) internal {
+    function _deployStandardGateway(
+        bytes memory creationCode,
+        address l1StandardGateway,
+        address router,
+        address proxyAdmin
+    ) internal {
         // create logic and proxy
         address standardGatewayLogicAddress = Create2.deploy(
             0,
-            L2Salts.STANDARD_GATEWAY_LOGIC,
+            _getSaltFrom(L2Salts.STANDARD_GATEWAY_LOGIC),
             creationCode
         );
-        standardGateway = L2ERC20Gateway(
+        L2ERC20Gateway standardGateway = L2ERC20Gateway(
             address(
-                new TransparentUpgradeableProxy{ salt: L2Salts.STANDARD_GATEWAY }(
+                new TransparentUpgradeableProxy{ salt: _getSaltFrom(L2Salts.STANDARD_GATEWAY) }(
                     standardGatewayLogicAddress,
                     proxyAdmin,
                     bytes("")
@@ -76,30 +89,37 @@ contract L2AtomicTokenBridgeFactory {
         );
 
         // create beacon
-        StandardArbERC20 standardArbERC20 = new StandardArbERC20{ salt: L2Salts.STANDARD_ERC20 }();
-        UpgradeableBeacon beacon = new UpgradeableBeacon{ salt: L2Salts.UPGRADEABLE_BEACON }(
-            address(standardArbERC20)
-        );
+        StandardArbERC20 standardArbERC20 = new StandardArbERC20{
+            salt: _getSaltFrom(L2Salts.STANDARD_ERC20)
+        }();
+        UpgradeableBeacon beacon = new UpgradeableBeacon{
+            salt: _getSaltFrom(L2Salts.UPGRADEABLE_BEACON)
+        }(address(standardArbERC20));
         BeaconProxyFactory beaconProxyFactory = new BeaconProxyFactory{
-            salt: L2Salts.BEACON_PROXY_FACTORY
+            salt: _getSaltFrom(L2Salts.BEACON_PROXY_FACTORY)
         }();
 
         // init contracts
         beaconProxyFactory.initialize(address(beacon));
-        standardGateway.initialize(l1StandardGateway, address(router), address(beaconProxyFactory));
+        standardGateway.initialize(l1StandardGateway, router, address(beaconProxyFactory));
     }
 
-    function _deployCustomGateway(bytes memory creationCode, address l1CustomGateway) internal {
+    function _deployCustomGateway(
+        bytes memory creationCode,
+        address l1CustomGateway,
+        address router,
+        address proxyAdmin
+    ) internal {
         address customGatewayLogicAddress = Create2.deploy(
             0,
-            L2Salts.CUSTOM_GATEWAY_LOGIC,
+            _getSaltFrom(L2Salts.CUSTOM_GATEWAY_LOGIC),
             creationCode
         );
 
         // create logic and proxy
-        customGateway = L2CustomGateway(
+        L2CustomGateway customGateway = L2CustomGateway(
             address(
-                new TransparentUpgradeableProxy{ salt: L2Salts.CUSTOM_GATEWAY }(
+                new TransparentUpgradeableProxy{ salt: _getSaltFrom(L2Salts.CUSTOM_GATEWAY) }(
                     customGatewayLogicAddress,
                     proxyAdmin,
                     bytes("")
@@ -108,7 +128,11 @@ contract L2AtomicTokenBridgeFactory {
         );
 
         // init
-        customGateway.initialize(l1CustomGateway, address(router));
+        customGateway.initialize(l1CustomGateway, router);
+    }
+
+    function _getSaltFrom(bytes32 prefix) internal view returns (bytes32) {
+        return keccak256(abi.encodePacked(prefix, msg.sender));
     }
 }
 

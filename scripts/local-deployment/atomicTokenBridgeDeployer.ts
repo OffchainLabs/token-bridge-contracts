@@ -24,9 +24,22 @@ import { RollupAdminLogic__factory } from '@arbitrum/sdk/dist/lib/abi/factories/
 import * as fs from 'fs'
 import { exit } from 'process'
 import { execSync } from 'child_process'
-const { getBaseFee } = require('@arbitrum/sdk/dist/lib/utils/lib')
+import { getBaseFee } from '@arbitrum/sdk/dist/lib/utils/lib'
 
-export const setupTokenBridge = async (
+/**
+ * Steps:
+ * - read network info from local container and register networks
+ * - deploy L1 bridge creator and set templates
+ * - do single TX deployment of token bridge
+ * - populate network objects with new addresses and return it
+ *
+ * @param l1Deployer
+ * @param l2Deployer
+ * @param l1Url
+ * @param l2Url
+ * @returns
+ */
+export const setupTokenBridgeInLocalEnv = async (
   l1Deployer: Signer,
   l2Deployer: Signer,
   l1Url: string,
@@ -95,12 +108,6 @@ export const setupTokenBridge = async (
     },
   }
 
-  // can't re-add
-  // addCustomNetwork({
-  //   customL1Network: l1Network,
-  //   customL2Network: l2Network,
-  // })
-
   return {
     l1Network,
     l2Network,
@@ -153,6 +160,7 @@ export const createTokenBridge = async (
       ethers.Wallet.createRandom().address,
       ethers.Wallet.createRandom().address,
       ethers.Wallet.createRandom().address,
+      ethers.Wallet.createRandom().address,
       ethers.Wallet.createRandom().address
     )
   const maxGasForContracts = gasEstimateToDeployContracts.mul(2)
@@ -167,11 +175,9 @@ export const createTokenBridge = async (
   )
 
   /// do it - create token bridge
-  const owner = await l1Signer.getAddress()
   const receipt = await (
     await l1TokenBridgeCreator.createTokenBridge(
       inboxAddress,
-      owner,
       deployFactoryGasParams.maxSubmissionCost,
       deployFactoryGasParams.gasLimit,
       maxSubmissionCostForContracts,
@@ -227,14 +233,15 @@ export const createTokenBridge = async (
   )[0].args
 
   /// pick up L2 contracts from L1 factory contract
-  const l2Router = await l2AtomicTokenBridgeFactory.router()
+  const l2Router = await l1TokenBridgeCreator.computeExpectedL2RouterAddress()
   const l2StandardGateway = L2ERC20Gateway__factory.connect(
-    await l2AtomicTokenBridgeFactory.standardGateway(),
+    await l1TokenBridgeCreator.computeExpectedL2StandardGatewayAddress(),
     l2Signer
   )
   const beaconProxyFactory = await l2StandardGateway.beaconProxyFactory()
-  const l2CustomGateway = await l2AtomicTokenBridgeFactory.customGateway()
-  const l2ProxyAdmin = await l2AtomicTokenBridgeFactory.proxyAdmin()
+  const l2CustomGateway =
+    await l1TokenBridgeCreator.computeExpectedL2CustomGatewayAddress()
+  const l2ProxyAdmin = await l1TokenBridgeCreator.expectedL2ProxyAdminAddress()
 
   return {
     l1Router,
@@ -247,20 +254,6 @@ export const createTokenBridge = async (
     beaconProxyFactory,
     l2ProxyAdmin,
   }
-}
-
-const getParsedLogs = (
-  logs: ethers.providers.Log[],
-  iface: ethers.utils.Interface,
-  eventName: string
-) => {
-  const eventFragment = iface.getEvent(eventName)
-  const parsedLogs = logs
-    .filter(
-      (curr: any) => curr.topics[0] === iface.getEventTopic(eventFragment)
-    )
-    .map((curr: any) => iface.parseLog(curr))
-  return parsedLogs
 }
 
 const deployL1TokenBridgeCreator = async (l1Signer: Signer) => {
@@ -407,6 +400,20 @@ export const getSigner = (provider: JsonRpcProvider, key?: string) => {
   else return provider.getSigner(0)
 }
 
+const getParsedLogs = (
+  logs: ethers.providers.Log[],
+  iface: ethers.utils.Interface,
+  eventName: string
+) => {
+  const eventFragment = iface.getEvent(eventName)
+  const parsedLogs = logs
+    .filter(
+      (curr: any) => curr.topics[0] === iface.getEventTopic(eventFragment)
+    )
+    .map((curr: any) => iface.parseLog(curr))
+  return parsedLogs
+}
+
 export function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
@@ -429,7 +436,7 @@ async function main() {
     l2Provider
   )
 
-  const { l1Network, l2Network } = await setupTokenBridge(
+  const { l1Network, l2Network } = await setupTokenBridgeInLocalEnv(
     l1DeployerWallet,
     l2DeployerWallet,
     config.ethUrl,

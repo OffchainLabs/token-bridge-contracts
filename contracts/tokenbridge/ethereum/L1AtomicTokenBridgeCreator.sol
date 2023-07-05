@@ -42,13 +42,13 @@ contract L1AtomicTokenBridgeCreator is Ownable {
         );
 
         expectedL2ProxyAdminAddress = Create2.computeAddress(
-            L2Salts.PROXY_ADMIN,
+            _getSaltFrom(L2Salts.PROXY_ADMIN),
             keccak256(type(ProxyAdmin).creationCode),
             expectedL2FactoryAddress
         );
 
         expectedL2BeaconProxyFactoryAddress = Create2.computeAddress(
-            L2Salts.BEACON_PROXY_FACTORY,
+            _getSaltFrom(L2Salts.BEACON_PROXY_FACTORY),
             keccak256(type(BeaconProxyFactory).creationCode),
             expectedL2FactoryAddress
         );
@@ -77,13 +77,13 @@ contract L1AtomicTokenBridgeCreator is Ownable {
 
     function createTokenBridge(
         address inbox,
-        address owner,
         uint256 maxSubmissionCostForFactory,
         uint256 maxGasForFactory,
         uint256 maxSubmissionCostForContracts,
         uint256 maxGasForContracts,
         uint256 gasPriceBid
     ) external payable {
+        address owner = msg.sender;
         (address router, address standardGateway, address customGateway) = _deployL1Contracts(
             inbox,
             owner
@@ -122,9 +122,12 @@ contract L1AtomicTokenBridgeCreator is Ownable {
             owner,
             address(standardGateway),
             address(0),
-            _computeExpectedL2RouterAddress(),
+            computeExpectedL2RouterAddress(),
             inbox
         );
+
+        // transfer ownership to owner
+        ProxyAdmin(proxyAdmin).transferOwnership(owner);
 
         // emit it
         emit OrbitTokenBridgeCreated(
@@ -151,7 +154,7 @@ contract L1AtomicTokenBridgeCreator is Ownable {
         );
 
         standardGateway.initialize(
-            _computeExpectedL2StandardGatewayAddress(),
+            computeExpectedL2StandardGatewayAddress(),
             router,
             inbox,
             keccak256(type(ClonableBeaconProxy).creationCode),
@@ -178,7 +181,7 @@ contract L1AtomicTokenBridgeCreator is Ownable {
         );
 
         customGateway.initialize(
-            _computeExpectedL2CustomGatewayAddress(),
+            computeExpectedL2CustomGatewayAddress(),
             address(router),
             inbox,
             owner
@@ -218,6 +221,7 @@ contract L1AtomicTokenBridgeCreator is Ownable {
         uint256 maxGas,
         uint256 gasPriceBid
     ) internal {
+        address proxyAdminOwner = msg.sender;
         bytes memory data = abi.encodeWithSelector(
             L2AtomicTokenBridgeFactory.deployL2Contracts.selector,
             _creationCodeFor(l2RouterTemplate.code),
@@ -226,7 +230,8 @@ contract L1AtomicTokenBridgeCreator is Ownable {
             l1Router,
             l1StandardGateway,
             l1CustomGateway,
-            _computeExpectedL2StandardGatewayAddress()
+            computeExpectedL2StandardGatewayAddress(),
+            proxyAdminOwner
         );
 
         IInbox(inbox).createRetryableTicket{ value: maxSubmissionCost + maxGas * gasPriceBid }(
@@ -241,8 +246,75 @@ contract L1AtomicTokenBridgeCreator is Ownable {
         );
     }
 
+    function computeExpectedL2RouterAddress() public view returns (address) {
+        address expectedL2RouterLogic = Create2.computeAddress(
+            _getSaltFrom(L2Salts.ROUTER_LOGIC),
+            keccak256(_creationCodeFor(l2RouterTemplate.code)),
+            expectedL2FactoryAddress
+        );
+
+        return
+            Create2.computeAddress(
+                _getSaltFrom(L2Salts.ROUTER),
+                keccak256(
+                    abi.encodePacked(
+                        type(TransparentUpgradeableProxy).creationCode,
+                        abi.encode(expectedL2RouterLogic, expectedL2ProxyAdminAddress, bytes(""))
+                    )
+                ),
+                expectedL2FactoryAddress
+            );
+    }
+
+    function computeExpectedL2StandardGatewayAddress() public view returns (address) {
+        address expectedL2StandardGatewayLogic = Create2.computeAddress(
+            _getSaltFrom(L2Salts.STANDARD_GATEWAY_LOGIC),
+            keccak256(_creationCodeFor(l2StandardGatewayTemplate.code)),
+            expectedL2FactoryAddress
+        );
+        return
+            Create2.computeAddress(
+                _getSaltFrom(L2Salts.STANDARD_GATEWAY),
+                keccak256(
+                    abi.encodePacked(
+                        type(TransparentUpgradeableProxy).creationCode,
+                        abi.encode(
+                            expectedL2StandardGatewayLogic,
+                            expectedL2ProxyAdminAddress,
+                            bytes("")
+                        )
+                    )
+                ),
+                expectedL2FactoryAddress
+            );
+    }
+
+    function computeExpectedL2CustomGatewayAddress() public view returns (address) {
+        address expectedL2CustomGatewayLogic = Create2.computeAddress(
+            _getSaltFrom(L2Salts.CUSTOM_GATEWAY_LOGIC),
+            keccak256(_creationCodeFor(l2CustomGatewayTemplate.code)),
+            expectedL2FactoryAddress
+        );
+
+        return
+            Create2.computeAddress(
+                _getSaltFrom(L2Salts.CUSTOM_GATEWAY),
+                keccak256(
+                    abi.encodePacked(
+                        type(TransparentUpgradeableProxy).creationCode,
+                        abi.encode(
+                            expectedL2CustomGatewayLogic,
+                            expectedL2ProxyAdminAddress,
+                            bytes("")
+                        )
+                    )
+                ),
+                expectedL2FactoryAddress
+            );
+    }
+
     /**
-     * @notice Generate a creation code that results on a contract with `_code` as bytecode
+     * @notice Generate a creation code that results on a contract with `code` as bytecode
      * @param code The returning value of the resulting `creationCode`
      * @return creationCode (constructor) for new contract
      */
@@ -303,70 +375,8 @@ contract L1AtomicTokenBridgeCreator is Ownable {
         return address(uint160(uint256(keccak256(data))));
     }
 
-    function _computeExpectedL2RouterAddress() internal view returns (address) {
-        address expectedL2RouterLogic = Create2.computeAddress(
-            L2Salts.ROUTER_LOGIC,
-            keccak256(_creationCodeFor(l2RouterTemplate.code)),
-            expectedL2FactoryAddress
-        );
-
+    function _getSaltFrom(bytes32 prefix) internal view returns (bytes32) {
         return
-            Create2.computeAddress(
-                L2Salts.ROUTER,
-                keccak256(
-                    abi.encodePacked(
-                        type(TransparentUpgradeableProxy).creationCode,
-                        abi.encode(expectedL2RouterLogic, expectedL2ProxyAdminAddress, bytes(""))
-                    )
-                ),
-                expectedL2FactoryAddress
-            );
-    }
-
-    function _computeExpectedL2StandardGatewayAddress() internal view returns (address) {
-        address expectedL2StandardGatewayLogic = Create2.computeAddress(
-            L2Salts.STANDARD_GATEWAY_LOGIC,
-            keccak256(_creationCodeFor(l2StandardGatewayTemplate.code)),
-            expectedL2FactoryAddress
-        );
-        return
-            Create2.computeAddress(
-                L2Salts.STANDARD_GATEWAY,
-                keccak256(
-                    abi.encodePacked(
-                        type(TransparentUpgradeableProxy).creationCode,
-                        abi.encode(
-                            expectedL2StandardGatewayLogic,
-                            expectedL2ProxyAdminAddress,
-                            bytes("")
-                        )
-                    )
-                ),
-                expectedL2FactoryAddress
-            );
-    }
-
-    function _computeExpectedL2CustomGatewayAddress() internal view returns (address) {
-        address expectedL2CustomGatewayLogic = Create2.computeAddress(
-            L2Salts.CUSTOM_GATEWAY_LOGIC,
-            keccak256(_creationCodeFor(l2CustomGatewayTemplate.code)),
-            expectedL2FactoryAddress
-        );
-
-        return
-            Create2.computeAddress(
-                L2Salts.CUSTOM_GATEWAY,
-                keccak256(
-                    abi.encodePacked(
-                        type(TransparentUpgradeableProxy).creationCode,
-                        abi.encode(
-                            expectedL2CustomGatewayLogic,
-                            expectedL2ProxyAdminAddress,
-                            bytes("")
-                        )
-                    )
-                ),
-                expectedL2FactoryAddress
-            );
+            keccak256(abi.encodePacked(prefix, AddressAliasHelper.applyL1ToL2Alias(address(this))));
     }
 }

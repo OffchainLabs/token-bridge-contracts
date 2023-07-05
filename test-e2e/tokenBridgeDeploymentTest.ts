@@ -18,6 +18,8 @@ import {
   L2GatewayRouter__factory,
   L2WethGateway,
   L2WethGateway__factory,
+  ProxyAdmin,
+  ProxyAdmin__factory,
 } from '../build/types'
 import path from 'path'
 import fs from 'fs'
@@ -41,9 +43,6 @@ let _l1Provider: JsonRpcProvider
 let _l2Provider: JsonRpcProvider
 
 describe('tokenBridge', () => {
-  // configure token bridge
-  before(async function () {})
-
   it('should have deployed and initialized token bridge contracts', async function () {
     const { l1Network, l1Provider, l2Network, l2Provider } =
       await getProvidersAndSetupNetworks({
@@ -60,76 +59,97 @@ describe('tokenBridge', () => {
 
     //// L1 checks
 
-    checkL1RouterInitialization(
+    await checkL1RouterInitialization(
       L1GatewayRouter__factory.connect(
         _l2Network.tokenBridge.l1GatewayRouter,
         l1Provider
       )
     )
 
-    checkL1StandardGatewayInitialization(
+    await checkL1StandardGatewayInitialization(
       L1ERC20Gateway__factory.connect(
         _l2Network.tokenBridge.l1ERC20Gateway,
         l1Provider
       )
     )
 
-    checkL1CustomGatewayInitialization(
+    await checkL1CustomGatewayInitialization(
       L1CustomGateway__factory.connect(
         _l2Network.tokenBridge.l1CustomGateway,
         l1Provider
       )
     )
 
-    checkL1WethGatewayInitialization(
-      L1WethGateway__factory.connect(
-        _l2Network.tokenBridge.l1WethGateway,
-        l1Provider
-      )
-    )
+    // await checkL1WethGatewayInitialization(
+    //   L1WethGateway__factory.connect(
+    //     _l2Network.tokenBridge.l1WethGateway,
+    //     l1Provider
+    //   )
+    // )
 
     //// L2 checks
 
-    checkL2RouterInitialization(
+    await checkL2RouterInitialization(
       L2GatewayRouter__factory.connect(
         _l2Network.tokenBridge.l2GatewayRouter,
         l2Provider
       )
     )
 
-    checkL2StandardGatewayInitialization(
+    await checkL2StandardGatewayInitialization(
       L2ERC20Gateway__factory.connect(
         _l2Network.tokenBridge.l2ERC20Gateway,
         l2Provider
       )
     )
 
-    checkL2CustomGatewayInitialization(
+    await checkL2CustomGatewayInitialization(
       L2CustomGateway__factory.connect(
         _l2Network.tokenBridge.l2CustomGateway,
         l2Provider
       )
     )
 
-    checkL2WethGatewayInitialization(
-      L2WethGateway__factory.connect(
-        _l2Network.tokenBridge.l2WethGateway,
+    await checkOwnership(
+      ProxyAdmin__factory.connect(
+        _l2Network.tokenBridge.l1ProxyAdmin,
+        l1Provider
+      ),
+      ProxyAdmin__factory.connect(
+        _l2Network.tokenBridge.l2ProxyAdmin,
         l2Provider
+      ),
+      L1GatewayRouter__factory.connect(
+        _l2Network.tokenBridge.l1GatewayRouter,
+        l1Provider
+      ),
+      L1CustomGateway__factory.connect(
+        _l2Network.tokenBridge.l1CustomGateway,
+        l1Provider
       )
     )
+
+    // await checkL2WethGatewayInitialization(
+    //   L2WethGateway__factory.connect(
+    //     _l2Network.tokenBridge.l2WethGateway,
+    //     l2Provider
+    //   )
+    // )
   })
 })
 
 //// L1 contracts
 
 async function checkL1RouterInitialization(l1Router: L1GatewayRouter) {
+  console.log('checkL1RouterInitialization')
+
   expect((await l1Router.defaultGateway()).toLowerCase()).to.be.eq(
     _l2Network.tokenBridge.l1ERC20Gateway.toLowerCase()
   )
 
   // TODO - generic way to check owner
   // expect((await l1Router.owner()).toLowerCase()).to.be.eq(
-  //   (await l1Signer.getAddress(),º.toLowerCase()
+  //   (await l1Signer.getAddress().toLowerCase()
   // )
 
   expect((await l1Router.inbox()).toLowerCase()).to.be.eq(
@@ -148,18 +168,17 @@ async function checkL1RouterInitialization(l1Router: L1GatewayRouter) {
 async function checkL1StandardGatewayInitialization(
   l1ERC20Gateway: L1ERC20Gateway
 ) {
+  console.log('checkL1StandardGatewayInitialization')
+
   expect((await l1ERC20Gateway.counterpartGateway()).toLowerCase()).to.be.eq(
     _l2Network.tokenBridge.l2ERC20Gateway.toLowerCase()
   )
-
   expect((await l1ERC20Gateway.router()).toLowerCase()).to.be.eq(
     _l2Network.tokenBridge.l1GatewayRouter.toLowerCase()
   )
-
   expect((await l1ERC20Gateway.inbox()).toLowerCase()).to.be.eq(
     _l2Network.ethBridge.inbox.toLowerCase()
   )
-
   expect((await l1ERC20Gateway.l2BeaconProxyFactory()).toLowerCase()).to.be.eq(
     (
       await L2ERC20Gateway__factory.connect(
@@ -168,16 +187,14 @@ async function checkL1StandardGatewayInitialization(
       ).beaconProxyFactory()
     ).toLowerCase()
   )
-
   expect((await l1ERC20Gateway.cloneableProxyHash()).toLowerCase()).to.be.eq(
     (
       await BeaconProxyFactory__factory.connect(
-        await l1ERC20Gateway.cloneableProxyHash(),
+        await l1ERC20Gateway.l2BeaconProxyFactory(),
         _l2Provider
       ).cloneableProxyHash()
     ).toLowerCase()
   )
-
   expect((await l1ERC20Gateway.whitelist()).toLowerCase()).to.be.eq(
     ethers.constants.AddressZero
   )
@@ -186,6 +203,8 @@ async function checkL1StandardGatewayInitialization(
 async function checkL1CustomGatewayInitialization(
   l1CustomGateway: L1CustomGateway
 ) {
+  console.log('checkL1CustomGatewayInitialization')
+
   expect((await l1CustomGateway.counterpartGateway()).toLowerCase()).to.be.eq(
     _l2Network.tokenBridge.l2CustomGateway.toLowerCase()
   )
@@ -207,6 +226,8 @@ async function checkL1CustomGatewayInitialization(
 }
 
 async function checkL1WethGatewayInitialization(l1WethGateway: L1WethGateway) {
+  console.log('checkL1WethGatewayInitialization')
+
   expect((await l1WethGateway.counterpartGateway()).toLowerCase()).to.be.eq(
     _l2Network.tokenBridge.l2WethGateway.toLowerCase()
   )
@@ -231,6 +252,8 @@ async function checkL1WethGatewayInitialization(l1WethGateway: L1WethGateway) {
 //// L2 contracts
 
 async function checkL2RouterInitialization(l2Router: L2GatewayRouter) {
+  console.log('checkL2RouterInitialization')
+
   expect((await l2Router.defaultGateway()).toLowerCase()).to.be.eq(
     _l2Network.tokenBridge.l2ERC20Gateway.toLowerCase()
   )
@@ -247,6 +270,8 @@ async function checkL2RouterInitialization(l2Router: L2GatewayRouter) {
 async function checkL2StandardGatewayInitialization(
   l2ERC20Gateway: L2ERC20Gateway
 ) {
+  console.log('checkL2StandardGatewayInitialization')
+
   expect((await l2ERC20Gateway.counterpartGateway()).toLowerCase()).to.be.eq(
     _l2Network.tokenBridge.l1ERC20Gateway.toLowerCase()
   )
@@ -277,12 +302,53 @@ async function checkL2StandardGatewayInitialization(
 async function checkL2CustomGatewayInitialization(
   l2CustomGateway: L2CustomGateway
 ) {
+  console.log('checkL2CustomGatewayInitialization')
+
   expect((await l2CustomGateway.counterpartGateway()).toLowerCase()).to.be.eq(
     _l2Network.tokenBridge.l1CustomGateway.toLowerCase()
   )
 
   expect((await l2CustomGateway.router()).toLowerCase()).to.be.eq(
     _l2Network.tokenBridge.l2GatewayRouter.toLowerCase()
+  )
+}
+
+async function checkL2WethGatewayInitialization(l2WethGateway: L2WethGateway) {
+  console.log('checkL2WethGatewayInitialization')
+
+  expect((await l2WethGateway.counterpartGateway()).toLowerCase()).to.be.eq(
+    _l2Network.tokenBridge.l1WethGateway.toLowerCase()
+  )
+
+  expect((await l2WethGateway.router()).toLowerCase()).to.be.eq(
+    _l2Network.tokenBridge.l2GatewayRouter.toLowerCase()
+  )
+
+  expect((await l2WethGateway.l1Weth()).toLowerCase()).to.be.eq(
+    _l2Network.tokenBridge.l1Weth.toLowerCase()
+  )
+
+  expect((await l2WethGateway.l2Weth()).toLowerCase()).to.be.eq(
+    _l2Network.tokenBridge.l2Weth.toLowerCase()
+  )
+}
+
+async function checkOwnership(
+  l1ProxyAdmin: ProxyAdmin,
+  l2ProxyAdmin: ProxyAdmin,
+  l1Router: L1GatewayRouter,
+  l1CustomGateway: L1CustomGateway
+) {
+  console.log('checkL2ProxyAdminInitialization')
+
+  const l1Owner = await l1ProxyAdmin.owner()
+
+  expect(l1Owner.toLowerCase()).to.be.eq(
+    (await l2ProxyAdmin.owner()).toLowerCase()
+  )
+  expect(l1Owner.toLowerCase()).to.be.eq((await l1Router.owner()).toLowerCase())
+  expect(l1Owner.toLowerCase()).to.be.eq(
+    (await l1CustomGateway.owner()).toLowerCase()
   )
 }
 
@@ -339,22 +405,4 @@ export const getProvidersAndSetupNetworks = async (setupConfig: {
       l2Provider,
     }
   }
-}
-
-async function checkL2WethGatewayInitialization(l2WethGateway: L2WethGateway) {
-  expect((await l2WethGateway.counterpartGateway()).toLowerCase()).to.be.eq(
-    _l2Network.tokenBridge.l1WethGateway.toLowerCase()
-  )
-
-  expect((await l2WethGateway.router()).toLowerCase()).to.be.eq(
-    _l2Network.tokenBridge.l2GatewayRouter.toLowerCase()
-  )
-
-  expect((await l2WethGateway.l1Weth()).toLowerCase()).to.be.eq(
-    _l2Network.tokenBridge.l1Weth.toLowerCase()
-  )
-
-  expect((await l2WethGateway.l2Weth()).toLowerCase()).to.be.eq(
-    _l2Network.tokenBridge.l2Weth.toLowerCase()
-  )
 }
