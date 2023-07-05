@@ -147,11 +147,6 @@ async function checkL1RouterInitialization(l1Router: L1GatewayRouter) {
     _l2Network.tokenBridge.l1ERC20Gateway.toLowerCase()
   )
 
-  // TODO - generic way to check owner
-  // expect((await l1Router.owner()).toLowerCase()).to.be.eq(
-  //   (await l1Signer.getAddress().toLowerCase()
-  // )
-
   expect((await l1Router.inbox()).toLowerCase()).to.be.eq(
     _l2Network.ethBridge.inbox.toLowerCase()
   )
