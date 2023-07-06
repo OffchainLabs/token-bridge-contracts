@@ -7,7 +7,7 @@ import {L1CustomGateway} from "./gateway/L1CustomGateway.sol";
 import {L1WethGateway} from "./gateway/L1WethGateway.sol";
 import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import {L2AtomicTokenBridgeFactory, OrbitSalts} from "../arbitrum/L2AtomicTokenBridgeFactory.sol";
+import {L2AtomicTokenBridgeFactory, OrbitSalts, L2CreationCode} from "../arbitrum/L2AtomicTokenBridgeFactory.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IInbox, IBridge, IOwnable} from "@arbitrum/nitro-contracts/src/bridge/IInbox.sol";
 import {AddressAliasHelper} from "../libraries/AddressAliasHelper.sol";
@@ -147,7 +147,9 @@ contract L1AtomicTokenBridgeCreator is Ownable {
      * @dev Non-canonical router can be unregistered by re-setting it to address(0) - it makes canonical router the valid one.
      */
     function setNonCanonicalRouter(address inbox, address nonCanonicalRouter) external {
-        if (msg.sender != _getRollupOwner(inbox)) revert L1AtomicTokenBridgeCreator_OnlyRollupOwner();
+        if (msg.sender != _getRollupOwner(inbox)) {
+            revert L1AtomicTokenBridgeCreator_OnlyRollupOwner();
+        }
         if (nonCanonicalRouter == getCanonicalL1RouterAddress(inbox)) {
             revert L1AtomicTokenBridgeCreator_InvalidRouterAddr();
         }
@@ -272,14 +274,17 @@ contract L1AtomicTokenBridgeCreator is Ownable {
         uint256 gasPriceBid
     ) internal {
         address l2ProxyAdminOwner = _getRollupOwner(inbox);
+        L2CreationCode memory l2Code = L2CreationCode(
+            _creationCodeFor(l2RouterTemplate.code),
+            _creationCodeFor(l2StandardGatewayTemplate.code),
+            _creationCodeFor(l2CustomGatewayTemplate.code),
+            _creationCodeFor(l2WethGatewayTemplate.code),
+            _creationCodeFor(l2WethTemplate.code)
+        );
         bytes memory data = abi.encodeCall(
             L2AtomicTokenBridgeFactory.deployL2Contracts,
             (
-                _creationCodeFor(l2RouterTemplate.code),
-                _creationCodeFor(l2StandardGatewayTemplate.code),
-                _creationCodeFor(l2CustomGatewayTemplate.code),
-                _creationCodeFor(l2WethGatewayTemplate.code),
-                _creationCodeFor(l2WethTemplate.code),
+                l2Code,
                 l1Router,
                 l1StandardGateway,
                 l1CustomGateway,

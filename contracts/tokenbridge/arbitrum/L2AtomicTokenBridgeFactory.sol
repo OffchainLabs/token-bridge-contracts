@@ -20,34 +20,30 @@ import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
  */
 contract L2AtomicTokenBridgeFactory {
     function deployL2Contracts(
-        bytes memory routerCreationCode,
-        bytes memory standardGatewayCreationCode,
-        bytes memory customGatewayCreationCode,
-        bytes memory wethGatewayCreationCode,
-        bytes memory aeWethCreationCode,
+        L2CreationCode calldata l2Code,
         address l1Router,
         address l1StandardGateway,
         address l1CustomGateway,
         address l1WethGateway,
         address l1Weth,
         address l2StandardGatewayCanonicalAddress,
-        address proxyAdminOwner
+        address rollupOwner
     ) external {
         // create proxyAdmin which will be used for all contracts
         address proxyAdmin = address(new ProxyAdmin{ salt: _getL2Salt(OrbitSalts.L2_PROXY_ADMIN) }());
 
         // deploy router/gateways
-        address router = _deployRouter(routerCreationCode, l1Router, l2StandardGatewayCanonicalAddress, proxyAdmin);
-        _deployStandardGateway(standardGatewayCreationCode, l1StandardGateway, router, proxyAdmin);
-        _deployCustomGateway(customGatewayCreationCode, l1CustomGateway, router, proxyAdmin);
-        _deployWethGateway(wethGatewayCreationCode, aeWethCreationCode, l1WethGateway, l1Weth, router, proxyAdmin);
+        address router = _deployRouter(l2Code.router, l1Router, l2StandardGatewayCanonicalAddress, proxyAdmin);
+        _deployStandardGateway(l2Code.standardGateway, l1StandardGateway, router, proxyAdmin);
+        _deployCustomGateway(l2Code.customGateway, l1CustomGateway, router, proxyAdmin);
+        _deployWethGateway(l2Code.wethGateway, l2Code.aeWeth, l1WethGateway, l1Weth, router, proxyAdmin);
 
-        // transfer ownership to L1Creator's msg.sender
-        ProxyAdmin(proxyAdmin).transferOwnership(proxyAdminOwner);
+        // transfer ownership to rollup's owner
+        ProxyAdmin(proxyAdmin).transferOwnership(rollupOwner);
     }
 
     function _deployRouter(
-        bytes memory creationCode,
+        bytes calldata creationCode,
         address l1Router,
         address l2StandardGatewayCanonicalAddress,
         address proxyAdmin
@@ -71,7 +67,7 @@ contract L2AtomicTokenBridgeFactory {
     }
 
     function _deployStandardGateway(
-        bytes memory creationCode,
+        bytes calldata creationCode,
         address l1StandardGateway,
         address router,
         address proxyAdmin
@@ -81,9 +77,11 @@ contract L2AtomicTokenBridgeFactory {
             Create2.deploy(0, _getL2Salt(OrbitSalts.L2_STANDARD_GATEWAY_LOGIC), creationCode);
         L2ERC20Gateway standardGateway = L2ERC20Gateway(
             address(
-                new TransparentUpgradeableProxy{
-                    salt: _getL2Salt(OrbitSalts.L2_STANDARD_GATEWAY)
-                }(standardGatewayLogicAddress, proxyAdmin, bytes(""))
+                new TransparentUpgradeableProxy{ salt: _getL2Salt(OrbitSalts.L2_STANDARD_GATEWAY) }(
+                    standardGatewayLogicAddress,
+                    proxyAdmin,
+                    bytes("")
+                )
             )
         );
 
@@ -104,7 +102,7 @@ contract L2AtomicTokenBridgeFactory {
     }
 
     function _deployCustomGateway(
-        bytes memory creationCode,
+        bytes calldata creationCode,
         address l1CustomGateway,
         address router,
         address proxyAdmin
@@ -128,8 +126,8 @@ contract L2AtomicTokenBridgeFactory {
     }
 
     function _deployWethGateway(
-        bytes memory wethGatewayCreationCode,
-        bytes memory aeWethCreationCode,
+        bytes calldata wethGatewayCreationCode,
+        bytes calldata aeWethCreationCode,
         address l1WethGateway,
         address l1Weth,
         address router,
@@ -155,9 +153,11 @@ contract L2AtomicTokenBridgeFactory {
         L2WethGateway wethGateway = L2WethGateway(
             payable(
                 address(
-                    new TransparentUpgradeableProxy{
-                        salt: _getL2Salt(OrbitSalts.L2_WETH_GATEWAY)
-                    }(wethGatewayLogicAddress, proxyAdmin, bytes(""))
+                    new TransparentUpgradeableProxy{ salt: _getL2Salt(OrbitSalts.L2_WETH_GATEWAY) }(
+                        wethGatewayLogicAddress,
+                        proxyAdmin,
+                        bytes("")
+                    )
                 )
             )
         );
@@ -172,6 +172,17 @@ contract L2AtomicTokenBridgeFactory {
     function _getL2Salt(bytes32 prefix) internal view returns (bytes32) {
         return keccak256(abi.encodePacked(prefix, msg.sender));
     }
+}
+
+/**
+ * Placeholder for bytecode of token bridge contracts which is sent from L1 to L2 through retryable ticket.
+ */
+struct L2CreationCode {
+    bytes router;
+    bytes standardGateway;
+    bytes customGateway;
+    bytes wethGateway;
+    bytes aeWeth;
 }
 
 /**

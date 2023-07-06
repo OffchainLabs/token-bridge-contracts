@@ -155,13 +155,16 @@ export const createTokenBridge = async (
     await l1TokenBridgeCreator.l2TokenBridgeFactoryTemplate(),
     l1Signer
   )
+  const l2Code = {
+    router: L2GatewayRouter__factory.bytecode,
+    standardGateway: L2ERC20Gateway__factory.bytecode,
+    customGateway: L2CustomGateway__factory.bytecode,
+    wethGateway: L2WethGateway__factory.bytecode,
+    aeWeth: AeWETH__factory.bytecode,
+  }
   const gasEstimateToDeployContracts =
     await l2FactoryTemplate.estimateGas.deployL2Contracts(
-      L2GatewayRouter__factory.bytecode,
-      L2ERC20Gateway__factory.bytecode,
-      L2CustomGateway__factory.bytecode,
-      L2WethGateway__factory.bytecode,
-      AeWETH__factory.bytecode,
+      l2Code,
       ethers.Wallet.createRandom().address,
       ethers.Wallet.createRandom().address,
       ethers.Wallet.createRandom().address,
