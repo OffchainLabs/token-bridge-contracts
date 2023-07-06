@@ -24,7 +24,13 @@ contract L1AtomicTokenBridgeCreator is Ownable {
     error L1AtomicTokenBridgeCreator_InvalidRouterAddr();
 
     event OrbitTokenBridgeCreated(
-        address router, address standardGateway, address customGateway, address wethGateway, address proxyAdmin
+        address indexed inbox,
+        address indexed owner,
+        address router,
+        address standardGateway,
+        address customGateway,
+        address wethGateway,
+        address proxyAdmin
     );
     event OrbitTokenBridgeTemplatesUpdated();
     event NonCanonicalRouterSet(address indexed inbox, address indexed router);
@@ -138,6 +144,7 @@ contract L1AtomicTokenBridgeCreator is Ownable {
 
     /**
      * @notice Rollup owner can override canonical router address by registering other non-canonical router.
+     * @dev Non-canonical router can be unregistered by re-setting it to address(0) - it makes canonical router the valid one.
      */
     function setNonCanonicalRouter(address inbox, address nonCanonicalRouter) external {
         if (msg.sender != _getRollupOwner(inbox)) revert L1AtomicTokenBridgeCreator_OnlyRollupOwner();
@@ -188,7 +195,7 @@ contract L1AtomicTokenBridgeCreator is Ownable {
         ProxyAdmin(proxyAdmin).transferOwnership(owner);
 
         // emit it
-        emit OrbitTokenBridgeCreated(router, standardGateway, customGateway, wethGateway, proxyAdmin);
+        emit OrbitTokenBridgeCreated(inbox, owner, router, standardGateway, customGateway, wethGateway, proxyAdmin);
     }
 
     function _deployL1StandardGateway(address proxyAdmin, address router, address inbox) internal returns (address) {
@@ -265,20 +272,22 @@ contract L1AtomicTokenBridgeCreator is Ownable {
         uint256 gasPriceBid
     ) internal {
         address l2ProxyAdminOwner = _getRollupOwner(inbox);
-        bytes memory data = abi.encodeWithSelector(
-            L2AtomicTokenBridgeFactory.deployL2Contracts.selector,
-            _creationCodeFor(l2RouterTemplate.code),
-            _creationCodeFor(l2StandardGatewayTemplate.code),
-            _creationCodeFor(l2CustomGatewayTemplate.code),
-            _creationCodeFor(l2WethGatewayTemplate.code),
-            _creationCodeFor(l2WethTemplate.code),
-            l1Router,
-            l1StandardGateway,
-            l1CustomGateway,
-            l1WethGateway,
-            l1Weth,
-            getCanonicalL2StandardGatewayAddress(),
-            l2ProxyAdminOwner
+        bytes memory data = abi.encodeCall(
+            L2AtomicTokenBridgeFactory.deployL2Contracts,
+            (
+                _creationCodeFor(l2RouterTemplate.code),
+                _creationCodeFor(l2StandardGatewayTemplate.code),
+                _creationCodeFor(l2CustomGatewayTemplate.code),
+                _creationCodeFor(l2WethGatewayTemplate.code),
+                _creationCodeFor(l2WethTemplate.code),
+                l1Router,
+                l1StandardGateway,
+                l1CustomGateway,
+                l1WethGateway,
+                l1Weth,
+                getCanonicalL2StandardGatewayAddress(),
+                l2ProxyAdminOwner
+            )
         );
 
         IInbox(inbox).createRetryableTicket{value: maxSubmissionCost + maxGas * gasPriceBid}(
