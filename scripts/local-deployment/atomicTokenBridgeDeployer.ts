@@ -188,9 +188,7 @@ export const createTokenBridge = async (
   const receipt = await (
     await l1TokenBridgeCreator.createTokenBridge(
       inboxAddress,
-      deployFactoryGasParams.maxSubmissionCost,
       deployFactoryGasParams.gasLimit,
-      maxSubmissionCostForContracts,
       maxGasForContracts,
       gasPrice,
       { value: retryableValue }

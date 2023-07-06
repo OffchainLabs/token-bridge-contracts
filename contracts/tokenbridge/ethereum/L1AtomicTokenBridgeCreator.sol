@@ -22,6 +22,8 @@ import {BeaconProxyFactory, ClonableBeaconProxy} from "../libraries/ClonableBeac
 contract L1AtomicTokenBridgeCreator is Ownable {
     error L1AtomicTokenBridgeCreator_OnlyRollupOwner();
     error L1AtomicTokenBridgeCreator_InvalidRouterAddr();
+    error L1AtomicTokenBridgeCreator_RefundFailed();
+    error L1AtomicTokenBridgeCreator_TemplatesNotSet();
 
     event OrbitTokenBridgeCreated(
         address indexed inbox,
@@ -116,30 +118,25 @@ contract L1AtomicTokenBridgeCreator is Ownable {
      *      2 retryable tickets  to deploy L2 side. 1st one deploy L2 factory and 2nd calls function that deploys and inits
      *      all the rest of the contracts. L2 chain is determined by `inbox` parameter.
      */
-    function createTokenBridge(
-        address inbox,
-        uint256 maxSubmissionCostForFactory,
-        uint256 maxGasForFactory,
-        uint256 maxSubmissionCostForContracts,
-        uint256 maxGasForContracts,
-        uint256 gasPriceBid
-    ) external payable {
+    function createTokenBridge(address inbox, uint256 maxGasForFactory, uint256 maxGasForContracts, uint256 gasPriceBid)
+        external
+        payable
+    {
+        if (address(routerTemplate) == address(0)) revert L1AtomicTokenBridgeCreator_TemplatesNotSet();
         address owner = _getRollupOwner(inbox);
         (address router, address standardGateway, address customGateway, address wethGateway) =
             _deployL1Contracts(inbox, owner);
 
         /// deploy factory and then L2 contracts through L2 factory, using 2 retryables calls
-        _deployL2Factory(inbox, maxSubmissionCostForFactory, maxGasForFactory, gasPriceBid);
-        _deployL2Contracts(
-            router,
-            standardGateway,
-            customGateway,
-            wethGateway,
-            inbox,
-            maxSubmissionCostForContracts,
-            maxGasForContracts,
-            gasPriceBid
+        uint256 valueSpentForFactory = _deployL2Factory(inbox, maxGasForFactory, gasPriceBid);
+        uint256 valueSpentForContracts = _deployL2Contracts(
+            router, standardGateway, customGateway, wethGateway, inbox, maxGasForContracts, gasPriceBid
         );
+
+        // refund excess value to the sender
+        uint256 refund = msg.value - (valueSpentForFactory + valueSpentForContracts);
+        (bool success,) = msg.sender.call{value: refund}("");
+        if (!success) revert L1AtomicTokenBridgeCreator_RefundFailed();
     }
 
     /**
@@ -253,14 +250,17 @@ contract L1AtomicTokenBridgeCreator is Ownable {
         return address(wethGateway);
     }
 
-    function _deployL2Factory(address inbox, uint256 maxSubmissionCost, uint256 maxGas, uint256 gasPriceBid) internal {
+    function _deployL2Factory(address inbox, uint256 maxGas, uint256 gasPriceBid) internal returns (uint256) {
         // encode L2 factory bytecode
         bytes memory deploymentData = _creationCodeFor(l2TokenBridgeFactoryTemplate.code);
 
+        uint256 maxSubmissionCost = IInbox(inbox).calculateRetryableSubmissionFee(deploymentData.length, 0);
         uint256 value = maxSubmissionCost + maxGas * gasPriceBid;
         IInbox(inbox).createRetryableTicket{value: value}(
             address(0), 0, maxSubmissionCost, msg.sender, msg.sender, maxGas, gasPriceBid, deploymentData
         );
+
+        return value;
     }
 
     function _deployL2Contracts(
@@ -269,10 +269,9 @@ contract L1AtomicTokenBridgeCreator is Ownable {
         address l1CustomGateway,
         address l1WethGateway,
         address inbox,
-        uint256 maxSubmissionCost,
         uint256 maxGas,
         uint256 gasPriceBid
-    ) internal {
+    ) internal returns (uint256) {
         address l2ProxyAdminOwner = _getRollupOwner(inbox);
         L2CreationCode memory l2Code = L2CreationCode(
             _creationCodeFor(l2RouterTemplate.code),
@@ -295,9 +294,13 @@ contract L1AtomicTokenBridgeCreator is Ownable {
             )
         );
 
-        IInbox(inbox).createRetryableTicket{value: maxSubmissionCost + maxGas * gasPriceBid}(
+        uint256 maxSubmissionCost = IInbox(inbox).calculateRetryableSubmissionFee(data.length, 0);
+        uint256 value = maxSubmissionCost + maxGas * gasPriceBid;
+        IInbox(inbox).createRetryableTicket{value: value}(
             canonicalL2FactoryAddress, 0, maxSubmissionCost, msg.sender, msg.sender, maxGas, gasPriceBid, data
         );
+
+        return value;
     }
 
     function getCanonicalL1RouterAddress(address inbox) public view returns (address) {
