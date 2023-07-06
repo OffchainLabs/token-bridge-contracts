@@ -241,21 +241,21 @@ export const createTokenBridge = async (
   )[0].args
 
   /// pick up L2 contracts
-  const l2Router = await l1TokenBridgeCreator.computeExpectedL2RouterAddress()
+  const l2Router = await l1TokenBridgeCreator.getCanonicalL2RouterAddress()
   const l2StandardGateway = L2ERC20Gateway__factory.connect(
-    await l1TokenBridgeCreator.computeExpectedL2StandardGatewayAddress(),
+    await l1TokenBridgeCreator.getCanonicalL2StandardGatewayAddress(),
     l2Signer
   )
   const beaconProxyFactory = await l2StandardGateway.beaconProxyFactory()
   const l2CustomGateway =
-    await l1TokenBridgeCreator.computeExpectedL2CustomGatewayAddress()
+    await l1TokenBridgeCreator.getCanonicalL2CustomGatewayAddress()
   const l2WethGateway = L2WethGateway__factory.connect(
-    await l1TokenBridgeCreator.computeExpectedL2WethGatewayAddress(),
+    await l1TokenBridgeCreator.getCanonicalL2WethGatewayAddress(),
     l2Signer
   )
   const l1Weth = await l2WethGateway.l1Weth()
   const l2Weth = await l2WethGateway.l2Weth()
-  const l2ProxyAdmin = await l1TokenBridgeCreator.expectedL2ProxyAdminAddress()
+  const l2ProxyAdmin = await l1TokenBridgeCreator.canonicalL2ProxyAdminAddress()
 
   return {
     l1Router,

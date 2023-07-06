@@ -30,14 +30,14 @@ contract L2AtomicTokenBridgeFactory {
         address l1CustomGateway,
         address l1WethGateway,
         address l1Weth,
-        address l2StandardGatewayExpectedAddress,
+        address l2StandardGatewayCanonicalAddress,
         address proxyAdminOwner
     ) external {
         // create proxyAdmin which will be used for all contracts
         address proxyAdmin = address(new ProxyAdmin{ salt: _getL2Salt(OrbitSalts.L2_PROXY_ADMIN) }());
 
         // deploy router/gateways
-        address router = _deployRouter(routerCreationCode, l1Router, l2StandardGatewayExpectedAddress, proxyAdmin);
+        address router = _deployRouter(routerCreationCode, l1Router, l2StandardGatewayCanonicalAddress, proxyAdmin);
         _deployStandardGateway(standardGatewayCreationCode, l1StandardGateway, router, proxyAdmin);
         _deployCustomGateway(customGatewayCreationCode, l1CustomGateway, router, proxyAdmin);
         _deployWethGateway(wethGatewayCreationCode, aeWethCreationCode, l1WethGateway, l1Weth, router, proxyAdmin);
@@ -49,7 +49,7 @@ contract L2AtomicTokenBridgeFactory {
     function _deployRouter(
         bytes memory creationCode,
         address l1Router,
-        address l2StandardGatewayExpectedAddress,
+        address l2StandardGatewayCanonicalAddress,
         address proxyAdmin
     ) internal returns (address) {
         // create logic and proxy
@@ -65,7 +65,7 @@ contract L2AtomicTokenBridgeFactory {
         );
 
         // init
-        router.initialize(l1Router, l2StandardGatewayExpectedAddress);
+        router.initialize(l1Router, l2StandardGatewayCanonicalAddress);
 
         return address(router);
     }

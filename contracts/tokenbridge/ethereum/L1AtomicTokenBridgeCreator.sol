@@ -51,21 +51,21 @@ contract L1AtomicTokenBridgeCreator is Ownable {
 
     // immutable canonical addresses for L2 contracts
     // other canonical addresses (dependent on L2 template implementations) can be fetched through `computeExpectedL2***Address` functions
-    address public immutable expectedL2FactoryAddress;
-    address public immutable expectedL2ProxyAdminAddress;
-    address public immutable expectedL2BeaconProxyFactoryAddress;
+    address public immutable canonicalL2FactoryAddress;
+    address public immutable canonicalL2ProxyAdminAddress;
+    address public immutable canonicalL2BeaconProxyFactoryAddress;
 
     constructor() Ownable() {
-        expectedL2FactoryAddress = _computeAddress(AddressAliasHelper.applyL1ToL2Alias(address(this)), 0);
+        canonicalL2FactoryAddress = _computeAddress(AddressAliasHelper.applyL1ToL2Alias(address(this)), 0);
 
-        expectedL2ProxyAdminAddress = Create2.computeAddress(
-            _getL2Salt(OrbitSalts.L2_PROXY_ADMIN), keccak256(type(ProxyAdmin).creationCode), expectedL2FactoryAddress
+        canonicalL2ProxyAdminAddress = Create2.computeAddress(
+            _getL2Salt(OrbitSalts.L2_PROXY_ADMIN), keccak256(type(ProxyAdmin).creationCode), canonicalL2FactoryAddress
         );
 
-        expectedL2BeaconProxyFactoryAddress = Create2.computeAddress(
+        canonicalL2BeaconProxyFactoryAddress = Create2.computeAddress(
             _getL2Salt(OrbitSalts.BEACON_PROXY_FACTORY),
             keccak256(type(BeaconProxyFactory).creationCode),
-            expectedL2FactoryAddress
+            canonicalL2FactoryAddress
         );
     }
 
@@ -141,7 +141,7 @@ contract L1AtomicTokenBridgeCreator is Ownable {
      */
     function setNonCanonicalRouter(address inbox, address nonCanonicalRouter) external {
         if (msg.sender != _getRollupOwner(inbox)) revert L1AtomicTokenBridgeCreator_OnlyRollupOwner();
-        if (nonCanonicalRouter == computeExpectedL1RouterAddress(inbox)) {
+        if (nonCanonicalRouter == getCanonicalL1RouterAddress(inbox)) {
             revert L1AtomicTokenBridgeCreator_InvalidRouterAddr();
         }
 
@@ -156,7 +156,7 @@ contract L1AtomicTokenBridgeCreator is Ownable {
             return nonCanonicalRouter;
         }
 
-        return computeExpectedL1RouterAddress(inbox);
+        return getCanonicalL1RouterAddress(inbox);
     }
 
     function _deployL1Contracts(address inbox, address owner)
@@ -181,7 +181,7 @@ contract L1AtomicTokenBridgeCreator is Ownable {
 
         // init router
         L1GatewayRouter(router).initialize(
-            owner, address(standardGateway), address(0), computeExpectedL2RouterAddress(), inbox
+            owner, address(standardGateway), address(0), getCanonicalL2RouterAddress(), inbox
         );
 
         // transfer ownership to owner
@@ -201,11 +201,11 @@ contract L1AtomicTokenBridgeCreator is Ownable {
         );
 
         standardGateway.initialize(
-            computeExpectedL2StandardGatewayAddress(),
+            getCanonicalL2StandardGatewayAddress(),
             router,
             inbox,
             keccak256(type(ClonableBeaconProxy).creationCode),
-            expectedL2BeaconProxyFactoryAddress
+            canonicalL2BeaconProxyFactoryAddress
         );
 
         return address(standardGateway);
@@ -223,7 +223,7 @@ contract L1AtomicTokenBridgeCreator is Ownable {
             )
         );
 
-        customGateway.initialize(computeExpectedL2CustomGatewayAddress(), router, inbox, owner);
+        customGateway.initialize(getCanonicalL2CustomGatewayAddress(), router, inbox, owner);
 
         return address(customGateway);
     }
@@ -239,9 +239,7 @@ contract L1AtomicTokenBridgeCreator is Ownable {
             )
         );
 
-        wethGateway.initialize(
-            computeExpectedL2WethGatewayAddress(), router, inbox, l1Weth, computeExpectedL2WethAddress()
-        );
+        wethGateway.initialize(getCanonicalL2WethGatewayAddress(), router, inbox, l1Weth, getCanonicalL2WethAddress());
 
         return address(wethGateway);
     }
@@ -279,16 +277,16 @@ contract L1AtomicTokenBridgeCreator is Ownable {
             l1CustomGateway,
             l1WethGateway,
             l1Weth,
-            computeExpectedL2StandardGatewayAddress(),
+            getCanonicalL2StandardGatewayAddress(),
             l2ProxyAdminOwner
         );
 
         IInbox(inbox).createRetryableTicket{value: maxSubmissionCost + maxGas * gasPriceBid}(
-            expectedL2FactoryAddress, 0, maxSubmissionCost, msg.sender, msg.sender, maxGas, gasPriceBid, data
+            canonicalL2FactoryAddress, 0, maxSubmissionCost, msg.sender, msg.sender, maxGas, gasPriceBid, data
         );
     }
 
-    function computeExpectedL1RouterAddress(address inbox) public view returns (address) {
+    function getCanonicalL1RouterAddress(address inbox) public view returns (address) {
         address expectedL1ProxyAdminAddress = Create2.computeAddress(
             _getL1Salt(OrbitSalts.L1_PROXY_ADMIN, inbox), keccak256(type(ProxyAdmin).creationCode), address(this)
         );
@@ -305,11 +303,11 @@ contract L1AtomicTokenBridgeCreator is Ownable {
         );
     }
 
-    function computeExpectedL2RouterAddress() public view returns (address) {
+    function getCanonicalL2RouterAddress() public view returns (address) {
         address expectedL2RouterLogic = Create2.computeAddress(
             _getL2Salt(OrbitSalts.L2_ROUTER_LOGIC),
             keccak256(_creationCodeFor(l2RouterTemplate.code)),
-            expectedL2FactoryAddress
+            canonicalL2FactoryAddress
         );
 
         return Create2.computeAddress(
@@ -317,36 +315,36 @@ contract L1AtomicTokenBridgeCreator is Ownable {
             keccak256(
                 abi.encodePacked(
                     type(TransparentUpgradeableProxy).creationCode,
-                    abi.encode(expectedL2RouterLogic, expectedL2ProxyAdminAddress, bytes(""))
+                    abi.encode(expectedL2RouterLogic, canonicalL2ProxyAdminAddress, bytes(""))
                 )
             ),
-            expectedL2FactoryAddress
+            canonicalL2FactoryAddress
         );
     }
 
-    function computeExpectedL2StandardGatewayAddress() public view returns (address) {
+    function getCanonicalL2StandardGatewayAddress() public view returns (address) {
         address expectedL2StandardGatewayLogic = Create2.computeAddress(
             _getL2Salt(OrbitSalts.L2_STANDARD_GATEWAY_LOGIC),
             keccak256(_creationCodeFor(l2StandardGatewayTemplate.code)),
-            expectedL2FactoryAddress
+            canonicalL2FactoryAddress
         );
         return Create2.computeAddress(
             _getL2Salt(OrbitSalts.L2_STANDARD_GATEWAY),
             keccak256(
                 abi.encodePacked(
                     type(TransparentUpgradeableProxy).creationCode,
-                    abi.encode(expectedL2StandardGatewayLogic, expectedL2ProxyAdminAddress, bytes(""))
+                    abi.encode(expectedL2StandardGatewayLogic, canonicalL2ProxyAdminAddress, bytes(""))
                 )
             ),
-            expectedL2FactoryAddress
+            canonicalL2FactoryAddress
         );
     }
 
-    function computeExpectedL2CustomGatewayAddress() public view returns (address) {
+    function getCanonicalL2CustomGatewayAddress() public view returns (address) {
         address expectedL2CustomGatewayLogic = Create2.computeAddress(
             _getL2Salt(OrbitSalts.L2_CUSTOM_GATEWAY_LOGIC),
             keccak256(_creationCodeFor(l2CustomGatewayTemplate.code)),
-            expectedL2FactoryAddress
+            canonicalL2FactoryAddress
         );
 
         return Create2.computeAddress(
@@ -354,18 +352,18 @@ contract L1AtomicTokenBridgeCreator is Ownable {
             keccak256(
                 abi.encodePacked(
                     type(TransparentUpgradeableProxy).creationCode,
-                    abi.encode(expectedL2CustomGatewayLogic, expectedL2ProxyAdminAddress, bytes(""))
+                    abi.encode(expectedL2CustomGatewayLogic, canonicalL2ProxyAdminAddress, bytes(""))
                 )
             ),
-            expectedL2FactoryAddress
+            canonicalL2FactoryAddress
         );
     }
 
-    function computeExpectedL2WethGatewayAddress() public view returns (address) {
+    function getCanonicalL2WethGatewayAddress() public view returns (address) {
         address expectedL2WethGatewayLogic = Create2.computeAddress(
             _getL2Salt(OrbitSalts.L2_WETH_GATEWAY_LOGIC),
             keccak256(_creationCodeFor(l2WethGatewayTemplate.code)),
-            expectedL2FactoryAddress
+            canonicalL2FactoryAddress
         );
 
         return Create2.computeAddress(
@@ -373,18 +371,18 @@ contract L1AtomicTokenBridgeCreator is Ownable {
             keccak256(
                 abi.encodePacked(
                     type(TransparentUpgradeableProxy).creationCode,
-                    abi.encode(expectedL2WethGatewayLogic, expectedL2ProxyAdminAddress, bytes(""))
+                    abi.encode(expectedL2WethGatewayLogic, canonicalL2ProxyAdminAddress, bytes(""))
                 )
             ),
-            expectedL2FactoryAddress
+            canonicalL2FactoryAddress
         );
     }
 
-    function computeExpectedL2WethAddress() public view returns (address) {
+    function getCanonicalL2WethAddress() public view returns (address) {
         address expectedL2WethLogic = Create2.computeAddress(
             _getL2Salt(OrbitSalts.L2_WETH_LOGIC),
             keccak256(_creationCodeFor(l2WethTemplate.code)),
-            expectedL2FactoryAddress
+            canonicalL2FactoryAddress
         );
 
         return Create2.computeAddress(
@@ -392,10 +390,10 @@ contract L1AtomicTokenBridgeCreator is Ownable {
             keccak256(
                 abi.encodePacked(
                     type(TransparentUpgradeableProxy).creationCode,
-                    abi.encode(expectedL2WethLogic, expectedL2ProxyAdminAddress, bytes(""))
+                    abi.encode(expectedL2WethLogic, canonicalL2ProxyAdminAddress, bytes(""))
                 )
             ),
-            expectedL2FactoryAddress
+            canonicalL2FactoryAddress
         );
     }
 
