@@ -9,7 +9,7 @@ import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.s
 import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {L2AtomicTokenBridgeFactory, OrbitSalts} from "../arbitrum/L2AtomicTokenBridgeFactory.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {IInbox} from "@arbitrum/nitro-contracts/src/bridge/IInbox.sol";
+import {IInbox, IBridge, IOwnable} from "@arbitrum/nitro-contracts/src/bridge/IInbox.sol";
 import {AddressAliasHelper} from "../libraries/AddressAliasHelper.sol";
 import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 import {BeaconProxyFactory, ClonableBeaconProxy} from "../libraries/ClonableBeaconProxy.sol";
@@ -106,7 +106,7 @@ contract L1AtomicTokenBridgeCreator is Ownable {
         uint256 maxGasForContracts,
         uint256 gasPriceBid
     ) external payable {
-        address owner = msg.sender;
+        address owner = _getRollupOwner(inbox);
         (address router, address standardGateway, address customGateway, address wethGateway) =
             _deployL1Contracts(inbox, owner);
 
@@ -132,7 +132,11 @@ contract L1AtomicTokenBridgeCreator is Ownable {
 
         // deploy router
         router = address(
-            new TransparentUpgradeableProxy{ salt: _getL1Salt(OrbitSalts.L1_ROUTER, inbox) }(address(routerTemplate), proxyAdmin, bytes(""))
+            new TransparentUpgradeableProxy{ salt: _getL1Salt(OrbitSalts.L1_ROUTER, inbox) }(
+                address(routerTemplate),
+                proxyAdmin,
+                bytes("")
+            )
         );
 
         // deploy and init gateways
@@ -155,11 +159,9 @@ contract L1AtomicTokenBridgeCreator is Ownable {
     function _deployL1StandardGateway(address proxyAdmin, address router, address inbox) internal returns (address) {
         L1ERC20Gateway standardGateway = L1ERC20Gateway(
             address(
-                new TransparentUpgradeableProxy{ salt: _getL1Salt(OrbitSalts.L1_STANDARD_GATEWAY, inbox) }(
-                    address(standardGatewayTemplate),
-                    proxyAdmin,
-                    bytes("")
-                )
+                new TransparentUpgradeableProxy{
+                    salt: _getL1Salt(OrbitSalts.L1_STANDARD_GATEWAY, inbox)
+                }(address(standardGatewayTemplate), proxyAdmin, bytes(""))
             )
         );
 
@@ -180,11 +182,9 @@ contract L1AtomicTokenBridgeCreator is Ownable {
     {
         L1CustomGateway customGateway = L1CustomGateway(
             address(
-                new TransparentUpgradeableProxy{ salt: _getL1Salt(OrbitSalts.L1_CUSTOM_GATEWAY, inbox) }(
-                    address(customGatewayTemplate),
-                    proxyAdmin,
-                    bytes("")
-                )
+                new TransparentUpgradeableProxy{
+                    salt: _getL1Salt(OrbitSalts.L1_CUSTOM_GATEWAY, inbox)
+                }(address(customGatewayTemplate), proxyAdmin, bytes(""))
             )
         );
 
@@ -197,11 +197,9 @@ contract L1AtomicTokenBridgeCreator is Ownable {
         L1WethGateway wethGateway = L1WethGateway(
             payable(
                 address(
-                    new TransparentUpgradeableProxy{ salt: _getL1Salt(OrbitSalts.L1_WETH_GATEWAY, inbox) }(
-                        address(wethGatewayTemplate),
-                        proxyAdmin,
-                        bytes("")
-                    )
+                    new TransparentUpgradeableProxy{
+                        salt: _getL1Salt(OrbitSalts.L1_WETH_GATEWAY, inbox)
+                    }(address(wethGatewayTemplate), proxyAdmin, bytes(""))
                 )
             )
         );
@@ -233,7 +231,7 @@ contract L1AtomicTokenBridgeCreator is Ownable {
         uint256 maxGas,
         uint256 gasPriceBid
     ) internal {
-        address proxyAdminOwner = msg.sender;
+        address l2ProxyAdminOwner = _getRollupOwner(inbox);
         bytes memory data = abi.encodeWithSelector(
             L2AtomicTokenBridgeFactory.deployL2Contracts.selector,
             _creationCodeFor(l2RouterTemplate.code),
@@ -247,7 +245,7 @@ contract L1AtomicTokenBridgeCreator is Ownable {
             l1WethGateway,
             l1Weth,
             computeExpectedL2StandardGatewayAddress(),
-            proxyAdminOwner
+            l2ProxyAdminOwner
         );
 
         IInbox(inbox).createRetryableTicket{value: maxSubmissionCost + maxGas * gasPriceBid}(
@@ -390,6 +388,10 @@ contract L1AtomicTokenBridgeCreator is Ownable {
             data = abi.encodePacked(bytes1(0xda), bytes1(0x94), _origin, bytes1(0x84), uint32(_nonce));
         }
         return address(uint160(uint256(keccak256(data))));
+    }
+
+    function _getRollupOwner(address inbox) internal view returns (address) {
+        return IInbox(inbox).bridge().rollup().owner();
     }
 
     function _getL1Salt(bytes32 prefix, address inbox) internal pure returns (bytes32) {

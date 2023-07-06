@@ -2,6 +2,8 @@ import { L1Network, L2Network, getL1Network, getL2Network } from '@arbitrum/sdk'
 import { JsonRpcProvider } from '@ethersproject/providers'
 import {
   BeaconProxyFactory__factory,
+  IOwnable,
+  IOwnable__factory,
   L1CustomGateway,
   L1CustomGateway__factory,
   L1ERC20Gateway,
@@ -110,7 +112,12 @@ describe('tokenBridge', () => {
       )
     )
 
+    const rollupOwner = await IOwnable__factory.connect(
+      _l2Network.ethBridge.rollup,
+      l1Provider
+    ).owner()
     await checkOwnership(
+      rollupOwner.toLowerCase(),
       ProxyAdmin__factory.connect(
         _l2Network.tokenBridge.l1ProxyAdmin,
         l1Provider
@@ -329,6 +336,7 @@ async function checkL2WethGatewayInitialization(l2WethGateway: L2WethGateway) {
 }
 
 async function checkOwnership(
+  rollupOwner: string,
   l1ProxyAdmin: ProxyAdmin,
   l2ProxyAdmin: ProxyAdmin,
   l1Router: L1GatewayRouter,
@@ -336,15 +344,10 @@ async function checkOwnership(
 ) {
   console.log('checkL2ProxyAdminInitialization')
 
-  const l1Owner = await l1ProxyAdmin.owner()
-
-  expect(l1Owner.toLowerCase()).to.be.eq(
-    (await l2ProxyAdmin.owner()).toLowerCase()
-  )
-  expect(l1Owner.toLowerCase()).to.be.eq((await l1Router.owner()).toLowerCase())
-  expect(l1Owner.toLowerCase()).to.be.eq(
-    (await l1CustomGateway.owner()).toLowerCase()
-  )
+  expect(rollupOwner).to.be.eq((await l1ProxyAdmin.owner()).toLowerCase())
+  expect(rollupOwner).to.be.eq((await l2ProxyAdmin.owner()).toLowerCase())
+  expect(rollupOwner).to.be.eq((await l1Router.owner()).toLowerCase())
+  expect(rollupOwner).to.be.eq((await l1CustomGateway.owner()).toLowerCase())
 }
 
 export const getProvidersAndSetupNetworks = async (setupConfig: {
