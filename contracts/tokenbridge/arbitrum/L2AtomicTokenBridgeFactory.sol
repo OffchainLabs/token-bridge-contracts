@@ -34,7 +34,7 @@ contract L2AtomicTokenBridgeFactory {
         address proxyAdminOwner
     ) external {
         // create proxyAdmin which will be used for all contracts
-        address proxyAdmin = address(new ProxyAdmin{ salt: _getSaltFrom(L2Salts.PROXY_ADMIN) }());
+        address proxyAdmin = address(new ProxyAdmin{ salt: _getL2Salt(OrbitSalts.L2_PROXY_ADMIN) }());
 
         // deploy router/gateways
         address router = _deployRouter(routerCreationCode, l1Router, l2StandardGatewayExpectedAddress, proxyAdmin);
@@ -53,10 +53,10 @@ contract L2AtomicTokenBridgeFactory {
         address proxyAdmin
     ) internal returns (address) {
         // create logic and proxy
-        address routerLogicAddress = Create2.deploy(0, _getSaltFrom(L2Salts.ROUTER_LOGIC), creationCode);
+        address routerLogicAddress = Create2.deploy(0, _getL2Salt(OrbitSalts.L2_ROUTER_LOGIC), creationCode);
         L2GatewayRouter router = L2GatewayRouter(
             address(
-                new TransparentUpgradeableProxy{ salt: _getSaltFrom(L2Salts.ROUTER) }(
+                new TransparentUpgradeableProxy{ salt: _getL2Salt(OrbitSalts.L2_ROUTER) }(
                     routerLogicAddress,
                     proxyAdmin,
                     bytes("")
@@ -78,26 +78,24 @@ contract L2AtomicTokenBridgeFactory {
     ) internal {
         // create logic and proxy
         address standardGatewayLogicAddress =
-            Create2.deploy(0, _getSaltFrom(L2Salts.STANDARD_GATEWAY_LOGIC), creationCode);
+            Create2.deploy(0, _getL2Salt(OrbitSalts.L2_STANDARD_GATEWAY_LOGIC), creationCode);
         L2ERC20Gateway standardGateway = L2ERC20Gateway(
             address(
-                new TransparentUpgradeableProxy{ salt: _getSaltFrom(L2Salts.STANDARD_GATEWAY) }(
-                    standardGatewayLogicAddress,
-                    proxyAdmin,
-                    bytes("")
-                )
+                new TransparentUpgradeableProxy{
+                    salt: _getL2Salt(OrbitSalts.L2_STANDARD_GATEWAY)
+                }(standardGatewayLogicAddress, proxyAdmin, bytes(""))
             )
         );
 
         // create beacon
         StandardArbERC20 standardArbERC20 = new StandardArbERC20{
-            salt: _getSaltFrom(L2Salts.STANDARD_ERC20)
+            salt: _getL2Salt(OrbitSalts.L2_STANDARD_ERC20)
         }();
         UpgradeableBeacon beacon = new UpgradeableBeacon{
-            salt: _getSaltFrom(L2Salts.UPGRADEABLE_BEACON)
+            salt: _getL2Salt(OrbitSalts.UPGRADEABLE_BEACON)
         }(address(standardArbERC20));
         BeaconProxyFactory beaconProxyFactory = new BeaconProxyFactory{
-            salt: _getSaltFrom(L2Salts.BEACON_PROXY_FACTORY)
+            salt: _getL2Salt(OrbitSalts.BEACON_PROXY_FACTORY)
         }();
 
         // init contracts
@@ -111,12 +109,13 @@ contract L2AtomicTokenBridgeFactory {
         address router,
         address proxyAdmin
     ) internal {
-        address customGatewayLogicAddress = Create2.deploy(0, _getSaltFrom(L2Salts.CUSTOM_GATEWAY_LOGIC), creationCode);
+        address customGatewayLogicAddress =
+            Create2.deploy(0, _getL2Salt(OrbitSalts.L2_CUSTOM_GATEWAY_LOGIC), creationCode);
 
         // create logic and proxy
         L2CustomGateway customGateway = L2CustomGateway(
             address(
-                new TransparentUpgradeableProxy{ salt: _getSaltFrom(L2Salts.CUSTOM_GATEWAY) }(
+                new TransparentUpgradeableProxy{ salt: _getL2Salt(OrbitSalts.L2_CUSTOM_GATEWAY) }(
                     customGatewayLogicAddress,
                     proxyAdmin,
                     bytes("")
@@ -137,11 +136,11 @@ contract L2AtomicTokenBridgeFactory {
         address proxyAdmin
     ) internal {
         // L2 WETH
-        address aeWethLogic = Create2.deploy(0, _getSaltFrom(L2Salts.WETH_LOGIC), aeWethCreationCode);
+        address aeWethLogic = Create2.deploy(0, _getL2Salt(OrbitSalts.L2_WETH_LOGIC), aeWethCreationCode);
         aeWETH l2Weth = aeWETH(
             payable(
                 address(
-                    new TransparentUpgradeableProxy{ salt: _getSaltFrom(L2Salts.WETH) }(
+                    new TransparentUpgradeableProxy{ salt: _getL2Salt(OrbitSalts.L2_WETH) }(
                         aeWethLogic,
                         proxyAdmin,
                         bytes("")
@@ -152,15 +151,13 @@ contract L2AtomicTokenBridgeFactory {
 
         // WETH gateway
         address wethGatewayLogicAddress =
-            Create2.deploy(0, _getSaltFrom(L2Salts.WETH_GATEWAY_LOGIC), wethGatewayCreationCode);
+            Create2.deploy(0, _getL2Salt(OrbitSalts.L2_WETH_GATEWAY_LOGIC), wethGatewayCreationCode);
         L2WethGateway wethGateway = L2WethGateway(
             payable(
                 address(
-                    new TransparentUpgradeableProxy{ salt: _getSaltFrom(L2Salts.WETH_GATEWAY) }(
-                        wethGatewayLogicAddress,
-                        proxyAdmin,
-                        bytes("")
-                    )
+                    new TransparentUpgradeableProxy{
+                        salt: _getL2Salt(OrbitSalts.L2_WETH_GATEWAY)
+                    }(wethGatewayLogicAddress, proxyAdmin, bytes(""))
                 )
             )
         );
@@ -172,7 +169,7 @@ contract L2AtomicTokenBridgeFactory {
         l2Weth.initialize("WETH", "WETH", 18, address(wethGateway), l1Weth);
     }
 
-    function _getSaltFrom(bytes32 prefix) internal view returns (bytes32) {
+    function _getL2Salt(bytes32 prefix) internal view returns (bytes32) {
         return keccak256(abi.encodePacked(prefix, msg.sender));
     }
 }
@@ -180,19 +177,25 @@ contract L2AtomicTokenBridgeFactory {
 /**
  * Collection of salts used in CREATE2 deployment of L2 token bridge contracts.
  */
-library L2Salts {
-    bytes32 public constant PROXY_ADMIN = keccak256(bytes("OrbitL2ProxyAdmin"));
-    bytes32 public constant ROUTER_LOGIC = keccak256(bytes("OrbitL2GatewayRouterLogic"));
-    bytes32 public constant ROUTER = keccak256(bytes("OrbitL2GatewayRouterProxy"));
-    bytes32 public constant STANDARD_GATEWAY_LOGIC = keccak256(bytes("OrbitL2StandardGatewayLogic"));
-    bytes32 public constant STANDARD_GATEWAY = keccak256(bytes("OrbitL2StandardGatewayProxy"));
-    bytes32 public constant CUSTOM_GATEWAY_LOGIC = keccak256(bytes("OrbitL2CustomGatewayLogic"));
-    bytes32 public constant CUSTOM_GATEWAY = keccak256(bytes("OrbitL2CustomGatewayProxy"));
-    bytes32 public constant WETH_GATEWAY_LOGIC = keccak256(bytes("OrbitL2WethGatewayLogic"));
-    bytes32 public constant WETH_GATEWAY = keccak256(bytes("OrbitL2WethGatewayProxy"));
-    bytes32 public constant WETH_LOGIC = keccak256(bytes("OrbitL2WETH"));
-    bytes32 public constant WETH = keccak256(bytes("OrbitL2WETHProxy"));
-    bytes32 public constant STANDARD_ERC20 = keccak256(bytes("OrbitStandardArbERC20"));
+library OrbitSalts {
+    bytes32 public constant L1_PROXY_ADMIN = keccak256(bytes("OrbitL1ProxyAdmin"));
+    bytes32 public constant L1_ROUTER = keccak256(bytes("OrbitL1GatewayRouterProxy"));
+    bytes32 public constant L1_STANDARD_GATEWAY = keccak256(bytes("OrbitL1StandardGatewayProxy"));
+    bytes32 public constant L1_CUSTOM_GATEWAY = keccak256(bytes("OrbitL1CustomGatewayProxy"));
+    bytes32 public constant L1_WETH_GATEWAY = keccak256(bytes("OrbitL1WethGatewayProxy"));
+
+    bytes32 public constant L2_PROXY_ADMIN = keccak256(bytes("OrbitL2ProxyAdmin"));
+    bytes32 public constant L2_ROUTER_LOGIC = keccak256(bytes("OrbitL2GatewayRouterLogic"));
+    bytes32 public constant L2_ROUTER = keccak256(bytes("OrbitL2GatewayRouterProxy"));
+    bytes32 public constant L2_STANDARD_GATEWAY_LOGIC = keccak256(bytes("OrbitL2StandardGatewayLogic"));
+    bytes32 public constant L2_STANDARD_GATEWAY = keccak256(bytes("OrbitL2StandardGatewayProxy"));
+    bytes32 public constant L2_CUSTOM_GATEWAY_LOGIC = keccak256(bytes("OrbitL2CustomGatewayLogic"));
+    bytes32 public constant L2_CUSTOM_GATEWAY = keccak256(bytes("OrbitL2CustomGatewayProxy"));
+    bytes32 public constant L2_WETH_GATEWAY_LOGIC = keccak256(bytes("OrbitL2WethGatewayLogic"));
+    bytes32 public constant L2_WETH_GATEWAY = keccak256(bytes("OrbitL2WethGatewayProxy"));
+    bytes32 public constant L2_WETH_LOGIC = keccak256(bytes("OrbitL2WETH"));
+    bytes32 public constant L2_WETH = keccak256(bytes("OrbitL2WETHProxy"));
+    bytes32 public constant L2_STANDARD_ERC20 = keccak256(bytes("OrbitStandardArbERC20"));
     bytes32 public constant UPGRADEABLE_BEACON = keccak256(bytes("OrbitUpgradeableBeacon"));
     bytes32 public constant BEACON_PROXY_FACTORY = keccak256(bytes("OrbitBeaconProxyFactory"));
 }

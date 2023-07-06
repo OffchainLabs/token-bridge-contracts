@@ -7,7 +7,7 @@ import {L1CustomGateway} from "./gateway/L1CustomGateway.sol";
 import {L1WethGateway} from "./gateway/L1WethGateway.sol";
 import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import {L2AtomicTokenBridgeFactory, L2Salts} from "../arbitrum/L2AtomicTokenBridgeFactory.sol";
+import {L2AtomicTokenBridgeFactory, OrbitSalts} from "../arbitrum/L2AtomicTokenBridgeFactory.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IInbox} from "@arbitrum/nitro-contracts/src/bridge/IInbox.sol";
 import {AddressAliasHelper} from "../libraries/AddressAliasHelper.sol";
@@ -47,11 +47,11 @@ contract L1AtomicTokenBridgeCreator is Ownable {
         expectedL2FactoryAddress = _computeAddress(AddressAliasHelper.applyL1ToL2Alias(address(this)), 0);
 
         expectedL2ProxyAdminAddress = Create2.computeAddress(
-            _getSaltFrom(L2Salts.PROXY_ADMIN), keccak256(type(ProxyAdmin).creationCode), expectedL2FactoryAddress
+            _getL2Salt(OrbitSalts.L2_PROXY_ADMIN), keccak256(type(ProxyAdmin).creationCode), expectedL2FactoryAddress
         );
 
         expectedL2BeaconProxyFactoryAddress = Create2.computeAddress(
-            _getSaltFrom(L2Salts.BEACON_PROXY_FACTORY),
+            _getL2Salt(OrbitSalts.BEACON_PROXY_FACTORY),
             keccak256(type(BeaconProxyFactory).creationCode),
             expectedL2FactoryAddress
         );
@@ -128,10 +128,12 @@ contract L1AtomicTokenBridgeCreator is Ownable {
         internal
         returns (address router, address standardGateway, address customGateway, address wethGateway)
     {
-        address proxyAdmin = address(new ProxyAdmin());
+        address proxyAdmin = address(new ProxyAdmin{ salt: _getL1Salt(OrbitSalts.L1_PROXY_ADMIN, inbox) }());
 
         // deploy router
-        router = address(new TransparentUpgradeableProxy(address(routerTemplate), proxyAdmin, bytes("")));
+        router = address(
+            new TransparentUpgradeableProxy{ salt: _getL1Salt(OrbitSalts.L1_ROUTER, inbox) }(address(routerTemplate), proxyAdmin, bytes(""))
+        );
 
         // deploy and init gateways
         standardGateway = _deployL1StandardGateway(proxyAdmin, router, inbox);
@@ -153,7 +155,7 @@ contract L1AtomicTokenBridgeCreator is Ownable {
     function _deployL1StandardGateway(address proxyAdmin, address router, address inbox) internal returns (address) {
         L1ERC20Gateway standardGateway = L1ERC20Gateway(
             address(
-                new TransparentUpgradeableProxy(
+                new TransparentUpgradeableProxy{ salt: _getL1Salt(OrbitSalts.L1_STANDARD_GATEWAY, inbox) }(
                     address(standardGatewayTemplate),
                     proxyAdmin,
                     bytes("")
@@ -178,7 +180,7 @@ contract L1AtomicTokenBridgeCreator is Ownable {
     {
         L1CustomGateway customGateway = L1CustomGateway(
             address(
-                new TransparentUpgradeableProxy(
+                new TransparentUpgradeableProxy{ salt: _getL1Salt(OrbitSalts.L1_CUSTOM_GATEWAY, inbox) }(
                     address(customGatewayTemplate),
                     proxyAdmin,
                     bytes("")
@@ -195,7 +197,7 @@ contract L1AtomicTokenBridgeCreator is Ownable {
         L1WethGateway wethGateway = L1WethGateway(
             payable(
                 address(
-                    new TransparentUpgradeableProxy(
+                    new TransparentUpgradeableProxy{ salt: _getL1Salt(OrbitSalts.L1_WETH_GATEWAY, inbox) }(
                         address(wethGatewayTemplate),
                         proxyAdmin,
                         bytes("")
@@ -255,13 +257,13 @@ contract L1AtomicTokenBridgeCreator is Ownable {
 
     function computeExpectedL2RouterAddress() public view returns (address) {
         address expectedL2RouterLogic = Create2.computeAddress(
-            _getSaltFrom(L2Salts.ROUTER_LOGIC),
+            _getL2Salt(OrbitSalts.L2_ROUTER_LOGIC),
             keccak256(_creationCodeFor(l2RouterTemplate.code)),
             expectedL2FactoryAddress
         );
 
         return Create2.computeAddress(
-            _getSaltFrom(L2Salts.ROUTER),
+            _getL2Salt(OrbitSalts.L2_ROUTER),
             keccak256(
                 abi.encodePacked(
                     type(TransparentUpgradeableProxy).creationCode,
@@ -274,12 +276,12 @@ contract L1AtomicTokenBridgeCreator is Ownable {
 
     function computeExpectedL2StandardGatewayAddress() public view returns (address) {
         address expectedL2StandardGatewayLogic = Create2.computeAddress(
-            _getSaltFrom(L2Salts.STANDARD_GATEWAY_LOGIC),
+            _getL2Salt(OrbitSalts.L2_STANDARD_GATEWAY_LOGIC),
             keccak256(_creationCodeFor(l2StandardGatewayTemplate.code)),
             expectedL2FactoryAddress
         );
         return Create2.computeAddress(
-            _getSaltFrom(L2Salts.STANDARD_GATEWAY),
+            _getL2Salt(OrbitSalts.L2_STANDARD_GATEWAY),
             keccak256(
                 abi.encodePacked(
                     type(TransparentUpgradeableProxy).creationCode,
@@ -292,13 +294,13 @@ contract L1AtomicTokenBridgeCreator is Ownable {
 
     function computeExpectedL2CustomGatewayAddress() public view returns (address) {
         address expectedL2CustomGatewayLogic = Create2.computeAddress(
-            _getSaltFrom(L2Salts.CUSTOM_GATEWAY_LOGIC),
+            _getL2Salt(OrbitSalts.L2_CUSTOM_GATEWAY_LOGIC),
             keccak256(_creationCodeFor(l2CustomGatewayTemplate.code)),
             expectedL2FactoryAddress
         );
 
         return Create2.computeAddress(
-            _getSaltFrom(L2Salts.CUSTOM_GATEWAY),
+            _getL2Salt(OrbitSalts.L2_CUSTOM_GATEWAY),
             keccak256(
                 abi.encodePacked(
                     type(TransparentUpgradeableProxy).creationCode,
@@ -311,13 +313,13 @@ contract L1AtomicTokenBridgeCreator is Ownable {
 
     function computeExpectedL2WethGatewayAddress() public view returns (address) {
         address expectedL2WethGatewayLogic = Create2.computeAddress(
-            _getSaltFrom(L2Salts.WETH_GATEWAY_LOGIC),
+            _getL2Salt(OrbitSalts.L2_WETH_GATEWAY_LOGIC),
             keccak256(_creationCodeFor(l2WethGatewayTemplate.code)),
             expectedL2FactoryAddress
         );
 
         return Create2.computeAddress(
-            _getSaltFrom(L2Salts.WETH_GATEWAY),
+            _getL2Salt(OrbitSalts.L2_WETH_GATEWAY),
             keccak256(
                 abi.encodePacked(
                     type(TransparentUpgradeableProxy).creationCode,
@@ -330,11 +332,13 @@ contract L1AtomicTokenBridgeCreator is Ownable {
 
     function computeExpectedL2WethAddress() public view returns (address) {
         address expectedL2WethLogic = Create2.computeAddress(
-            _getSaltFrom(L2Salts.WETH_LOGIC), keccak256(_creationCodeFor(l2WethTemplate.code)), expectedL2FactoryAddress
+            _getL2Salt(OrbitSalts.L2_WETH_LOGIC),
+            keccak256(_creationCodeFor(l2WethTemplate.code)),
+            expectedL2FactoryAddress
         );
 
         return Create2.computeAddress(
-            _getSaltFrom(L2Salts.WETH),
+            _getL2Salt(OrbitSalts.L2_WETH),
             keccak256(
                 abi.encodePacked(
                     type(TransparentUpgradeableProxy).creationCode,
@@ -388,7 +392,11 @@ contract L1AtomicTokenBridgeCreator is Ownable {
         return address(uint160(uint256(keccak256(data))));
     }
 
-    function _getSaltFrom(bytes32 prefix) internal view returns (bytes32) {
+    function _getL1Salt(bytes32 prefix, address inbox) internal pure returns (bytes32) {
+        return keccak256(abi.encodePacked(prefix, inbox));
+    }
+
+    function _getL2Salt(bytes32 prefix) internal view returns (bytes32) {
         return keccak256(abi.encodePacked(prefix, AddressAliasHelper.applyL1ToL2Alias(address(this))));
     }
 }
