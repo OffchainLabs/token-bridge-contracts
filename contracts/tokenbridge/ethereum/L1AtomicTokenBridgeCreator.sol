@@ -20,16 +20,25 @@ import {BeaconProxyFactory, ClonableBeaconProxy} from "../libraries/ClonableBeac
  * @dev Throughout the contract terms L1 and L2 are used, but those can be considered as base (N) chain and child (N+1) chain
  */
 contract L1AtomicTokenBridgeCreator is Ownable {
+    error L1AtomicTokenBridgeCreator_OnlyRollupOwner();
+    error L1AtomicTokenBridgeCreator_InvalidRouterAddr();
+
     event OrbitTokenBridgeCreated(
         address router, address standardGateway, address customGateway, address wethGateway, address proxyAdmin
     );
     event OrbitTokenBridgeTemplatesUpdated();
+    event NonCanonicalRouterSet(address indexed inbox, address indexed router);
 
+    // non-canonical router registry
+    mapping(address => address) public inboxToNonCanonicalRouter;
+
+    // L1 logic contracts shared by all token bridges
     L1GatewayRouter public routerTemplate;
     L1ERC20Gateway public standardGatewayTemplate;
     L1CustomGateway public customGatewayTemplate;
     L1WethGateway public wethGatewayTemplate;
 
+    // L2 contracts deployed to L1 as bytecode placeholders
     address public l2TokenBridgeFactoryTemplate;
     address public l2RouterTemplate;
     address public l2StandardGatewayTemplate;
@@ -37,8 +46,11 @@ contract L1AtomicTokenBridgeCreator is Ownable {
     address public l2WethGatewayTemplate;
     address public l2WethTemplate;
 
+    // WETH address on L1
     address public l1Weth;
 
+    // immutable canonical addresses for L2 contracts
+    // other canonical addresses (dependent on L2 template implementations) can be fetched through `computeExpectedL2***Address` functions
     address public immutable expectedL2FactoryAddress;
     address public immutable expectedL2ProxyAdminAddress;
     address public immutable expectedL2BeaconProxyFactoryAddress;
@@ -122,6 +134,29 @@ contract L1AtomicTokenBridgeCreator is Ownable {
             maxGasForContracts,
             gasPriceBid
         );
+    }
+
+    /**
+     * @notice Rollup owner can override canonical router address by registering other non-canonical router.
+     */
+    function setNonCanonicalRouter(address inbox, address nonCanonicalRouter) external {
+        if (msg.sender != _getRollupOwner(inbox)) revert L1AtomicTokenBridgeCreator_OnlyRollupOwner();
+        if (nonCanonicalRouter == computeExpectedL1RouterAddress(inbox)) {
+            revert L1AtomicTokenBridgeCreator_InvalidRouterAddr();
+        }
+
+        inboxToNonCanonicalRouter[inbox] = nonCanonicalRouter;
+        emit NonCanonicalRouterSet(inbox, nonCanonicalRouter);
+    }
+
+    function getRouter(address inbox) public view returns (address) {
+        address nonCanonicalRouter = inboxToNonCanonicalRouter[inbox];
+
+        if (nonCanonicalRouter != address(0)) {
+            return nonCanonicalRouter;
+        }
+
+        return computeExpectedL1RouterAddress(inbox);
     }
 
     function _deployL1Contracts(address inbox, address owner)
@@ -250,6 +285,23 @@ contract L1AtomicTokenBridgeCreator is Ownable {
 
         IInbox(inbox).createRetryableTicket{value: maxSubmissionCost + maxGas * gasPriceBid}(
             expectedL2FactoryAddress, 0, maxSubmissionCost, msg.sender, msg.sender, maxGas, gasPriceBid, data
+        );
+    }
+
+    function computeExpectedL1RouterAddress(address inbox) public view returns (address) {
+        address expectedL1ProxyAdminAddress = Create2.computeAddress(
+            _getL1Salt(OrbitSalts.L1_PROXY_ADMIN, inbox), keccak256(type(ProxyAdmin).creationCode), address(this)
+        );
+
+        return Create2.computeAddress(
+            _getL1Salt(OrbitSalts.L1_ROUTER, inbox),
+            keccak256(
+                abi.encodePacked(
+                    type(TransparentUpgradeableProxy).creationCode,
+                    abi.encode(routerTemplate, expectedL1ProxyAdminAddress, bytes(""))
+                )
+            ),
+            address(this)
         );
     }
 
