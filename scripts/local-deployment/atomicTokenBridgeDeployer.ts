@@ -12,6 +12,7 @@ import {
   L2WethGateway__factory,
   AeWETH__factory,
   L1WethGateway__factory,
+  TransparentUpgradeableProxy__factory,
 } from '../../build/types'
 import { JsonRpcProvider } from '@ethersproject/providers'
 import {
@@ -42,15 +43,24 @@ import { getBaseFee } from '@arbitrum/sdk/dist/lib/utils/lib'
  * @param l2Url
  * @returns
  */
-export const setupTokenBridgeInLocalEnv = async (
-  l1Deployer: Signer,
-  l2Deployer: Signer,
-  l1Url: string,
-  l2Url: string
-) => {
+export const setupTokenBridgeInLocalEnv = async () => {
+  /// setup deployers, load local networks
+  const config = {
+    arbUrl: 'http://localhost:8547',
+    ethUrl: 'http://localhost:8545',
+  }
+  const l1Deployer = new ethers.Wallet(
+    ethers.utils.sha256(ethers.utils.toUtf8Bytes('user_l1user')),
+    new ethers.providers.JsonRpcProvider(config.ethUrl)
+  )
+  const l2Deployer = new ethers.Wallet(
+    ethers.utils.sha256(ethers.utils.toUtf8Bytes('user_l1user')),
+    new ethers.providers.JsonRpcProvider(config.arbUrl)
+  )
+
   const { l1Network, l2Network: coreL2Network } = await getLocalNetworks(
-    l1Url,
-    l2Url
+    config.ethUrl,
+    config.arbUrl
   )
 
   // register - needed for retryables
@@ -79,7 +89,13 @@ export const setupTokenBridgeInLocalEnv = async (
   })
 
   // prerequisite - deploy L1 creator and set templates
-  const l1TokenBridgeCreator = await deployL1TokenBridgeCreator(l1Deployer)
+  const l1TokenBridgeCreatorOwner = new ethers.Wallet(
+    ethers.utils.sha256(ethers.utils.toUtf8Bytes('user_l1user_b'))
+  )
+  const l1TokenBridgeCreator = await deployL1TokenBridgeCreator(
+    l1Deployer,
+    l1TokenBridgeCreatorOwner.address
+  )
   console.log('L1TokenBridgeCreator', l1TokenBridgeCreator.address)
 
   // create token bridge
@@ -275,12 +291,28 @@ export const createTokenBridge = async (
   }
 }
 
-const deployL1TokenBridgeCreator = async (l1Signer: Signer) => {
-  /// deploy factory
-  const l1TokenBridgeCreator = await new L1AtomicTokenBridgeCreator__factory(
+const deployL1TokenBridgeCreator = async (
+  l1Signer: Signer,
+  l1CreatorOwner: string
+) => {
+  /// deploy creator behind proxy
+  const l1TokenBridgeCreatorLogic =
+    await new L1AtomicTokenBridgeCreator__factory(l1Signer).deploy()
+  await l1TokenBridgeCreatorLogic.deployed()
+
+  const l1TokenBridgeCreatorProxy =
+    await new TransparentUpgradeableProxy__factory(l1Signer).deploy(
+      l1TokenBridgeCreatorLogic.address,
+      l1CreatorOwner,
+      '0x'
+    )
+  await l1TokenBridgeCreatorProxy.deployed()
+
+  const l1TokenBridgeCreator = L1AtomicTokenBridgeCreator__factory.connect(
+    l1TokenBridgeCreatorProxy.address,
     l1Signer
-  ).deploy()
-  await l1TokenBridgeCreator.deployed()
+  )
+  await (await l1TokenBridgeCreator.initialize()).wait()
 
   /// deploy L1 logic contracts
   const routerTemplate = await new L1GatewayRouter__factory(l1Signer).deploy()
@@ -454,29 +486,7 @@ export function sleep(ms: number) {
 }
 
 async function main() {
-  const config = {
-    arbUrl: 'http://localhost:8547',
-    ethUrl: 'http://localhost:8545',
-  }
-
-  const l1Provider = new ethers.providers.JsonRpcProvider(config.ethUrl)
-  const l2Provider = new ethers.providers.JsonRpcProvider(config.arbUrl)
-
-  const l1DeployerWallet = new ethers.Wallet(
-    ethers.utils.sha256(ethers.utils.toUtf8Bytes('user_l1user')),
-    l1Provider
-  )
-  const l2DeployerWallet = new ethers.Wallet(
-    ethers.utils.sha256(ethers.utils.toUtf8Bytes('user_l1user')),
-    l2Provider
-  )
-
-  const { l1Network, l2Network } = await setupTokenBridgeInLocalEnv(
-    l1DeployerWallet,
-    l2DeployerWallet,
-    config.ethUrl,
-    config.arbUrl
-  )
+  const { l1Network, l2Network } = await setupTokenBridgeInLocalEnv()
 
   const NETWORK_FILE = 'network.json'
   fs.writeFileSync(

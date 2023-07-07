@@ -8,18 +8,18 @@ import {L1WethGateway} from "./gateway/L1WethGateway.sol";
 import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {L2AtomicTokenBridgeFactory, OrbitSalts, L2CreationCode} from "../arbitrum/L2AtomicTokenBridgeFactory.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IInbox, IBridge, IOwnable} from "@arbitrum/nitro-contracts/src/bridge/IInbox.sol";
 import {AddressAliasHelper} from "../libraries/AddressAliasHelper.sol";
 import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 import {BeaconProxyFactory, ClonableBeaconProxy} from "../libraries/ClonableBeaconProxy.sol";
+import {Initializable, OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 /**
  * @title Layer1 token bridge creator
  * @notice This contract is used to deploy token bridge on custom L2 chains.
  * @dev Throughout the contract terms L1 and L2 are used, but those can be considered as base (N) chain and child (N+1) chain
  */
-contract L1AtomicTokenBridgeCreator is Ownable {
+contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     error L1AtomicTokenBridgeCreator_OnlyRollupOwner();
     error L1AtomicTokenBridgeCreator_InvalidRouterAddr();
     error L1AtomicTokenBridgeCreator_RefundFailed();
@@ -59,17 +59,21 @@ contract L1AtomicTokenBridgeCreator is Ownable {
 
     // immutable canonical addresses for L2 contracts
     // other canonical addresses (dependent on L2 template implementations) can be fetched through `computeExpectedL2***Address` functions
-    address public immutable canonicalL2FactoryAddress;
-    address public immutable canonicalL2ProxyAdminAddress;
-    address public immutable canonicalL2BeaconProxyFactoryAddress;
+    address public canonicalL2FactoryAddress;
+    address public canonicalL2ProxyAdminAddress;
+    address public canonicalL2BeaconProxyFactoryAddress;
 
-    constructor() Ownable() {
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize() public initializer {
+        __Ownable_init();
+
         canonicalL2FactoryAddress = _computeAddress(AddressAliasHelper.applyL1ToL2Alias(address(this)), 0);
-
         canonicalL2ProxyAdminAddress = Create2.computeAddress(
             _getL2Salt(OrbitSalts.L2_PROXY_ADMIN), keccak256(type(ProxyAdmin).creationCode), canonicalL2FactoryAddress
         );
-
         canonicalL2BeaconProxyFactoryAddress = Create2.computeAddress(
             _getL2Salt(OrbitSalts.BEACON_PROXY_FACTORY),
             keccak256(type(BeaconProxyFactory).creationCode),
@@ -122,7 +126,9 @@ contract L1AtomicTokenBridgeCreator is Ownable {
         external
         payable
     {
-        if (address(routerTemplate) == address(0)) revert L1AtomicTokenBridgeCreator_TemplatesNotSet();
+        if (address(routerTemplate) == address(0)) {
+            revert L1AtomicTokenBridgeCreator_TemplatesNotSet();
+        }
         address owner = _getRollupOwner(inbox);
         (address router, address standardGateway, address customGateway, address wethGateway) =
             _deployL1Contracts(inbox, owner);
