@@ -7,7 +7,12 @@ import {L1CustomGateway} from "./gateway/L1CustomGateway.sol";
 import {L1WethGateway} from "./gateway/L1WethGateway.sol";
 import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import {L2AtomicTokenBridgeFactory, OrbitSalts, L2CreationCode} from "../arbitrum/L2AtomicTokenBridgeFactory.sol";
+import {
+    L2AtomicTokenBridgeFactory,
+    CanonicalAddressSeed,
+    OrbitSalts,
+    L2CreationCode
+} from "../arbitrum/L2AtomicTokenBridgeFactory.sol";
 import {IInbox, IBridge, IOwnable} from "@arbitrum/nitro-contracts/src/bridge/IInbox.sol";
 import {AddressAliasHelper} from "../libraries/AddressAliasHelper.sol";
 import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
@@ -327,9 +332,9 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     }
 
     function getCanonicalL2RouterAddress() public view returns (address) {
-        address expectedL2RouterLogic = Create2.computeAddress(
+        address logicSeedAddress = Create2.computeAddress(
             _getL2Salt(OrbitSalts.L2_ROUTER_LOGIC),
-            keccak256(_creationCodeFor(l2RouterTemplate.code)),
+            keccak256(type(CanonicalAddressSeed).creationCode),
             canonicalL2FactoryAddress
         );
 
@@ -338,7 +343,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             keccak256(
                 abi.encodePacked(
                     type(TransparentUpgradeableProxy).creationCode,
-                    abi.encode(expectedL2RouterLogic, canonicalL2ProxyAdminAddress, bytes(""))
+                    abi.encode(logicSeedAddress, canonicalL2ProxyAdminAddress, bytes(""))
                 )
             ),
             canonicalL2FactoryAddress
@@ -346,17 +351,18 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     }
 
     function getCanonicalL2StandardGatewayAddress() public view returns (address) {
-        address expectedL2StandardGatewayLogic = Create2.computeAddress(
+        address logicSeedAddress = Create2.computeAddress(
             _getL2Salt(OrbitSalts.L2_STANDARD_GATEWAY_LOGIC),
-            keccak256(_creationCodeFor(l2StandardGatewayTemplate.code)),
+            keccak256(type(CanonicalAddressSeed).creationCode),
             canonicalL2FactoryAddress
         );
+
         return Create2.computeAddress(
             _getL2Salt(OrbitSalts.L2_STANDARD_GATEWAY),
             keccak256(
                 abi.encodePacked(
                     type(TransparentUpgradeableProxy).creationCode,
-                    abi.encode(expectedL2StandardGatewayLogic, canonicalL2ProxyAdminAddress, bytes(""))
+                    abi.encode(logicSeedAddress, canonicalL2ProxyAdminAddress, bytes(""))
                 )
             ),
             canonicalL2FactoryAddress
@@ -364,9 +370,9 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     }
 
     function getCanonicalL2CustomGatewayAddress() public view returns (address) {
-        address expectedL2CustomGatewayLogic = Create2.computeAddress(
+        address logicSeedAddress = Create2.computeAddress(
             _getL2Salt(OrbitSalts.L2_CUSTOM_GATEWAY_LOGIC),
-            keccak256(_creationCodeFor(l2CustomGatewayTemplate.code)),
+            keccak256(type(CanonicalAddressSeed).creationCode),
             canonicalL2FactoryAddress
         );
 
@@ -375,7 +381,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             keccak256(
                 abi.encodePacked(
                     type(TransparentUpgradeableProxy).creationCode,
-                    abi.encode(expectedL2CustomGatewayLogic, canonicalL2ProxyAdminAddress, bytes(""))
+                    abi.encode(logicSeedAddress, canonicalL2ProxyAdminAddress, bytes(""))
                 )
             ),
             canonicalL2FactoryAddress
@@ -383,9 +389,9 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     }
 
     function getCanonicalL2WethGatewayAddress() public view returns (address) {
-        address expectedL2WethGatewayLogic = Create2.computeAddress(
+        address logicSeedAddress = Create2.computeAddress(
             _getL2Salt(OrbitSalts.L2_WETH_GATEWAY_LOGIC),
-            keccak256(_creationCodeFor(l2WethGatewayTemplate.code)),
+            keccak256(type(CanonicalAddressSeed).creationCode),
             canonicalL2FactoryAddress
         );
 
@@ -394,7 +400,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             keccak256(
                 abi.encodePacked(
                     type(TransparentUpgradeableProxy).creationCode,
-                    abi.encode(expectedL2WethGatewayLogic, canonicalL2ProxyAdminAddress, bytes(""))
+                    abi.encode(logicSeedAddress, canonicalL2ProxyAdminAddress, bytes(""))
                 )
             ),
             canonicalL2FactoryAddress
@@ -402,9 +408,9 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     }
 
     function getCanonicalL2WethAddress() public view returns (address) {
-        address expectedL2WethLogic = Create2.computeAddress(
+        address logicSeedAddress = Create2.computeAddress(
             _getL2Salt(OrbitSalts.L2_WETH_LOGIC),
-            keccak256(_creationCodeFor(l2WethTemplate.code)),
+            keccak256(type(CanonicalAddressSeed).creationCode),
             canonicalL2FactoryAddress
         );
 
@@ -413,7 +419,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             keccak256(
                 abi.encodePacked(
                     type(TransparentUpgradeableProxy).creationCode,
-                    abi.encode(expectedL2WethLogic, canonicalL2ProxyAdminAddress, bytes(""))
+                    abi.encode(logicSeedAddress, canonicalL2ProxyAdminAddress, bytes(""))
                 )
             ),
             canonicalL2FactoryAddress

@@ -270,8 +270,8 @@ export const createTokenBridge = async (
     await l1TokenBridgeCreator.getCanonicalL2WethGatewayAddress(),
     l2Signer
   )
-  const l1Weth = await l2WethGateway.l1Weth()
-  const l2Weth = await l2WethGateway.l2Weth()
+  const l1Weth = await l1TokenBridgeCreator.l1Weth()
+  const l2Weth = await l1TokenBridgeCreator.getCanonicalL2WethAddress()
   const l2ProxyAdmin = await l1TokenBridgeCreator.canonicalL2ProxyAdminAddress()
 
   return {
