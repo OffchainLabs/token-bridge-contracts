@@ -54,7 +54,7 @@ contract L2AtomicTokenBridgeFactory {
         // canonical L2 router with dummy logic
         address canonicalRouter = address(
             new TransparentUpgradeableProxy{ salt: _getL2Salt(OrbitSalts.L2_ROUTER) }(
-                address(new CanonicalAddressSeed{salt: _getL2Salt(OrbitSalts.L2_ROUTER_LOGIC)}()),
+                address(new CanonicalAddressSeed{ salt: _getL2Salt(OrbitSalts.L2_ROUTER_LOGIC) }()),
                 proxyAdmin,
                 bytes("")
             )
@@ -79,7 +79,11 @@ contract L2AtomicTokenBridgeFactory {
         // canonical L2 standard gateway with dummy logic
         address canonicalStdGateway = address(
             new TransparentUpgradeableProxy{ salt: _getL2Salt(OrbitSalts.L2_STANDARD_GATEWAY) }(
-                address(new CanonicalAddressSeed{salt: _getL2Salt(OrbitSalts.L2_STANDARD_GATEWAY_LOGIC)}()),
+                address(
+                    new CanonicalAddressSeed{
+                        salt: _getL2Salt(OrbitSalts.L2_STANDARD_GATEWAY_LOGIC)
+                    }()
+                ),
                 proxyAdmin,
                 bytes("")
             )
@@ -114,7 +118,11 @@ contract L2AtomicTokenBridgeFactory {
         // canonical L2 custom gateway with dummy logic
         address canonicalCustomGateway = address(
             new TransparentUpgradeableProxy{ salt: _getL2Salt(OrbitSalts.L2_CUSTOM_GATEWAY) }(
-                address(new CanonicalAddressSeed{salt: _getL2Salt(OrbitSalts.L2_CUSTOM_GATEWAY_LOGIC)}()),
+                address(
+                    new CanonicalAddressSeed{
+                        salt: _getL2Salt(OrbitSalts.L2_CUSTOM_GATEWAY_LOGIC)
+                    }()
+                ),
                 proxyAdmin,
                 bytes("")
             )
@@ -140,10 +148,10 @@ contract L2AtomicTokenBridgeFactory {
         // canonical L2 WETH with dummy logic
         address canonicalL2Weth = address(
             new TransparentUpgradeableProxy{ salt: _getL2Salt(OrbitSalts.L2_WETH) }(
-                        address(new CanonicalAddressSeed{salt: _getL2Salt(OrbitSalts.L2_WETH_LOGIC)}()),
-                        proxyAdmin,
-                        bytes("")
-                    )
+                address(new CanonicalAddressSeed{ salt: _getL2Salt(OrbitSalts.L2_WETH_LOGIC) }()),
+                proxyAdmin,
+                bytes("")
+            )
         );
 
         // create L2WETH logic and upgrade
@@ -153,10 +161,12 @@ contract L2AtomicTokenBridgeFactory {
         // canonical L2 WETH gateway with dummy logic
         address canonicalL2WethGateway = address(
             new TransparentUpgradeableProxy{ salt: _getL2Salt(OrbitSalts.L2_WETH_GATEWAY) }(
-                        address(new CanonicalAddressSeed{salt: _getL2Salt(OrbitSalts.L2_WETH_GATEWAY_LOGIC)}()),
-                        proxyAdmin,
-                        bytes("")
-                    )
+                address(
+                    new CanonicalAddressSeed{ salt: _getL2Salt(OrbitSalts.L2_WETH_GATEWAY_LOGIC) }()
+                ),
+                proxyAdmin,
+                bytes("")
+            )
         );
 
         // create L2WETH gateway logic and upgrade

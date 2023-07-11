@@ -1,17 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.4;
 
+import {L1TokenBridgeRetryableSender} from "./L1TokenBridgeRetryableSender.sol";
 import {L1GatewayRouter} from "./gateway/L1GatewayRouter.sol";
 import {L1ERC20Gateway} from "./gateway/L1ERC20Gateway.sol";
 import {L1CustomGateway} from "./gateway/L1CustomGateway.sol";
 import {L1WethGateway} from "./gateway/L1WethGateway.sol";
-import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {
     L2AtomicTokenBridgeFactory,
     CanonicalAddressSeed,
     OrbitSalts,
-    L2CreationCode
+    L2CreationCode,
+    ProxyAdmin
 } from "../arbitrum/L2AtomicTokenBridgeFactory.sol";
 import {IInbox, IBridge, IOwnable} from "@arbitrum/nitro-contracts/src/bridge/IInbox.sol";
 import {AddressAliasHelper} from "../libraries/AddressAliasHelper.sol";
@@ -48,6 +49,9 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     // hard-code it to make sure gas limit is big enough for deployment to succeed
     uint256 public gasLimitForL2FactoryDeployment;
 
+    // contract which creates retryables for deploying L2 side of token bridge
+    L1TokenBridgeRetryableSender public retryableSender;
+
     // L1 logic contracts shared by all token bridges
     L1GatewayRouter public routerTemplate;
     L1ERC20Gateway public standardGatewayTemplate;
@@ -77,6 +81,19 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
 
     function initialize() public initializer {
         __Ownable_init();
+
+        // deploy retryableSender only once - its address will be part of salt for L2 contracts
+        if (address(retryableSender) == address(0)) {
+            retryableSender = L1TokenBridgeRetryableSender(
+                address(
+                    new TransparentUpgradeableProxy(
+                    address(new L1TokenBridgeRetryableSender()),
+                    msg.sender,
+                    bytes("")
+                    )
+                )
+            );
+        }
 
         canonicalL2FactoryAddress = _computeAddress(AddressAliasHelper.applyL1ToL2Alias(address(this)), 0);
         canonicalL2ProxyAdminAddress = Create2.computeAddress(
@@ -295,7 +312,6 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         uint256 maxGas,
         uint256 gasPriceBid
     ) internal returns (uint256) {
-        address l2ProxyAdminOwner = _getRollupOwner(inbox);
         L2CreationCode memory l2Code = L2CreationCode(
             _creationCodeFor(l2RouterTemplate.code),
             _creationCodeFor(l2StandardGatewayTemplate.code),
@@ -313,14 +329,14 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                 l1WethGateway,
                 l1Weth,
                 getCanonicalL2StandardGatewayAddress(),
-                l2ProxyAdminOwner
+                _getRollupOwner(inbox)
             )
         );
 
         uint256 maxSubmissionCost = IInbox(inbox).calculateRetryableSubmissionFee(data.length, 0);
         uint256 value = maxSubmissionCost + maxGas * gasPriceBid;
-        IInbox(inbox).createRetryableTicket{value: value}(
-            canonicalL2FactoryAddress, 0, maxSubmissionCost, msg.sender, msg.sender, maxGas, gasPriceBid, data
+        retryableSender.sendRetryable{value: value}(
+            inbox, canonicalL2FactoryAddress, msg.sender, msg.sender, maxSubmissionCost, maxGas, gasPriceBid, data
         );
 
         return value;
@@ -490,6 +506,6 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     }
 
     function _getL2Salt(bytes32 prefix) internal view returns (bytes32) {
-        return keccak256(abi.encodePacked(prefix, AddressAliasHelper.applyL1ToL2Alias(address(this))));
+        return keccak256(abi.encodePacked(prefix, AddressAliasHelper.applyL1ToL2Alias(address(retryableSender))));
     }
 }
