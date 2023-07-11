@@ -31,7 +31,6 @@
   },
   "files": [
     "contracts",
-    "build/contracts",
     "build/types"
   ],
   "dependencies": {
