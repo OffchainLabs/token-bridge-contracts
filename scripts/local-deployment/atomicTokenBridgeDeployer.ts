@@ -184,9 +184,9 @@ export const createTokenBridge = async (
       ethers.Wallet.createRandom().address,
       ethers.Wallet.createRandom().address
     )
-  const maxGasForContracts = gasEstimateToDeployContracts
+  const maxGasForContracts = gasEstimateToDeployContracts.mul(2)
   const maxSubmissionCostForContracts =
-    deployFactoryGasParams.maxSubmissionCost.mul(5)
+    deployFactoryGasParams.maxSubmissionCost.mul(2)
 
   let retryableValue = maxSubmissionCostForFactory
     .add(maxSubmissionCostForContracts)

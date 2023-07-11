@@ -11,7 +11,7 @@ import {
     L2AtomicTokenBridgeFactory,
     CanonicalAddressSeed,
     OrbitSalts,
-    L2CreationCode,
+    L2RuntimeCode,
     ProxyAdmin
 } from "../arbitrum/L2AtomicTokenBridgeFactory.sol";
 import {IInbox, IBridge, IOwnable} from "@arbitrum/nitro-contracts/src/bridge/IInbox.sol";
@@ -87,9 +87,9 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             retryableSender = L1TokenBridgeRetryableSender(
                 address(
                     new TransparentUpgradeableProxy(
-                    address(new L1TokenBridgeRetryableSender()),
-                    msg.sender,
-                    bytes("")
+                        address(new L1TokenBridgeRetryableSender()),
+                        msg.sender,
+                        bytes("")
                     )
                 )
             );
@@ -312,12 +312,12 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         uint256 maxGas,
         uint256 gasPriceBid
     ) internal returns (uint256) {
-        L2CreationCode memory l2Code = L2CreationCode(
-            _creationCodeFor(l2RouterTemplate.code),
-            _creationCodeFor(l2StandardGatewayTemplate.code),
-            _creationCodeFor(l2CustomGatewayTemplate.code),
-            _creationCodeFor(l2WethGatewayTemplate.code),
-            _creationCodeFor(l2WethTemplate.code)
+        L2RuntimeCode memory l2Code = L2RuntimeCode(
+            l2RouterTemplate.code,
+            l2StandardGatewayTemplate.code,
+            l2CustomGatewayTemplate.code,
+            l2WethGatewayTemplate.code,
+            l2WethTemplate.code
         );
         bytes memory data = abi.encodeCall(
             L2AtomicTokenBridgeFactory.deployL2Contracts,
@@ -455,6 +455,28 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     }
 
     /**
+     * @notice Compute address of contract deployed using CREATE opcode
+     * @return computed address
+     */
+    function _computeAddress(address origin, uint256 nonce) internal pure returns (address) {
+        bytes memory data;
+        if (nonce == 0x00) {
+            data = abi.encodePacked(bytes1(0xd6), bytes1(0x94), origin, bytes1(0x80));
+        } else if (nonce <= 0x7f) {
+            data = abi.encodePacked(bytes1(0xd6), bytes1(0x94), origin, uint8(nonce));
+        } else if (nonce <= 0xff) {
+            data = abi.encodePacked(bytes1(0xd7), bytes1(0x94), origin, bytes1(0x81), uint8(nonce));
+        } else if (nonce <= 0xffff) {
+            data = abi.encodePacked(bytes1(0xd8), bytes1(0x94), origin, bytes1(0x82), uint16(nonce));
+        } else if (nonce <= 0xffffff) {
+            data = abi.encodePacked(bytes1(0xd9), bytes1(0x94), origin, bytes1(0x83), uint24(nonce));
+        } else {
+            data = abi.encodePacked(bytes1(0xda), bytes1(0x94), origin, bytes1(0x84), uint32(nonce));
+        }
+        return address(uint160(uint256(keccak256(data))));
+    }
+
+    /**
      * @notice Generate a creation code that results on a contract with `code` as bytecode.
      *         Source - https://github.com/0xsequence/sstore2/blob/master/contracts/utils/Bytecode.sol
      * @param code The returning value of the resulting `creationCode`
@@ -473,28 +495,6 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         */
 
         return abi.encodePacked(hex"63", uint32(code.length), hex"80600E6000396000F3", code);
-    }
-
-    /**
-     * @notice Compute address of contract deployed using CREATE opcode
-     * @return computed address
-     */
-    function _computeAddress(address _origin, uint256 _nonce) public pure returns (address) {
-        bytes memory data;
-        if (_nonce == 0x00) {
-            data = abi.encodePacked(bytes1(0xd6), bytes1(0x94), _origin, bytes1(0x80));
-        } else if (_nonce <= 0x7f) {
-            data = abi.encodePacked(bytes1(0xd6), bytes1(0x94), _origin, uint8(_nonce));
-        } else if (_nonce <= 0xff) {
-            data = abi.encodePacked(bytes1(0xd7), bytes1(0x94), _origin, bytes1(0x81), uint8(_nonce));
-        } else if (_nonce <= 0xffff) {
-            data = abi.encodePacked(bytes1(0xd8), bytes1(0x94), _origin, bytes1(0x82), uint16(_nonce));
-        } else if (_nonce <= 0xffffff) {
-            data = abi.encodePacked(bytes1(0xd9), bytes1(0x94), _origin, bytes1(0x83), uint24(_nonce));
-        } else {
-            data = abi.encodePacked(bytes1(0xda), bytes1(0x94), _origin, bytes1(0x84), uint32(_nonce));
-        }
-        return address(uint160(uint256(keccak256(data))));
     }
 
     function _getRollupOwner(address inbox) internal view returns (address) {

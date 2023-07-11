@@ -23,7 +23,7 @@ import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
  */
 contract L2AtomicTokenBridgeFactory {
     function deployL2Contracts(
-        L2CreationCode calldata l2Code,
+        L2RuntimeCode calldata l2Code,
         address l1Router,
         address l1StandardGateway,
         address l1CustomGateway,
@@ -46,7 +46,7 @@ contract L2AtomicTokenBridgeFactory {
     }
 
     function _deployRouter(
-        bytes calldata creationCode,
+        bytes calldata runtimeCode,
         address l1Router,
         address l2StandardGatewayCanonicalAddress,
         address proxyAdmin
@@ -61,7 +61,7 @@ contract L2AtomicTokenBridgeFactory {
         );
 
         // create L2 router logic and upgrade
-        address routerLogic = Create2.deploy(0, _getL2Salt(OrbitSalts.L2_ROUTER_LOGIC), creationCode);
+        address routerLogic = Create2.deploy(0, _getL2Salt(OrbitSalts.L2_ROUTER_LOGIC), _creationCodeFor(runtimeCode));
         ProxyAdmin(proxyAdmin).upgrade(ITransparentUpgradeableProxy(canonicalRouter), routerLogic);
 
         // init
@@ -71,7 +71,7 @@ contract L2AtomicTokenBridgeFactory {
     }
 
     function _deployStandardGateway(
-        bytes calldata creationCode,
+        bytes calldata runtimeCode,
         address l1StandardGateway,
         address router,
         address proxyAdmin
@@ -90,7 +90,8 @@ contract L2AtomicTokenBridgeFactory {
         );
 
         // create L2 standard gateway logic and upgrade
-        address stdGatewayLogic = Create2.deploy(0, _getL2Salt(OrbitSalts.L2_STANDARD_GATEWAY_LOGIC), creationCode);
+        address stdGatewayLogic =
+            Create2.deploy(0, _getL2Salt(OrbitSalts.L2_STANDARD_GATEWAY_LOGIC), _creationCodeFor(runtimeCode));
         ProxyAdmin(proxyAdmin).upgrade(ITransparentUpgradeableProxy(canonicalStdGateway), stdGatewayLogic);
 
         // create beacon
@@ -110,7 +111,7 @@ contract L2AtomicTokenBridgeFactory {
     }
 
     function _deployCustomGateway(
-        bytes calldata creationCode,
+        bytes calldata runtimeCode,
         address l1CustomGateway,
         address router,
         address proxyAdmin
@@ -130,7 +131,7 @@ contract L2AtomicTokenBridgeFactory {
 
         // create L2 custom gateway logic and upgrade
         address customGatewayLogicAddress =
-            Create2.deploy(0, _getL2Salt(OrbitSalts.L2_CUSTOM_GATEWAY_LOGIC), creationCode);
+            Create2.deploy(0, _getL2Salt(OrbitSalts.L2_CUSTOM_GATEWAY_LOGIC), _creationCodeFor(runtimeCode));
         ProxyAdmin(proxyAdmin).upgrade(ITransparentUpgradeableProxy(canonicalCustomGateway), customGatewayLogicAddress);
 
         // init
@@ -138,8 +139,8 @@ contract L2AtomicTokenBridgeFactory {
     }
 
     function _deployWethGateway(
-        bytes calldata wethGatewayCreationCode,
-        bytes calldata aeWethCreationCode,
+        bytes calldata wethGatewayRuntimeCode,
+        bytes calldata aeWethRuntimeCode,
         address l1WethGateway,
         address l1Weth,
         address router,
@@ -155,7 +156,8 @@ contract L2AtomicTokenBridgeFactory {
         );
 
         // create L2WETH logic and upgrade
-        address l2WethLogic = Create2.deploy(0, _getL2Salt(OrbitSalts.L2_WETH_LOGIC), aeWethCreationCode);
+        address l2WethLogic =
+            Create2.deploy(0, _getL2Salt(OrbitSalts.L2_WETH_LOGIC), _creationCodeFor(aeWethRuntimeCode));
         ProxyAdmin(proxyAdmin).upgrade(ITransparentUpgradeableProxy(canonicalL2Weth), l2WethLogic);
 
         // canonical L2 WETH gateway with dummy logic
@@ -171,7 +173,7 @@ contract L2AtomicTokenBridgeFactory {
 
         // create L2WETH gateway logic and upgrade
         address l2WethGatewayLogic =
-            Create2.deploy(0, _getL2Salt(OrbitSalts.L2_WETH_GATEWAY_LOGIC), wethGatewayCreationCode);
+            Create2.deploy(0, _getL2Salt(OrbitSalts.L2_WETH_GATEWAY_LOGIC), _creationCodeFor(wethGatewayRuntimeCode));
         ProxyAdmin(proxyAdmin).upgrade(ITransparentUpgradeableProxy(canonicalL2WethGateway), l2WethGatewayLogic);
 
         // init gateway
@@ -186,6 +188,27 @@ contract L2AtomicTokenBridgeFactory {
     function _getL2Salt(bytes32 prefix) internal view returns (bytes32) {
         return keccak256(abi.encodePacked(prefix, msg.sender));
     }
+
+    /**
+     * @notice Generate a creation code that results on a contract with `code` as bytecode.
+     *         Source - https://github.com/0xsequence/sstore2/blob/master/contracts/utils/Bytecode.sol
+     * @param code The returning value of the resulting `creationCode`
+     * @return creationCode (constructor) for new contract
+     */
+    function _creationCodeFor(bytes memory code) internal pure returns (bytes memory) {
+        /*
+            0x00    0x63         0x63XXXXXX  PUSH4 _code.length  size
+            0x01    0x80         0x80        DUP1                size size
+            0x02    0x60         0x600e      PUSH1 14            14 size size
+            0x03    0x60         0x6000      PUSH1 00            0 14 size size
+            0x04    0x39         0x39        CODECOPY            size
+            0x05    0x60         0x6000      PUSH1 00            0 size
+            0x06    0xf3         0xf3        RETURN
+            <CODE>
+        */
+
+        return abi.encodePacked(hex"63", uint32(code.length), hex"80600E6000396000F3", code);
+    }
 }
 
 /**
@@ -196,7 +219,7 @@ contract CanonicalAddressSeed {}
 /**
  * Placeholder for bytecode of token bridge contracts which is sent from L1 to L2 through retryable ticket.
  */
-struct L2CreationCode {
+struct L2RuntimeCode {
     bytes router;
     bytes standardGateway;
     bytes customGateway;
