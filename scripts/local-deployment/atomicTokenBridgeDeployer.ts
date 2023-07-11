@@ -94,6 +94,7 @@ export const setupTokenBridgeInLocalEnv = async () => {
   )
   const l1TokenBridgeCreator = await deployL1TokenBridgeCreator(
     l1Deployer,
+    l2Deployer,
     l1TokenBridgeCreatorOwner.address
   )
   console.log('L1TokenBridgeCreator', l1TokenBridgeCreator.address)
@@ -147,23 +148,17 @@ export const createTokenBridge = async (
   l1TokenBridgeCreator: L1AtomicTokenBridgeCreator,
   inboxAddress: string
 ) => {
-  const deployerAddress = await l1Signer.getAddress()
   const gasPrice = await l2Signer.provider!.getGasPrice()
 
   //// run retryable estimate for deploying L2 factory
-  const l1ToL2MsgGasEstimate = new L1ToL2MessageGasEstimator(l2Signer.provider!)
-  const deployFactoryGasParams = await l1ToL2MsgGasEstimate.estimateAll(
-    {
-      from: l1TokenBridgeCreator.address,
-      to: ethers.constants.AddressZero,
-      l2CallValue: BigNumber.from(0),
-      excessFeeRefundAddress: deployerAddress,
-      callValueRefundAddress: deployerAddress,
-      data: L2AtomicTokenBridgeFactory__factory.bytecode,
-    },
-    await getBaseFee(l1Signer.provider!),
-    l1Signer.provider!
+  const deployFactoryGasParams = await getEstimateForDeployingFactory(
+    l1Signer,
+    l2Signer,
+    l1TokenBridgeCreator.address
   )
+  const maxGasForFactory =
+    await l1TokenBridgeCreator.gasLimitForL2FactoryDeployment()
+  const maxSubmissionCostForFactory = deployFactoryGasParams.maxSubmissionCost
 
   //// run retryable estimate for deploying L2 contracts
   //// we do this estimate using L2 factory template on L1 because on L2 factory does not yet exist
@@ -189,22 +184,19 @@ export const createTokenBridge = async (
       ethers.Wallet.createRandom().address,
       ethers.Wallet.createRandom().address
     )
-  const maxGasForContracts = gasEstimateToDeployContracts.mul(2)
+  const maxGasForContracts = gasEstimateToDeployContracts
   const maxSubmissionCostForContracts =
     deployFactoryGasParams.maxSubmissionCost.mul(5)
 
-  let retryableValue = deployFactoryGasParams.maxSubmissionCost.add(
-    deployFactoryGasParams.gasLimit.mul(gasPrice)
-  )
-  retryableValue = retryableValue.add(
-    maxSubmissionCostForContracts.add(maxGasForContracts.mul(gasPrice))
-  )
+  let retryableValue = maxSubmissionCostForFactory
+    .add(maxSubmissionCostForContracts)
+    .add(maxGasForFactory.mul(gasPrice))
+    .add(maxGasForContracts.mul(gasPrice))
 
   /// do it - create token bridge
   const receipt = await (
     await l1TokenBridgeCreator.createTokenBridge(
       inboxAddress,
-      deployFactoryGasParams.gasLimit,
       maxGasForContracts,
       gasPrice,
       { value: retryableValue }
@@ -293,6 +285,7 @@ export const createTokenBridge = async (
 
 const deployL1TokenBridgeCreator = async (
   l1Signer: Signer,
+  l2Signer: Signer,
   l1CreatorOwner: string
 ) => {
   /// deploy creator behind proxy
@@ -364,6 +357,13 @@ const deployL1TokenBridgeCreator = async (
 
   const weth = ethers.Wallet.createRandom().address
 
+  //// run retryable estimate for deploying L2 factory
+  const deployFactoryGasParams = await getEstimateForDeployingFactory(
+    l1Signer,
+    l2Signer,
+    l1TokenBridgeCreator.address
+  )
+
   await (
     await l1TokenBridgeCreator.setTemplates(
       routerTemplate.address,
@@ -376,11 +376,36 @@ const deployL1TokenBridgeCreator = async (
       l2CustomGatewayAddressOnL1.address,
       l2WethGatewayAddressOnL1.address,
       l2WethAddressOnL1.address,
-      weth
+      weth,
+      deployFactoryGasParams.gasLimit
     )
   ).wait()
 
   return l1TokenBridgeCreator
+}
+
+const getEstimateForDeployingFactory = async (
+  l1Signer: Signer,
+  l2Signer: Signer,
+  deployer: string
+) => {
+  //// run retryable estimate for deploying L2 factory
+  const deployerAddress = await l1Signer.getAddress()
+  const l1ToL2MsgGasEstimate = new L1ToL2MessageGasEstimator(l2Signer.provider!)
+  const deployFactoryGasParams = await l1ToL2MsgGasEstimate.estimateAll(
+    {
+      from: deployer,
+      to: ethers.constants.AddressZero,
+      l2CallValue: BigNumber.from(0),
+      excessFeeRefundAddress: deployerAddress,
+      callValueRefundAddress: deployerAddress,
+      data: L2AtomicTokenBridgeFactory__factory.bytecode,
+    },
+    await getBaseFee(l1Signer.provider!),
+    l1Signer.provider!
+  )
+
+  return deployFactoryGasParams
 }
 
 export const getLocalNetworks = async (

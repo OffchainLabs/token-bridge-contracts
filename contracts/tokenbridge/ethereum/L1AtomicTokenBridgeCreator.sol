@@ -45,6 +45,9 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     // non-canonical router registry
     mapping(address => address) public inboxToNonCanonicalRouter;
 
+    // hard-code it to make sure gas limit is big enough for deployment to succeed
+    uint256 public gasLimitForL2FactoryDeployment;
+
     // L1 logic contracts shared by all token bridges
     L1GatewayRouter public routerTemplate;
     L1ERC20Gateway public standardGatewayTemplate;
@@ -102,7 +105,8 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         address _l2CustomGatewayTemplate,
         address _l2WethGatewayTemplate,
         address _l2WethTemplate,
-        address _l1Weth
+        address _l1Weth,
+        uint256 _gasLimitForL2FactoryDeployment
     ) external onlyOwner {
         routerTemplate = _router;
         standardGatewayTemplate = _standardGateway;
@@ -118,6 +122,8 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
 
         l1Weth = _l1Weth;
 
+        gasLimitForL2FactoryDeployment = _gasLimitForL2FactoryDeployment;
+
         emit OrbitTokenBridgeTemplatesUpdated();
     }
 
@@ -127,19 +133,18 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
      *      2 retryable tickets  to deploy L2 side. 1st one deploy L2 factory and 2nd calls function that deploys and inits
      *      all the rest of the contracts. L2 chain is determined by `inbox` parameter.
      */
-    function createTokenBridge(address inbox, uint256 maxGasForFactory, uint256 maxGasForContracts, uint256 gasPriceBid)
-        external
-        payable
-    {
+    function createTokenBridge(address inbox, uint256 maxGasForContracts, uint256 gasPriceBid) external payable {
         if (address(routerTemplate) == address(0)) {
             revert L1AtomicTokenBridgeCreator_TemplatesNotSet();
         }
+
+        // deploy L1 side of token bridge
         address owner = _getRollupOwner(inbox);
         (address router, address standardGateway, address customGateway, address wethGateway) =
             _deployL1Contracts(inbox, owner);
 
         /// deploy factory and then L2 contracts through L2 factory, using 2 retryables calls
-        uint256 valueSpentForFactory = _deployL2Factory(inbox, maxGasForFactory, gasPriceBid);
+        uint256 valueSpentForFactory = _deployL2Factory(inbox, gasPriceBid);
         uint256 valueSpentForContracts = _deployL2Contracts(
             router, standardGateway, customGateway, wethGateway, inbox, maxGasForContracts, gasPriceBid
         );
@@ -261,14 +266,21 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         return address(wethGateway);
     }
 
-    function _deployL2Factory(address inbox, uint256 maxGas, uint256 gasPriceBid) internal returns (uint256) {
+    function _deployL2Factory(address inbox, uint256 gasPriceBid) internal returns (uint256) {
         // encode L2 factory bytecode
         bytes memory deploymentData = _creationCodeFor(l2TokenBridgeFactoryTemplate.code);
 
         uint256 maxSubmissionCost = IInbox(inbox).calculateRetryableSubmissionFee(deploymentData.length, 0);
-        uint256 value = maxSubmissionCost + maxGas * gasPriceBid;
+        uint256 value = maxSubmissionCost + gasLimitForL2FactoryDeployment * gasPriceBid;
         IInbox(inbox).createRetryableTicket{value: value}(
-            address(0), 0, maxSubmissionCost, msg.sender, msg.sender, maxGas, gasPriceBid, deploymentData
+            address(0),
+            0,
+            maxSubmissionCost,
+            msg.sender,
+            msg.sender,
+            gasLimitForL2FactoryDeployment,
+            gasPriceBid,
+            deploymentData
         );
 
         return value;
