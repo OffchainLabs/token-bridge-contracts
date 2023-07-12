@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.4;
 
-import {L1TokenBridgeRetryableSender} from "./L1TokenBridgeRetryableSender.sol";
+import {
+    L1TokenBridgeRetryableSender,
+    L1Addresses,
+    RetryableParams,
+    L2TemplateAddresses
+} from "./L1TokenBridgeRetryableSender.sol";
 import {L1GatewayRouter} from "./gateway/L1GatewayRouter.sol";
 import {L1ERC20Gateway} from "./gateway/L1ERC20Gateway.sol";
 import {L1CustomGateway} from "./gateway/L1CustomGateway.sol";
@@ -28,7 +33,6 @@ import {Initializable, OwnableUpgradeable} from "@openzeppelin/contracts-upgrade
 contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     error L1AtomicTokenBridgeCreator_OnlyRollupOwner();
     error L1AtomicTokenBridgeCreator_InvalidRouterAddr();
-    error L1AtomicTokenBridgeCreator_RefundFailed();
     error L1AtomicTokenBridgeCreator_TemplatesNotSet();
 
     event OrbitTokenBridgeCreated(
@@ -169,14 +173,10 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
 
         /// deploy factory and then L2 contracts through L2 factory, using 2 retryables calls
         uint256 valueSpentForFactory = _deployL2Factory(inbox, gasPriceBid);
-        uint256 valueSpentForContracts = _deployL2Contracts(
-            router, standardGateway, customGateway, wethGateway, inbox, maxGasForContracts, gasPriceBid
+        uint256 fundsRemaining = msg.value - valueSpentForFactory;
+        _deployL2Contracts(
+            router, standardGateway, customGateway, wethGateway, inbox, maxGasForContracts, gasPriceBid, fundsRemaining
         );
-
-        // refund excess value to the sender
-        uint256 refund = msg.value - (valueSpentForFactory + valueSpentForContracts);
-        (bool success,) = msg.sender.call{value: refund}("");
-        if (!success) revert L1AtomicTokenBridgeCreator_RefundFailed();
     }
 
     /**
@@ -317,36 +317,23 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         address l1WethGateway,
         address inbox,
         uint256 maxGas,
-        uint256 gasPriceBid
-    ) internal returns (uint256) {
-        L2RuntimeCode memory l2Code = L2RuntimeCode(
-            l2RouterTemplate.code,
-            l2StandardGatewayTemplate.code,
-            l2CustomGatewayTemplate.code,
-            l2WethGatewayTemplate.code,
-            l2WethTemplate.code
+        uint256 gasPriceBid,
+        uint256 availableFunds
+    ) internal {
+        retryableSender.sendRetryable{value: availableFunds}(
+            RetryableParams(inbox, canonicalL2FactoryAddress, msg.sender, msg.sender, maxGas, gasPriceBid),
+            L2TemplateAddresses(
+                l2RouterTemplate,
+                l2StandardGatewayTemplate,
+                l2CustomGatewayTemplate,
+                l2WethGatewayTemplate,
+                l2WethTemplate
+            ),
+            L1Addresses(l1Router, l1StandardGateway, l1CustomGateway, l1WethGateway, l1Weth),
+            getCanonicalL2StandardGatewayAddress(),
+            _getRollupOwner(inbox),
+            msg.sender
         );
-        bytes memory data = abi.encodeCall(
-            L2AtomicTokenBridgeFactory.deployL2Contracts,
-            (
-                l2Code,
-                l1Router,
-                l1StandardGateway,
-                l1CustomGateway,
-                l1WethGateway,
-                l1Weth,
-                getCanonicalL2StandardGatewayAddress(),
-                _getRollupOwner(inbox)
-            )
-        );
-
-        uint256 maxSubmissionCost = IInbox(inbox).calculateRetryableSubmissionFee(data.length, 0);
-        uint256 value = maxSubmissionCost + maxGas * gasPriceBid;
-        retryableSender.sendRetryable{value: value}(
-            inbox, canonicalL2FactoryAddress, msg.sender, msg.sender, maxSubmissionCost, maxGas, gasPriceBid, data
-        );
-
-        return value;
     }
 
     function getCanonicalL1RouterAddress(address inbox) public view returns (address) {
