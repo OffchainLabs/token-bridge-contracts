@@ -149,8 +149,13 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     /**
      * @notice Deploy and initialize token bridge, both L1 and L2 sides, as part of a single TX.
      * @dev This is a single entrypoint of L1 token bridge creator. Function deploys L1 side of token bridge and then uses
-     *      2 retryable tickets to deploy L2 side. 1st retryable deploys L2 factory. And then 'retryable sender' contract 
-     *      is called to issue 2nd retryable which deploys and inits the rest of the contracts. L2 chain is determined by `inbox` parameter.
+     *      2 retryable tickets to deploy L2 side. 1st retryable deploys L2 factory. And then 'retryable sender' contract
+     *      is called to issue 2nd retryable which deploys and inits the rest of the contracts. L2 chain is determined
+     *      by `inbox` parameter.
+     *
+     *      Token bridge can be deployed only once for certain inbox. Any further calls to `createTokenBridge` will revert
+     *      because L1 salts are already used at that point and L1 contracts are already deployed at canonical addresses
+     *      for that inbox.
      */
     function createTokenBridge(address inbox, uint256 maxGasForContracts, uint256 gasPriceBid) external payable {
         if (address(routerTemplate) == address(0)) {
