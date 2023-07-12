@@ -46,7 +46,9 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     // non-canonical router registry
     mapping(address => address) public inboxToNonCanonicalRouter;
 
-    // hard-code it to make sure gas limit is big enough for deployment to succeed
+    // Hard-code gas to make sure gas limit is big enough for L2 factory deployment to succeed.
+    // If retryable would've reverted due to too low gas limit, nonce 0 would be burned and
+    // canonical address for L2 factory would've been unobtainable
     uint256 public gasLimitForL2FactoryDeployment;
 
     // contract which creates retryables for deploying L2 side of token bridge
@@ -70,7 +72,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     address public l1Weth;
 
     // immutable canonical addresses for L2 contracts
-    // other canonical addresses (dependent on L2 template implementations) can be fetched through `computeExpectedL2***Address` functions
+    // other canonical addresses (dependent on L2 template implementations) can be fetched through `getCanonicalL2***Address` functions
     address public canonicalL2FactoryAddress;
     address public canonicalL2ProxyAdminAddress;
     address public canonicalL2BeaconProxyFactoryAddress;
@@ -147,8 +149,8 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     /**
      * @notice Deploy and initialize token bridge, both L1 and L2 sides, as part of a single TX.
      * @dev This is a single entrypoint of L1 token bridge creator. Function deploys L1 side of token bridge and then uses
-     *      2 retryable tickets  to deploy L2 side. 1st one deploy L2 factory and 2nd calls function that deploys and inits
-     *      all the rest of the contracts. L2 chain is determined by `inbox` parameter.
+     *      2 retryable tickets to deploy L2 side. 1st retryable deploys L2 factory. And then 'retryable sender' contract 
+     *      is called to issue 2nd retryable which deploys and inits the rest of the contracts. L2 chain is determined by `inbox` parameter.
      */
     function createTokenBridge(address inbox, uint256 maxGasForContracts, uint256 gasPriceBid) external payable {
         if (address(routerTemplate) == address(0)) {
