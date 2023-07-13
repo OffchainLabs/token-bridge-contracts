@@ -20,7 +20,10 @@
     "test:unit": "forge test",
     "test:e2e:local-env": "yarn hardhat test test-e2e/*",
     "test:storage": "./scripts/storage_layout_test.bash",
-    "test:deploy:orbit-tokenbridge": "ts-node ./scripts/local-deployment/orbitTokenBridgeDeployer.ts",
+    "deploy:orbit-tokenbridge:script": "ts-node ./scripts/local-deployment/orbitTokenBridgeDeployer.ts",
+    "deploy:tokenbridge:script": "ts-node ./scripts/local-deployment/tokenBridgeDeployer.ts",
+    "deploy:tokenbridge:atomic": "ts-node ./scripts/local-deployment/atomicTokenBridgeDeployer.ts",
+    "test:tokenbridge:deployment": "hardhat test test-e2e/tokenBridgeDeploymentTest.ts",
     "typechain": "hardhat typechain",
     "deploy:tokenbridge": "hardhat run scripts/deploy_token_bridge_l1.ts --network mainnet",
     "gen:uml": "sol2uml ./contracts/tokenbridge/arbitrum,./contracts/tokenbridge/ethereum,./contracts/tokenbridge/libraries -o ./gatewayUML.svg",
@@ -35,6 +38,7 @@
   ],
   "dependencies": {
     "@arbitrum/nitro-contracts": "^1.0.0-beta.8",
+    "@arbitrum/sdk": "^3.1.5",
     "@openzeppelin/contracts": "4.8.3",
     "@openzeppelin/contracts-upgradeable": "4.8.3"
   },
@@ -62,6 +66,7 @@
     "ethereum-waffle": "^3.2.0",
     "ethers": "^5.4.5",
     "hardhat": "2.9.9",
+    "hardhat-contract-sizer": "^2.10.0",
     "hardhat-deploy": "^0.9.1",
     "hardhat-gas-reporter": "^1.0.4",
     "prettier": "^2.3.2",
