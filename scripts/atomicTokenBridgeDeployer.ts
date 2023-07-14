@@ -44,8 +44,7 @@ export const createTokenBridge = async (
   //// run retryable estimate for deploying L2 factory
   const deployFactoryGasParams = await getEstimateForDeployingFactory(
     l1Signer,
-    l2Signer.provider!,
-    l1TokenBridgeCreator.address
+    l2Signer.provider!
   )
   const maxGasForFactory =
     await l1TokenBridgeCreator.gasLimitForL2FactoryDeployment()
@@ -258,13 +257,10 @@ export const deployL1TokenBridgeCreator = async (
   const l2WethAddressOnL1 = await new AeWETH__factory(l1Deployer).deploy()
   await l2WethAddressOnL1.deployed()
 
-  const weth = ethers.Wallet.createRandom().address
-
   //// run retryable estimate for deploying L2 factory
   const deployFactoryGasParams = await getEstimateForDeployingFactory(
     l1Deployer,
-    l2Provider,
-    l1TokenBridgeCreator.address
+    l2Provider
   )
 
   await (
@@ -288,24 +284,23 @@ export const deployL1TokenBridgeCreator = async (
 }
 
 export const getEstimateForDeployingFactory = async (
-  l1Signer: Signer,
-  l2Provider: ethers.providers.Provider,
-  deployer: string
+  l1Deployer: Signer,
+  l2Provider: ethers.providers.Provider
 ) => {
   //// run retryable estimate for deploying L2 factory
-  const deployerAddress = await l1Signer.getAddress()
+  const l1DeployerAddress = await l1Deployer.getAddress()
   const l1ToL2MsgGasEstimate = new L1ToL2MessageGasEstimator(l2Provider)
   const deployFactoryGasParams = await l1ToL2MsgGasEstimate.estimateAll(
     {
-      from: deployer,
+      from: ethers.Wallet.createRandom().address,
       to: ethers.constants.AddressZero,
       l2CallValue: BigNumber.from(0),
-      excessFeeRefundAddress: deployerAddress,
-      callValueRefundAddress: deployerAddress,
+      excessFeeRefundAddress: l1DeployerAddress,
+      callValueRefundAddress: l1DeployerAddress,
       data: L2AtomicTokenBridgeFactory__factory.bytecode,
     },
-    await getBaseFee(l1Signer.provider!),
-    l1Signer.provider!
+    await getBaseFee(l1Deployer.provider!),
+    l1Deployer.provider!
   )
 
   return deployFactoryGasParams
