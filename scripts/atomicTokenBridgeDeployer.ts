@@ -35,20 +35,26 @@ import { getBaseFee } from '@arbitrum/sdk/dist/lib/utils/lib'
  */
 export const createTokenBridge = async (
   l1Signer: Signer,
-  l2Signer: Signer,
+  l2Provider: ethers.providers.Provider,
   l1TokenBridgeCreator: L1AtomicTokenBridgeCreator,
   inboxAddress: string
 ) => {
-  const gasPrice = await l2Signer.provider!.getGasPrice()
+  const gasPrice = await l2Provider.getGasPrice()
 
   //// run retryable estimate for deploying L2 factory
   const deployFactoryGasParams = await getEstimateForDeployingFactory(
     l1Signer,
-    l2Signer.provider!
+    l2Provider
   )
   const maxGasForFactory =
     await l1TokenBridgeCreator.gasLimitForL2FactoryDeployment()
   const maxSubmissionCostForFactory = deployFactoryGasParams.maxSubmissionCost
+
+  console.log(
+    'deployFactoryGasParams',
+    maxGasForFactory.toString(),
+    maxSubmissionCostForFactory.toString()
+  )
 
   //// run retryable estimate for deploying L2 contracts
   //// we do this estimate using L2 factory template on L1 because on L2 factory does not yet exist
@@ -95,7 +101,7 @@ export const createTokenBridge = async (
 
   /// wait for execution of both tickets
   const l1TxReceipt = new L1TransactionReceipt(receipt)
-  const messages = await l1TxReceipt.getL1ToL2Messages(l2Signer)
+  const messages = await l1TxReceipt.getL1ToL2Messages(l2Provider)
   const messageResults = await Promise.all(
     messages.map(message => message.waitForStatus())
   )
@@ -122,7 +128,7 @@ export const createTokenBridge = async (
   const l2AtomicTokenBridgeFactory =
     L2AtomicTokenBridgeFactory__factory.connect(
       messageResults[0].l2TxReceipt.contractAddress,
-      l2Signer
+      l2Provider
     )
   console.log('L2AtomicTokenBridgeFactory', l2AtomicTokenBridgeFactory.address)
 
@@ -143,14 +149,14 @@ export const createTokenBridge = async (
   const l2Router = await l1TokenBridgeCreator.getCanonicalL2RouterAddress()
   const l2StandardGateway = L2ERC20Gateway__factory.connect(
     await l1TokenBridgeCreator.getCanonicalL2StandardGatewayAddress(),
-    l2Signer
+    l2Provider
   )
   const beaconProxyFactory = await l2StandardGateway.beaconProxyFactory()
   const l2CustomGateway =
     await l1TokenBridgeCreator.getCanonicalL2CustomGatewayAddress()
   const l2WethGateway = L2WethGateway__factory.connect(
     await l1TokenBridgeCreator.getCanonicalL2WethGatewayAddress(),
-    l2Signer
+    l2Provider
   )
   const l1Weth = await l1TokenBridgeCreator.l1Weth()
   const l2Weth = await l1TokenBridgeCreator.getCanonicalL2WethAddress()

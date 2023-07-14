@@ -80,7 +80,7 @@ export const setupTokenBridgeInLocalEnv = async () => {
   // create token bridge
   const deployedContracts = await createTokenBridge(
     l1Deployer,
-    l2Deployer,
+    l2Deployer.provider!,
     l1TokenBridgeCreator,
     coreL2Network.ethBridge.inbox
   )
