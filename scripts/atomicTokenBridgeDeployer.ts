@@ -13,7 +13,6 @@ import {
   AeWETH__factory,
   L1WethGateway__factory,
   TransparentUpgradeableProxy__factory,
-  ProxyAdmin,
   ProxyAdmin__factory,
 } from '../build/types'
 import { JsonRpcProvider } from '@ethersproject/providers'
@@ -24,20 +23,25 @@ import {
 } from '@arbitrum/sdk'
 import { exit } from 'process'
 import { getBaseFee } from '@arbitrum/sdk/dist/lib/utils/lib'
+import { RollupAdminLogic__factory } from '@arbitrum/sdk/dist/lib/abi/factories/RollupAdminLogic__factory'
 
 /**
  * Use already deployed L1TokenBridgeCreator to create and init token bridge contracts.
+ * Function first gets estimates for 2 retryable tickets - one for deploying L2 factory and
+ * one for deploying L2 side of token bridge. Then it creates retryables, waits for
+ * until they're executed, and finally it picks up addresses of new contracts.
  *
  * @param l1Signer
- * @param l2Signer
- * @param inboxAddress
+ * @param l2Provider
+ * @param l1TokenBridgeCreator
+ * @param rollupAddress
  * @returns
  */
 export const createTokenBridge = async (
   l1Signer: Signer,
   l2Provider: ethers.providers.Provider,
   l1TokenBridgeCreator: L1AtomicTokenBridgeCreator,
-  inboxAddress: string
+  rollupAddress: string
 ) => {
   const gasPrice = await l2Provider.getGasPrice()
 
@@ -49,12 +53,6 @@ export const createTokenBridge = async (
   const maxGasForFactory =
     await l1TokenBridgeCreator.gasLimitForL2FactoryDeployment()
   const maxSubmissionCostForFactory = deployFactoryGasParams.maxSubmissionCost
-
-  console.log(
-    'deployFactoryGasParams',
-    maxGasForFactory.toString(),
-    maxSubmissionCostForFactory.toString()
-  )
 
   //// run retryable estimate for deploying L2 contracts
   //// we do this estimate using L2 factory template on L1 because on L2 factory does not yet exist
@@ -89,10 +87,16 @@ export const createTokenBridge = async (
     .add(maxGasForFactory.mul(gasPrice))
     .add(maxGasForContracts.mul(gasPrice))
 
+  // get inbox from rollup contract
+  const inbox = await RollupAdminLogic__factory.connect(
+    rollupAddress,
+    l1Signer.provider!
+  ).inbox()
+
   /// do it - create token bridge
   const receipt = await (
     await l1TokenBridgeCreator.createTokenBridge(
-      inboxAddress,
+      inbox,
       maxGasForContracts,
       gasPrice,
       { value: retryableValue }

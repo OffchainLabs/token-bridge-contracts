@@ -29,7 +29,7 @@ const L1_TOKEN_BRIDGE_CREATOR = '0x0034ac7efa37293160EFbD35F671C77Ec22Dea0A'
  * @param l2Url
  * @returns
  */
-export const _createTokenBridge = async (rollupAddress: string) => {
+export const createTokenBridgeOnGoerli = async (rollupAddress: string) => {
   if (envVars.baseChainRpc == undefined)
     throw new Error('Missing ARB_GOERLI_RPC in env vars')
   if (envVars.baseChainDeployerKey == undefined)
@@ -41,7 +41,6 @@ export const _createTokenBridge = async (rollupAddress: string) => {
   const l1Deployer = getSigner(l1Provider, envVars.baseChainDeployerKey)
   const l2Provider = new JsonRpcProvider(envVars.childChainRpc)
 
-  console.log('registerGoerliNetworks')
   const { l1Network, l2Network: corel2Network } = await registerGoerliNetworks(
     l1Provider,
     l2Provider,
@@ -53,16 +52,12 @@ export const _createTokenBridge = async (rollupAddress: string) => {
     L1_TOKEN_BRIDGE_CREATOR,
     l1Deployer
   )
-  const inbox = await RollupAdminLogic__factory.connect(
-    rollupAddress,
-    l1Provider
-  ).inbox()
 
   const deployedContracts = await createTokenBridge(
     l1Deployer,
     l2Provider,
     l1TokenBridgeCreator,
-    inbox
+    rollupAddress
   )
 
   const l2Network = {
@@ -164,9 +159,20 @@ const registerGoerliNetworks = async (
 }
 
 async function main() {
-  const rollupAddress = '0xDAB64b6E86035Aa9EB697341B663fb4B46930E60'
+  const args = process.argv.slice(2)
+  if (args.length != 1) {
+    console.log(
+      "Please provide exactly 1 argument - rollup address.\nIe. `yarn run create:goerli:token-bridge -- '0xDAB64b6E86035Aa9EB697341B663fb4B46930E60'`"
+    )
+    return
+  }
 
-  const { l1Network, l2Network } = await _createTokenBridge(rollupAddress)
+  const rollupAddress = args[0]
+  console.log('Creating token bridge for rollup', rollupAddress)
+
+  const { l1Network, l2Network } = await createTokenBridgeOnGoerli(
+    rollupAddress
+  )
   const NETWORK_FILE = 'network.json'
   fs.writeFileSync(
     NETWORK_FILE,
