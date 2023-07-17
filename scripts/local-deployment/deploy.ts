@@ -82,7 +82,7 @@ export const setupTokenBridgeInLocalEnv = async () => {
     l1Deployer,
     l2Deployer.provider!,
     l1TokenBridgeCreator,
-    coreL2Network.ethBridge.inbox
+    coreL2Network.ethBridge.rollup
   )
 
   const l2Network: L2Network = {

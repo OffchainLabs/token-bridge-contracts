@@ -99,6 +99,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                     )
                 )
             );
+            retryableSender.initialize();
         }
 
         canonicalL2FactoryAddress = _computeAddress(AddressAliasHelper.applyL1ToL2Alias(address(this)), 0);

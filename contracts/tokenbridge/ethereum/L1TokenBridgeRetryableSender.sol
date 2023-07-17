@@ -3,6 +3,7 @@ pragma solidity ^0.8.4;
 
 import {IInbox} from "@arbitrum/nitro-contracts/src/bridge/IInbox.sol";
 import {L2AtomicTokenBridgeFactory, L2RuntimeCode} from "../arbitrum/L2AtomicTokenBridgeFactory.sol";
+import {Initializable, OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 /**
  * @title Token Bridge Retryable Ticket Sender
@@ -13,8 +14,12 @@ import {L2AtomicTokenBridgeFactory, L2RuntimeCode} from "../arbitrum/L2AtomicTok
  *         order - that would prevent us from having canonical set of L2 addresses.
  *
  */
-contract L1TokenBridgeRetryableSender {
+contract L1TokenBridgeRetryableSender is Initializable, OwnableUpgradeable {
     error L1TokenBridgeRetryableSender_RefundFailed();
+
+    function initialize() public initializer {
+        __Ownable_init();
+    }
 
     /**
      * @notice Creates retryable which deploys L2 side of the token bridge.
@@ -28,7 +33,7 @@ contract L1TokenBridgeRetryableSender {
         address l2StandardGatewayAddress,
         address rollupOwner,
         address deployer
-    ) external payable {
+    ) external payable onlyOwner {
         bytes memory data = abi.encodeCall(
             L2AtomicTokenBridgeFactory.deployL2Contracts,
             (
