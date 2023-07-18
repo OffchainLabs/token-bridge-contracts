@@ -34,8 +34,8 @@ import { expect } from 'chai'
 import { ethers } from 'hardhat'
 
 const config = {
-  arbUrl: 'http://localhost:8547',
-  ethUrl: 'http://localhost:8545',
+  l2Url: process.env.ORBIT_RPC || 'http://localhost:8547',
+  l1Url: process.env.ARB_GOERLI_RPC || 'http://localhost:8545',
 }
 
 let _l1Network: L1Network
@@ -48,8 +48,8 @@ describe('tokenBridge', () => {
   it('should have deployed and initialized token bridge contracts', async function () {
     const { l1Network, l1Provider, l2Network, l2Provider } =
       await getProvidersAndSetupNetworks({
-        l1Url: config.ethUrl,
-        l2Url: config.arbUrl,
+        l1Url: config.l1Url,
+        l2Url: config.l2Url,
         networkFilename: './network.json',
       })
 
