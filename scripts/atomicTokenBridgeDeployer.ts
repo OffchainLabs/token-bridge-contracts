@@ -13,148 +13,42 @@ import {
   AeWETH__factory,
   L1WethGateway__factory,
   TransparentUpgradeableProxy__factory,
-} from '../../build/types'
+  ProxyAdmin__factory,
+} from '../build/types'
 import { JsonRpcProvider } from '@ethersproject/providers'
 import {
-  L1Network,
   L1ToL2MessageGasEstimator,
   L1ToL2MessageStatus,
   L1TransactionReceipt,
-  L2Network,
-  addCustomNetwork,
 } from '@arbitrum/sdk'
-import { Bridge__factory } from '@arbitrum/sdk/dist/lib/abi/factories/Bridge__factory'
-import { RollupAdminLogic__factory } from '@arbitrum/sdk/dist/lib/abi/factories/RollupAdminLogic__factory'
-import * as fs from 'fs'
 import { exit } from 'process'
-import { execSync } from 'child_process'
 import { getBaseFee } from '@arbitrum/sdk/dist/lib/utils/lib'
-
-/**
- * Steps:
- * - read network info from local container and register networks
- * - deploy L1 bridge creator and set templates
- * - do single TX deployment of token bridge
- * - populate network objects with new addresses and return it
- *
- * @param l1Deployer
- * @param l2Deployer
- * @param l1Url
- * @param l2Url
- * @returns
- */
-export const setupTokenBridgeInLocalEnv = async () => {
-  /// setup deployers, load local networks
-  const config = {
-    arbUrl: 'http://localhost:8547',
-    ethUrl: 'http://localhost:8545',
-  }
-  const l1Deployer = new ethers.Wallet(
-    ethers.utils.sha256(ethers.utils.toUtf8Bytes('user_l1user')),
-    new ethers.providers.JsonRpcProvider(config.ethUrl)
-  )
-  const l2Deployer = new ethers.Wallet(
-    ethers.utils.sha256(ethers.utils.toUtf8Bytes('user_l1user')),
-    new ethers.providers.JsonRpcProvider(config.arbUrl)
-  )
-
-  const { l1Network, l2Network: coreL2Network } = await getLocalNetworks(
-    config.ethUrl,
-    config.arbUrl
-  )
-
-  // register - needed for retryables
-  addCustomNetwork({
-    customL1Network: l1Network,
-    customL2Network: {
-      ...coreL2Network,
-      tokenBridge: {
-        l1CustomGateway: '',
-        l1ERC20Gateway: '',
-        l1GatewayRouter: '',
-        l1MultiCall: '',
-        l1ProxyAdmin: '',
-        l1Weth: '',
-        l1WethGateway: '',
-
-        l2CustomGateway: '',
-        l2ERC20Gateway: '',
-        l2GatewayRouter: '',
-        l2Multicall: '',
-        l2ProxyAdmin: '',
-        l2Weth: '',
-        l2WethGateway: '',
-      },
-    },
-  })
-
-  // prerequisite - deploy L1 creator and set templates
-  const l1TokenBridgeCreatorOwner = new ethers.Wallet(
-    ethers.utils.sha256(ethers.utils.toUtf8Bytes('user_l1user_b'))
-  )
-  const l1TokenBridgeCreator = await deployL1TokenBridgeCreator(
-    l1Deployer,
-    l2Deployer,
-    l1TokenBridgeCreatorOwner.address
-  )
-  console.log('L1TokenBridgeCreator', l1TokenBridgeCreator.address)
-
-  // create token bridge
-  const deployedContracts = await createTokenBridge(
-    l1Deployer,
-    l2Deployer,
-    l1TokenBridgeCreator,
-    coreL2Network.ethBridge.inbox
-  )
-
-  const l2Network: L2Network = {
-    ...coreL2Network,
-    tokenBridge: {
-      l1CustomGateway: deployedContracts.l1CustomGateway,
-      l1ERC20Gateway: deployedContracts.l1StandardGateway,
-      l1GatewayRouter: deployedContracts.l1Router,
-      l1MultiCall: '',
-      l1ProxyAdmin: deployedContracts.l1ProxyAdmin,
-      l1Weth: deployedContracts.l1Weth,
-      l1WethGateway: deployedContracts.l1WethGateway,
-
-      l2CustomGateway: deployedContracts.l2CustomGateway,
-      l2ERC20Gateway: deployedContracts.l2StandardGateway,
-      l2GatewayRouter: deployedContracts.l2Router,
-      l2Multicall: '',
-      l2ProxyAdmin: deployedContracts.l2ProxyAdmin,
-      l2Weth: deployedContracts.l2Weth,
-      l2WethGateway: deployedContracts.l2WethGateway,
-    },
-  }
-
-  return {
-    l1Network,
-    l2Network,
-  }
-}
+import { RollupAdminLogic__factory } from '@arbitrum/sdk/dist/lib/abi/factories/RollupAdminLogic__factory'
 
 /**
  * Use already deployed L1TokenBridgeCreator to create and init token bridge contracts.
+ * Function first gets estimates for 2 retryable tickets - one for deploying L2 factory and
+ * one for deploying L2 side of token bridge. Then it creates retryables, waits for
+ * until they're executed, and finally it picks up addresses of new contracts.
  *
  * @param l1Signer
- * @param l2Signer
- * @param inboxAddress
+ * @param l2Provider
+ * @param l1TokenBridgeCreator
+ * @param rollupAddress
  * @returns
  */
 export const createTokenBridge = async (
   l1Signer: Signer,
-  l2Signer: Signer,
+  l2Provider: ethers.providers.Provider,
   l1TokenBridgeCreator: L1AtomicTokenBridgeCreator,
-  inboxAddress: string
+  rollupAddress: string
 ) => {
-  const gasPrice = await l2Signer.provider!.getGasPrice()
+  const gasPrice = await l2Provider.getGasPrice()
 
   //// run retryable estimate for deploying L2 factory
   const deployFactoryGasParams = await getEstimateForDeployingFactory(
     l1Signer,
-    l2Signer,
-    l1TokenBridgeCreator.address
+    l2Provider
   )
   const maxGasForFactory =
     await l1TokenBridgeCreator.gasLimitForL2FactoryDeployment()
@@ -193,10 +87,16 @@ export const createTokenBridge = async (
     .add(maxGasForFactory.mul(gasPrice))
     .add(maxGasForContracts.mul(gasPrice))
 
+  // get inbox from rollup contract
+  const inbox = await RollupAdminLogic__factory.connect(
+    rollupAddress,
+    l1Signer.provider!
+  ).inbox()
+
   /// do it - create token bridge
   const receipt = await (
     await l1TokenBridgeCreator.createTokenBridge(
-      inboxAddress,
+      inbox,
       maxGasForContracts,
       gasPrice,
       { value: retryableValue }
@@ -205,7 +105,7 @@ export const createTokenBridge = async (
 
   /// wait for execution of both tickets
   const l1TxReceipt = new L1TransactionReceipt(receipt)
-  const messages = await l1TxReceipt.getL1ToL2Messages(l2Signer)
+  const messages = await l1TxReceipt.getL1ToL2Messages(l2Provider)
   const messageResults = await Promise.all(
     messages.map(message => message.waitForStatus())
   )
@@ -232,7 +132,7 @@ export const createTokenBridge = async (
   const l2AtomicTokenBridgeFactory =
     L2AtomicTokenBridgeFactory__factory.connect(
       messageResults[0].l2TxReceipt.contractAddress,
-      l2Signer
+      l2Provider
     )
   console.log('L2AtomicTokenBridgeFactory', l2AtomicTokenBridgeFactory.address)
 
@@ -253,14 +153,14 @@ export const createTokenBridge = async (
   const l2Router = await l1TokenBridgeCreator.getCanonicalL2RouterAddress()
   const l2StandardGateway = L2ERC20Gateway__factory.connect(
     await l1TokenBridgeCreator.getCanonicalL2StandardGatewayAddress(),
-    l2Signer
+    l2Provider
   )
   const beaconProxyFactory = await l2StandardGateway.beaconProxyFactory()
   const l2CustomGateway =
     await l1TokenBridgeCreator.getCanonicalL2CustomGatewayAddress()
   const l2WethGateway = L2WethGateway__factory.connect(
     await l1TokenBridgeCreator.getCanonicalL2WethGatewayAddress(),
-    l2Signer
+    l2Provider
   )
   const l1Weth = await l1TokenBridgeCreator.l1Weth()
   const l2Weth = await l1TokenBridgeCreator.getCanonicalL2WethAddress()
@@ -283,85 +183,94 @@ export const createTokenBridge = async (
   }
 }
 
-const deployL1TokenBridgeCreator = async (
-  l1Signer: Signer,
-  l2Signer: Signer,
-  l1CreatorOwner: string
+/**
+ * Deploy token bridge creator contract to base chain and set all the templates
+ * @param l1Deployer
+ * @param l2Provider
+ * @param l1WethAddress
+ * @returns
+ */
+export const deployL1TokenBridgeCreator = async (
+  l1Deployer: Signer,
+  l2Provider: ethers.providers.Provider,
+  l1WethAddress: string
 ) => {
   /// deploy creator behind proxy
+  const l1TokenBridgeCreatorProxyAdmin = await new ProxyAdmin__factory(
+    l1Deployer
+  ).deploy()
+  await l1TokenBridgeCreatorProxyAdmin.deployed()
+
   const l1TokenBridgeCreatorLogic =
-    await new L1AtomicTokenBridgeCreator__factory(l1Signer).deploy()
+    await new L1AtomicTokenBridgeCreator__factory(l1Deployer).deploy()
   await l1TokenBridgeCreatorLogic.deployed()
 
   const l1TokenBridgeCreatorProxy =
-    await new TransparentUpgradeableProxy__factory(l1Signer).deploy(
+    await new TransparentUpgradeableProxy__factory(l1Deployer).deploy(
       l1TokenBridgeCreatorLogic.address,
-      l1CreatorOwner,
+      l1TokenBridgeCreatorProxyAdmin.address,
       '0x'
     )
   await l1TokenBridgeCreatorProxy.deployed()
 
   const l1TokenBridgeCreator = L1AtomicTokenBridgeCreator__factory.connect(
     l1TokenBridgeCreatorProxy.address,
-    l1Signer
+    l1Deployer
   )
   await (await l1TokenBridgeCreator.initialize()).wait()
 
   /// deploy L1 logic contracts
-  const routerTemplate = await new L1GatewayRouter__factory(l1Signer).deploy()
+  const routerTemplate = await new L1GatewayRouter__factory(l1Deployer).deploy()
   await routerTemplate.deployed()
 
   const standardGatewayTemplate = await new L1ERC20Gateway__factory(
-    l1Signer
+    l1Deployer
   ).deploy()
   await standardGatewayTemplate.deployed()
 
   const customGatewayTemplate = await new L1CustomGateway__factory(
-    l1Signer
+    l1Deployer
   ).deploy()
   await customGatewayTemplate.deployed()
 
   const wethGatewayTemplate = await new L1WethGateway__factory(
-    l1Signer
+    l1Deployer
   ).deploy()
   await wethGatewayTemplate.deployed()
 
   /// deploy L2 contracts as placeholders on L1
 
   const l2TokenBridgeFactoryOnL1 =
-    await new L2AtomicTokenBridgeFactory__factory(l1Signer).deploy()
+    await new L2AtomicTokenBridgeFactory__factory(l1Deployer).deploy()
   await l2TokenBridgeFactoryOnL1.deployed()
 
   const l2GatewayRouterOnL1 = await new L2GatewayRouter__factory(
-    l1Signer
+    l1Deployer
   ).deploy()
   await l2GatewayRouterOnL1.deployed()
 
   const l2StandardGatewayAddressOnL1 = await new L2ERC20Gateway__factory(
-    l1Signer
+    l1Deployer
   ).deploy()
   await l2StandardGatewayAddressOnL1.deployed()
 
   const l2CustomGatewayAddressOnL1 = await new L2CustomGateway__factory(
-    l1Signer
+    l1Deployer
   ).deploy()
   await l2CustomGatewayAddressOnL1.deployed()
 
   const l2WethGatewayAddressOnL1 = await new L2WethGateway__factory(
-    l1Signer
+    l1Deployer
   ).deploy()
   await l2WethGatewayAddressOnL1.deployed()
 
-  const l2WethAddressOnL1 = await new AeWETH__factory(l1Signer).deploy()
+  const l2WethAddressOnL1 = await new AeWETH__factory(l1Deployer).deploy()
   await l2WethAddressOnL1.deployed()
-
-  const weth = ethers.Wallet.createRandom().address
 
   //// run retryable estimate for deploying L2 factory
   const deployFactoryGasParams = await getEstimateForDeployingFactory(
-    l1Signer,
-    l2Signer,
-    l1TokenBridgeCreator.address
+    l1Deployer,
+    l2Provider
   )
 
   await (
@@ -376,7 +285,7 @@ const deployL1TokenBridgeCreator = async (
       l2CustomGatewayAddressOnL1.address,
       l2WethGatewayAddressOnL1.address,
       l2WethAddressOnL1.address,
-      weth,
+      l1WethAddress,
       deployFactoryGasParams.gasLimit
     )
   ).wait()
@@ -384,107 +293,27 @@ const deployL1TokenBridgeCreator = async (
   return l1TokenBridgeCreator
 }
 
-const getEstimateForDeployingFactory = async (
-  l1Signer: Signer,
-  l2Signer: Signer,
-  deployer: string
+export const getEstimateForDeployingFactory = async (
+  l1Deployer: Signer,
+  l2Provider: ethers.providers.Provider
 ) => {
   //// run retryable estimate for deploying L2 factory
-  const deployerAddress = await l1Signer.getAddress()
-  const l1ToL2MsgGasEstimate = new L1ToL2MessageGasEstimator(l2Signer.provider!)
+  const l1DeployerAddress = await l1Deployer.getAddress()
+  const l1ToL2MsgGasEstimate = new L1ToL2MessageGasEstimator(l2Provider)
   const deployFactoryGasParams = await l1ToL2MsgGasEstimate.estimateAll(
     {
-      from: deployer,
+      from: ethers.Wallet.createRandom().address,
       to: ethers.constants.AddressZero,
       l2CallValue: BigNumber.from(0),
-      excessFeeRefundAddress: deployerAddress,
-      callValueRefundAddress: deployerAddress,
+      excessFeeRefundAddress: l1DeployerAddress,
+      callValueRefundAddress: l1DeployerAddress,
       data: L2AtomicTokenBridgeFactory__factory.bytecode,
     },
-    await getBaseFee(l1Signer.provider!),
-    l1Signer.provider!
+    await getBaseFee(l1Deployer.provider!),
+    l1Deployer.provider!
   )
 
   return deployFactoryGasParams
-}
-
-export const getLocalNetworks = async (
-  l1Url: string,
-  l2Url: string
-): Promise<{
-  l1Network: L1Network
-  l2Network: Omit<L2Network, 'tokenBridge'>
-}> => {
-  const l1Provider = new JsonRpcProvider(l1Url)
-  const l2Provider = new JsonRpcProvider(l2Url)
-  let deploymentData: string
-
-  let sequencerContainer = execSync(
-    'docker ps --filter "name=sequencer" --format "{{.Names}}"'
-  )
-    .toString()
-    .trim()
-
-  deploymentData = execSync(
-    `docker exec ${sequencerContainer} cat /config/deployment.json`
-  ).toString()
-
-  const parsedDeploymentData = JSON.parse(deploymentData) as {
-    bridge: string
-    inbox: string
-    ['sequencer-inbox']: string
-    rollup: string
-  }
-
-  const rollup = RollupAdminLogic__factory.connect(
-    parsedDeploymentData.rollup,
-    l1Provider
-  )
-  const confirmPeriodBlocks = await rollup.confirmPeriodBlocks()
-
-  const bridge = Bridge__factory.connect(
-    parsedDeploymentData.bridge,
-    l1Provider
-  )
-  const outboxAddr = await bridge.allowedOutboxList(0)
-
-  const l1NetworkInfo = await l1Provider.getNetwork()
-  const l2NetworkInfo = await l2Provider.getNetwork()
-
-  const l1Network: L1Network = {
-    blockTime: 10,
-    chainID: l1NetworkInfo.chainId,
-    explorerUrl: '',
-    isCustom: true,
-    name: 'EthLocal',
-    partnerChainIDs: [l2NetworkInfo.chainId],
-    isArbitrum: false,
-  }
-
-  const l2Network: Omit<L2Network, 'tokenBridge'> = {
-    chainID: l2NetworkInfo.chainId,
-    confirmPeriodBlocks: confirmPeriodBlocks.toNumber(),
-    ethBridge: {
-      bridge: parsedDeploymentData.bridge,
-      inbox: parsedDeploymentData.inbox,
-      outbox: outboxAddr,
-      rollup: parsedDeploymentData.rollup,
-      sequencerInbox: parsedDeploymentData['sequencer-inbox'],
-    },
-    explorerUrl: '',
-    isArbitrum: true,
-    isCustom: true,
-    name: 'ArbLocal',
-    partnerChainID: l1NetworkInfo.chainId,
-    retryableLifetimeSeconds: 7 * 24 * 60 * 60,
-    nitroGenesisBlock: 0,
-    nitroGenesisL1Block: 0,
-    depositTimeout: 900000,
-  }
-  return {
-    l1Network,
-    l2Network,
-  }
 }
 
 export const getSigner = (provider: JsonRpcProvider, key?: string) => {
@@ -494,7 +323,7 @@ export const getSigner = (provider: JsonRpcProvider, key?: string) => {
   else return provider.getSigner(0)
 }
 
-const getParsedLogs = (
+export const getParsedLogs = (
   logs: ethers.providers.Log[],
   iface: ethers.utils.Interface,
   eventName: string
@@ -511,16 +340,3 @@ const getParsedLogs = (
 export function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
-
-async function main() {
-  const { l1Network, l2Network } = await setupTokenBridgeInLocalEnv()
-
-  const NETWORK_FILE = 'network.json'
-  fs.writeFileSync(
-    NETWORK_FILE,
-    JSON.stringify({ l1Network, l2Network }, null, 2)
-  )
-  console.log(NETWORK_FILE + ' updated')
-}
-
-main().then(() => console.log('Done.'))

@@ -112,7 +112,7 @@ jobs:
         run: yarn build
 
       - name: Deploy token bridge
-        run: yarn run deploy:tokenbridge:atomic
+        run: yarn run deploy:local:token-bridge
 
       - name: Test token bridge deployment
         run: yarn run test:tokenbridge:deployment
