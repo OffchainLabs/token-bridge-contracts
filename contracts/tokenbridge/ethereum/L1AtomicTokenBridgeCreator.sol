@@ -109,8 +109,9 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     function initialize(L1TokenBridgeRetryableSender _retryableSender) public initializer {
         __Ownable_init();
 
-        // deploy retryableSender only once - its address will be part of salt for L2 contracts
+        // store retryable sender and initialize it. This contract will be set as owner
         retryableSender = _retryableSender;
+        retryableSender.initialize();
 
         canonicalL2FactoryAddress =
             _computeAddress(AddressAliasHelper.applyL1ToL2Alias(address(this)), 0);
