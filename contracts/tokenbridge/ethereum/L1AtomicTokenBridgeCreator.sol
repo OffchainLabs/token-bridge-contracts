@@ -66,9 +66,9 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         L1ERC20Gateway standardGatewayTemplate;
         L1CustomGateway customGatewayTemplate;
         L1WethGateway wethGatewayTemplate;
-        L1OrbitGatewayRouter orbitRouterTemplate;
-        L1OrbitERC20Gateway orbitStandardGatewayTemplate;
-        L1OrbitCustomGateway orbitCustomGatewayTemplate;
+        L1OrbitGatewayRouter feeTokenBasedRouterTemplate;
+        L1OrbitERC20Gateway feeTokenBasedStandardGatewayTemplate;
+        L1OrbitCustomGateway feeTokenBasedCustomGatewayTemplate;
     }
 
     // non-canonical router registry
@@ -247,7 +247,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
 
         // deploy router
         address routerTemplate = isUsingFeeToken
-            ? address(l1Templates.orbitRouterTemplate)
+            ? address(l1Templates.feeTokenBasedRouterTemplate)
             : address(l1Templates.routerTemplate);
         router = address(
             new TransparentUpgradeableProxy{ salt: _getL1Salt(OrbitSalts.L1_ROUTER, inbox) }(
@@ -283,7 +283,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         bool isUsingFeeToken
     ) internal returns (address) {
         address template = isUsingFeeToken
-            ? address(l1Templates.orbitStandardGatewayTemplate)
+            ? address(l1Templates.feeTokenBasedStandardGatewayTemplate)
             : address(l1Templates.standardGatewayTemplate);
 
         L1ERC20Gateway standardGateway = L1ERC20Gateway(
@@ -313,8 +313,8 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         bool isUsingFeeToken
     ) internal returns (address) {
         address template = isUsingFeeToken
-            ? address(l1Templates.orbitStandardGatewayTemplate)
-            : address(l1Templates.standardGatewayTemplate);
+            ? address(l1Templates.feeTokenBasedCustomGatewayTemplate)
+            : address(l1Templates.customGatewayTemplate);
 
         L1CustomGateway customGateway = L1CustomGateway(
             address(

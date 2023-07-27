@@ -14,6 +14,10 @@ import {
   L1WethGateway__factory,
   TransparentUpgradeableProxy__factory,
   ProxyAdmin__factory,
+  L1TokenBridgeRetryableSender__factory,
+  L1OrbitERC20Gateway__factory,
+  L1OrbitCustomGateway__factory,
+  L1OrbitGatewayRouter__factory,
 } from '../build/types'
 import { JsonRpcProvider } from '@ethersproject/providers'
 import {
@@ -215,9 +219,31 @@ export const deployL1TokenBridgeCreator = async (
 
   const l1TokenBridgeCreator = L1AtomicTokenBridgeCreator__factory.connect(
     l1TokenBridgeCreatorProxy.address,
+    l1Deployer.provider!
+  )
+
+  /// deploy retryable sender behind proxy
+  const retryableSenderLogic = await new L1TokenBridgeRetryableSender__factory(
+    l1Deployer
+  ).deploy()
+  await retryableSenderLogic.deployed()
+
+  const retryableSenderProxy = await new TransparentUpgradeableProxy__factory(
+    l1Deployer
+  ).deploy(
+    retryableSenderLogic.address,
+    l1TokenBridgeCreatorProxyAdmin.address,
+    '0x'
+  )
+  await retryableSenderProxy.deployed()
+
+  const retryableSender = L1TokenBridgeRetryableSender__factory.connect(
+    retryableSenderProxy.address,
     l1Deployer
   )
-  await (await l1TokenBridgeCreator.initialize()).wait()
+
+  /// init creator
+  await (await l1TokenBridgeCreator.initialize(retryableSender.address)).wait()
 
   /// deploy L1 logic contracts
   const routerTemplate = await new L1GatewayRouter__factory(l1Deployer).deploy()
@@ -237,6 +263,31 @@ export const deployL1TokenBridgeCreator = async (
     l1Deployer
   ).deploy()
   await wethGatewayTemplate.deployed()
+
+  const feeTokenBasedRouterTemplate = await new L1OrbitGatewayRouter__factory(
+    l1Deployer
+  ).deploy()
+  await feeTokenBasedRouterTemplate.deployed()
+
+  const feeTokenBasedStandardGatewayTemplate =
+    await new L1OrbitERC20Gateway__factory(l1Deployer).deploy()
+  await feeTokenBasedStandardGatewayTemplate.deployed()
+
+  const feeTokenBasedCustomGatewayTemplate =
+    await new L1OrbitCustomGateway__factory(l1Deployer).deploy()
+  await feeTokenBasedCustomGatewayTemplate.deployed()
+
+  const l1Templates = {
+    routerTemplate: routerTemplate.address,
+    standardGatewayTemplate: standardGatewayTemplate.address,
+    customGatewayTemplate: customGatewayTemplate.address,
+    wethGatewayTemplate: wethGatewayTemplate.address,
+    feeTokenBasedRouterTemplate: feeTokenBasedRouterTemplate.address,
+    feeTokenBasedStandardGatewayTemplate:
+      feeTokenBasedStandardGatewayTemplate.address,
+    feeTokenBasedCustomGatewayTemplate:
+      feeTokenBasedCustomGatewayTemplate.address,
+  }
 
   /// deploy L2 contracts as placeholders on L1
 
@@ -275,10 +326,7 @@ export const deployL1TokenBridgeCreator = async (
 
   await (
     await l1TokenBridgeCreator.setTemplates(
-      routerTemplate.address,
-      standardGatewayTemplate.address,
-      customGatewayTemplate.address,
-      wethGatewayTemplate.address,
+      l1Templates,
       l2TokenBridgeFactoryOnL1.address,
       l2GatewayRouterOnL1.address,
       l2StandardGatewayAddressOnL1.address,
