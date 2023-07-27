@@ -448,8 +448,22 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     }
 
     function getCanonicalL1RouterAddress(address inbox) public view returns (address) {
-        return
-            retryableSender.getCanonicalL1RouterAddress(inbox, address(l1Templates.routerTemplate));
+        address expectedL1ProxyAdminAddress = Create2.computeAddress(
+            _getL1Salt(OrbitSalts.L1_PROXY_ADMIN, inbox),
+            keccak256(type(ProxyAdmin).creationCode),
+            address(this)
+        );
+
+        return Create2.computeAddress(
+            _getL1Salt(OrbitSalts.L1_ROUTER, inbox),
+            keccak256(
+                abi.encodePacked(
+                    type(TransparentUpgradeableProxy).creationCode,
+                    abi.encode(l1Templates.routerTemplate, expectedL1ProxyAdminAddress, bytes(""))
+                )
+            ),
+            address(this)
+        );
     }
 
     function getCanonicalL2RouterAddress() public view returns (address) {

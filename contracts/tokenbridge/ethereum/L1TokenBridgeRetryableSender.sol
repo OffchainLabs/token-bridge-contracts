@@ -151,33 +151,6 @@ contract L1TokenBridgeRetryableSender is Initializable, OwnableUpgradeable {
             data
         );
     }
-
-    function getCanonicalL1RouterAddress(address inbox, address routerTemplate)
-        public
-        view
-        returns (address)
-    {
-        address expectedL1ProxyAdminAddress = Create2.computeAddress(
-            _getL1Salt(OrbitSalts.L1_PROXY_ADMIN, inbox),
-            keccak256(type(ProxyAdmin).creationCode),
-            address(this)
-        );
-
-        return Create2.computeAddress(
-            _getL1Salt(OrbitSalts.L1_ROUTER, inbox),
-            keccak256(
-                abi.encodePacked(
-                    type(TransparentUpgradeableProxy).creationCode,
-                    abi.encode(routerTemplate, expectedL1ProxyAdminAddress, bytes(""))
-                )
-            ),
-            address(this)
-        );
-    }
-
-    function _getL1Salt(bytes32 prefix, address inbox) internal pure returns (bytes32) {
-        return keccak256(abi.encodePacked(prefix, inbox));
-    }
 }
 
 /**
