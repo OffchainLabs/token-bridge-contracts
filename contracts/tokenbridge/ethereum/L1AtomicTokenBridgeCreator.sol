@@ -11,7 +11,12 @@ import {L1GatewayRouter} from "./gateway/L1GatewayRouter.sol";
 import {L1ERC20Gateway} from "./gateway/L1ERC20Gateway.sol";
 import {L1CustomGateway} from "./gateway/L1CustomGateway.sol";
 import {L1WethGateway} from "./gateway/L1WethGateway.sol";
-import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {L1OrbitGatewayRouter} from "./gateway/L1OrbitGatewayRouter.sol";
+import {L1OrbitERC20Gateway} from "./gateway/L1OrbitERC20Gateway.sol";
+import {L1OrbitCustomGateway} from "./gateway/L1OrbitCustomGateway.sol";
+
+import {TransparentUpgradeableProxy} from
+    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {
     L2AtomicTokenBridgeFactory,
     CanonicalAddressSeed,
@@ -19,11 +24,15 @@ import {
     L2RuntimeCode,
     ProxyAdmin
 } from "../arbitrum/L2AtomicTokenBridgeFactory.sol";
+import {BytesLib} from "../libraries/BytesLib.sol";
 import {IInbox, IBridge, IOwnable} from "@arbitrum/nitro-contracts/src/bridge/IInbox.sol";
 import {AddressAliasHelper} from "../libraries/AddressAliasHelper.sol";
 import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 import {BeaconProxyFactory, ClonableBeaconProxy} from "../libraries/ClonableBeaconProxy.sol";
-import {Initializable, OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {
+    Initializable,
+    OwnableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 /**
  * @title Layer1 token bridge creator
@@ -47,6 +56,16 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     event OrbitTokenBridgeTemplatesUpdated();
     event NonCanonicalRouterSet(address indexed inbox, address indexed router);
 
+    struct L1Templates {
+        L1GatewayRouter routerTemplate;
+        L1ERC20Gateway standardGatewayTemplate;
+        L1CustomGateway customGatewayTemplate;
+        L1WethGateway wethGatewayTemplate;
+        L1OrbitGatewayRouter orbitRouterTemplate;
+        L1OrbitERC20Gateway orbitStandardGatewayTemplate;
+        L1OrbitCustomGateway orbitCustomGatewayTemplate;
+    }
+
     // non-canonical router registry
     mapping(address => address) public inboxToNonCanonicalRouter;
 
@@ -59,10 +78,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     L1TokenBridgeRetryableSender public retryableSender;
 
     // L1 logic contracts shared by all token bridges
-    L1GatewayRouter public routerTemplate;
-    L1ERC20Gateway public standardGatewayTemplate;
-    L1CustomGateway public customGatewayTemplate;
-    L1WethGateway public wethGatewayTemplate;
+    L1Templates public l1Templates;
 
     // L2 contracts deployed to L1 as bytecode placeholders
     address public l2TokenBridgeFactoryTemplate;
@@ -85,26 +101,18 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         _disableInitializers();
     }
 
-    function initialize() public initializer {
+    function initialize(L1TokenBridgeRetryableSender _retryableSender) public initializer {
         __Ownable_init();
 
         // deploy retryableSender only once - its address will be part of salt for L2 contracts
-        if (address(retryableSender) == address(0)) {
-            retryableSender = L1TokenBridgeRetryableSender(
-                address(
-                    new TransparentUpgradeableProxy(
-                        address(new L1TokenBridgeRetryableSender()),
-                        msg.sender,
-                        bytes("")
-                    )
-                )
-            );
-            retryableSender.initialize();
-        }
+        retryableSender = _retryableSender;
 
-        canonicalL2FactoryAddress = _computeAddress(AddressAliasHelper.applyL1ToL2Alias(address(this)), 0);
+        canonicalL2FactoryAddress =
+            _computeAddress(AddressAliasHelper.applyL1ToL2Alias(address(this)), 0);
         canonicalL2ProxyAdminAddress = Create2.computeAddress(
-            _getL2Salt(OrbitSalts.L2_PROXY_ADMIN), keccak256(type(ProxyAdmin).creationCode), canonicalL2FactoryAddress
+            _getL2Salt(OrbitSalts.L2_PROXY_ADMIN),
+            keccak256(type(ProxyAdmin).creationCode),
+            canonicalL2FactoryAddress
         );
         canonicalL2BeaconProxyFactoryAddress = Create2.computeAddress(
             _getL2Salt(OrbitSalts.BEACON_PROXY_FACTORY),
@@ -119,10 +127,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
      *      payload used to deploy contracts on L2 side.
      */
     function setTemplates(
-        L1GatewayRouter _router,
-        L1ERC20Gateway _standardGateway,
-        L1CustomGateway _customGateway,
-        L1WethGateway _wethGatewayTemplate,
+        L1Templates calldata _l1Templates,
         address _l2TokenBridgeFactoryTemplate,
         address _l2RouterTemplate,
         address _l2StandardGatewayTemplate,
@@ -132,10 +137,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         address _l1Weth,
         uint256 _gasLimitForL2FactoryDeployment
     ) external onlyOwner {
-        routerTemplate = _router;
-        standardGatewayTemplate = _standardGateway;
-        customGatewayTemplate = _customGateway;
-        wethGatewayTemplate = _wethGatewayTemplate;
+        l1Templates = _l1Templates;
 
         l2TokenBridgeFactoryTemplate = _l2TokenBridgeFactoryTemplate;
         l2RouterTemplate = _l2RouterTemplate;
@@ -162,21 +164,33 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
      *      because L1 salts are already used at that point and L1 contracts are already deployed at canonical addresses
      *      for that inbox.
      */
-    function createTokenBridge(address inbox, uint256 maxGasForContracts, uint256 gasPriceBid) external payable {
-        if (address(routerTemplate) == address(0)) {
+    function createTokenBridge(address inbox, uint256 maxGasForContracts, uint256 gasPriceBid)
+        external
+        payable
+    {
+        if (address(l1Templates.routerTemplate) == address(0)) {
             revert L1AtomicTokenBridgeCreator_TemplatesNotSet();
         }
+
+        bool isUsingFeeToken = _getFeeToken(inbox) != address(0);
 
         // deploy L1 side of token bridge
         address owner = _getRollupOwner(inbox);
         (address router, address standardGateway, address customGateway, address wethGateway) =
-            _deployL1Contracts(inbox, owner);
+            _deployL1Contracts(inbox, owner, isUsingFeeToken);
 
         /// deploy factory and then L2 contracts through L2 factory, using 2 retryables calls
         uint256 valueSpentForFactory = _deployL2Factory(inbox, gasPriceBid);
         uint256 fundsRemaining = msg.value - valueSpentForFactory;
         _deployL2Contracts(
-            router, standardGateway, customGateway, wethGateway, inbox, maxGasForContracts, gasPriceBid, fundsRemaining
+            router,
+            standardGateway,
+            customGateway,
+            wethGateway,
+            inbox,
+            maxGasForContracts,
+            gasPriceBid,
+            fundsRemaining
         );
     }
 
@@ -206,24 +220,33 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         return getCanonicalL1RouterAddress(inbox);
     }
 
-    function _deployL1Contracts(address inbox, address owner)
+    function _deployL1Contracts(address inbox, address owner, bool isUsingFeeToken)
         internal
-        returns (address router, address standardGateway, address customGateway, address wethGateway)
+        returns (
+            address router,
+            address standardGateway,
+            address customGateway,
+            address wethGateway
+        )
     {
-        address proxyAdmin = address(new ProxyAdmin{ salt: _getL1Salt(OrbitSalts.L1_PROXY_ADMIN, inbox) }());
+        address proxyAdmin =
+            address(new ProxyAdmin{ salt: _getL1Salt(OrbitSalts.L1_PROXY_ADMIN, inbox) }());
 
         // deploy router
+        address routerTemplate = isUsingFeeToken
+            ? address(l1Templates.orbitRouterTemplate)
+            : address(l1Templates.routerTemplate);
         router = address(
             new TransparentUpgradeableProxy{ salt: _getL1Salt(OrbitSalts.L1_ROUTER, inbox) }(
-                address(routerTemplate),
+                routerTemplate,
                 proxyAdmin,
                 bytes("")
             )
         );
 
         // deploy and init gateways
-        standardGateway = _deployL1StandardGateway(proxyAdmin, router, inbox);
-        customGateway = _deployL1CustomGateway(proxyAdmin, router, inbox, owner);
+        standardGateway = _deployL1StandardGateway(proxyAdmin, router, inbox, isUsingFeeToken);
+        customGateway = _deployL1CustomGateway(proxyAdmin, router, inbox, owner, isUsingFeeToken);
         wethGateway = _deployL1WethGateway(proxyAdmin, router, inbox);
 
         // init router
@@ -235,15 +258,26 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         ProxyAdmin(proxyAdmin).transferOwnership(owner);
 
         // emit it
-        emit OrbitTokenBridgeCreated(inbox, owner, router, standardGateway, customGateway, wethGateway, proxyAdmin);
+        emit OrbitTokenBridgeCreated(
+            inbox, owner, router, standardGateway, customGateway, wethGateway, proxyAdmin
+        );
     }
 
-    function _deployL1StandardGateway(address proxyAdmin, address router, address inbox) internal returns (address) {
+    function _deployL1StandardGateway(
+        address proxyAdmin,
+        address router,
+        address inbox,
+        bool isUsingFeeToken
+    ) internal returns (address) {
+        address template = isUsingFeeToken
+            ? address(l1Templates.orbitStandardGatewayTemplate)
+            : address(l1Templates.standardGatewayTemplate);
+
         L1ERC20Gateway standardGateway = L1ERC20Gateway(
             address(
                 new TransparentUpgradeableProxy{
                     salt: _getL1Salt(OrbitSalts.L1_STANDARD_GATEWAY, inbox)
-                }(address(standardGatewayTemplate), proxyAdmin, bytes(""))
+                }(template, proxyAdmin, bytes(""))
             )
         );
 
@@ -258,15 +292,22 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         return address(standardGateway);
     }
 
-    function _deployL1CustomGateway(address proxyAdmin, address router, address inbox, address owner)
-        internal
-        returns (address)
-    {
+    function _deployL1CustomGateway(
+        address proxyAdmin,
+        address router,
+        address inbox,
+        address owner,
+        bool isUsingFeeToken
+    ) internal returns (address) {
+        address template = isUsingFeeToken
+            ? address(l1Templates.orbitStandardGatewayTemplate)
+            : address(l1Templates.standardGatewayTemplate);
+
         L1CustomGateway customGateway = L1CustomGateway(
             address(
                 new TransparentUpgradeableProxy{
                     salt: _getL1Salt(OrbitSalts.L1_CUSTOM_GATEWAY, inbox)
-                }(address(customGatewayTemplate), proxyAdmin, bytes(""))
+                }(template, proxyAdmin, bytes(""))
             )
         );
 
@@ -275,18 +316,23 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         return address(customGateway);
     }
 
-    function _deployL1WethGateway(address proxyAdmin, address router, address inbox) internal returns (address) {
+    function _deployL1WethGateway(address proxyAdmin, address router, address inbox)
+        internal
+        returns (address)
+    {
         L1WethGateway wethGateway = L1WethGateway(
             payable(
                 address(
                     new TransparentUpgradeableProxy{
                         salt: _getL1Salt(OrbitSalts.L1_WETH_GATEWAY, inbox)
-                    }(address(wethGatewayTemplate), proxyAdmin, bytes(""))
+                    }(address(l1Templates.wethGatewayTemplate), proxyAdmin, bytes(""))
                 )
             )
         );
 
-        wethGateway.initialize(getCanonicalL2WethGatewayAddress(), router, inbox, l1Weth, getCanonicalL2WethAddress());
+        wethGateway.initialize(
+            getCanonicalL2WethGatewayAddress(), router, inbox, l1Weth, getCanonicalL2WethAddress()
+        );
 
         return address(wethGateway);
     }
@@ -295,7 +341,8 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         // encode L2 factory bytecode
         bytes memory deploymentData = _creationCodeFor(l2TokenBridgeFactoryTemplate.code);
 
-        uint256 maxSubmissionCost = IInbox(inbox).calculateRetryableSubmissionFee(deploymentData.length, 0);
+        uint256 maxSubmissionCost =
+            IInbox(inbox).calculateRetryableSubmissionFee(deploymentData.length, 0);
         uint256 value = maxSubmissionCost + gasLimitForL2FactoryDeployment * gasPriceBid;
         IInbox(inbox).createRetryableTicket{value: value}(
             address(0),
@@ -322,7 +369,9 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         uint256 availableFunds
     ) internal {
         retryableSender.sendRetryable{value: availableFunds}(
-            RetryableParams(inbox, canonicalL2FactoryAddress, msg.sender, msg.sender, maxGas, gasPriceBid),
+            RetryableParams(
+                inbox, canonicalL2FactoryAddress, msg.sender, msg.sender, maxGas, gasPriceBid
+            ),
             L2TemplateAddresses(
                 l2RouterTemplate,
                 l2StandardGatewayTemplate,
@@ -338,20 +387,8 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     }
 
     function getCanonicalL1RouterAddress(address inbox) public view returns (address) {
-        address expectedL1ProxyAdminAddress = Create2.computeAddress(
-            _getL1Salt(OrbitSalts.L1_PROXY_ADMIN, inbox), keccak256(type(ProxyAdmin).creationCode), address(this)
-        );
-
-        return Create2.computeAddress(
-            _getL1Salt(OrbitSalts.L1_ROUTER, inbox),
-            keccak256(
-                abi.encodePacked(
-                    type(TransparentUpgradeableProxy).creationCode,
-                    abi.encode(routerTemplate, expectedL1ProxyAdminAddress, bytes(""))
-                )
-            ),
-            address(this)
-        );
+        return
+            retryableSender.getCanonicalL1RouterAddress(inbox, address(l1Templates.routerTemplate));
     }
 
     function getCanonicalL2RouterAddress() public view returns (address) {
@@ -449,6 +486,19 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         );
     }
 
+    function _getFeeToken(address inbox) internal view returns (address) {
+        address bridge = address(IInbox(inbox).bridge());
+
+        (bool success, bytes memory feeTokenAddressData) =
+            bridge.staticcall(abi.encodeWithSelector(IERC20Bridge.nativeToken.selector));
+
+        if (!success || feeTokenAddressData.length < 32) {
+            return address(0);
+        }
+
+        return BytesLib.toAddress(feeTokenAddressData, 12);
+    }
+
     /**
      * @notice Compute address of contract deployed using CREATE opcode
      * @return computed address
@@ -501,6 +551,12 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     }
 
     function _getL2Salt(bytes32 prefix) internal view returns (bytes32) {
-        return keccak256(abi.encodePacked(prefix, AddressAliasHelper.applyL1ToL2Alias(address(retryableSender))));
+        return keccak256(
+            abi.encodePacked(prefix, AddressAliasHelper.applyL1ToL2Alias(address(retryableSender)))
+        );
     }
+}
+
+interface IERC20Bridge {
+    function nativeToken() external view returns (address);
 }

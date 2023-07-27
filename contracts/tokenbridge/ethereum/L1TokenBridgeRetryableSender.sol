@@ -2,8 +2,19 @@
 pragma solidity ^0.8.4;
 
 import {IInbox} from "@arbitrum/nitro-contracts/src/bridge/IInbox.sol";
-import {L2AtomicTokenBridgeFactory, L2RuntimeCode} from "../arbitrum/L2AtomicTokenBridgeFactory.sol";
-import {Initializable, OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {
+    L2AtomicTokenBridgeFactory,
+    L2RuntimeCode,
+    OrbitSalts,
+    ProxyAdmin
+} from "../arbitrum/L2AtomicTokenBridgeFactory.sol";
+import {
+    Initializable,
+    OwnableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
+import {TransparentUpgradeableProxy} from
+    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 /**
  * @title Token Bridge Retryable Ticket Sender
@@ -54,8 +65,10 @@ contract L1TokenBridgeRetryableSender is Initializable, OwnableUpgradeable {
             )
         );
 
-        uint256 maxSubmissionCost = IInbox(retryableParams.inbox).calculateRetryableSubmissionFee(data.length, 0);
-        uint256 retryableValue = maxSubmissionCost + retryableParams.maxGas * retryableParams.gasPriceBid;
+        uint256 maxSubmissionCost =
+            IInbox(retryableParams.inbox).calculateRetryableSubmissionFee(data.length, 0);
+        uint256 retryableValue =
+            maxSubmissionCost + retryableParams.maxGas * retryableParams.gasPriceBid;
         _createRetryable(retryableParams, maxSubmissionCost, retryableValue, data);
 
         // refund excess value to the deployer
@@ -80,6 +93,33 @@ contract L1TokenBridgeRetryableSender is Initializable, OwnableUpgradeable {
             retryableParams.gasPriceBid,
             data
         );
+    }
+
+    function getCanonicalL1RouterAddress(address inbox, address routerTemplate)
+        public
+        view
+        returns (address)
+    {
+        address expectedL1ProxyAdminAddress = Create2.computeAddress(
+            _getL1Salt(OrbitSalts.L1_PROXY_ADMIN, inbox),
+            keccak256(type(ProxyAdmin).creationCode),
+            address(this)
+        );
+
+        return Create2.computeAddress(
+            _getL1Salt(OrbitSalts.L1_ROUTER, inbox),
+            keccak256(
+                abi.encodePacked(
+                    type(TransparentUpgradeableProxy).creationCode,
+                    abi.encode(routerTemplate, expectedL1ProxyAdminAddress, bytes(""))
+                )
+            ),
+            address(this)
+        );
+    }
+
+    function _getL1Salt(bytes32 prefix, address inbox) internal pure returns (bytes32) {
+        return keccak256(abi.encodePacked(prefix, inbox));
     }
 }
 
