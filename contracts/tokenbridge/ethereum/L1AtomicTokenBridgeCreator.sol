@@ -6,7 +6,9 @@ import {
     L1Addresses,
     RetryableParams,
     L2TemplateAddresses,
-    IERC20Inbox
+    IERC20Inbox,
+    IERC20,
+    SafeERC20
 } from "./L1TokenBridgeRetryableSender.sol";
 import {L1GatewayRouter} from "./gateway/L1GatewayRouter.sol";
 import {L1ERC20Gateway} from "./gateway/L1ERC20Gateway.sol";
@@ -41,6 +43,8 @@ import {
  * @dev Throughout the contract terms L1 and L2 are used, but those can be considered as base (N) chain and child (N+1) chain
  */
 contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
+    using SafeERC20 for IERC20;
+
     error L1AtomicTokenBridgeCreator_OnlyRollupOwner();
     error L1AtomicTokenBridgeCreator_InvalidRouterAddr();
     error L1AtomicTokenBridgeCreator_TemplatesNotSet();
@@ -352,15 +356,16 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         // encode L2 factory bytecode
         bytes memory deploymentData = _creationCodeFor(l2TokenBridgeFactoryTemplate.code);
 
-        uint256 maxSubmissionCost =
-            IInbox(inbox).calculateRetryableSubmissionFee(deploymentData.length, 0);
-        uint256 retryableFee = maxSubmissionCost + gasLimitForL2FactoryDeployment * gasPriceBid;
-
         if (isUsingFeeToken) {
+            // transfer fee tokens to inbox to pay for 1st retryable
+            address feeToken = _getFeeToken(inbox);
+            uint256 retryableFee = gasLimitForL2FactoryDeployment * gasPriceBid;
+            IERC20(feeToken).safeTransferFrom(msg.sender, inbox, retryableFee);
+
             IERC20Inbox(inbox).createRetryableTicket(
                 address(0),
                 0,
-                maxSubmissionCost,
+                0,
                 msg.sender,
                 msg.sender,
                 gasLimitForL2FactoryDeployment,
@@ -368,7 +373,12 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                 retryableFee,
                 deploymentData
             );
+            return 0;
         } else {
+            uint256 maxSubmissionCost =
+                IInbox(inbox).calculateRetryableSubmissionFee(deploymentData.length, 0);
+            uint256 retryableFee = maxSubmissionCost + gasLimitForL2FactoryDeployment * gasPriceBid;
+
             IInbox(inbox).createRetryableTicket{value: retryableFee}(
                 address(0),
                 0,
@@ -379,9 +389,8 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                 gasPriceBid,
                 deploymentData
             );
+            return retryableFee;
         }
-
-        return retryableFee;
     }
 
     function _deployL2ContractsUsingEth(
@@ -420,6 +429,11 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         uint256 maxGas,
         uint256 gasPriceBid
     ) internal {
+        // transfer fee tokens to inbox to pay for 2nd retryable
+        address feeToken = _getFeeToken(inbox);
+        uint256 fee = maxGas * gasPriceBid;
+        IERC20(feeToken).safeTransferFrom(msg.sender, inbox, fee);
+
         retryableSender.sendRetryableUsingFeeToken(
             RetryableParams(
                 inbox, canonicalL2FactoryAddress, msg.sender, msg.sender, maxGas, gasPriceBid

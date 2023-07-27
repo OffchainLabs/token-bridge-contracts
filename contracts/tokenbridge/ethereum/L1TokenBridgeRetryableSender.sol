@@ -15,6 +15,8 @@ import {
 import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 import {TransparentUpgradeableProxy} from
     "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
  * @title Token Bridge Retryable Ticket Sender
@@ -109,12 +111,9 @@ contract L1TokenBridgeRetryableSender is Initializable, OwnableUpgradeable {
             )
         );
 
-        uint256 maxSubmissionCost =
-            IInbox(retryableParams.inbox).calculateRetryableSubmissionFee(data.length, 0);
-        uint256 retryableFee =
-            maxSubmissionCost + retryableParams.maxGas * retryableParams.gasPriceBid;
+        uint256 retryableFee = retryableParams.maxGas * retryableParams.gasPriceBid;
 
-        _createRetryableUsingFeeToken(retryableParams, maxSubmissionCost, retryableFee, data);
+        _createRetryableUsingFeeToken(retryableParams, retryableFee, data);
     }
 
     function _createRetryableUsingEth(
@@ -137,14 +136,13 @@ contract L1TokenBridgeRetryableSender is Initializable, OwnableUpgradeable {
 
     function _createRetryableUsingFeeToken(
         RetryableParams calldata retryableParams,
-        uint256 maxSubmissionCost,
         uint256 retryableFee,
         bytes memory data
     ) internal {
         IERC20Inbox(retryableParams.inbox).createRetryableTicket(
             retryableParams.target,
             0,
-            maxSubmissionCost,
+            0,
             retryableParams.excessFeeRefundAddress,
             retryableParams.callValueRefundAddress,
             retryableParams.maxGas,
