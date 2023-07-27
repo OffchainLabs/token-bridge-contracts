@@ -5,7 +5,8 @@ import {
     L1TokenBridgeRetryableSender,
     L1Addresses,
     RetryableParams,
-    L2TemplateAddresses
+    L2TemplateAddresses,
+    IERC20Inbox
 } from "./L1TokenBridgeRetryableSender.sol";
 import {L1GatewayRouter} from "./gateway/L1GatewayRouter.sol";
 import {L1ERC20Gateway} from "./gateway/L1ERC20Gateway.sol";
@@ -180,18 +181,25 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             _deployL1Contracts(inbox, owner, isUsingFeeToken);
 
         /// deploy factory and then L2 contracts through L2 factory, using 2 retryables calls
-        uint256 valueSpentForFactory = _deployL2Factory(inbox, gasPriceBid);
-        uint256 fundsRemaining = msg.value - valueSpentForFactory;
-        _deployL2Contracts(
-            router,
-            standardGateway,
-            customGateway,
-            wethGateway,
-            inbox,
-            maxGasForContracts,
-            gasPriceBid,
-            fundsRemaining
-        );
+        if (isUsingFeeToken) {
+            _deployL2Factory(inbox, gasPriceBid, isUsingFeeToken);
+            _deployL2ContractsUsingFeeToken(
+                router, standardGateway, customGateway, inbox, maxGasForContracts, gasPriceBid
+            );
+        } else {
+            uint256 valueSpentForFactory = _deployL2Factory(inbox, gasPriceBid, isUsingFeeToken);
+            uint256 fundsRemaining = msg.value - valueSpentForFactory;
+            _deployL2ContractsUsingEth(
+                router,
+                standardGateway,
+                customGateway,
+                wethGateway,
+                inbox,
+                maxGasForContracts,
+                gasPriceBid,
+                fundsRemaining
+            );
+        }
     }
 
     /**
@@ -337,28 +345,46 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         return address(wethGateway);
     }
 
-    function _deployL2Factory(address inbox, uint256 gasPriceBid) internal returns (uint256) {
+    function _deployL2Factory(address inbox, uint256 gasPriceBid, bool isUsingFeeToken)
+        internal
+        returns (uint256)
+    {
         // encode L2 factory bytecode
         bytes memory deploymentData = _creationCodeFor(l2TokenBridgeFactoryTemplate.code);
 
         uint256 maxSubmissionCost =
             IInbox(inbox).calculateRetryableSubmissionFee(deploymentData.length, 0);
-        uint256 value = maxSubmissionCost + gasLimitForL2FactoryDeployment * gasPriceBid;
-        IInbox(inbox).createRetryableTicket{value: value}(
-            address(0),
-            0,
-            maxSubmissionCost,
-            msg.sender,
-            msg.sender,
-            gasLimitForL2FactoryDeployment,
-            gasPriceBid,
-            deploymentData
-        );
+        uint256 retryableFee = maxSubmissionCost + gasLimitForL2FactoryDeployment * gasPriceBid;
 
-        return value;
+        if (isUsingFeeToken) {
+            IERC20Inbox(inbox).createRetryableTicket(
+                address(0),
+                0,
+                maxSubmissionCost,
+                msg.sender,
+                msg.sender,
+                gasLimitForL2FactoryDeployment,
+                gasPriceBid,
+                retryableFee,
+                deploymentData
+            );
+        } else {
+            IInbox(inbox).createRetryableTicket{value: retryableFee}(
+                address(0),
+                0,
+                maxSubmissionCost,
+                msg.sender,
+                msg.sender,
+                gasLimitForL2FactoryDeployment,
+                gasPriceBid,
+                deploymentData
+            );
+        }
+
+        return retryableFee;
     }
 
-    function _deployL2Contracts(
+    function _deployL2ContractsUsingEth(
         address l1Router,
         address l1StandardGateway,
         address l1CustomGateway,
@@ -368,7 +394,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         uint256 gasPriceBid,
         uint256 availableFunds
     ) internal {
-        retryableSender.sendRetryable{value: availableFunds}(
+        retryableSender.sendRetryableUsingEth{value: availableFunds}(
             RetryableParams(
                 inbox, canonicalL2FactoryAddress, msg.sender, msg.sender, maxGas, gasPriceBid
             ),
@@ -383,6 +409,27 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             getCanonicalL2StandardGatewayAddress(),
             _getRollupOwner(inbox),
             msg.sender
+        );
+    }
+
+    function _deployL2ContractsUsingFeeToken(
+        address l1Router,
+        address l1StandardGateway,
+        address l1CustomGateway,
+        address inbox,
+        uint256 maxGas,
+        uint256 gasPriceBid
+    ) internal {
+        retryableSender.sendRetryableUsingFeeToken(
+            RetryableParams(
+                inbox, canonicalL2FactoryAddress, msg.sender, msg.sender, maxGas, gasPriceBid
+            ),
+            L2TemplateAddresses(
+                l1Router, l1StandardGateway, l1CustomGateway, address(0), address(0)
+            ),
+            L1Addresses(l1Router, l1StandardGateway, l1CustomGateway, address(0), address(0)),
+            getCanonicalL2StandardGatewayAddress(),
+            _getRollupOwner(inbox)
         );
     }
 
