@@ -260,7 +260,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         // deploy and init gateways
         standardGateway = _deployL1StandardGateway(proxyAdmin, router, inbox, isUsingFeeToken);
         customGateway = _deployL1CustomGateway(proxyAdmin, router, inbox, owner, isUsingFeeToken);
-        wethGateway = _deployL1WethGateway(proxyAdmin, router, inbox);
+        wethGateway = isUsingFeeToken ? address(0) : _deployL1WethGateway(proxyAdmin, router, inbox);
 
         // init router
         L1GatewayRouter(router).initialize(
@@ -440,7 +440,11 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                 inbox, canonicalL2FactoryAddress, msg.sender, msg.sender, maxGas, gasPriceBid
             ),
             L2TemplateAddresses(
-                l1Router, l1StandardGateway, l1CustomGateway, address(0), address(0)
+                l2RouterTemplate,
+                l2StandardGatewayTemplate,
+                l2CustomGatewayTemplate,
+                address(0),
+                address(0)
             ),
             L1Addresses(l1Router, l1StandardGateway, l1CustomGateway, address(0), address(0)),
             getCanonicalL2StandardGatewayAddress(),
