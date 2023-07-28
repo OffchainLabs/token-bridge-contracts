@@ -18,6 +18,9 @@ import {
   L1OrbitERC20Gateway__factory,
   L1OrbitCustomGateway__factory,
   L1OrbitGatewayRouter__factory,
+  IInbox__factory,
+  IERC20Bridge__factory,
+  IERC20__factory,
 } from '../build/types'
 import { JsonRpcProvider } from '@ethersproject/providers'
 import {
@@ -54,6 +57,7 @@ export const createTokenBridge = async (
     l1Signer,
     l2Provider
   )
+
   const maxGasForFactory =
     await l1TokenBridgeCreator.gasLimitForL2FactoryDeployment()
   const maxSubmissionCostForFactory = deployFactoryGasParams.maxSubmissionCost
@@ -86,7 +90,7 @@ export const createTokenBridge = async (
   const maxSubmissionCostForContracts =
     deployFactoryGasParams.maxSubmissionCost.mul(2)
 
-  let retryableValue = maxSubmissionCostForFactory
+  let retryableFee = maxSubmissionCostForFactory
     .add(maxSubmissionCostForContracts)
     .add(maxGasForFactory.mul(gasPrice))
     .add(maxGasForContracts.mul(gasPrice))
@@ -97,15 +101,29 @@ export const createTokenBridge = async (
     l1Signer.provider!
   ).inbox()
 
+  // if fee token is used approve the fee
+  const feeToken = await _getFeeToken(inbox, l1Signer.provider!)
+  if (feeToken != ethers.constants.AddressZero) {
+    await (
+      await IERC20__factory.connect(feeToken, l1Signer).approve(
+        l1TokenBridgeCreator.address,
+        retryableFee
+      )
+    ).wait()
+    retryableFee = BigNumber.from(0)
+  }
+
   /// do it - create token bridge
   const receipt = await (
     await l1TokenBridgeCreator.createTokenBridge(
       inbox,
       maxGasForContracts,
       gasPrice,
-      { value: retryableValue }
+      { value: retryableFee }
     )
   ).wait()
+
+  console.log('Deployment TX:', receipt.transactionHash)
 
   /// wait for execution of both tickets
   const l1TxReceipt = new L1TransactionReceipt(receipt)
@@ -162,12 +180,18 @@ export const createTokenBridge = async (
   const beaconProxyFactory = await l2StandardGateway.beaconProxyFactory()
   const l2CustomGateway =
     await l1TokenBridgeCreator.getCanonicalL2CustomGatewayAddress()
-  const l2WethGateway = L2WethGateway__factory.connect(
-    await l1TokenBridgeCreator.getCanonicalL2WethGatewayAddress(),
-    l2Provider
-  )
+
+  const isUsingFeeToken = feeToken != ethers.constants.AddressZero
+  const l2WethGateway = isUsingFeeToken
+    ? ethers.constants.AddressZero
+    : L2WethGateway__factory.connect(
+        await l1TokenBridgeCreator.getCanonicalL2WethGatewayAddress(),
+        l2Provider
+      ).address
   const l1Weth = await l1TokenBridgeCreator.l1Weth()
-  const l2Weth = await l1TokenBridgeCreator.getCanonicalL2WethAddress()
+  const l2Weth = isUsingFeeToken
+    ? ethers.constants.AddressZero
+    : await l1TokenBridgeCreator.getCanonicalL2WethAddress()
   const l2ProxyAdmin = await l1TokenBridgeCreator.canonicalL2ProxyAdminAddress()
 
   return {
@@ -179,7 +203,7 @@ export const createTokenBridge = async (
     l2Router,
     l2StandardGateway: l2StandardGateway.address,
     l2CustomGateway,
-    l2WethGateway: l2WethGateway.address,
+    l2WethGateway,
     l1Weth,
     l2Weth,
     beaconProxyFactory,
@@ -383,6 +407,24 @@ export const getParsedLogs = (
     )
     .map((curr: any) => iface.parseLog(curr))
   return parsedLogs
+}
+
+const _getFeeToken = async (
+  inbox: string,
+  l1Provider: ethers.providers.Provider
+) => {
+  const bridge = await IInbox__factory.connect(inbox, l1Provider).bridge()
+
+  let feeToken = ethers.constants.AddressZero
+
+  try {
+    feeToken = await IERC20Bridge__factory.connect(
+      bridge,
+      l1Provider
+    ).nativeToken()
+  } catch {}
+
+  return feeToken
 }
 
 export function sleep(ms: number) {

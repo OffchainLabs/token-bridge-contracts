@@ -2,6 +2,8 @@ import { L1Network, L2Network, getL1Network, getL2Network } from '@arbitrum/sdk'
 import { JsonRpcProvider } from '@ethersproject/providers'
 import {
   BeaconProxyFactory__factory,
+  IERC20Bridge__factory,
+  IInbox__factory,
   IOwnable,
   IOwnable__factory,
   L1CustomGateway,
@@ -82,12 +84,17 @@ describe('tokenBridge', () => {
       )
     )
 
-    await checkL1WethGatewayInitialization(
-      L1WethGateway__factory.connect(
-        _l2Network.tokenBridge.l1WethGateway,
-        l1Provider
-      )
+    const usingFeeToken = await isUsingFeeToken(
+      _l2Network.ethBridge.inbox,
+      l1Provider
     )
+    if (!usingFeeToken)
+      await checkL1WethGatewayInitialization(
+        L1WethGateway__factory.connect(
+          _l2Network.tokenBridge.l1WethGateway,
+          l1Provider
+        )
+      )
 
     //// L2 checks
 
@@ -136,12 +143,14 @@ describe('tokenBridge', () => {
       )
     )
 
-    await checkL2WethGatewayInitialization(
-      L2WethGateway__factory.connect(
-        _l2Network.tokenBridge.l2WethGateway,
-        l2Provider
+    if (!usingFeeToken) {
+      await checkL2WethGatewayInitialization(
+        L2WethGateway__factory.connect(
+          _l2Network.tokenBridge.l2WethGateway,
+          l2Provider
+        )
       )
-    )
+    }
   })
 })
 
@@ -403,4 +412,16 @@ export const getProvidersAndSetupNetworks = async (setupConfig: {
       l2Provider,
     }
   }
+}
+
+async function isUsingFeeToken(inbox: string, l1Provider: JsonRpcProvider) {
+  const bridge = await IInbox__factory.connect(inbox, l1Provider).bridge()
+
+  try {
+    await IERC20Bridge__factory.connect(bridge, l1Provider).nativeToken()
+  } catch {
+    return false
+  }
+
+  return true
 }

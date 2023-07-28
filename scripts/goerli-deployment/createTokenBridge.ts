@@ -14,7 +14,7 @@ export const envVars = {
   childChainRpc: process.env['ORBIT_RPC'] as string,
 }
 
-const L1_TOKEN_BRIDGE_CREATOR = '0xAd146718D61dc3024428ED7Ed11ade741A37EA38'
+const L1_TOKEN_BRIDGE_CREATOR = '0x4Ba3aC2a2fEf26eAA6d05D71B79fde08Cb3078a9'
 
 /**
  * Steps:
@@ -47,12 +47,12 @@ export const createTokenBridgeOnGoerli = async (rollupAddress: string) => {
     rollupAddress
   )
 
-  // create token bridge
   const l1TokenBridgeCreator = L1AtomicTokenBridgeCreator__factory.connect(
     L1_TOKEN_BRIDGE_CREATOR,
     l1Deployer
   )
 
+  // create token bridge
   const deployedContracts = await createTokenBridge(
     l1Deployer,
     l2Provider,
