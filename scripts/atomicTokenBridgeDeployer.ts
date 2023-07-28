@@ -219,7 +219,7 @@ export const deployL1TokenBridgeCreator = async (
 
   const l1TokenBridgeCreator = L1AtomicTokenBridgeCreator__factory.connect(
     l1TokenBridgeCreatorProxy.address,
-    l1Deployer.provider!
+    l1Deployer
   )
 
   /// deploy retryable sender behind proxy

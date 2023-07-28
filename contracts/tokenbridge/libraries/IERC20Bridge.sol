@@ -7,5 +7,5 @@ interface IERC20Bridge {
     /**
      * @dev token that is escrowed in bridge on L1 side and minted on L2 as native currency. Also fees are paid in this token.
      */
-    function nativeToken() external returns (address);
+    function nativeToken() external view returns (address);
 }

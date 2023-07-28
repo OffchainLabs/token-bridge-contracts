@@ -20,7 +20,6 @@
     "test:unit": "forge test",
     "test:e2e:local-env": "yarn hardhat test test-e2e/*",
     "test:storage": "./scripts/storage_layout_test.bash",
-    "deploy:orbit-tokenbridge:script": "ts-node ./scripts/local-deployment/orbitTokenBridgeDeployer.ts",
     "deploy:local:token-bridge": "ts-node ./scripts/local-deployment/deploy.ts",
     "deploy:goerli:token-bridge-creator": "ts-node ./scripts/goerli-deployment/deployTokenBridgeCreator.ts",
     "create:goerli:token-bridge": "ts-node ./scripts/goerli-deployment/createTokenBridge.ts",

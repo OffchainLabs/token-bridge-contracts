@@ -455,12 +455,17 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             address(this)
         );
 
+        bool isUsingFeeToken = _getFeeToken(inbox) != address(0);
+        address template = isUsingFeeToken
+            ? address(l1Templates.feeTokenBasedRouterTemplate)
+            : address(l1Templates.routerTemplate);
+
         return Create2.computeAddress(
             _getL1Salt(OrbitSalts.L1_ROUTER, inbox),
             keccak256(
                 abi.encodePacked(
                     type(TransparentUpgradeableProxy).creationCode,
-                    abi.encode(l1Templates.routerTemplate, expectedL1ProxyAdminAddress, bytes(""))
+                    abi.encode(template, expectedL1ProxyAdminAddress, bytes(""))
                 )
             ),
             address(this)
