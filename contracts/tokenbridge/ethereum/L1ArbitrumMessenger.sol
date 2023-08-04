@@ -176,7 +176,7 @@ abstract contract L1ArbitrumMessenger {
         bytes memory _data
     ) internal virtual returns (uint256) {
         return
-            IEthInbox(_inbox).createRetryableTicket{ value: _totalFeeAmount }(
+            IInbox(_inbox).createRetryableTicket{ value: _totalFeeAmount }(
                 _to,
                 _l2CallValue,
                 _maxSubmissionCost,
@@ -201,17 +201,4 @@ interface IERC20Inbox {
         uint256 tokenTotalFeeAmount,
         bytes calldata data
     ) external returns (uint256);
-}
-
-interface IEthInbox {
-    function createRetryableTicket(
-        address to,
-        uint256 l2CallValue,
-        uint256 maxSubmissionCost,
-        address excessFeeRefundAddress,
-        address callValueRefundAddress,
-        uint256 gasLimit,
-        uint256 maxFeePerGas,
-        bytes calldata data
-    ) external payable returns (uint256);
 }
