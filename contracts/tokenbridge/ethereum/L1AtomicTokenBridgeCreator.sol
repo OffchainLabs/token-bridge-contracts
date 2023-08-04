@@ -48,6 +48,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     error L1AtomicTokenBridgeCreator_OnlyRollupOwner();
     error L1AtomicTokenBridgeCreator_InvalidRouterAddr();
     error L1AtomicTokenBridgeCreator_TemplatesNotSet();
+    error L1AtomicTokenBridgeCreator_ProxyAdminNotFound();
 
     event OrbitTokenBridgeCreated(
         address indexed inbox,
@@ -242,8 +243,11 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             address wethGateway
         )
     {
-        address proxyAdmin =
-            address(new ProxyAdmin{ salt: _getL1Salt(OrbitSalts.L1_PROXY_ADMIN, inbox) }());
+        // fetch existing proxy admin from inbox
+        address proxyAdmin = IInbox_ProxyAdmin(inbox).getProxyAdmin();
+        if (proxyAdmin == address(0)) {
+            revert L1AtomicTokenBridgeCreator_ProxyAdminNotFound();
+        }
 
         // deploy router
         address routerTemplate = isUsingFeeToken
@@ -644,4 +648,8 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
 
 interface IERC20Bridge {
     function nativeToken() external view returns (address);
+}
+
+interface IInbox_ProxyAdmin {
+    function getProxyAdmin() external view returns (address);
 }
