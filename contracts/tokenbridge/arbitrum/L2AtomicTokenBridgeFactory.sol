@@ -38,14 +38,16 @@ contract L2AtomicTokenBridgeFactory {
         address proxyAdmin =
             address(new ProxyAdmin{ salt: _getL2Salt(OrbitSalts.L2_PROXY_ADMIN) }());
 
-        // deploy router/gateways
-        address router =
-            _deployRouter(l2Code.router, l1Router, l2StandardGatewayCanonicalAddress, proxyAdmin);
-        _deployStandardGateway(l2Code.standardGateway, l1StandardGateway, router, proxyAdmin);
-        _deployCustomGateway(l2Code.customGateway, l1CustomGateway, router, proxyAdmin);
+        // deploy router/gateways/executor
         address upgradeExecutor = _deployUpgradeExecutor(
             l2Code.upgradeExecutor, rollupOwner, proxyAdmin, aliasedL1UpgradeExecutor
         );
+        address router =
+            _deployRouter(l2Code.router, l1Router, l2StandardGatewayCanonicalAddress, proxyAdmin);
+        _deployStandardGateway(
+            l2Code.standardGateway, l1StandardGateway, router, proxyAdmin, upgradeExecutor
+        );
+        _deployCustomGateway(l2Code.customGateway, l1CustomGateway, router, proxyAdmin);
 
         // fee token based creator will provide address(0) as WETH is not used in ERC20-based chains
         if (l1WethGateway != address(0)) {
@@ -120,7 +122,8 @@ contract L2AtomicTokenBridgeFactory {
         bytes calldata runtimeCode,
         address l1StandardGateway,
         address router,
-        address proxyAdmin
+        address proxyAdmin,
+        address upgradeExecutor
     ) internal {
         // canonical L2 standard gateway with dummy logic
         address canonicalStdGateway = address(
@@ -159,6 +162,9 @@ contract L2AtomicTokenBridgeFactory {
         L2ERC20Gateway(canonicalStdGateway).initialize(
             l1StandardGateway, router, address(beaconProxyFactory)
         );
+
+        // make L2 executor the beacon owner
+        beacon.transferOwnership(upgradeExecutor);
     }
 
     function _deployCustomGateway(

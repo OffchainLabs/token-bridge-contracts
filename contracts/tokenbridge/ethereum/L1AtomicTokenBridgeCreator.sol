@@ -59,7 +59,8 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         address standardGateway,
         address customGateway,
         address wethGateway,
-        address proxyAdmin
+        address proxyAdmin,
+        address upgradeExecutor
     );
     event OrbitTokenBridgeTemplatesUpdated();
     event NonCanonicalRouterSet(address indexed inbox, address indexed router);
@@ -254,11 +255,12 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             address proxyAdmin
         )
     {
-        // get existing proxy admin
+        // get existing proxy admin and upgrade executor
         proxyAdmin = IInbox_ProxyAdmin(inbox).getProxyAdmin();
         if (proxyAdmin == address(0)) {
             revert L1AtomicTokenBridgeCreator_ProxyAdminNotFound();
         }
+        address upgradeExecutor = ProxyAdmin(proxyAdmin).owner();
 
         // deploy router
         address routerTemplate = isUsingFeeToken
@@ -275,17 +277,28 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         // deploy and init gateways
         standardGateway = _deployL1StandardGateway(proxyAdmin, router, inbox, isUsingFeeToken);
         customGateway =
-            _deployL1CustomGateway(proxyAdmin, router, inbox, rollupOwner, isUsingFeeToken);
+            _deployL1CustomGateway(proxyAdmin, router, inbox, upgradeExecutor, isUsingFeeToken);
         wethGateway = isUsingFeeToken ? address(0) : _deployL1WethGateway(proxyAdmin, router, inbox);
 
         // init router
         L1GatewayRouter(router).initialize(
-            rollupOwner, address(standardGateway), address(0), getCanonicalL2RouterAddress(), inbox
+            upgradeExecutor,
+            address(standardGateway),
+            address(0),
+            getCanonicalL2RouterAddress(),
+            inbox
         );
 
         // emit it
         emit OrbitTokenBridgeCreated(
-            inbox, rollupOwner, router, standardGateway, customGateway, wethGateway, proxyAdmin
+            inbox,
+            rollupOwner,
+            router,
+            standardGateway,
+            customGateway,
+            wethGateway,
+            proxyAdmin,
+            upgradeExecutor
         );
     }
 
@@ -579,6 +592,25 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
 
         return Create2.computeAddress(
             _getL2Salt(OrbitSalts.L2_WETH),
+            keccak256(
+                abi.encodePacked(
+                    type(TransparentUpgradeableProxy).creationCode,
+                    abi.encode(logicSeedAddress, canonicalL2ProxyAdminAddress, bytes(""))
+                )
+            ),
+            canonicalL2FactoryAddress
+        );
+    }
+
+    function getCanonicalL2UpgradeExecutorAddress() public view returns (address) {
+        address logicSeedAddress = Create2.computeAddress(
+            _getL2Salt(OrbitSalts.L2_EXECUTOR_LOGIC),
+            keccak256(type(CanonicalAddressSeed).creationCode),
+            canonicalL2FactoryAddress
+        );
+
+        return Create2.computeAddress(
+            _getL2Salt(OrbitSalts.L2_EXECUTOR),
             keccak256(
                 abi.encodePacked(
                     type(TransparentUpgradeableProxy).creationCode,
