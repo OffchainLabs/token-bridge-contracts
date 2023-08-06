@@ -75,10 +75,12 @@ export const createTokenBridge = async (
     customGateway: L2CustomGateway__factory.bytecode,
     wethGateway: L2WethGateway__factory.bytecode,
     aeWeth: AeWETH__factory.bytecode,
+    upgradeExecutor: UpgradeExecutor__factory.bytecode,
   }
   const gasEstimateToDeployContracts =
     await l2FactoryTemplate.estimateGas.deployL2Contracts(
       l2Code,
+      ethers.Wallet.createRandom().address,
       ethers.Wallet.createRandom().address,
       ethers.Wallet.createRandom().address,
       ethers.Wallet.createRandom().address,
@@ -317,7 +319,7 @@ export const deployL1TokenBridgeCreator = async (
       feeTokenBasedStandardGatewayTemplate.address,
     feeTokenBasedCustomGatewayTemplate:
       feeTokenBasedCustomGatewayTemplate.address,
-    upgradeExecutor: upgradeExecutor,
+    upgradeExecutor: upgradeExecutor.address,
   }
 
   /// deploy L2 contracts as placeholders on L1

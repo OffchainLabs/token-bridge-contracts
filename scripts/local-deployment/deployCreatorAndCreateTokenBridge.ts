@@ -109,6 +109,7 @@ export const setupTokenBridgeInLocalEnv = async () => {
   return {
     l1Network,
     l2Network,
+    l1TokenBridgeCreator,
   }
 }
 
@@ -192,12 +193,13 @@ export const getLocalNetworks = async (
 }
 
 async function main() {
-  const { l1Network, l2Network } = await setupTokenBridgeInLocalEnv()
+  const { l1Network, l2Network, l1TokenBridgeCreator } =
+    await setupTokenBridgeInLocalEnv()
 
   const NETWORK_FILE = 'network.json'
   fs.writeFileSync(
     NETWORK_FILE,
-    JSON.stringify({ l1Network, l2Network }, null, 2)
+    JSON.stringify({ l1Network, l2Network, l1TokenBridgeCreator }, null, 2)
   )
   console.log(NETWORK_FILE + ' updated')
 }

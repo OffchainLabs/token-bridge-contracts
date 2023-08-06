@@ -9,8 +9,8 @@ import * as fs from 'fs'
 dotenv.config()
 
 export const envVars = {
-  baseChainRpc: process.env['ARB_GOERLI_RPC'] as string,
-  baseChainDeployerKey: process.env['ARB_GOERLI_DEPLOYER_KEY'] as string,
+  baseChainRpc: process.env['BASECHAIN_RPC'] as string,
+  baseChainDeployerKey: process.env['BASECHAIN_DEPLOYER_KEY'] as string,
   childChainRpc: process.env['ORBIT_RPC'] as string,
 }
 
@@ -31,9 +31,9 @@ const L1_TOKEN_BRIDGE_CREATOR = '0x4Ba3aC2a2fEf26eAA6d05D71B79fde08Cb3078a9'
  */
 export const createTokenBridgeOnGoerli = async (rollupAddress: string) => {
   if (envVars.baseChainRpc == undefined)
-    throw new Error('Missing ARB_GOERLI_RPC in env vars')
+    throw new Error('Missing BASECHAIN_RPC in env vars')
   if (envVars.baseChainDeployerKey == undefined)
-    throw new Error('Missing ARB_GOERLI_DEPLOYER_KEY in env vars')
+    throw new Error('Missing BASECHAIN_DEPLOYER_KEY in env vars')
   if (envVars.childChainRpc == undefined)
     throw new Error('Missing ORBIT_RPC in env vars')
 
