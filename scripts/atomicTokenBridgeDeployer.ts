@@ -21,6 +21,7 @@ import {
   IInbox__factory,
   IERC20Bridge__factory,
   IERC20__factory,
+  UpgradeExecutor__factory,
 } from '../build/types'
 import { JsonRpcProvider } from '@ethersproject/providers'
 import {
@@ -301,6 +302,11 @@ export const deployL1TokenBridgeCreator = async (
     await new L1OrbitCustomGateway__factory(l1Deployer).deploy()
   await feeTokenBasedCustomGatewayTemplate.deployed()
 
+  const upgradeExecutor = await new UpgradeExecutor__factory(
+    l1Deployer
+  ).deploy()
+  await upgradeExecutor.deployed()
+
   const l1Templates = {
     routerTemplate: routerTemplate.address,
     standardGatewayTemplate: standardGatewayTemplate.address,
@@ -311,6 +317,7 @@ export const deployL1TokenBridgeCreator = async (
       feeTokenBasedStandardGatewayTemplate.address,
     feeTokenBasedCustomGatewayTemplate:
       feeTokenBasedCustomGatewayTemplate.address,
+    upgradeExecutor: upgradeExecutor,
   }
 
   /// deploy L2 contracts as placeholders on L1

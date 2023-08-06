@@ -28,6 +28,8 @@ import {
     ProxyAdmin
 } from "../arbitrum/L2AtomicTokenBridgeFactory.sol";
 import {BytesLib} from "../libraries/BytesLib.sol";
+import {UpgradeExecutor} from "../libraries/UpgradeExecutor.sol";
+import {AddressAliasHelper} from "../libraries/AddressAliasHelper.sol";
 import {IInbox, IBridge, IOwnable} from "@arbitrum/nitro-contracts/src/bridge/IInbox.sol";
 import {AddressAliasHelper} from "../libraries/AddressAliasHelper.sol";
 import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
@@ -70,6 +72,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         L1OrbitGatewayRouter feeTokenBasedRouterTemplate;
         L1OrbitERC20Gateway feeTokenBasedStandardGatewayTemplate;
         L1OrbitCustomGateway feeTokenBasedCustomGatewayTemplate;
+        UpgradeExecutor upgradeExecutor;
     }
 
     // non-canonical router registry
@@ -180,30 +183,37 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         }
 
         bool isUsingFeeToken = _getFeeToken(inbox) != address(0);
+        address rollupOwner = _getRollupOwner(inbox);
 
-        // deploy L1 side of token bridge
-        address owner = _getRollupOwner(inbox);
-        (address router, address standardGateway, address customGateway, address wethGateway) =
-            _deployL1Contracts(inbox, owner, isUsingFeeToken);
+        /// deploy L1 side of token bridge
+        (
+            address router,
+            address standardGateway,
+            address customGateway,
+            address wethGateway,
+            address proxyAdmin
+        ) = _deployL1Contracts(inbox, rollupOwner, isUsingFeeToken);
 
         /// deploy factory and then L2 contracts through L2 factory, using 2 retryables calls
         if (isUsingFeeToken) {
             _deployL2Factory(inbox, gasPriceBid, isUsingFeeToken);
             _deployL2ContractsUsingFeeToken(
-                router, standardGateway, customGateway, inbox, maxGasForContracts, gasPriceBid
+                L1Addresses(router, standardGateway, customGateway, address(0), address(0)),
+                inbox,
+                maxGasForContracts,
+                gasPriceBid,
+                proxyAdmin
             );
         } else {
             uint256 valueSpentForFactory = _deployL2Factory(inbox, gasPriceBid, isUsingFeeToken);
             uint256 fundsRemaining = msg.value - valueSpentForFactory;
             _deployL2ContractsUsingEth(
-                router,
-                standardGateway,
-                customGateway,
-                wethGateway,
+                L1Addresses(router, standardGateway, customGateway, wethGateway, l1Weth),
                 inbox,
                 maxGasForContracts,
                 gasPriceBid,
-                fundsRemaining
+                fundsRemaining,
+                proxyAdmin
             );
         }
     }
@@ -234,17 +244,18 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         return getCanonicalL1RouterAddress(inbox);
     }
 
-    function _deployL1Contracts(address inbox, address owner, bool isUsingFeeToken)
+    function _deployL1Contracts(address inbox, address rollupOwner, bool isUsingFeeToken)
         internal
         returns (
             address router,
             address standardGateway,
             address customGateway,
-            address wethGateway
+            address wethGateway,
+            address proxyAdmin
         )
     {
-        // fetch existing proxy admin from inbox
-        address proxyAdmin = IInbox_ProxyAdmin(inbox).getProxyAdmin();
+        // get existing proxy admin
+        proxyAdmin = IInbox_ProxyAdmin(inbox).getProxyAdmin();
         if (proxyAdmin == address(0)) {
             revert L1AtomicTokenBridgeCreator_ProxyAdminNotFound();
         }
@@ -263,20 +274,18 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
 
         // deploy and init gateways
         standardGateway = _deployL1StandardGateway(proxyAdmin, router, inbox, isUsingFeeToken);
-        customGateway = _deployL1CustomGateway(proxyAdmin, router, inbox, owner, isUsingFeeToken);
+        customGateway =
+            _deployL1CustomGateway(proxyAdmin, router, inbox, rollupOwner, isUsingFeeToken);
         wethGateway = isUsingFeeToken ? address(0) : _deployL1WethGateway(proxyAdmin, router, inbox);
 
         // init router
         L1GatewayRouter(router).initialize(
-            owner, address(standardGateway), address(0), getCanonicalL2RouterAddress(), inbox
+            rollupOwner, address(standardGateway), address(0), getCanonicalL2RouterAddress(), inbox
         );
-
-        // transfer ownership to owner
-        ProxyAdmin(proxyAdmin).transferOwnership(owner);
 
         // emit it
         emit OrbitTokenBridgeCreated(
-            inbox, owner, router, standardGateway, customGateway, wethGateway, proxyAdmin
+            inbox, rollupOwner, router, standardGateway, customGateway, wethGateway, proxyAdmin
         );
     }
 
@@ -399,15 +408,15 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     }
 
     function _deployL2ContractsUsingEth(
-        address l1Router,
-        address l1StandardGateway,
-        address l1CustomGateway,
-        address l1WethGateway,
+        L1Addresses memory l1Addresses,
         address inbox,
         uint256 maxGas,
         uint256 gasPriceBid,
-        uint256 availableFunds
+        uint256 availableFunds,
+        address proxyAdmin
     ) internal {
+        address upgradeExecutor = ProxyAdmin(proxyAdmin).owner();
+
         retryableSender.sendRetryableUsingEth{value: availableFunds}(
             RetryableParams(
                 inbox, canonicalL2FactoryAddress, msg.sender, msg.sender, maxGas, gasPriceBid
@@ -417,23 +426,26 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                 l2StandardGatewayTemplate,
                 l2CustomGatewayTemplate,
                 l2WethGatewayTemplate,
-                l2WethTemplate
+                l2WethTemplate,
+                address(l1Templates.upgradeExecutor)
             ),
-            L1Addresses(l1Router, l1StandardGateway, l1CustomGateway, l1WethGateway, l1Weth),
+            l1Addresses,
             getCanonicalL2StandardGatewayAddress(),
             _getRollupOwner(inbox),
-            msg.sender
+            msg.sender,
+            AddressAliasHelper.applyL1ToL2Alias(upgradeExecutor)
         );
     }
 
     function _deployL2ContractsUsingFeeToken(
-        address l1Router,
-        address l1StandardGateway,
-        address l1CustomGateway,
+        L1Addresses memory l1Addresses,
         address inbox,
         uint256 maxGas,
-        uint256 gasPriceBid
+        uint256 gasPriceBid,
+        address proxyAdmin
     ) internal {
+        address upgradeExecutor = ProxyAdmin(proxyAdmin).owner();
+
         // transfer fee tokens to inbox to pay for 2nd retryable
         address feeToken = _getFeeToken(inbox);
         uint256 fee = maxGas * gasPriceBid;
@@ -448,11 +460,13 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                 l2StandardGatewayTemplate,
                 l2CustomGatewayTemplate,
                 address(0),
-                address(0)
+                address(0),
+                address(l1Templates.upgradeExecutor)
             ),
-            L1Addresses(l1Router, l1StandardGateway, l1CustomGateway, address(0), address(0)),
+            l1Addresses,
             getCanonicalL2StandardGatewayAddress(),
-            _getRollupOwner(inbox)
+            _getRollupOwner(inbox),
+            AddressAliasHelper.applyL1ToL2Alias(upgradeExecutor)
         );
     }
 

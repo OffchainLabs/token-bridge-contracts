@@ -6,6 +6,7 @@ import {L2ERC20Gateway} from "./gateway/L2ERC20Gateway.sol";
 import {L2CustomGateway} from "./gateway/L2CustomGateway.sol";
 import {L2WethGateway} from "./gateway/L2WethGateway.sol";
 import {StandardArbERC20} from "./StandardArbERC20.sol";
+import {UpgradeExecutor} from "../libraries/UpgradeExecutor.sol";
 import {BeaconProxyFactory} from "../libraries/ClonableBeaconProxy.sol";
 import {aeWETH} from "../libraries/aeWETH.sol";
 import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
@@ -30,7 +31,8 @@ contract L2AtomicTokenBridgeFactory {
         address l1WethGateway,
         address l1Weth,
         address l2StandardGatewayCanonicalAddress,
-        address rollupOwner
+        address rollupOwner,
+        address aliasedL1UpgradeExecutor
     ) external {
         // create proxyAdmin which will be used for all contracts
         address proxyAdmin =
@@ -41,6 +43,9 @@ contract L2AtomicTokenBridgeFactory {
             _deployRouter(l2Code.router, l1Router, l2StandardGatewayCanonicalAddress, proxyAdmin);
         _deployStandardGateway(l2Code.standardGateway, l1StandardGateway, router, proxyAdmin);
         _deployCustomGateway(l2Code.customGateway, l1CustomGateway, router, proxyAdmin);
+        address upgradeExecutor = _deployUpgradeExecutor(
+            l2Code.upgradeExecutor, rollupOwner, proxyAdmin, aliasedL1UpgradeExecutor
+        );
 
         // fee token based creator will provide address(0) as WETH is not used in ERC20-based chains
         if (l1WethGateway != address(0)) {
@@ -49,8 +54,40 @@ contract L2AtomicTokenBridgeFactory {
             );
         }
 
-        // transfer ownership to rollup's owner
-        ProxyAdmin(proxyAdmin).transferOwnership(rollupOwner);
+        // transfer ownership to L2 upgradeExecutor
+        ProxyAdmin(proxyAdmin).transferOwnership(upgradeExecutor);
+    }
+
+    function _deployUpgradeExecutor(
+        bytes calldata runtimeCode,
+        address rollupOwner,
+        address proxyAdmin,
+        address aliasedL1UpgradeExecutor
+    ) internal returns (address) {
+        // canonical L2 upgrade executor with dummy logic
+        address canonicalUpgradeExecutor = address(
+            new TransparentUpgradeableProxy{ salt: _getL2Salt(OrbitSalts.L2_EXECUTOR) }(
+                address(new CanonicalAddressSeed{ salt: _getL2Salt(OrbitSalts.L2_EXECUTOR_LOGIC) }()),
+                proxyAdmin,
+                bytes("")
+            )
+        );
+
+        // create UpgradeExecutor logic and upgrade to it
+        address upExecutorLogic = Create2.deploy(
+            0, _getL2Salt(OrbitSalts.L2_EXECUTOR_LOGIC), _creationCodeFor(runtimeCode)
+        );
+        ProxyAdmin(proxyAdmin).upgrade(
+            ITransparentUpgradeableProxy(canonicalUpgradeExecutor), upExecutorLogic
+        );
+
+        // init upgrade executor
+        address[] memory executors = new address[](2);
+        executors[0] = rollupOwner;
+        executors[1] = aliasedL1UpgradeExecutor;
+        UpgradeExecutor(canonicalUpgradeExecutor).initialize(canonicalUpgradeExecutor, executors);
+
+        return canonicalUpgradeExecutor;
     }
 
     function _deployRouter(
@@ -250,6 +287,7 @@ struct L2RuntimeCode {
     bytes customGateway;
     bytes wethGateway;
     bytes aeWeth;
+    bytes upgradeExecutor;
 }
 
 /**
@@ -277,4 +315,6 @@ library OrbitSalts {
     bytes32 public constant L2_STANDARD_ERC20 = keccak256(bytes("OrbitStandardArbERC20"));
     bytes32 public constant UPGRADEABLE_BEACON = keccak256(bytes("OrbitUpgradeableBeacon"));
     bytes32 public constant BEACON_PROXY_FACTORY = keccak256(bytes("OrbitBeaconProxyFactory"));
+    bytes32 public constant L2_EXECUTOR_LOGIC = keccak256(bytes("OrbitL2UpgradeExecutorLogic"));
+    bytes32 public constant L2_EXECUTOR = keccak256(bytes("OrbitL2UpgradeExecutorProxy"));
 }

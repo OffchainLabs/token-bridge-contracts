@@ -45,7 +45,8 @@ contract L1TokenBridgeRetryableSender is Initializable, OwnableUpgradeable {
         L1Addresses calldata l1,
         address l2StandardGatewayAddress,
         address rollupOwner,
-        address deployer
+        address deployer,
+        address aliasedL1UpgradeExecutor
     ) external payable onlyOwner {
         bytes memory data = abi.encodeCall(
             L2AtomicTokenBridgeFactory.deployL2Contracts,
@@ -55,7 +56,8 @@ contract L1TokenBridgeRetryableSender is Initializable, OwnableUpgradeable {
                     l2.standardGatewayTemplate.code,
                     l2.customGatewayTemplate.code,
                     l2.wethGatewayTemplate.code,
-                    l2.wethTemplate.code
+                    l2.wethTemplate.code,
+                    l2.upgradeExecutorTemplate.code
                     ),
                 l1.router,
                 l1.standardGateway,
@@ -63,7 +65,8 @@ contract L1TokenBridgeRetryableSender is Initializable, OwnableUpgradeable {
                 l1.wethGateway,
                 l1.weth,
                 l2StandardGatewayAddress,
-                rollupOwner
+                rollupOwner,
+                aliasedL1UpgradeExecutor
             )
         );
 
@@ -89,7 +92,8 @@ contract L1TokenBridgeRetryableSender is Initializable, OwnableUpgradeable {
         L2TemplateAddresses calldata l2,
         L1Addresses calldata l1,
         address l2StandardGatewayAddress,
-        address rollupOwner
+        address rollupOwner,
+        address aliasedL1UpgradeExecutor
     ) external payable onlyOwner {
         bytes memory data = abi.encodeCall(
             L2AtomicTokenBridgeFactory.deployL2Contracts,
@@ -99,7 +103,8 @@ contract L1TokenBridgeRetryableSender is Initializable, OwnableUpgradeable {
                     l2.standardGatewayTemplate.code,
                     l2.customGatewayTemplate.code,
                     "",
-                    ""
+                    "",
+                    l2.upgradeExecutorTemplate.code
                     ),
                 l1.router,
                 l1.standardGateway,
@@ -107,7 +112,8 @@ contract L1TokenBridgeRetryableSender is Initializable, OwnableUpgradeable {
                 address(0),
                 address(0),
                 l2StandardGatewayAddress,
-                rollupOwner
+                rollupOwner,
+                aliasedL1UpgradeExecutor
             )
         );
 
@@ -174,6 +180,7 @@ struct L2TemplateAddresses {
     address customGatewayTemplate;
     address wethGatewayTemplate;
     address wethTemplate;
+    address upgradeExecutorTemplate;
 }
 
 /**
