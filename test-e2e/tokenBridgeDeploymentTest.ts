@@ -125,8 +125,8 @@ describe('tokenBridge', () => {
       )
     }
 
-    await checkL2UpgadeExecutorInitialization(
-      UpgradeExecutor__factory.connect(l1.upgradeExecutor, l1Provider),
+    await checkL2UpgradeExecutorInitialization(
+      UpgradeExecutor__factory.connect(l2.upgradeExecutor, l2Provider),
       l1
     )
 
@@ -247,11 +247,11 @@ async function checkL1WethGatewayInitialization(
   )
 }
 
-async function checkL2UpgadeExecutorInitialization(
+async function checkL2UpgradeExecutorInitialization(
   l2Executor: UpgradeExecutor,
   l1: L1
 ) {
-  console.log('checkL2UpgadeExecutorInitialization')
+  console.log('checkL2UpgradeExecutorInitialization')
 
   //// check assigned/revoked roles are correctly set
   const adminRole = await l2Executor.ADMIN_ROLE()
@@ -259,8 +259,8 @@ async function checkL2UpgadeExecutorInitialization(
 
   expect(await l2Executor.hasRole(adminRole, l2Executor.address)).to.be.true
   expect(await l2Executor.hasRole(executorRole, l1.rollupOwner)).to.be.true
-  expect(await l2Executor.hasRole(executorRole, applyAlias(l1.upgradeExecutor)))
-    .to.be.true
+  const aliasedL1Executor = applyAlias(l1.upgradeExecutor)
+  expect(await l2Executor.hasRole(executorRole, aliasedL1Executor)).to.be.true
 }
 
 //// L2 contracts
@@ -387,9 +387,6 @@ async function checkL1Ownership(l1: L1) {
   expect(await _getOwner(l1.customGateway, l1Provider)).to.be.eq(
     l1.upgradeExecutor
   )
-  expect(await _getOwner(l1.upgradeExecutor, l1Provider)).to.be.eq(
-    l1.upgradeExecutor
-  )
 }
 
 async function checkL2Ownership(l2: L2) {
@@ -486,27 +483,36 @@ async function _getTokenBridgeAddresses(
     upgradeExecutor,
   } = logData.args
   const l1 = {
-    inbox,
-    rollupOwner: owner,
-    router,
-    standardGateway,
-    customGateway,
-    wethGateway,
-    proxyAdmin,
-    upgradeExecutor,
+    inbox: inbox.toLowerCase(),
+    rollupOwner: owner.toLowerCase(),
+    router: router.toLowerCase(),
+    standardGateway: standardGateway.toLowerCase(),
+    customGateway: customGateway.toLowerCase(),
+    wethGateway: wethGateway.toLowerCase(),
+    proxyAdmin: proxyAdmin.toLowerCase(),
+    upgradeExecutor: upgradeExecutor.toLowerCase(),
   }
 
   //// L2
   const l2 = {
-    router: await l1TokenBridgeCreator.getCanonicalL2RouterAddress(),
-    standardGateway:
-      await l1TokenBridgeCreator.getCanonicalL2StandardGatewayAddress(),
-    customGateway:
-      await l1TokenBridgeCreator.getCanonicalL2CustomGatewayAddress(),
-    wethGateway: await l1TokenBridgeCreator.getCanonicalL2WethGatewayAddress(),
-    weth: await l1TokenBridgeCreator.getCanonicalL2WethAddress(),
-    upgradeExecutor:
-      await l1TokenBridgeCreator.getCanonicalL2UpgradeExecutorAddress(),
+    router: (
+      await l1TokenBridgeCreator.getCanonicalL2RouterAddress()
+    ).toLowerCase(),
+    standardGateway: (
+      await l1TokenBridgeCreator.getCanonicalL2StandardGatewayAddress()
+    ).toLowerCase(),
+    customGateway: (
+      await l1TokenBridgeCreator.getCanonicalL2CustomGatewayAddress()
+    ).toLowerCase(),
+    wethGateway: (
+      await l1TokenBridgeCreator.getCanonicalL2WethGatewayAddress()
+    ).toLowerCase(),
+    weth: (
+      await l1TokenBridgeCreator.getCanonicalL2WethAddress()
+    ).toLowerCase(),
+    upgradeExecutor: (
+      await l1TokenBridgeCreator.getCanonicalL2UpgradeExecutorAddress()
+    ).toLowerCase(),
   }
 
   return {
@@ -519,11 +525,13 @@ async function _getProxyAdmin(
   contractAddress: string,
   provider: Provider
 ): Promise<string> {
-  return _getAddressAtStorageSlot(
-    contractAddress,
-    provider,
-    '0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103'
-  )
+  return (
+    await _getAddressAtStorageSlot(
+      contractAddress,
+      provider,
+      '0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103'
+    )
+  ).toLowerCase()
 }
 
 async function _getOwner(
