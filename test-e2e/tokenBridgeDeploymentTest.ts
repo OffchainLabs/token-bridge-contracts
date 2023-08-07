@@ -402,7 +402,8 @@ async function checkL2Ownership(l2: L2) {
   expect(await _getProxyAdmin(l2.customGateway, l2Provider)).to.be.eq(
     l2ProxyAdmin
   )
-  if (l2.wethGateway !== ethers.constants.AddressZero) {
+
+  if (l2.wethGateway != ethers.constants.AddressZero) {
     expect(await _getProxyAdmin(l2.wethGateway, l2Provider)).to.be.eq(
       l2ProxyAdmin
     )
@@ -493,6 +494,8 @@ async function _getTokenBridgeAddresses(
     upgradeExecutor: upgradeExecutor.toLowerCase(),
   }
 
+  const usingFeeToken = await isUsingFeeToken(l1.inbox, l1Provider)
+
   //// L2
   const l2 = {
     router: (
@@ -504,11 +507,13 @@ async function _getTokenBridgeAddresses(
     customGateway: (
       await l1TokenBridgeCreator.getCanonicalL2CustomGatewayAddress()
     ).toLowerCase(),
-    wethGateway: (
-      await l1TokenBridgeCreator.getCanonicalL2WethGatewayAddress()
+    wethGateway: (usingFeeToken
+      ? ethers.constants.AddressZero
+      : await l1TokenBridgeCreator.getCanonicalL2WethGatewayAddress()
     ).toLowerCase(),
-    weth: (
-      await l1TokenBridgeCreator.getCanonicalL2WethAddress()
+    weth: (usingFeeToken
+      ? ethers.constants.AddressZero
+      : await l1TokenBridgeCreator.getCanonicalL2WethAddress()
     ).toLowerCase(),
     upgradeExecutor: (
       await l1TokenBridgeCreator.getCanonicalL2UpgradeExecutorAddress()
