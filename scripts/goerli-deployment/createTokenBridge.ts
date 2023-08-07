@@ -14,7 +14,7 @@ export const envVars = {
   childChainRpc: process.env['ORBIT_RPC'] as string,
 }
 
-const L1_TOKEN_BRIDGE_CREATOR = '0x4Ba3aC2a2fEf26eAA6d05D71B79fde08Cb3078a9'
+const L1_TOKEN_BRIDGE_CREATOR = '0x24c77cb51F7a51fB8B69a83a8e36a2fd01B81D82'
 
 /**
  * Steps:

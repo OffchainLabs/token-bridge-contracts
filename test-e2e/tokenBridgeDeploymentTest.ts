@@ -1,4 +1,4 @@
-import { JsonRpcProvider, Provider } from '@ethersproject/providers'
+import { JsonRpcProvider, Provider, Filter } from '@ethersproject/providers'
 import {
   BeaconProxyFactory__factory,
   IERC20Bridge__factory,
@@ -69,16 +69,11 @@ describe('tokenBridge', () => {
       l1TokenBridgeCreator
     )
 
-    // console.log(l1)
-    // console.log('############')
-    // console.log(l2)
-    // exit()
-
     //// L1 checks
 
     await checkL1RouterInitialization(
       L1GatewayRouter__factory.connect(l1.router, l1Provider),
-      l1.inbox,
+      l1,
       l2
     )
 
@@ -105,20 +100,28 @@ describe('tokenBridge', () => {
     //// L2 checks
 
     await checkL2RouterInitialization(
-      L2GatewayRouter__factory.connect(l2.router, l2Provider)
+      L2GatewayRouter__factory.connect(l2.router, l2Provider),
+      l1,
+      l2
     )
 
     await checkL2StandardGatewayInitialization(
-      L2ERC20Gateway__factory.connect(l2.standardGateway, l2Provider)
+      L2ERC20Gateway__factory.connect(l2.standardGateway, l2Provider),
+      l1,
+      l2
     )
 
     await checkL2CustomGatewayInitialization(
-      L2CustomGateway__factory.connect(l2.customGateway, l2Provider)
+      L2CustomGateway__factory.connect(l2.customGateway, l2Provider),
+      l1,
+      l2
     )
 
     if (!usingFeeToken) {
       await checkL2WethGatewayInitialization(
-        L2WethGateway__factory.connect(l2.wethGateway, l2Provider)
+        L2WethGateway__factory.connect(l2.wethGateway, l2Provider),
+        l1,
+        l2
       )
     }
 
@@ -136,15 +139,17 @@ describe('tokenBridge', () => {
 
 async function checkL1RouterInitialization(
   l1Router: L1GatewayRouter,
-  inbox: string,
+  l1: L1,
   l2: L2
 ) {
   console.log('checkL1RouterInitialization')
 
   expect((await l1Router.defaultGateway()).toLowerCase()).to.be.eq(
-    l2.standardGateway.toLowerCase()
+    l1.standardGateway.toLowerCase()
   )
-  expect((await l1Router.inbox()).toLowerCase()).to.be.eq(inbox.toLowerCase())
+  expect((await l1Router.inbox()).toLowerCase()).to.be.eq(
+    l1.inbox.toLowerCase()
+  )
   expect((await l1Router.router()).toLowerCase()).to.be.eq(
     ethers.constants.AddressZero
   )
@@ -260,11 +265,15 @@ async function checkL2UpgadeExecutorInitialization(
 
 //// L2 contracts
 
-async function checkL2RouterInitialization(l2Router: L2GatewayRouter) {
+async function checkL2RouterInitialization(
+  l2Router: L2GatewayRouter,
+  l1: L1,
+  l2: L2
+) {
   console.log('checkL2RouterInitialization')
 
   expect((await l2Router.defaultGateway()).toLowerCase()).to.be.eq(
-    _l2Network.tokenBridge.l2ERC20Gateway.toLowerCase()
+    l2.standardGateway.toLowerCase()
   )
 
   expect((await l2Router.router()).toLowerCase()).to.be.eq(
@@ -272,28 +281,30 @@ async function checkL2RouterInitialization(l2Router: L2GatewayRouter) {
   )
 
   expect((await l2Router.counterpartGateway()).toLowerCase()).to.be.eq(
-    _l2Network.tokenBridge.l1GatewayRouter.toLowerCase()
+    l1.router.toLowerCase()
   )
 }
 
 async function checkL2StandardGatewayInitialization(
-  l2ERC20Gateway: L2ERC20Gateway
+  l2ERC20Gateway: L2ERC20Gateway,
+  l1: L1,
+  l2: L2
 ) {
   console.log('checkL2StandardGatewayInitialization')
 
   expect((await l2ERC20Gateway.counterpartGateway()).toLowerCase()).to.be.eq(
-    _l2Network.tokenBridge.l1ERC20Gateway.toLowerCase()
+    l1.standardGateway.toLowerCase()
   )
 
   expect((await l2ERC20Gateway.router()).toLowerCase()).to.be.eq(
-    _l2Network.tokenBridge.l2GatewayRouter.toLowerCase()
+    l2.router.toLowerCase()
   )
 
   expect((await l2ERC20Gateway.beaconProxyFactory()).toLowerCase()).to.be.eq(
     (
       await L1ERC20Gateway__factory.connect(
         await l2ERC20Gateway.counterpartGateway(),
-        _l1Provider
+        l1Provider
       ).l2BeaconProxyFactory()
     ).toLowerCase()
   )
@@ -302,43 +313,49 @@ async function checkL2StandardGatewayInitialization(
     (
       await L1ERC20Gateway__factory.connect(
         await l2ERC20Gateway.counterpartGateway(),
-        _l1Provider
+        l1Provider
       ).cloneableProxyHash()
     ).toLowerCase()
   )
 }
 
 async function checkL2CustomGatewayInitialization(
-  l2CustomGateway: L2CustomGateway
+  l2CustomGateway: L2CustomGateway,
+  l1: L1,
+  l2: L2
 ) {
   console.log('checkL2CustomGatewayInitialization')
 
   expect((await l2CustomGateway.counterpartGateway()).toLowerCase()).to.be.eq(
-    _l2Network.tokenBridge.l1CustomGateway.toLowerCase()
+    l1.customGateway.toLowerCase()
   )
 
   expect((await l2CustomGateway.router()).toLowerCase()).to.be.eq(
-    _l2Network.tokenBridge.l2GatewayRouter.toLowerCase()
+    l2.router.toLowerCase()
   )
 }
 
-async function checkL2WethGatewayInitialization(l2WethGateway: L2WethGateway) {
+async function checkL2WethGatewayInitialization(
+  l2WethGateway: L2WethGateway,
+  l1: L1,
+  l2: L2
+) {
   console.log('checkL2WethGatewayInitialization')
 
   expect((await l2WethGateway.counterpartGateway()).toLowerCase()).to.be.eq(
-    _l2Network.tokenBridge.l1WethGateway.toLowerCase()
+    l1.wethGateway.toLowerCase()
   )
 
   expect((await l2WethGateway.router()).toLowerCase()).to.be.eq(
-    _l2Network.tokenBridge.l2GatewayRouter.toLowerCase()
+    l2.router.toLowerCase()
   )
 
-  expect((await l2WethGateway.l1Weth()).toLowerCase()).to.be.eq(
-    _l2Network.tokenBridge.l1Weth.toLowerCase()
+  expect((await l2WethGateway.l1Weth()).toLowerCase()).to.not.be.eq(
+    ethers.constants.AddressZero
   )
 
-  expect((await l2WethGateway.l2Weth()).toLowerCase()).to.be.eq(
-    _l2Network.tokenBridge.l2Weth.toLowerCase()
+  expect((await l2WethGateway.l2Weth()).toLowerCase()).to.not.be.eq(
+    ethers.constants.AddressZero
   )
 }
 
@@ -430,10 +447,12 @@ async function _getTokenBridgeAddresses(
 
   //// L1
   // find all the events emitted by this address
-  const filter: ethers.providers.Filter = {
+  const filter: Filter = {
     address: l1TokenBridgeCreatorAddress,
     topics: [
-      ethers.utils.id('OrbitTokenBridgeCreated'),
+      ethers.utils.id(
+        'OrbitTokenBridgeCreated(address,address,address,address,address,address,address,address)'
+      ),
       ethers.utils.hexZeroPad(inboxAddress, 32),
     ],
   }
@@ -447,11 +466,14 @@ async function _getTokenBridgeAddresses(
   })
 
   if (logs.length === 0) {
-    throw new Error("Couldn't find any OrbitTokenBridgeCreated events")
+    throw new Error(
+      "Couldn't find any OrbitTokenBridgeCreated events in block range[" +
+        fromBlock +
+        ',latest]'
+    )
   }
 
   const logData = l1TokenBridgeCreator.interface.parseLog(logs[0])
-  console.log(logData)
 
   const {
     inbox,
