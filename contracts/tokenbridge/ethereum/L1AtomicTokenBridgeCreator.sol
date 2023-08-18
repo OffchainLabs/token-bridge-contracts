@@ -17,7 +17,6 @@ import {L1WethGateway} from "./gateway/L1WethGateway.sol";
 import {L1OrbitGatewayRouter} from "./gateway/L1OrbitGatewayRouter.sol";
 import {L1OrbitERC20Gateway} from "./gateway/L1OrbitERC20Gateway.sol";
 import {L1OrbitCustomGateway} from "./gateway/L1OrbitCustomGateway.sol";
-
 import {TransparentUpgradeableProxy} from
     "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {
@@ -28,7 +27,7 @@ import {
     ProxyAdmin
 } from "../arbitrum/L2AtomicTokenBridgeFactory.sol";
 import {BytesLib} from "../libraries/BytesLib.sol";
-import {UpgradeExecutor} from "../libraries/UpgradeExecutor.sol";
+import {IUpgradeExecutor} from "@offchainlabs/upgrade-executor/src/IUpgradeExecutor.sol";
 import {AddressAliasHelper} from "../libraries/AddressAliasHelper.sol";
 import {IInbox, IBridge, IOwnable} from "@arbitrum/nitro-contracts/src/bridge/IInbox.sol";
 import {AddressAliasHelper} from "../libraries/AddressAliasHelper.sol";
@@ -73,7 +72,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         L1OrbitGatewayRouter feeTokenBasedRouterTemplate;
         L1OrbitERC20Gateway feeTokenBasedStandardGatewayTemplate;
         L1OrbitCustomGateway feeTokenBasedCustomGatewayTemplate;
-        UpgradeExecutor upgradeExecutor;
+        IUpgradeExecutor upgradeExecutor;
     }
 
     // non-canonical router registry

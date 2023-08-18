@@ -21,15 +21,15 @@ import {
   L2GatewayRouter__factory,
   L2WethGateway,
   L2WethGateway__factory,
-  UpgradeExecutor,
-  UpgradeExecutor__factory,
 } from '../build/types'
+import { abi as UpgradeExecutorABI } from '@offchainlabs/upgrade-executor/build/contracts/src/UpgradeExecutor.sol/UpgradeExecutor.json'
 import { RollupCore__factory } from '@arbitrum/sdk/dist/lib/abi/factories/RollupCore__factory'
 import { applyAlias } from '../test/testhelper'
 import path from 'path'
 import fs from 'fs'
 import { expect } from 'chai'
 import { ethers } from 'hardhat'
+import { Contract } from 'ethers'
 
 const config = {
   l1Url: process.env.BASECHAIN_RPC || 'http://localhost:8545',
@@ -125,10 +125,12 @@ describe('tokenBridge', () => {
       )
     }
 
-    await checkL2UpgradeExecutorInitialization(
-      UpgradeExecutor__factory.connect(l2.upgradeExecutor, l2Provider),
-      l1
+    const upgExecutor = new ethers.Contract(
+      l2.upgradeExecutor,
+      UpgradeExecutorABI,
+      l2Provider
     )
+    await checkL2UpgradeExecutorInitialization(upgExecutor, l1)
 
     await checkL1Ownership(l1)
     await checkL2Ownership(l2)
@@ -248,7 +250,7 @@ async function checkL1WethGatewayInitialization(
 }
 
 async function checkL2UpgradeExecutorInitialization(
-  l2Executor: UpgradeExecutor,
+  l2Executor: Contract,
   l1: L1
 ) {
   console.log('checkL2UpgradeExecutorInitialization')

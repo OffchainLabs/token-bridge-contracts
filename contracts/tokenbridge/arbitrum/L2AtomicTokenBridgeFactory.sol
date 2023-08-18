@@ -6,7 +6,7 @@ import {L2ERC20Gateway} from "./gateway/L2ERC20Gateway.sol";
 import {L2CustomGateway} from "./gateway/L2CustomGateway.sol";
 import {L2WethGateway} from "./gateway/L2WethGateway.sol";
 import {StandardArbERC20} from "./StandardArbERC20.sol";
-import {UpgradeExecutor} from "../libraries/UpgradeExecutor.sol";
+import {IUpgradeExecutor} from "@offchainlabs/upgrade-executor/src/IUpgradeExecutor.sol";
 import {BeaconProxyFactory} from "../libraries/ClonableBeaconProxy.sol";
 import {aeWETH} from "../libraries/aeWETH.sol";
 import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
@@ -87,7 +87,7 @@ contract L2AtomicTokenBridgeFactory {
         address[] memory executors = new address[](2);
         executors[0] = rollupOwner;
         executors[1] = aliasedL1UpgradeExecutor;
-        UpgradeExecutor(canonicalUpgradeExecutor).initialize(canonicalUpgradeExecutor, executors);
+        IUpgradeExecutor(canonicalUpgradeExecutor).initialize(canonicalUpgradeExecutor, executors);
 
         return canonicalUpgradeExecutor;
     }

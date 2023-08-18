@@ -21,8 +21,11 @@ import {
   IInbox__factory,
   IERC20Bridge__factory,
   IERC20__factory,
-  UpgradeExecutor__factory,
 } from '../build/types'
+import {
+  abi as UpgradeExecutorABI,
+  bytecode as UpgradeExecutorBytecode,
+} from '@offchainlabs/upgrade-executor/build/contracts/src/UpgradeExecutor.sol/UpgradeExecutor.json'
 import { JsonRpcProvider } from '@ethersproject/providers'
 import {
   L1ToL2MessageGasEstimator,
@@ -75,7 +78,7 @@ export const createTokenBridge = async (
     customGateway: L2CustomGateway__factory.bytecode,
     wethGateway: L2WethGateway__factory.bytecode,
     aeWeth: AeWETH__factory.bytecode,
-    upgradeExecutor: UpgradeExecutor__factory.bytecode,
+    upgradeExecutor: UpgradeExecutorBytecode,
   }
   const gasEstimateToDeployContracts =
     await l2FactoryTemplate.estimateGas.deployL2Contracts(
@@ -304,10 +307,12 @@ export const deployL1TokenBridgeCreator = async (
     await new L1OrbitCustomGateway__factory(l1Deployer).deploy()
   await feeTokenBasedCustomGatewayTemplate.deployed()
 
-  const upgradeExecutor = await new UpgradeExecutor__factory(
+  const upgradeExecutor = new ethers.ContractFactory(
+    UpgradeExecutorABI,
+    UpgradeExecutorBytecode,
     l1Deployer
-  ).deploy()
-  await upgradeExecutor.deployed()
+  )
+  await upgradeExecutor.deploy()
 
   const l1Templates = {
     routerTemplate: routerTemplate.address,
