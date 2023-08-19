@@ -56,6 +56,9 @@ contract L2AtomicTokenBridgeFactory {
             );
         }
 
+        // deploy multicall
+        Create2.deploy(0, _getL2Salt(OrbitSalts.L2_MULTICALL), _creationCodeFor(l2Code.multicall));
+
         // transfer ownership to L2 upgradeExecutor
         ProxyAdmin(proxyAdmin).transferOwnership(upgradeExecutor);
     }
@@ -294,6 +297,7 @@ struct L2RuntimeCode {
     bytes wethGateway;
     bytes aeWeth;
     bytes upgradeExecutor;
+    bytes multicall;
 }
 
 /**
@@ -323,4 +327,5 @@ library OrbitSalts {
     bytes32 public constant BEACON_PROXY_FACTORY = keccak256(bytes("OrbitBeaconProxyFactory"));
     bytes32 public constant L2_EXECUTOR_LOGIC = keccak256(bytes("OrbitL2UpgradeExecutorLogic"));
     bytes32 public constant L2_EXECUTOR = keccak256(bytes("OrbitL2UpgradeExecutorProxy"));
+    bytes32 public constant L2_MULTICALL = keccak256(bytes("OrbitL2Multicall"));
 }

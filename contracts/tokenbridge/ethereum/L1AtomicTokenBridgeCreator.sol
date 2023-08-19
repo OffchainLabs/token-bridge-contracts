@@ -17,8 +17,6 @@ import {L1WethGateway} from "./gateway/L1WethGateway.sol";
 import {L1OrbitGatewayRouter} from "./gateway/L1OrbitGatewayRouter.sol";
 import {L1OrbitERC20Gateway} from "./gateway/L1OrbitERC20Gateway.sol";
 import {L1OrbitCustomGateway} from "./gateway/L1OrbitCustomGateway.sol";
-import {TransparentUpgradeableProxy} from
-    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {
     L2AtomicTokenBridgeFactory,
     CanonicalAddressSeed,
@@ -31,12 +29,15 @@ import {IUpgradeExecutor} from "@offchainlabs/upgrade-executor/src/IUpgradeExecu
 import {AddressAliasHelper} from "../libraries/AddressAliasHelper.sol";
 import {IInbox, IBridge, IOwnable} from "@arbitrum/nitro-contracts/src/bridge/IInbox.sol";
 import {AddressAliasHelper} from "../libraries/AddressAliasHelper.sol";
-import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
+import {ArbMulticall2} from "../../rpc-utils/MulticallV2.sol";
 import {BeaconProxyFactory, ClonableBeaconProxy} from "../libraries/ClonableBeaconProxy.sol";
+import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 import {
     Initializable,
     OwnableUpgradeable
 } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {TransparentUpgradeableProxy} from
+    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 /**
  * @title Layer1 token bridge creator
@@ -96,6 +97,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     address public l2CustomGatewayTemplate;
     address public l2WethGatewayTemplate;
     address public l2WethTemplate;
+    address public l2MulticallTemplate;
 
     // WETH address on L1
     address public l1Weth;
@@ -144,6 +146,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         address _l2CustomGatewayTemplate,
         address _l2WethGatewayTemplate,
         address _l2WethTemplate,
+        address _l2MulticallTemplate,
         address _l1Weth,
         uint256 _gasLimitForL2FactoryDeployment
     ) external onlyOwner {
@@ -155,6 +158,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         l2CustomGatewayTemplate = _l2CustomGatewayTemplate;
         l2WethGatewayTemplate = _l2WethGatewayTemplate;
         l2WethTemplate = _l2WethTemplate;
+        l2MulticallTemplate = _l2MulticallTemplate;
 
         l1Weth = _l1Weth;
 
@@ -439,7 +443,8 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                 l2CustomGatewayTemplate,
                 l2WethGatewayTemplate,
                 l2WethTemplate,
-                address(l1Templates.upgradeExecutor)
+                address(l1Templates.upgradeExecutor),
+                l2MulticallTemplate
             ),
             l1Addresses,
             getCanonicalL2StandardGatewayAddress(),
@@ -473,7 +478,8 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                 l2CustomGatewayTemplate,
                 address(0),
                 address(0),
-                address(l1Templates.upgradeExecutor)
+                address(l1Templates.upgradeExecutor),
+                l2MulticallTemplate
             ),
             l1Addresses,
             getCanonicalL2StandardGatewayAddress(),

@@ -57,7 +57,8 @@ contract L1TokenBridgeRetryableSender is Initializable, OwnableUpgradeable {
                     l2.customGatewayTemplate.code,
                     l2.wethGatewayTemplate.code,
                     l2.wethTemplate.code,
-                    l2.upgradeExecutorTemplate.code
+                    l2.upgradeExecutorTemplate.code,
+                    l2.multicallTemplate.code
                     ),
                 l1.router,
                 l1.standardGateway,
@@ -104,7 +105,8 @@ contract L1TokenBridgeRetryableSender is Initializable, OwnableUpgradeable {
                     l2.customGatewayTemplate.code,
                     "",
                     "",
-                    l2.upgradeExecutorTemplate.code
+                    l2.upgradeExecutorTemplate.code,
+                    l2.multicallTemplate.code
                     ),
                 l1.router,
                 l1.standardGateway,
@@ -181,6 +183,7 @@ struct L2TemplateAddresses {
     address wethGatewayTemplate;
     address wethTemplate;
     address upgradeExecutorTemplate;
+    address multicallTemplate;
 }
 
 /**
@@ -207,3 +210,4 @@ interface IERC20Inbox {
         bytes calldata data
     ) external returns (uint256);
 }
+
