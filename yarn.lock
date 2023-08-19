@@ -24,9 +24,9 @@
     sol2uml "2.2.0"
 
 "@arbitrum/sdk@^3.1.5":
-  version "3.1.7"
-  resolved "https://registry.yarnpkg.com/@arbitrum/sdk/-/sdk-3.1.7.tgz#a543ec105cff68c05165fd5af377fb9f14282b98"
-  integrity sha512-ITuVvNPpvjlgEk8CKgexkfkEtKvL1eRZUTgqavenjOS8egZuklMoyDnJ08yG4KU+cOQW11dv2eepWDcvbR/NmQ==
+  version "3.1.8"
+  resolved "https://registry.yarnpkg.com/@arbitrum/sdk/-/sdk-3.1.8.tgz#6100e0197954b59e1f8f48df46080df9a1d8284c"
+  integrity sha512-X2eur5Y7QDFxjmzmXY3YhSujXd5Lncjvk/VVjvpNIjNTp8FVGilQ1jEV7N9Jr3+5/Ca3uvw6+Q6x/6KMKeGMGA==
   dependencies:
     "@ethersproject/address" "^5.0.8"
     "@ethersproject/bignumber" "^5.1.1"
@@ -1177,9 +1177,9 @@
     form-data "^3.0.0"
 
 "@types/node@*":
-  version "20.5.0"
-  resolved "https://registry.yarnpkg.com/@types/node/-/node-20.5.0.tgz#7fc8636d5f1aaa3b21e6245e97d56b7f56702313"
-  integrity sha512-Mgq7eCtoTjT89FqNoTzzXg2XvCi5VMhRV6+I2aYanc6kQCBImeNaAYRs/DyoVqk1YEUJK5gN9VO7HRIdz4Wo3Q==
+  version "20.5.1"
+  resolved "https://registry.yarnpkg.com/@types/node/-/node-20.5.1.tgz#178d58ee7e4834152b0e8b4d30cbfab578b9bb30"
+  integrity sha512-4tT2UrL5LBqDwoed9wZ6N3umC4Yhz3W3FloMmiiG4JwmUJWpie0c7lcnUNd4gtMKuDEO4wRVS8B6Xa0uMRsMKg==
 
 "@types/node@^10.0.3":
   version "10.17.60"
@@ -3272,9 +3272,9 @@ copy-descriptor@^0.1.0:
   integrity sha512-XgZ0pFcakEUlbwQEVNg3+QAis1FyTL3Qel9FYy8pSkQqoG3PNoT0bOCQtOXcOkur21r2Eq2kI+IE+gsmAEVlYw==
 
 core-js-pure@^3.0.1:
-  version "3.32.0"
-  resolved "https://registry.yarnpkg.com/core-js-pure/-/core-js-pure-3.32.0.tgz#5d79f85da7a4373e9a06494ccbef995a4c639f8b"
-  integrity sha512-qsev1H+dTNYpDUEURRuOXMvpdtAnNEvQWS/FMJ2Vb5AY8ZP4rAPQldkE27joykZPJTe0+IVgHZYh1P5Xu1/i1g==
+  version "3.32.1"
+  resolved "https://registry.yarnpkg.com/core-js-pure/-/core-js-pure-3.32.1.tgz#5775b88f9062885f67b6d7edce59984e89d276f3"
+  integrity sha512-f52QZwkFVDPf7UEQZGHKx6NYxsxmVGJe5DIvbzOdRMJlmT6yv0KDjR8rmy3ngr/t5wU54c7Sp/qIJH0ppbhVpQ==
 
 core-js@^2.4.0, core-js@^2.5.0:
   version "2.6.12"
@@ -3758,9 +3758,9 @@ ee-first@1.1.1:
   integrity sha512-WMwm9LhRUo+WUaRN+vRuETqG89IgZphVSNkdFgeb6sS/E4OrDIN7t48CAewSHXc6C8lefD8KKfr5vY61brQlow==
 
 electron-to-chromium@^1.3.47:
-  version "1.4.495"
-  resolved "https://registry.yarnpkg.com/electron-to-chromium/-/electron-to-chromium-1.4.495.tgz#d72d2eddc05d07c538275a00f2619b113848bff6"
-  integrity sha512-mwknuemBZnoOCths4GtpU/SDuVMp3uQHKa2UNJT9/aVD6WVRjGpXOxRGX7lm6ILIenTdGXPSTCTDaWos5tEU8Q==
+  version "1.4.496"
+  resolved "https://registry.yarnpkg.com/electron-to-chromium/-/electron-to-chromium-1.4.496.tgz#a57534b70d2bdee7e1ad7dbd4c91e560cbd08db1"
+  integrity sha512-qeXC3Zbykq44RCrBa4kr8v/dWzYJA8rAwpyh9Qd+NKWoJfjG5vvJqy9XOJ9H4P/lqulZBCgUWAYi+FeK5AuJ8g==
 
 elliptic@6.5.4, elliptic@^6.4.0, elliptic@^6.5.2, elliptic@^6.5.3, elliptic@^6.5.4:
   version "6.5.4"
@@ -7626,9 +7626,9 @@ node-fetch@2.6.7:
     whatwg-url "^5.0.0"
 
 node-fetch@^2.6.1, node-fetch@^2.6.12, node-fetch@^2.6.7:
-  version "2.6.12"
-  resolved "https://registry.yarnpkg.com/node-fetch/-/node-fetch-2.6.12.tgz#02eb8e22074018e3d5a83016649d04df0e348fba"
-  integrity sha512-C/fGU2E8ToujUivIO0H+tpQ6HWo4eEmchoPIoXtxCrVghxdKq+QOHqEZW7tuP3KlV3bC8FRMO5nMCC7Zm1VP6g==
+  version "2.6.13"
+  resolved "https://registry.yarnpkg.com/node-fetch/-/node-fetch-2.6.13.tgz#a20acbbec73c2e09f9007de5cda17104122e0010"
+  integrity sha512-StxNAxh15zr77QvvkmveSQ8uCQ4+v5FkvNTj0OESmiHu+VRi/gXArXtkWMElOsOUNLtUEvI4yS+rdtOHZTwlQA==
   dependencies:
     whatwg-url "^5.0.0"
 
@@ -9267,9 +9267,9 @@ sol2uml@2.2.0:
     klaw "^4.0.1"
 
 sol2uml@^2.5.4:
-  version "2.5.12"
-  resolved "https://registry.yarnpkg.com/sol2uml/-/sol2uml-2.5.12.tgz#a264ab0a873d08aa9b95e46466f81457627188a3"
-  integrity sha512-UALaoU0XWGzCzaRr3ybyRGVUiVXJPVDLrbZa+brYb+AnZtTGk667fxSo2Qk0SAeNpsf9OHhDzTUCi+kcJTAFxA==
+  version "2.5.13"
+  resolved "https://registry.yarnpkg.com/sol2uml/-/sol2uml-2.5.13.tgz#095f34e7ab0e7e62e0680b7eb2dcb32bcf408bc7"
+  integrity sha512-ACfGQzfciKuCZw7//P2URj1bRHoX/KnJweuPKNcctzalSZGsjNdw8uRzLl1ph00F9xqu4z9wpDGWJ0GSzox2SQ==
   dependencies:
     "@aduh95/viz.js" "^3.7.0"
     "@solidity-parser/parser" "^0.16.1"

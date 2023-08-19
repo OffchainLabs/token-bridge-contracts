@@ -686,11 +686,11 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         return IInbox(inbox).bridge().rollup().owner();
     }
 
-    function _getL1Salt(bytes32 prefix, address inbox) internal pure returns (bytes32) {
+    function _getL1Salt(bytes memory prefix, address inbox) internal pure returns (bytes32) {
         return keccak256(abi.encodePacked(prefix, inbox));
     }
 
-    function _getL2Salt(bytes32 prefix) internal view returns (bytes32) {
+    function _getL2Salt(bytes memory prefix) internal view returns (bytes32) {
         return keccak256(
             abi.encodePacked(prefix, AddressAliasHelper.applyL1ToL2Alias(address(retryableSender)))
         );

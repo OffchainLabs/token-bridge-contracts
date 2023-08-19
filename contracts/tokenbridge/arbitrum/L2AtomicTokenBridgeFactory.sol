@@ -256,7 +256,7 @@ contract L2AtomicTokenBridgeFactory {
         );
     }
 
-    function _getL2Salt(bytes32 prefix) internal view returns (bytes32) {
+    function _getL2Salt(bytes memory prefix) internal view returns (bytes32) {
         return keccak256(abi.encodePacked(prefix, msg.sender));
     }
 
@@ -304,28 +304,27 @@ struct L2RuntimeCode {
  * Collection of salts used in CREATE2 deployment of L2 token bridge contracts.
  */
 library OrbitSalts {
-    bytes32 public constant L1_PROXY_ADMIN = keccak256(bytes("OrbitL1ProxyAdmin"));
-    bytes32 public constant L1_ROUTER = keccak256(bytes("OrbitL1GatewayRouterProxy"));
-    bytes32 public constant L1_STANDARD_GATEWAY = keccak256(bytes("OrbitL1StandardGatewayProxy"));
-    bytes32 public constant L1_CUSTOM_GATEWAY = keccak256(bytes("OrbitL1CustomGatewayProxy"));
-    bytes32 public constant L1_WETH_GATEWAY = keccak256(bytes("OrbitL1WethGatewayProxy"));
+    bytes public constant L1_PROXY_ADMIN = bytes("OrbitL1ProxyAdmin");
+    bytes public constant L1_ROUTER = bytes("OrbitL1GatewayRouterProxy");
+    bytes public constant L1_STANDARD_GATEWAY = bytes("OrbitL1StandardGatewayProxy");
+    bytes public constant L1_CUSTOM_GATEWAY = bytes("OrbitL1CustomGatewayProxy");
+    bytes public constant L1_WETH_GATEWAY = bytes("OrbitL1WethGatewayProxy");
 
-    bytes32 public constant L2_PROXY_ADMIN = keccak256(bytes("OrbitL2ProxyAdmin"));
-    bytes32 public constant L2_ROUTER_LOGIC = keccak256(bytes("OrbitL2GatewayRouterLogic"));
-    bytes32 public constant L2_ROUTER = keccak256(bytes("OrbitL2GatewayRouterProxy"));
-    bytes32 public constant L2_STANDARD_GATEWAY_LOGIC =
-        keccak256(bytes("OrbitL2StandardGatewayLogic"));
-    bytes32 public constant L2_STANDARD_GATEWAY = keccak256(bytes("OrbitL2StandardGatewayProxy"));
-    bytes32 public constant L2_CUSTOM_GATEWAY_LOGIC = keccak256(bytes("OrbitL2CustomGatewayLogic"));
-    bytes32 public constant L2_CUSTOM_GATEWAY = keccak256(bytes("OrbitL2CustomGatewayProxy"));
-    bytes32 public constant L2_WETH_GATEWAY_LOGIC = keccak256(bytes("OrbitL2WethGatewayLogic"));
-    bytes32 public constant L2_WETH_GATEWAY = keccak256(bytes("OrbitL2WethGatewayProxy"));
-    bytes32 public constant L2_WETH_LOGIC = keccak256(bytes("OrbitL2WETH"));
-    bytes32 public constant L2_WETH = keccak256(bytes("OrbitL2WETHProxy"));
-    bytes32 public constant L2_STANDARD_ERC20 = keccak256(bytes("OrbitStandardArbERC20"));
-    bytes32 public constant UPGRADEABLE_BEACON = keccak256(bytes("OrbitUpgradeableBeacon"));
-    bytes32 public constant BEACON_PROXY_FACTORY = keccak256(bytes("OrbitBeaconProxyFactory"));
-    bytes32 public constant L2_EXECUTOR_LOGIC = keccak256(bytes("OrbitL2UpgradeExecutorLogic"));
-    bytes32 public constant L2_EXECUTOR = keccak256(bytes("OrbitL2UpgradeExecutorProxy"));
-    bytes32 public constant L2_MULTICALL = keccak256(bytes("OrbitL2Multicall"));
+    bytes public constant L2_PROXY_ADMIN = bytes("OrbitL2ProxyAdmin");
+    bytes public constant L2_ROUTER_LOGIC = bytes("OrbitL2GatewayRouterLogic");
+    bytes public constant L2_ROUTER = bytes("OrbitL2GatewayRouterProxy");
+    bytes public constant L2_STANDARD_GATEWAY_LOGIC = bytes("OrbitL2StandardGatewayLogic");
+    bytes public constant L2_STANDARD_GATEWAY = bytes("OrbitL2StandardGatewayProxy");
+    bytes public constant L2_CUSTOM_GATEWAY_LOGIC = bytes("OrbitL2CustomGatewayLogic");
+    bytes public constant L2_CUSTOM_GATEWAY = bytes("OrbitL2CustomGatewayProxy");
+    bytes public constant L2_WETH_GATEWAY_LOGIC = bytes("OrbitL2WethGatewayLogic");
+    bytes public constant L2_WETH_GATEWAY = bytes("OrbitL2WethGatewayProxy");
+    bytes public constant L2_WETH_LOGIC = bytes("OrbitL2WETH");
+    bytes public constant L2_WETH = bytes("OrbitL2WETHProxy");
+    bytes public constant L2_STANDARD_ERC20 = bytes("OrbitStandardArbERC20");
+    bytes public constant UPGRADEABLE_BEACON = bytes("OrbitUpgradeableBeacon");
+    bytes public constant BEACON_PROXY_FACTORY = bytes("OrbitBeaconProxyFactory");
+    bytes public constant L2_EXECUTOR_LOGIC = bytes("OrbitL2UpgradeExecutorLogic");
+    bytes public constant L2_EXECUTOR = bytes("OrbitL2UpgradeExecutorProxy");
+    bytes public constant L2_MULTICALL = bytes("OrbitL2Multicall");
 }

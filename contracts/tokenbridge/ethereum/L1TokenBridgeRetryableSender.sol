@@ -5,7 +5,6 @@ import {IInbox} from "@arbitrum/nitro-contracts/src/bridge/IInbox.sol";
 import {
     L2AtomicTokenBridgeFactory,
     L2RuntimeCode,
-    OrbitSalts,
     ProxyAdmin
 } from "../arbitrum/L2AtomicTokenBridgeFactory.sol";
 import {
@@ -210,4 +209,3 @@ interface IERC20Inbox {
         bytes calldata data
     ) external returns (uint256);
 }
-
