@@ -177,6 +177,7 @@ const config = {
       arbitrumTestnet: process.env['ARBISCAN_API_KEY'],
       nova: process.env['NOVA_ARBISCAN_API_KEY'],
       arbGoerliRollup: process.env['ARBISCAN_API_KEY'],
+      arbSepoliaRollup: 'x',
     },
     customChains: [
       {
@@ -195,6 +196,14 @@ const config = {
           browserURL: 'https://goerli.arbiscan.io/',
         },
       },
+      {
+        network: 'arbSepoliaRollup',
+        chainId: 421614,
+        urls: {
+          apiURL: 'https://sepolia-explorer.arbitrum.io/api?module=contract&action=verify',
+          browserURL: 'https://sepolia-explorer.arbitrum.io/',
+        },
+      }
     ],
   },
 }
