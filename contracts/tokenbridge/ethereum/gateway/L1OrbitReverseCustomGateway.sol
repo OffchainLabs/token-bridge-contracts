@@ -13,7 +13,7 @@ import { IArbToken } from "../../arbitrum/IArbToken.sol";
  *          rather than the L1.
  * @dev     The reverse custom gateway burns on the l2 and escrows on the l1
  *          which is the opposite of the way the normal custom gateway works
- *          This means that the total supply L2 isn't affected by briding, which
+ *          This means that the total supply L2 isn't affected by bridging, which
  *          is helpful for observers calculating the total supply especially if
  *          if minting is also occuring on L2
  */
