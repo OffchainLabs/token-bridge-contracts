@@ -9,6 +9,7 @@ import {
   createTokenBridge,
   deployL1TokenBridgeCreator,
 } from '../atomicTokenBridgeDeployer'
+import { l2Networks } from '@arbitrum/sdk/dist/lib/dataEntities/networks'
 
 /**
  * Steps:
@@ -44,29 +45,32 @@ export const setupTokenBridgeInLocalEnv = async () => {
   )
 
   // register - needed for retryables
-  addCustomNetwork({
-    customL1Network: l1Network,
-    customL2Network: {
-      ...coreL2Network,
-      tokenBridge: {
-        l1CustomGateway: '',
-        l1ERC20Gateway: '',
-        l1GatewayRouter: '',
-        l1MultiCall: '',
-        l1ProxyAdmin: '',
-        l1Weth: '',
-        l1WethGateway: '',
+  const existingL2Network = l2Networks[coreL2Network.chainID.toString()]
+  if (!existingL2Network) {
+    addCustomNetwork({
+      customL1Network: l1Network,
+      customL2Network: {
+        ...coreL2Network,
+        tokenBridge: {
+          l1CustomGateway: '',
+          l1ERC20Gateway: '',
+          l1GatewayRouter: '',
+          l1MultiCall: '',
+          l1ProxyAdmin: '',
+          l1Weth: '',
+          l1WethGateway: '',
 
-        l2CustomGateway: '',
-        l2ERC20Gateway: '',
-        l2GatewayRouter: '',
-        l2Multicall: '',
-        l2ProxyAdmin: '',
-        l2Weth: '',
-        l2WethGateway: '',
+          l2CustomGateway: '',
+          l2ERC20Gateway: '',
+          l2GatewayRouter: '',
+          l2Multicall: '',
+          l2ProxyAdmin: '',
+          l2Weth: '',
+          l2WethGateway: '',
+        },
       },
-    },
-  })
+    })
+  }
 
   // prerequisite - deploy L1 creator and set templates
   const l1Weth = ethers.Wallet.createRandom().address

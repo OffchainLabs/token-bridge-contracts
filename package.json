@@ -38,7 +38,6 @@
   ],
   "dependencies": {
     "@arbitrum/nitro-contracts": "^1.0.0-beta.8",
-    "@arbitrum/sdk": "^3.1.5",
     "@openzeppelin/contracts": "4.8.3",
     "@openzeppelin/contracts-upgradeable": "4.8.3",
     "@offchainlabs/upgrade-executor": "^1.0.0-beta.2"

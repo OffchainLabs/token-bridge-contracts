@@ -377,7 +377,6 @@ abstract contract L1ArbitrumGateway is
      * @param _maxGas Max gas deducted from user's L2 balance to cover L2 execution
      * @param _gasPriceBid Gas price for L2 execution
      * @param _maxSubmissionCost Max gas deducted from user's L2 balance to cover base submission fee
-     * //param tokenTotalFeeAmount Amount of fees to be deposited in native token to cover for retryable ticket cost (used only in ERC20-based rollups)
      * @param _data encoded data from router and user
      * @return res abi encoded inbox sequence number
      */
@@ -388,7 +387,7 @@ abstract contract L1ArbitrumGateway is
         uint256 _maxGas,
         uint256 _gasPriceBid,
         uint256 _maxSubmissionCost,
-        uint256, // tokenTotalFeeAmount
+        uint256, // tokenTotalFeeAmount - amount of fees to be deposited in native token to cover for retryable ticket cost (used only in ERC20-based rollups)
         bytes memory _data
     ) internal virtual returns (uint256) {
         return
