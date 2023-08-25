@@ -25,6 +25,8 @@ contract L1OrbitERC20Gateway is L1ERC20Gateway {
         uint256 _gasPriceBid,
         bytes calldata _data
     ) public payable override returns (bytes memory res) {
+        // We don't allow bridging of native token to avoid having multiple representations of it 
+        // on child chain. Native token can be bridged directly through inbox using depositERC20().
         require(_l1Token != _getNativeFeeToken(), "NOT_ALLOWED_TO_BRIDGE_FEE_TOKEN");
 
         return
