@@ -118,6 +118,12 @@ const config = {
         ? [process.env['DEVNET_PRIVKEY']]
         : [],
     },
+    xaiTestnet: {
+      url: 'https://testnet.xai-chain.net/rpc',
+      accounts: process.env['DEVNET_PRIVKEY']
+        ? [process.env['DEVNET_PRIVKEY']]
+        : [],
+    },
     arbitrum: {
       url: 'http://127.0.0.1:8547',
       gas: 999999999999999,
@@ -164,6 +170,7 @@ const config = {
       arbitrumTestnet: process.env['ARBISCAN_API_KEY'],
       nova: process.env['NOVA_ARBISCAN_API_KEY'],
       arbGoerliRollup: process.env['ARBISCAN_API_KEY'],
+      xaiTestnet: 'x',
     },
     customChains: [
       {
@@ -180,6 +187,14 @@ const config = {
         urls: {
           apiURL: 'https://api-goerli.arbiscan.io/api',
           browserURL: 'https://goerli.arbiscan.io/',
+        },
+      },
+      {
+        network: 'xaiTestnet',
+        chainId: 47279324479,
+        urls: {
+          apiURL: 'https://testnet-explorer.xai-chain.net/api',
+          browserURL: 'https://testnet-explorer.xai-chain.net/',
         },
       },
     ],

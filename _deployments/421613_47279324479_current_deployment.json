@@ -1,0 +1,33 @@
+{
+  "proxyAdminAddress": "0xc80853e91f8Ac0AaD6ff939F3861600Ab34Dfe12",
+  "contracts": {
+    "L1GatewayRouter": {
+      "proxyAddress": "0xCb0Fe28c36a60Cf6254f4dd74c13B0fe98FFE5Db",
+      "implAddress": "0x052fb43dC4540a410BB8403aCD6AaFE16eacEb0E",
+      "implDeploymentTxn": "0x65df9124b168f1e5e83313b5e4073750317f72c417d32de94f37c087de940269",
+      "implArbitrumCommitHash": "025e88996e0d6dfc09ef38c4e906178ac176f95b",
+      "implBuildInfo": ""
+    },
+    "L1ERC20Gateway": {
+      "proxyAddress": "0xC033fBAFd978440460d943efe6A3bF6A1a990e80",
+      "implAddress": "0x99E1a3AbB8f8EA45eC622923df3cC2c40B71Ac02",
+      "implDeploymentTxn": "0xfcb2e32f8a2694b2197831af360a6255e94df2b5a5078d4a6b9410633ee976a1",
+      "implArbitrumCommitHash": "025e88996e0d6dfc09ef38c4e906178ac176f95b",
+      "implBuildInfo": ""
+    },
+    "L1CustomGateway": {
+      "proxyAddress": "0xdBbDc3EE848C05792CC93EA140c59731f920c3F2",
+      "implAddress": "0xD289CC5510A44fb8596a04d00738Cf7C204c1c45",
+      "implDeploymentTxn": "0x43d2f7dce9eba9aeb353f0c5a3fc0d15cc92297d05464a5261b9e3e3b7acafed",
+      "implArbitrumCommitHash": "025e88996e0d6dfc09ef38c4e906178ac176f95b",
+      "implBuildInfo": ""
+    },
+    "L1WethGateway": {
+      "proxyAddress": "0x58ea20BE21b971Fa282905EdA74bA46540eEd977",
+      "implAddress": "0x443833357A3Cf2f3C092d2CccCff560c807f5257",
+      "implDeploymentTxn": "0xd1631529bf27711b1e3a055547a26e251ad33c2b90e42ecb97e0e770d1d58e13",
+      "implArbitrumCommitHash": "025e88996e0d6dfc09ef38c4e906178ac176f95b",
+      "implBuildInfo": ""
+    }
+  }
+}
