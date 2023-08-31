@@ -161,6 +161,11 @@ contract L2AtomicTokenBridgeFactory {
         aeWETH(payable(canonicalL2Weth)).initialize("WETH", "WETH", 18, canonicalL2WethGateway, l1Weth);
     }
 
+    /**
+     * In addition to hard-coded prefix, salt for L2 contracts depends on msg.sender. Deploying L2 token bridge contracts is
+     * permissionless. By making msg.sender part of the salt we know exactly which set of contracts is the "canonical" one,
+     * deployed by L1TokenBridgeRetryableSender via retryable ticket.
+     */
     function _getL2Salt(bytes32 prefix) internal view returns (bytes32) {
         return keccak256(abi.encodePacked(prefix, msg.sender));
     }

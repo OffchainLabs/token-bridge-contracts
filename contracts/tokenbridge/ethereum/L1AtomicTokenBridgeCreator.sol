@@ -496,10 +496,21 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         return IInbox(inbox).bridge().rollup().owner();
     }
 
+    /**
+     * We want to have exactly one set of canonical token bridge contracts for every rollup. For that
+     * reason we make rollup's inbox address part of the salt. It prevents deploying more than one
+     * token bridge.
+     */
     function _getL1Salt(bytes32 prefix, address inbox) internal pure returns (bytes32) {
         return keccak256(abi.encodePacked(prefix, inbox));
     }
 
+    /**
+     * Salt for L2 token bridge contracts depends on the caller's address. Canonical token bridge
+     * will be deployed by retryable ticket which is created by `retryableSender` contract. That
+     * means `retryableSender`'s alias will be used on L2 side to calculate the salt for deploying
+     * L2 contracts (_getL2Salt function in L2AtomicTokenBridgeFactory).
+     */
     function _getL2Salt(bytes32 prefix) internal view returns (bytes32) {
         return keccak256(abi.encodePacked(prefix, AddressAliasHelper.applyL1ToL2Alias(address(retryableSender))));
     }
