@@ -355,98 +355,26 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     }
 
     function getCanonicalL2RouterAddress() public view returns (address) {
-        address logicSeedAddress = Create2.computeAddress(
-            _getL2Salt(OrbitSalts.L2_ROUTER_LOGIC),
-            keccak256(type(CanonicalAddressSeed).creationCode),
-            canonicalL2FactoryAddress
-        );
-
-        return Create2.computeAddress(
-            _getL2Salt(OrbitSalts.L2_ROUTER),
-            keccak256(
-                abi.encodePacked(
-                    type(TransparentUpgradeableProxy).creationCode,
-                    abi.encode(logicSeedAddress, canonicalL2ProxyAdminAddress, bytes(""))
-                )
-            ),
-            canonicalL2FactoryAddress
-        );
+        return _getProxyAddress(_getL2Salt(OrbitSalts.L2_ROUTER_LOGIC), _getL2Salt(OrbitSalts.L2_ROUTER));
     }
 
     function getCanonicalL2StandardGatewayAddress() public view returns (address) {
-        address logicSeedAddress = Create2.computeAddress(
-            _getL2Salt(OrbitSalts.L2_STANDARD_GATEWAY_LOGIC),
-            keccak256(type(CanonicalAddressSeed).creationCode),
-            canonicalL2FactoryAddress
-        );
-
-        return Create2.computeAddress(
-            _getL2Salt(OrbitSalts.L2_STANDARD_GATEWAY),
-            keccak256(
-                abi.encodePacked(
-                    type(TransparentUpgradeableProxy).creationCode,
-                    abi.encode(logicSeedAddress, canonicalL2ProxyAdminAddress, bytes(""))
-                )
-            ),
-            canonicalL2FactoryAddress
+        return _getProxyAddress(
+            _getL2Salt(OrbitSalts.L2_STANDARD_GATEWAY_LOGIC), _getL2Salt(OrbitSalts.L2_STANDARD_GATEWAY)
         );
     }
 
     function getCanonicalL2CustomGatewayAddress() public view returns (address) {
-        address logicSeedAddress = Create2.computeAddress(
-            _getL2Salt(OrbitSalts.L2_CUSTOM_GATEWAY_LOGIC),
-            keccak256(type(CanonicalAddressSeed).creationCode),
-            canonicalL2FactoryAddress
-        );
-
-        return Create2.computeAddress(
-            _getL2Salt(OrbitSalts.L2_CUSTOM_GATEWAY),
-            keccak256(
-                abi.encodePacked(
-                    type(TransparentUpgradeableProxy).creationCode,
-                    abi.encode(logicSeedAddress, canonicalL2ProxyAdminAddress, bytes(""))
-                )
-            ),
-            canonicalL2FactoryAddress
-        );
+        return
+            _getProxyAddress(_getL2Salt(OrbitSalts.L2_CUSTOM_GATEWAY_LOGIC), _getL2Salt(OrbitSalts.L2_CUSTOM_GATEWAY));
     }
 
     function getCanonicalL2WethGatewayAddress() public view returns (address) {
-        address logicSeedAddress = Create2.computeAddress(
-            _getL2Salt(OrbitSalts.L2_WETH_GATEWAY_LOGIC),
-            keccak256(type(CanonicalAddressSeed).creationCode),
-            canonicalL2FactoryAddress
-        );
-
-        return Create2.computeAddress(
-            _getL2Salt(OrbitSalts.L2_WETH_GATEWAY),
-            keccak256(
-                abi.encodePacked(
-                    type(TransparentUpgradeableProxy).creationCode,
-                    abi.encode(logicSeedAddress, canonicalL2ProxyAdminAddress, bytes(""))
-                )
-            ),
-            canonicalL2FactoryAddress
-        );
+        return _getProxyAddress(_getL2Salt(OrbitSalts.L2_WETH_GATEWAY_LOGIC), _getL2Salt(OrbitSalts.L2_WETH_GATEWAY));
     }
 
     function getCanonicalL2WethAddress() public view returns (address) {
-        address logicSeedAddress = Create2.computeAddress(
-            _getL2Salt(OrbitSalts.L2_WETH_LOGIC),
-            keccak256(type(CanonicalAddressSeed).creationCode),
-            canonicalL2FactoryAddress
-        );
-
-        return Create2.computeAddress(
-            _getL2Salt(OrbitSalts.L2_WETH),
-            keccak256(
-                abi.encodePacked(
-                    type(TransparentUpgradeableProxy).creationCode,
-                    abi.encode(logicSeedAddress, canonicalL2ProxyAdminAddress, bytes(""))
-                )
-            ),
-            canonicalL2FactoryAddress
-        );
+        return _getProxyAddress(_getL2Salt(OrbitSalts.L2_WETH_LOGIC), _getL2Salt(OrbitSalts.L2_WETH));
     }
 
     /**
@@ -496,10 +424,42 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         return IInbox(inbox).bridge().rollup().owner();
     }
 
+    /**
+     * L2 contracts are deployed as proxy with dummy seed logic contracts using CREATE2. That enables
+     * us to upfront calculate the expected canonical addresses.
+     */
+    function _getProxyAddress(bytes32 logicSalt, bytes32 proxySalt) internal view returns (address) {
+        address logicSeedAddress = Create2.computeAddress(
+            logicSalt, keccak256(type(CanonicalAddressSeed).creationCode), canonicalL2FactoryAddress
+        );
+
+        return Create2.computeAddress(
+            proxySalt,
+            keccak256(
+                abi.encodePacked(
+                    type(TransparentUpgradeableProxy).creationCode,
+                    abi.encode(logicSeedAddress, canonicalL2ProxyAdminAddress, bytes(""))
+                )
+            ),
+            canonicalL2FactoryAddress
+        );
+    }
+
+    /**
+     * We want to have exactly one set of canonical token bridge contracts for every rollup. For that
+     * reason we make rollup's inbox address part of the salt. It prevents deploying more than one
+     * token bridge.
+     */
     function _getL1Salt(bytes32 prefix, address inbox) internal pure returns (bytes32) {
         return keccak256(abi.encodePacked(prefix, inbox));
     }
 
+    /**
+     * Salt for L2 token bridge contracts depends on the caller's address. Canonical token bridge
+     * will be deployed by retryable ticket which is created by `retryableSender` contract. That
+     * means `retryableSender`'s alias will be used on L2 side to calculate the salt for deploying
+     * L2 contracts (_getL2Salt function in L2AtomicTokenBridgeFactory).
+     */
     function _getL2Salt(bytes32 prefix) internal view returns (bytes32) {
         return keccak256(abi.encodePacked(prefix, AddressAliasHelper.applyL1ToL2Alias(address(retryableSender))));
     }
