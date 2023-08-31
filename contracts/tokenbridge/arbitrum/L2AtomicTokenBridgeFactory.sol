@@ -22,6 +22,8 @@ import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
  * @dev L1AtomicTokenBridgeCreator shall call `deployL2Contracts` using retryable and that will result in deployment of canonical token bridge contracts.
  */
 contract L2AtomicTokenBridgeFactory {
+    error L2AtomicTokenBridgeFactory_AlreadyExists();
+
     function deployL2Contracts(
         L2RuntimeCode calldata l2Code,
         address l1Router,
@@ -32,7 +34,13 @@ contract L2AtomicTokenBridgeFactory {
         address l2StandardGatewayCanonicalAddress,
         address rollupOwner
     ) external {
-        // create proxyAdmin which will be used for all contracts
+        // create proxyAdmin which will be used for all contracts. Revert if canonical deployment already exists
+        address proxyAdminAddress = Create2.computeAddress(
+            _getL2Salt(OrbitSalts.L2_PROXY_ADMIN), keccak256(type(ProxyAdmin).creationCode), address(this)
+        );
+        if (proxyAdminAddress.code.length > 0) {
+            revert L2AtomicTokenBridgeFactory_AlreadyExists();
+        }
         address proxyAdmin = address(new ProxyAdmin{ salt: _getL2Salt(OrbitSalts.L2_PROXY_ADMIN) }());
 
         // deploy router/gateways
