@@ -41,7 +41,7 @@ contract L1TokenBridgeRetryableSender is Initializable, OwnableUpgradeable {
     function sendRetryableUsingEth(
         RetryableParams calldata retryableParams,
         L2TemplateAddresses calldata l2,
-        L1Addresses calldata l1,
+        L1DeploymentAddresses calldata l1,
         address l2StandardGatewayAddress,
         address rollupOwner,
         address deployer,
@@ -90,7 +90,7 @@ contract L1TokenBridgeRetryableSender is Initializable, OwnableUpgradeable {
     function sendRetryableUsingFeeToken(
         RetryableParams calldata retryableParams,
         L2TemplateAddresses calldata l2,
-        L1Addresses calldata l1,
+        L1DeploymentAddresses calldata l1,
         address l2StandardGatewayAddress,
         address rollupOwner,
         address aliasedL1UpgradeExecutor
@@ -188,7 +188,7 @@ struct L2TemplateAddresses {
 /**
  * L1 side of token bridge addresses
  */
-struct L1Addresses {
+struct L1DeploymentAddresses {
     address router;
     address standardGateway;
     address customGateway;

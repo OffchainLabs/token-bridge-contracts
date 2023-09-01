@@ -53,7 +53,8 @@ export const createTokenBridge = async (
   l1Signer: Signer,
   l2Provider: ethers.providers.Provider,
   l1TokenBridgeCreator: L1AtomicTokenBridgeCreator,
-  rollupAddress: string
+  rollupAddress: string,
+  rollupOwnerAddress: string
 ) => {
   const gasPrice = await l2Provider.getGasPrice()
 
@@ -125,6 +126,7 @@ export const createTokenBridge = async (
   const receipt = await (
     await l1TokenBridgeCreator.createTokenBridge(
       inbox,
+      rollupOwnerAddress,
       maxGasForContracts,
       gasPrice,
       { value: retryableFee }
