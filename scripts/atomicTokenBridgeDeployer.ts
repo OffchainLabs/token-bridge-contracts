@@ -386,7 +386,7 @@ export const deployL1TokenBridgeCreator = async (
     )
   ).wait()
 
-  return l1TokenBridgeCreator
+  return { l1TokenBridgeCreator, retryableSender }
 }
 
 export const getEstimateForDeployingFactory = async (

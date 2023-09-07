@@ -74,12 +74,10 @@ export const setupTokenBridgeInLocalEnv = async () => {
 
   // prerequisite - deploy L1 creator and set templates
   const l1Weth = ethers.Wallet.createRandom().address
-  const l1TokenBridgeCreator = await deployL1TokenBridgeCreator(
-    l1Deployer,
-    l2Deployer.provider!,
-    l1Weth
-  )
+  const { l1TokenBridgeCreator, retryableSender } =
+    await deployL1TokenBridgeCreator(l1Deployer, l2Deployer.provider!, l1Weth)
   console.log('L1TokenBridgeCreator', l1TokenBridgeCreator.address)
+  console.log('L1TokenBridgeRetryableSender', retryableSender.address)
 
   // create token bridge
   const deployedContracts = await createTokenBridge(
@@ -115,6 +113,7 @@ export const setupTokenBridgeInLocalEnv = async () => {
     l1Network,
     l2Network,
     l1TokenBridgeCreator,
+    retryableSender,
   }
 }
 
@@ -198,13 +197,17 @@ export const getLocalNetworks = async (
 }
 
 async function main() {
-  const { l1Network, l2Network, l1TokenBridgeCreator } =
+  const { l1Network, l2Network, l1TokenBridgeCreator, retryableSender } =
     await setupTokenBridgeInLocalEnv()
 
   const NETWORK_FILE = 'network.json'
   fs.writeFileSync(
     NETWORK_FILE,
-    JSON.stringify({ l1Network, l2Network, l1TokenBridgeCreator }, null, 2)
+    JSON.stringify(
+      { l1Network, l2Network, l1TokenBridgeCreator, retryableSender },
+      null,
+      2
+    )
   )
   console.log(NETWORK_FILE + ' updated')
 }

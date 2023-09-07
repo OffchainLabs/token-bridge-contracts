@@ -44,21 +44,24 @@ describe('tokenBridge', () => {
     l1Provider = new JsonRpcProvider(config.l1Url)
     l2Provider = new JsonRpcProvider(config.l2Url)
 
-    /// get rollup and L1 creator addresses as entrypoint, either from env vars or from network.json
+    /// get rollup, L1 creator and retryable sender as entrypoint, either from env vars or from network.json
     let rollupAddress: string
     let l1TokenBridgeCreator: string
+    let l1RetryableSender: string
     if (process.env.ROLLUP_ADDRESS && process.env.L1_TOKEN_BRIDGE_CREATOR) {
       rollupAddress = process.env.ROLLUP_ADDRESS as string
       l1TokenBridgeCreator = process.env.L1_TOKEN_BRIDGE_CREATOR as string
+      l1RetryableSender = process.env.L1_RETRYABLE_SENDER as string
     } else {
       const localNetworkFile = path.join(__dirname, '..', 'network.json')
       if (fs.existsSync(localNetworkFile)) {
         const data = JSON.parse(fs.readFileSync(localNetworkFile).toString())
         rollupAddress = data['l2Network']['ethBridge']['rollup']
         l1TokenBridgeCreator = data['l1TokenBridgeCreator']
+        l1RetryableSender = data['retryableSender']
       } else {
         throw new Error(
-          "Can't find rollup address info. Either set ROLLUP_ADDRESS env var or provide network.json file"
+          "Can't find rollup address info. Either set ROLLUP_ADDRESS, L1_TOKEN_BRIDGE_CREATOR AND L1_RETRYABLE_SENDER env varS or provide network.json file"
         )
       }
     }
@@ -70,6 +73,16 @@ describe('tokenBridge', () => {
     )
 
     //// L1 checks
+
+    // check that setting of retryable sender was not frontrun
+    const actualRetryableSender =
+      await L1AtomicTokenBridgeCreator__factory.connect(
+        l1TokenBridgeCreator,
+        l1Provider
+      ).retryableSender()
+    expect(actualRetryableSender.toLowerCase()).to.be.eq(
+      l1RetryableSender.toLowerCase()
+    )
 
     await checkL1RouterInitialization(
       L1GatewayRouter__factory.connect(l1.router, l1Provider),
