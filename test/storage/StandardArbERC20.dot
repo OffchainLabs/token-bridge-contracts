@@ -1,0 +1,28 @@
+
+digraph StorageDiagram {
+rankdir=LR
+arrowhead=open
+bgcolor="white"
+edge [color="black"]
+node [shape=record, style=filled, color="black", fillcolor="gray95", fontcolor="black", fontname="Courier New"]
+7 [label="StandardArbERC20 \<\<Contract\>\>\n | {{ slot | 0 | 1-50 | 51 | 52 | 53 | 54 | 55 | 56 | 57-100 | 101 | 102 | 103-152 | 153 | 154 | 155-203 | 204 | 205 | 206} | { type: \<inherited contract\>.variable (bytes) | {  unallocated (30)  |  bool: Initializable._initializing (1)  |  bool: Initializable._initialized (1) } | { <8> uint256[50]: ContextUpgradeable.__gap (1600) } | {  mapping\(address=\>uint256\): ERC20Upgradeable._balances (32) } | {  mapping\(address=\>mapping\(address=\>uint256\)\): ERC20Upgradeable._allowances (32) } | {  uint256: ERC20Upgradeable._totalSupply (32) } | {  string: ERC20Upgradeable._name (32) } | {  string: ERC20Upgradeable._symbol (32) } | {  unallocated (31)  |  uint8: ERC20Upgradeable._decimals (1) } | { <20> uint256[44]: ERC20Upgradeable.__gap (1408) } | {  bytes32: EIP712Upgradeable._HASHED_NAME (32) } | {  bytes32: EIP712Upgradeable._HASHED_VERSION (32) } | { <28> uint256[50]: EIP712Upgradeable.__gap (1600) } | { <30> mapping\(address=\>CountersUpgradeable.Counter\): ERC20PermitUpgradeable._nonces (32) } | {  bytes32: ERC20PermitUpgradeable._PERMIT_TYPEHASH (32) } | { <37> uint256[49]: ERC20PermitUpgradeable.__gap (1568) } | {  unallocated (12)  |  address: L2GatewayToken.l2Gateway (20) } | {  unallocated (11)  |  bool: Cloneable.isMasterCopy (1)  |  address: L2GatewayToken.l1Address (20) } | { <44> ERC20Getters: availableGetters (32) }}}"]
+
+1 [label="uint256[50]: __gap \<\<Array\>\>\n | {{ slot | 1 | 2 | 3-48 | 49 | 50} | { type: variable (bytes) | {  uint256 (32) } | {  uint256 (32) } | {  ---- (1472) } | {  uint256 (32) } | {  uint256 (32) }}}"]
+
+2 [label="uint256[44]: __gap \<\<Array\>\>\n | {{ slot | 57 | 58 | 59-98 | 99 | 100} | { type: variable (bytes) | {  uint256 (32) } | {  uint256 (32) } | {  ---- (1280) } | {  uint256 (32) } | {  uint256 (32) }}}"]
+
+3 [label="uint256[50]: __gap \<\<Array\>\>\n | {{ slot | 103 | 104 | 105-150 | 151 | 152} | { type: variable (bytes) | {  uint256 (32) } | {  uint256 (32) } | {  ---- (1472) } | {  uint256 (32) } | {  uint256 (32) }}}"]
+
+4 [label="Counter \<\<Struct\>\>\n | {{ offset | 0} | { type: variable (bytes) | {  uint256: _value (32) }}}"]
+
+5 [label="uint256[49]: __gap \<\<Array\>\>\n | {{ slot | 155 | 156 | 157-201 | 202 | 203} | { type: variable (bytes) | {  uint256 (32) } | {  uint256 (32) } | {  ---- (1440) } | {  uint256 (32) } | {  uint256 (32) }}}"]
+
+6 [label="ERC20Getters \<\<Struct\>\>\n | {{ slot | 206} | { type: variable (bytes) | {  unallocated (29)  |  bool: ignoreSymbol (1)  |  bool: ignoreName (1)  |  bool: ignoreDecimals (1) }}}"]
+
+ 7:8 -> 1
+ 7:20 -> 2
+ 7:28 -> 3
+ 7:30 -> 4
+ 7:37 -> 5
+ 7:44 -> 6
+}
