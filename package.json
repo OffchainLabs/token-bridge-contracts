@@ -13,7 +13,7 @@
     "lint": "yarn lint:solidity && yarn lint:js",
     "format": "prettier './**/*.{js,json,md,ts,yml,sol}' --write && yarn lint --fix",
     "test:compatibility": "yarn run build:0.6 && yarn run build:0.7 && yarn run build:0.8",
-    "test": "hardhat test test/*",
+    "test": "hardhat test test/*.ts",
     "test:e2e": "hardhat test test/*.e2e.ts",
     "test:l1": "hardhat test test/*.l1.ts",
     "test:l2": "hardhat test test/*.l2.ts",
