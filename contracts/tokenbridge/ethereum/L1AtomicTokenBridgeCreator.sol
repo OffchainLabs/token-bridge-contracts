@@ -578,6 +578,15 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
 
     /**
      * @notice Compute address of contract deployed using CREATE opcode
+     * @dev The contract address is derived by RLP encoding the deployer's address and the nonce using the Keccak-256 hashing algorithm.
+     *      More formally: keccak256(rlp.encode([origin, nonce])[12:]
+     *
+     *      First part of the function implementation does RLP encoding of [origin, nonce].
+     *        - nonce's prefix is encoded depending on its size -> 0x80 + lenInBytes(nonce)
+     *        - origin is 20 bytes long so its encoded prefix is 0x80 + 0x14 = 0x94
+     *        - prefix of the whole list is 0xc0 + lenInBytes(RLP(list))
+     *      After we have RLP encoding in place last step is to hash it, take last 20 bytes and cast is to an address.
+     *
      * @return computed address
      */
     function _computeAddress(address origin, uint256 nonce) internal pure returns (address) {
@@ -620,8 +629,8 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     }
 
     /**
-     * L2 contracts are deployed as proxy with dummy seed logic contracts using CREATE2. That enables
-     * us to upfront calculate the expected canonical addresses.
+     * @notice L2 contracts are deployed as proxy with dummy seed logic contracts using CREATE2. That enables
+     *         us to upfront calculate the expected canonical addresses.
      */
     function _getProxyAddress(bytes32 logicSalt, bytes32 proxySalt)
         internal
@@ -645,19 +654,19 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     }
 
     /**
-     * We want to have exactly one set of canonical token bridge contracts for every rollup. For that
-     * reason we make rollup's inbox address part of the salt. It prevents deploying more than one
-     * token bridge.
+     * @notice We want to have exactly one set of canonical token bridge contracts for every rollup. For that
+     *         reason we make rollup's inbox address part of the salt. It prevents deploying more than one
+     *         token bridge.
      */
     function _getL1Salt(bytes memory prefix, address inbox) internal pure returns (bytes32) {
         return keccak256(abi.encodePacked(prefix, inbox));
     }
 
     /**
-     * Salt for L2 token bridge contracts depends on the caller's address. Canonical token bridge
-     * will be deployed by retryable ticket which is created by `retryableSender` contract. That
-     * means `retryableSender`'s alias will be used on L2 side to calculate the salt for deploying
-     * L2 contracts (_getL2Salt function in L2AtomicTokenBridgeFactory).
+     * @notice Salt for L2 token bridge contracts depends on the caller's address. Canonical token bridge
+     *         will be deployed by retryable ticket which is created by `retryableSender` contract. That
+     *         means `retryableSender`'s alias will be used on L2 side to calculate the salt for deploying
+     *         L2 contracts (_getL2Salt function in L2AtomicTokenBridgeFactory).
      */
     function _getL2Salt(bytes memory prefix) internal view returns (bytes32) {
         return keccak256(
