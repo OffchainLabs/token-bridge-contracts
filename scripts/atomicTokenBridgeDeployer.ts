@@ -21,7 +21,12 @@ import {
   IInbox__factory,
   IERC20Bridge__factory,
   IERC20__factory,
+  ArbMulticall2__factory,
 } from '../build/types'
+import {
+  abi as UpgradeExecutorABI,
+  bytecode as UpgradeExecutorBytecode,
+} from '@offchainlabs/upgrade-executor/build/contracts/src/UpgradeExecutor.sol/UpgradeExecutor.json'
 import { JsonRpcProvider } from '@ethersproject/providers'
 import {
   L1ToL2MessageGasEstimator,
@@ -48,7 +53,8 @@ export const createTokenBridge = async (
   l1Signer: Signer,
   l2Provider: ethers.providers.Provider,
   l1TokenBridgeCreator: L1AtomicTokenBridgeCreator,
-  rollupAddress: string
+  rollupAddress: string,
+  rollupOwnerAddress: string
 ) => {
   const gasPrice = await l2Provider.getGasPrice()
 
@@ -74,10 +80,13 @@ export const createTokenBridge = async (
     customGateway: L2CustomGateway__factory.bytecode,
     wethGateway: L2WethGateway__factory.bytecode,
     aeWeth: AeWETH__factory.bytecode,
+    upgradeExecutor: UpgradeExecutorBytecode,
+    multicall: ArbMulticall2__factory.bytecode,
   }
   const gasEstimateToDeployContracts =
     await l2FactoryTemplate.estimateGas.deployL2Contracts(
       l2Code,
+      ethers.Wallet.createRandom().address,
       ethers.Wallet.createRandom().address,
       ethers.Wallet.createRandom().address,
       ethers.Wallet.createRandom().address,
@@ -117,6 +126,7 @@ export const createTokenBridge = async (
   const receipt = await (
     await l1TokenBridgeCreator.createTokenBridge(
       inbox,
+      rollupOwnerAddress,
       maxGasForContracts,
       gasPrice,
       { value: retryableFee }
@@ -301,6 +311,13 @@ export const deployL1TokenBridgeCreator = async (
     await new L1OrbitCustomGateway__factory(l1Deployer).deploy()
   await feeTokenBasedCustomGatewayTemplate.deployed()
 
+  const upgradeExecutorFactory = new ethers.ContractFactory(
+    UpgradeExecutorABI,
+    UpgradeExecutorBytecode,
+    l1Deployer
+  )
+  const upgradeExecutor = await upgradeExecutorFactory.deploy()
+
   const l1Templates = {
     routerTemplate: routerTemplate.address,
     standardGatewayTemplate: standardGatewayTemplate.address,
@@ -311,6 +328,7 @@ export const deployL1TokenBridgeCreator = async (
       feeTokenBasedStandardGatewayTemplate.address,
     feeTokenBasedCustomGatewayTemplate:
       feeTokenBasedCustomGatewayTemplate.address,
+    upgradeExecutor: upgradeExecutor.address,
   }
 
   /// deploy L2 contracts as placeholders on L1
@@ -342,6 +360,11 @@ export const deployL1TokenBridgeCreator = async (
   const l2WethAddressOnL1 = await new AeWETH__factory(l1Deployer).deploy()
   await l2WethAddressOnL1.deployed()
 
+  const l2MulticallAddressOnL1 = await new ArbMulticall2__factory(
+    l1Deployer
+  ).deploy()
+  await l2MulticallAddressOnL1.deployed()
+
   //// run retryable estimate for deploying L2 factory
   const deployFactoryGasParams = await getEstimateForDeployingFactory(
     l1Deployer,
@@ -357,6 +380,7 @@ export const deployL1TokenBridgeCreator = async (
       l2CustomGatewayAddressOnL1.address,
       l2WethGatewayAddressOnL1.address,
       l2WethAddressOnL1.address,
+      l2MulticallAddressOnL1.address,
       l1WethAddress,
       deployFactoryGasParams.gasLimit
     )

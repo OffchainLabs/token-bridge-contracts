@@ -10,8 +10,8 @@ import dotenv from 'dotenv'
 dotenv.config()
 
 export const envVars = {
-  baseChainRpc: process.env['ARB_GOERLI_RPC'] as string,
-  baseChainDeployerKey: process.env['ARB_GOERLI_DEPLOYER_KEY'] as string,
+  baseChainRpc: process.env['BASECHAIN_RPC'] as string,
+  baseChainDeployerKey: process.env['BASECHAIN_DEPLOYER_KEY'] as string,
   childChainRpc: process.env['ORBIT_RPC'] as string,
 }
 
@@ -32,9 +32,9 @@ const ARB_GOERLI_WETH = '0xEe01c0CD76354C383B8c7B4e65EA88D00B06f36f'
  */
 export const deployTokenBridgeCreator = async (rollupAddress: string) => {
   if (envVars.baseChainRpc == undefined)
-    throw new Error('Missing ARB_GOERLI_RPC in env vars')
+    throw new Error('Missing BASECHAIN_RPC in env vars')
   if (envVars.baseChainDeployerKey == undefined)
-    throw new Error('Missing ARB_GOERLI_DEPLOYER_KEY in env vars')
+    throw new Error('Missing BASECHAIN_DEPLOYER_KEY in env vars')
   if (envVars.childChainRpc == undefined)
     throw new Error('Missing ORBIT_RPC in env vars')
 
@@ -127,7 +127,7 @@ const registerGoerliNetworks = async (
 
 async function main() {
   // this is just random Orbit rollup that will be used to estimate gas needed to deploy L2 token bridge factory via retryable
-  const rollupAddress = '0xDAB64b6E86035Aa9EB697341B663fb4B46930E60'
+  const rollupAddress = '0xe16E44efb06F33ed700618A738E24FeFd7801A84'
   const l1TokenBridgeCreator = await deployTokenBridgeCreator(rollupAddress)
   console.log('L1TokenBridgeCreator:', l1TokenBridgeCreator.address)
 }

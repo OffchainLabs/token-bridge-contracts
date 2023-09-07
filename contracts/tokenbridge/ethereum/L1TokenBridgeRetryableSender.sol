@@ -5,7 +5,6 @@ import {IInbox} from "@arbitrum/nitro-contracts/src/bridge/IInbox.sol";
 import {
     L2AtomicTokenBridgeFactory,
     L2RuntimeCode,
-    OrbitSalts,
     ProxyAdmin
 } from "../arbitrum/L2AtomicTokenBridgeFactory.sol";
 import {
@@ -42,10 +41,11 @@ contract L1TokenBridgeRetryableSender is Initializable, OwnableUpgradeable {
     function sendRetryableUsingEth(
         RetryableParams calldata retryableParams,
         L2TemplateAddresses calldata l2,
-        L1Addresses calldata l1,
+        L1DeploymentAddresses calldata l1,
         address l2StandardGatewayAddress,
         address rollupOwner,
-        address deployer
+        address deployer,
+        address aliasedL1UpgradeExecutor
     ) external payable onlyOwner {
         bytes memory data = abi.encodeCall(
             L2AtomicTokenBridgeFactory.deployL2Contracts,
@@ -55,7 +55,9 @@ contract L1TokenBridgeRetryableSender is Initializable, OwnableUpgradeable {
                     l2.standardGatewayTemplate.code,
                     l2.customGatewayTemplate.code,
                     l2.wethGatewayTemplate.code,
-                    l2.wethTemplate.code
+                    l2.wethTemplate.code,
+                    l2.upgradeExecutorTemplate.code,
+                    l2.multicallTemplate.code
                     ),
                 l1.router,
                 l1.standardGateway,
@@ -63,7 +65,8 @@ contract L1TokenBridgeRetryableSender is Initializable, OwnableUpgradeable {
                 l1.wethGateway,
                 l1.weth,
                 l2StandardGatewayAddress,
-                rollupOwner
+                rollupOwner,
+                aliasedL1UpgradeExecutor
             )
         );
 
@@ -87,9 +90,10 @@ contract L1TokenBridgeRetryableSender is Initializable, OwnableUpgradeable {
     function sendRetryableUsingFeeToken(
         RetryableParams calldata retryableParams,
         L2TemplateAddresses calldata l2,
-        L1Addresses calldata l1,
+        L1DeploymentAddresses calldata l1,
         address l2StandardGatewayAddress,
-        address rollupOwner
+        address rollupOwner,
+        address aliasedL1UpgradeExecutor
     ) external payable onlyOwner {
         bytes memory data = abi.encodeCall(
             L2AtomicTokenBridgeFactory.deployL2Contracts,
@@ -99,7 +103,9 @@ contract L1TokenBridgeRetryableSender is Initializable, OwnableUpgradeable {
                     l2.standardGatewayTemplate.code,
                     l2.customGatewayTemplate.code,
                     "",
-                    ""
+                    "",
+                    l2.upgradeExecutorTemplate.code,
+                    l2.multicallTemplate.code
                     ),
                 l1.router,
                 l1.standardGateway,
@@ -107,7 +113,8 @@ contract L1TokenBridgeRetryableSender is Initializable, OwnableUpgradeable {
                 address(0),
                 address(0),
                 l2StandardGatewayAddress,
-                rollupOwner
+                rollupOwner,
+                aliasedL1UpgradeExecutor
             )
         );
 
@@ -174,12 +181,14 @@ struct L2TemplateAddresses {
     address customGatewayTemplate;
     address wethGatewayTemplate;
     address wethTemplate;
+    address upgradeExecutorTemplate;
+    address multicallTemplate;
 }
 
 /**
  * L1 side of token bridge addresses
  */
-struct L1Addresses {
+struct L1DeploymentAddresses {
     address router;
     address standardGateway;
     address customGateway;

@@ -129,7 +129,7 @@ contract L1OrbitERC20Gateway is L1ERC20Gateway {
     /**
      * @notice get rollup's native token that's used to pay for fees
      */
-    function _getNativeFeeToken() internal returns (address) {
+    function _getNativeFeeToken() internal view returns (address) {
         address bridge = address(getBridge(inbox));
         return IERC20Bridge(bridge).nativeToken();
     }
