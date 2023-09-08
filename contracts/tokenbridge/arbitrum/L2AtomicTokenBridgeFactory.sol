@@ -241,12 +241,12 @@ contract L2AtomicTokenBridgeFactory {
     }
 
     /**
-     * In addition to hard-coded prefix, salt for L2 contracts depends on msg.sender. Deploying L2 token bridge contracts is
-     * permissionless. By making msg.sender part of the salt we know exactly which set of contracts is the "canonical" one,
+     * In addition to hard-coded prefix, salt for L2 contracts depends on msg.sender and the chainId. Deploying L2 token bridge contracts is
+     * permissionless. By making msg.sender part of the salt we know exactly which set of contracts is the "canonical" one for given chain,
      * deployed by L1TokenBridgeRetryableSender via retryable ticket.
      */
     function _getL2Salt(bytes memory prefix) internal view returns (bytes32) {
-        return keccak256(abi.encodePacked(prefix, msg.sender));
+        return keccak256(abi.encodePacked(prefix, block.chainid, msg.sender));
     }
 
     /**

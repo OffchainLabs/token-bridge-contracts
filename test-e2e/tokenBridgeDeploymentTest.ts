@@ -4,6 +4,7 @@ import {
   IERC20Bridge__factory,
   IInbox__factory,
   IOwnable__factory,
+  IRollupCore__factory,
   L1AtomicTokenBridgeCreator__factory,
   L1CustomGateway,
   L1CustomGateway__factory,
@@ -460,6 +461,7 @@ async function _getTokenBridgeAddresses(
 
   //// L1
   // find all the events emitted by this address
+
   const filter: Filter = {
     address: l1TokenBridgeCreatorAddress,
     topics: [
@@ -511,27 +513,32 @@ async function _getTokenBridgeAddresses(
 
   const usingFeeToken = await isUsingFeeToken(l1.inbox, l1Provider)
 
+  const chainId = await IRollupCore__factory.connect(
+    rollupAddress,
+    l1Provider
+  ).chainId()
+
   //// L2
   const l2 = {
     router: (
-      await l1TokenBridgeCreator.getCanonicalL2RouterAddress()
+      await l1TokenBridgeCreator.getCanonicalL2RouterAddress(chainId)
     ).toLowerCase(),
     standardGateway: (
-      await l1TokenBridgeCreator.getCanonicalL2StandardGatewayAddress()
+      await l1TokenBridgeCreator.getCanonicalL2StandardGatewayAddress(chainId)
     ).toLowerCase(),
     customGateway: (
-      await l1TokenBridgeCreator.getCanonicalL2CustomGatewayAddress()
+      await l1TokenBridgeCreator.getCanonicalL2CustomGatewayAddress(chainId)
     ).toLowerCase(),
     wethGateway: (usingFeeToken
       ? ethers.constants.AddressZero
-      : await l1TokenBridgeCreator.getCanonicalL2WethGatewayAddress()
+      : await l1TokenBridgeCreator.getCanonicalL2WethGatewayAddress(chainId)
     ).toLowerCase(),
     weth: (usingFeeToken
       ? ethers.constants.AddressZero
-      : await l1TokenBridgeCreator.getCanonicalL2WethAddress()
+      : await l1TokenBridgeCreator.getCanonicalL2WethAddress(chainId)
     ).toLowerCase(),
     upgradeExecutor: (
-      await l1TokenBridgeCreator.getCanonicalL2UpgradeExecutorAddress()
+      await l1TokenBridgeCreator.getCanonicalL2UpgradeExecutorAddress(chainId)
     ).toLowerCase(),
   }
 

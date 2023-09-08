@@ -124,7 +124,7 @@ const registerGoerliNetworks = async (
 
 async function main() {
   // this is just random Orbit rollup that will be used to estimate gas needed to deploy L2 token bridge factory via retryable
-  const rollupAddress = '0xe16E44efb06F33ed700618A738E24FeFd7801A84'
+  const rollupAddress = '0x15B318F69107c8122034D07cfcf1787095eF9A89'
   const { l1TokenBridgeCreator, retryableSender } =
     await deployTokenBridgeCreator(rollupAddress)
   console.log('L1TokenBridgeCreator:', l1TokenBridgeCreator.address)
