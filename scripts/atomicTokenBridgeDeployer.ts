@@ -22,6 +22,8 @@ import {
   IERC20Bridge__factory,
   IERC20__factory,
   ArbMulticall2__factory,
+  IRollupCore__factory,
+  IBridge__factory,
 } from '../build/types'
 import {
   abi as UpgradeExecutorABI,
@@ -181,28 +183,37 @@ export const createTokenBridge = async (
     'OrbitTokenBridgeCreated'
   )[0].args
 
+  const rollup = await IBridge__factory.connect(
+    await IInbox__factory.connect(inbox, l1Signer).bridge(),
+    l1Signer
+  ).rollup()
+  const chainId = await IRollupCore__factory.connect(rollup, l1Signer).chainId()
+
   /// pick up L2 contracts
-  const l2Router = await l1TokenBridgeCreator.getCanonicalL2RouterAddress()
+  const l2Router = await l1TokenBridgeCreator.getCanonicalL2RouterAddress(
+    chainId
+  )
   const l2StandardGateway = L2ERC20Gateway__factory.connect(
-    await l1TokenBridgeCreator.getCanonicalL2StandardGatewayAddress(),
+    await l1TokenBridgeCreator.getCanonicalL2StandardGatewayAddress(chainId),
     l2Provider
   )
   const beaconProxyFactory = await l2StandardGateway.beaconProxyFactory()
   const l2CustomGateway =
-    await l1TokenBridgeCreator.getCanonicalL2CustomGatewayAddress()
+    await l1TokenBridgeCreator.getCanonicalL2CustomGatewayAddress(chainId)
 
   const isUsingFeeToken = feeToken != ethers.constants.AddressZero
   const l2WethGateway = isUsingFeeToken
     ? ethers.constants.AddressZero
     : L2WethGateway__factory.connect(
-        await l1TokenBridgeCreator.getCanonicalL2WethGatewayAddress(),
+        await l1TokenBridgeCreator.getCanonicalL2WethGatewayAddress(chainId),
         l2Provider
       ).address
   const l1Weth = await l1TokenBridgeCreator.l1Weth()
   const l2Weth = isUsingFeeToken
     ? ethers.constants.AddressZero
-    : await l1TokenBridgeCreator.getCanonicalL2WethAddress()
-  const l2ProxyAdmin = await l1TokenBridgeCreator.canonicalL2ProxyAdminAddress()
+    : await l1TokenBridgeCreator.getCanonicalL2WethAddress(chainId)
+  const l2ProxyAdmin =
+    await l1TokenBridgeCreator.getCanonicalL2ProxyAdminAddress(chainId)
 
   return {
     l1Router,
