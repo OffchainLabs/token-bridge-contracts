@@ -5,7 +5,7 @@ libs = ["node_modules", "lib"]
 test = 'test-foundry'
 cache_path  = 'forge-cache'
 optimizer = true
-optimizer_runs = 20000
+optimizer_runs = 100
 via_ir = false
 
 [fmt]

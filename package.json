@@ -20,8 +20,7 @@
     "test:unit": "forge test",
     "test:e2e:local-env": "yarn hardhat test test-e2e/*",
     "test:storage": "./scripts/storage_layout_test.bash",
-    "deploy:orbit-tokenbridge:script": "ts-node ./scripts/local-deployment/orbitTokenBridgeDeployer.ts",
-    "deploy:local:token-bridge": "ts-node ./scripts/local-deployment/deploy.ts",
+    "deploy:local:token-bridge": "ts-node ./scripts/local-deployment/deployCreatorAndCreateTokenBridge.ts",
     "deploy:goerli:token-bridge-creator": "ts-node ./scripts/goerli-deployment/deployTokenBridgeCreator.ts",
     "create:goerli:token-bridge": "ts-node ./scripts/goerli-deployment/createTokenBridge.ts",
     "test:tokenbridge:deployment": "hardhat test test-e2e/tokenBridgeDeploymentTest.ts",
@@ -39,9 +38,9 @@
   ],
   "dependencies": {
     "@arbitrum/nitro-contracts": "^1.0.0-beta.8",
-    "@arbitrum/sdk": "^3.1.5",
     "@openzeppelin/contracts": "4.8.3",
-    "@openzeppelin/contracts-upgradeable": "4.8.3"
+    "@openzeppelin/contracts-upgradeable": "4.8.3",
+    "@offchainlabs/upgrade-executor": "^1.0.0-beta.2"
   },
   "devDependencies": {
     "@arbitrum/sdk": "^3.1.3",

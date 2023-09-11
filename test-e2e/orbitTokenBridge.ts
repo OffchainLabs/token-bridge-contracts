@@ -9,14 +9,13 @@ import {
 import { getBaseFee } from '@arbitrum/sdk/dist/lib/utils/lib'
 import { JsonRpcProvider } from '@ethersproject/providers'
 import { expect } from 'chai'
-import { ethers, Wallet } from '@arbitrum/sdk/node_modules/ethers'
-import {
-  setupOrbitTokenBridge,
-  sleep,
-} from '../scripts/local-deployment/testSetup'
+// import { ethers, Wallet } from '@arbitrum/sdk/node_modules/ethers'
+import { setupTokenBridgeInLocalEnv } from '../scripts/local-deployment/deployCreatorAndCreateTokenBridge'
 import {
   ERC20,
   ERC20__factory,
+  IERC20Bridge__factory,
+  IInbox__factory,
   L1OrbitERC20Gateway__factory,
   L1OrbitGatewayRouter__factory,
   L2GatewayRouter__factory,
@@ -24,8 +23,7 @@ import {
   TestERC20__factory,
 } from '../build/types'
 import { defaultAbiCoder } from 'ethers/lib/utils'
-import { BigNumber } from 'ethers'
-import { IERC20Inbox__factory } from '../build/types'
+import { BigNumber, Wallet, ethers } from 'ethers'
 
 const config = {
   arbUrl: 'http://localhost:8547',
@@ -42,7 +40,7 @@ let userL1Wallet: Wallet
 let userL2Wallet: Wallet
 
 let _l1Network: L1Network
-let _l2Network: L2Network & { nativeToken: string }
+let _l2Network: L2Network
 
 let token: TestERC20
 let l2Token: ERC20
@@ -61,12 +59,7 @@ describe('orbitTokenBridge', () => {
     deployerL2Wallet = new ethers.Wallet(deployerKey, l2Provider)
 
     console.log('setupOrbitTokenBridge')
-    const { l1Network, l2Network } = await setupOrbitTokenBridge(
-      deployerL1Wallet,
-      deployerL2Wallet,
-      config.ethUrl,
-      config.arbUrl
-    )
+    const { l1Network, l2Network } = await setupTokenBridgeInLocalEnv()
 
     _l1Network = l1Network
     _l2Network = l2Network
@@ -93,14 +86,14 @@ describe('orbitTokenBridge', () => {
     expect((await l1Router.defaultGateway()).toLowerCase()).to.be.eq(
       _l2Network.tokenBridge.l1ERC20Gateway.toLowerCase()
     )
-    // expect((await l1Router.counterpartGateway()).toLowerCase()).to.be.eq(
-    //   _l2Network.tokenBridge.l2ERC20Gateway.toLowerCase()
-    // )
   })
 
   it('can deposit token via default gateway', async function () {
     // fund user to be able to pay retryable fees
-    nativeToken = ERC20__factory.connect(_l2Network.nativeToken, userL1Wallet)
+    nativeToken = ERC20__factory.connect(
+      await getFeeToken(_l2Network.ethBridge.inbox, userL1Wallet),
+      userL1Wallet
+    )
     await (
       await nativeToken
         .connect(deployerL1Wallet)
@@ -343,4 +336,23 @@ async function waitOnL2Msg(tx: ethers.ContractTransaction) {
   const messageResult = await messages[0].waitForStatus()
   const status = messageResult.status
   expect(status).to.be.eq(L1ToL2MessageStatus.REDEEMED)
+}
+
+const getFeeToken = async (inbox: string, l1Provider: any) => {
+  const bridge = await IInbox__factory.connect(inbox, l1Provider).bridge()
+
+  let feeToken = ethers.constants.AddressZero
+
+  try {
+    feeToken = await IERC20Bridge__factory.connect(
+      bridge,
+      l1Provider
+    ).nativeToken()
+  } catch {}
+
+  return feeToken
+}
+
+function sleep(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms))
 }
