@@ -146,7 +146,7 @@ abstract contract L1ArbitrumExtendedGatewayTest is Test {
 
         vm.prank(router);
         vm.expectRevert("EXTRA_DATA_DISABLED");
-        l1Gateway.outboundTransferCustomRefund{ value: 1 ether }(
+        l1Gateway.outboundTransferCustomRefund(
             address(token),
             user,
             user,
@@ -162,7 +162,7 @@ abstract contract L1ArbitrumExtendedGatewayTest is Test {
 
         vm.prank(router);
         vm.expectRevert("L1_NOT_CONTRACT");
-        l1Gateway.outboundTransferCustomRefund{ value: 1 ether }(
+        l1Gateway.outboundTransferCustomRefund(
             address(invalidTokenAddress),
             user,
             user,
@@ -175,7 +175,7 @@ abstract contract L1ArbitrumExtendedGatewayTest is Test {
 
     function test_outboundTransferCustomRefund_revert_NotFromRouter() public {
         vm.expectRevert("NOT_FROM_ROUTER");
-        l1Gateway.outboundTransferCustomRefund{ value: 1 ether }(
+        l1Gateway.outboundTransferCustomRefund(
             address(token),
             user,
             user,

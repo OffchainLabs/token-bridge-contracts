@@ -182,7 +182,7 @@ contract L1ERC20GatewayTest is L1ArbitrumExtendedGatewayTest {
 
         vm.prank(router);
         vm.expectRevert("ERC20: insufficient allowance");
-        l1Gateway.outboundTransferCustomRefund{ value: 1 ether }(
+        l1Gateway.outboundTransferCustomRefund(
             address(token),
             user,
             user,
