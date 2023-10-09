@@ -109,7 +109,7 @@ contract L1OrbitGatewayRouter is L1GatewayRouter {
         uint256 _gasPriceBid,
         uint256 _maxSubmissionCost,
         uint256 _feeAmount
-    ) external payable onlyOwner returns (uint256) {
+    ) external onlyOwner returns (uint256) {
         return
             _setGateways(
                 _token,
