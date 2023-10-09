@@ -49,7 +49,9 @@ contract TestArbCustomToken is aeERC20, IArbToken {
 }
 
 contract MintableTestArbCustomToken is TestArbCustomToken {
-    constructor(address _l2Gateway, address _l1Address) TestArbCustomToken(_l2Gateway, _l1Address){}
+    constructor(address _l2Gateway, address _l1Address)
+        TestArbCustomToken(_l2Gateway, _l1Address)
+    {}
 
     function userMint(address account, uint256 amount) external {
         _mint(account, amount);

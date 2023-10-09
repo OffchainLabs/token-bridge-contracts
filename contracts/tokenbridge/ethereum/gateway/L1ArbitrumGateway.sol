@@ -252,6 +252,7 @@ abstract contract L1ArbitrumGateway is
         bytes memory extraData;
         {
             uint256 _maxSubmissionCost;
+            uint256 tokenTotalFeeAmount;
             if (super.isRouter(msg.sender)) {
                 // router encoded
                 (_from, extraData) = GatewayMessageHandler.parseFromRouterToGateway(_data);
@@ -259,8 +260,9 @@ abstract contract L1ArbitrumGateway is
                 _from = msg.sender;
                 extraData = _data;
             }
-            // user encoded
-            (_maxSubmissionCost, extraData) = abi.decode(extraData, (uint256, bytes));
+            // unpack user encoded data
+            (_maxSubmissionCost, extraData, tokenTotalFeeAmount) = _parseUserEncodedData(extraData);
+
             // the inboundEscrowAndCall functionality has been disabled, so no data is allowed
             require(extraData.length == 0, "EXTRA_DATA_DISABLED");
 
@@ -273,13 +275,14 @@ abstract contract L1ArbitrumGateway is
             // we override the res field to save on the stack
             res = getOutboundCalldata(_l1Token, _from, _to, _amount, extraData);
 
-            seqNum = createOutboundTxCustomRefund(
+            seqNum = _initiateDeposit(
                 _refundTo,
                 _from,
                 _amount,
                 _maxGas,
                 _gasPriceBid,
                 _maxSubmissionCost,
+                tokenTotalFeeAmount,
                 res
             );
         }
@@ -337,5 +340,65 @@ abstract contract L1ArbitrumGateway is
         return
             interfaceId == this.outboundTransferCustomRefund.selector ||
             super.supportsInterface(interfaceId);
+    }
+
+    /**
+     * @notice Parse data that was encoded by user and passed into the outbound TX entrypoint
+     * @dev In case of standard ETH-based rollup, format of encoded data is expected to be:
+     *      - maxSubmissionCost (uint256)
+     *      - callHookData (bytes)
+     *      In case of ERC20-based rollup, format of encoded data is expected to be:
+     *      - maxSubmissionCost (uint256)
+     *      - tokenTotalFeeAmount (uint256)
+     *      - callHookData (bytes)
+     * @param data data encoded by user
+     * @return maxSubmissionCost Max gas deducted from user's L2 balance to cover base submission fee
+     * @return callHookData Calldata for extra call in inboundEscrowAndCall on L2
+     * @return tokenTotalFeeAmount Amount of fees to be deposited in native token to cover for retryable ticket cost (used only in ERC20-based rollups, otherwise 0)
+     */
+    function _parseUserEncodedData(bytes memory data)
+        internal
+        pure
+        virtual
+        returns (
+            uint256 maxSubmissionCost,
+            bytes memory callHookData,
+            uint256 tokenTotalFeeAmount
+        )
+    {
+        (maxSubmissionCost, callHookData) = abi.decode(data, (uint256, bytes));
+    }
+
+    /**
+     * @notice Intermediate internal function that passes on parameters needed to trigger creation of retryable ticket.
+     * @param _refundTo Account, or its L2 alias if it have code in L1, to be credited with excess gas refund in L2
+     * @param _from Initiator of deposit
+     * @param _amount Token amount being deposited
+     * @param _maxGas Max gas deducted from user's L2 balance to cover L2 execution
+     * @param _gasPriceBid Gas price for L2 execution
+     * @param _maxSubmissionCost Max gas deducted from user's L2 balance to cover base submission fee
+     * @param _data encoded data from router and user
+     * @return res abi encoded inbox sequence number
+     */
+    function _initiateDeposit(
+        address _refundTo,
+        address _from,
+        uint256 _amount,
+        uint256 _maxGas,
+        uint256 _gasPriceBid,
+        uint256 _maxSubmissionCost,
+        uint256, // tokenTotalFeeAmount - amount of fees to be deposited in native token to cover for retryable ticket cost (used only in ERC20-based rollups)
+        bytes memory _data
+    ) internal virtual returns (uint256) {
+        return
+            createOutboundTxCustomRefund(
+                _refundTo,
+                _from,
+                _amount,
+                _maxGas,
+                _gasPriceBid,
+                _maxSubmissionCost,
+                _data
+            );
     }
 }

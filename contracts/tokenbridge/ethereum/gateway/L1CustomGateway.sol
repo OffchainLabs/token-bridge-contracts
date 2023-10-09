@@ -113,7 +113,12 @@ contract L1CustomGateway is L1ArbitrumExtendedGateway, ICustomGateway {
      * @param l1ERC20 address of L1 token
      * @return L2 address of a bridged ERC20 token
      */
-    function calculateL2TokenAddress(address l1ERC20) public view override(ITokenGateway, TokenGateway) returns (address) {
+    function calculateL2TokenAddress(address l1ERC20)
+        public
+        view
+        override(ITokenGateway, TokenGateway)
+        returns (address)
+    {
         return l1ToL2Token[l1ERC20];
     }
 
@@ -130,7 +135,7 @@ contract L1CustomGateway is L1ArbitrumExtendedGateway, ICustomGateway {
         uint256 _maxGas,
         uint256 _gasPriceBid,
         uint256 _maxSubmissionCost
-    ) external payable returns (uint256) {
+    ) external payable virtual returns (uint256) {
         return registerTokenToL2(_l2Address, _maxGas, _gasPriceBid, _maxSubmissionCost, msg.sender);
     }
 
@@ -150,15 +155,36 @@ contract L1CustomGateway is L1ArbitrumExtendedGateway, ICustomGateway {
         uint256 _maxSubmissionCost,
         address _creditBackAddress
     ) public payable virtual returns (uint256) {
-        require(
-            ArbitrumEnabledToken(msg.sender).isArbitrumEnabled() == uint8(0xb1),
-            "NOT_ARB_ENABLED"
-        );
+        return
+            _registerTokenToL2(
+                _l2Address,
+                _maxGas,
+                _gasPriceBid,
+                _maxSubmissionCost,
+                _creditBackAddress,
+                msg.value
+            );
+    }
 
-        address currL2Addr = l1ToL2Token[msg.sender];
-        if (currL2Addr != address(0)) {
-            // if token is already set, don't allow it to set a different L2 address
-            require(currL2Addr == _l2Address, "NO_UPDATE_TO_DIFFERENT_ADDR");
+    function _registerTokenToL2(
+        address _l2Address,
+        uint256 _maxGas,
+        uint256 _gasPriceBid,
+        uint256 _maxSubmissionCost,
+        address _creditBackAddress,
+        uint256 _feeAmount
+    ) internal returns (uint256) {
+        {
+            require(
+                ArbitrumEnabledToken(msg.sender).isArbitrumEnabled() == uint8(0xb1),
+                "NOT_ARB_ENABLED"
+            );
+
+            address currL2Addr = l1ToL2Token[msg.sender];
+            if (currL2Addr != address(0)) {
+                // if token is already set, don't allow it to set a different L2 address
+                require(currL2Addr == _l2Address, "NO_UPDATE_TO_DIFFERENT_ADDR");
+            }
         }
 
         l1ToL2Token[msg.sender] = _l2Address;
@@ -181,7 +207,7 @@ contract L1CustomGateway is L1ArbitrumExtendedGateway, ICustomGateway {
                 inbox,
                 counterpartGateway,
                 _creditBackAddress,
-                msg.value,
+                _feeAmount,
                 0,
                 _maxSubmissionCost,
                 _maxGas,
@@ -211,7 +237,26 @@ contract L1CustomGateway is L1ArbitrumExtendedGateway, ICustomGateway {
         uint256 _maxGas,
         uint256 _gasPriceBid,
         uint256 _maxSubmissionCost
-    ) external payable onlyOwner returns (uint256) {
+    ) external payable virtual onlyOwner returns (uint256) {
+        return
+            _forceRegisterTokenToL2(
+                _l1Addresses,
+                _l2Addresses,
+                _maxGas,
+                _gasPriceBid,
+                _maxSubmissionCost,
+                msg.value
+            );
+    }
+
+    function _forceRegisterTokenToL2(
+        address[] calldata _l1Addresses,
+        address[] calldata _l2Addresses,
+        uint256 _maxGas,
+        uint256 _gasPriceBid,
+        uint256 _maxSubmissionCost,
+        uint256 _feeAmount
+    ) internal returns (uint256) {
         require(_l1Addresses.length == _l2Addresses.length, "INVALID_LENGTHS");
 
         for (uint256 i = 0; i < _l1Addresses.length; i++) {
@@ -232,7 +277,7 @@ contract L1CustomGateway is L1ArbitrumExtendedGateway, ICustomGateway {
                 inbox,
                 counterpartGateway,
                 msg.sender,
-                msg.value,
+                _feeAmount,
                 0,
                 _maxSubmissionCost,
                 _maxGas,
