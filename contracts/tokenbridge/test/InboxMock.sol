@@ -20,15 +20,34 @@ pragma solidity ^0.8.0;
 
 import "@arbitrum/nitro-contracts/src/bridge/IOutbox.sol";
 import "@arbitrum/nitro-contracts/src/bridge/IBridge.sol";
-import "@arbitrum/nitro-contracts/src/bridge/IInbox.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-contract InboxMock {
-    address l2ToL1SenderMock = address(0);
+abstract contract AbsInboxMock {
+    address public l2ToL1SenderMock = address(0);
+    uint256 public seqNum = 0;
 
     event TicketData(uint256 maxSubmissionCost);
     event RefundAddresses(address excessFeeRefundAddress, address callValueRefundAddress);
     event InboxRetryableTicket(address from, address to, uint256 value, uint256 maxGas, bytes data);
 
+    function bridge() external view returns (IBridge) {
+        return IBridge(address(this));
+    }
+
+    function activeOutbox() external view returns (address) {
+        return address(this);
+    }
+
+    function setL2ToL1Sender(address sender) external {
+        l2ToL1SenderMock = sender;
+    }
+
+    function l2ToL1Sender() external view returns (address) {
+        return l2ToL1SenderMock;
+    }
+}
+
+contract InboxMock is AbsInboxMock {
     function createRetryableTicket(
         address to,
         uint256 l2CallValue,
@@ -45,22 +64,61 @@ contract InboxMock {
         emit TicketData(maxSubmissionCost);
         emit RefundAddresses(excessFeeRefundAddress, callValueRefundAddress);
         emit InboxRetryableTicket(msg.sender, to, l2CallValue, gasLimit, data);
-        return 0;
+        return seqNum++;
+    }
+}
+
+contract ERC20InboxMock is AbsInboxMock {
+    address public nativeToken;
+
+    event ERC20InboxRetryableTicket(
+        address from,
+        address to,
+        uint256 l2CallValue,
+        uint256 maxGas,
+        uint256 gasPrice,
+        uint256 tokenTotalFeeAmount,
+        bytes data
+    );
+
+    function createRetryableTicket(
+        address to,
+        uint256 l2CallValue,
+        uint256 maxSubmissionCost,
+        address excessFeeRefundAddress,
+        address callValueRefundAddress,
+        uint256 gasLimit,
+        uint256 maxFeePerGas,
+        uint256 tokenTotalFeeAmount,
+        bytes calldata data
+    ) external returns (uint256) {
+        // ensure the user's deposit alone will make submission succeed
+        if (tokenTotalFeeAmount < (maxSubmissionCost + l2CallValue + gasLimit * maxFeePerGas)) {
+            revert("WRONG_TOKEN_VALUE");
+        }
+
+        emit TicketData(maxSubmissionCost);
+        emit RefundAddresses(excessFeeRefundAddress, callValueRefundAddress);
+        emit ERC20InboxRetryableTicket(
+            msg.sender,
+            to,
+            l2CallValue,
+            gasLimit,
+            maxFeePerGas,
+            tokenTotalFeeAmount,
+            data
+        );
+
+        // transfer out received native tokens (to simulate bridge spending those funds)
+        uint256 balance = IERC20(address(nativeToken)).balanceOf(address(this));
+        if (balance > 0) {
+            IERC20(address(nativeToken)).transfer(address(1), balance);
+        }
+
+        return seqNum++;
     }
 
-    function bridge() external view returns (IBridge) {
-        return IBridge(address(this));
-    }
-
-    function activeOutbox() external view returns (address) {
-        return address(this);
-    }
-
-    function setL2ToL1Sender(address sender) external {
-        l2ToL1SenderMock = sender;
-    }
-
-    function l2ToL1Sender() external view returns (address) {
-        return l2ToL1SenderMock;
+    function setMockNativeToken(address _nativeToken) external {
+        nativeToken = _nativeToken;
     }
 }

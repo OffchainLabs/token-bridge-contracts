@@ -9,6 +9,7 @@ import {
   createTokenBridge,
   deployL1TokenBridgeCreator,
 } from '../atomicTokenBridgeDeployer'
+import { l2Networks } from '@arbitrum/sdk/dist/lib/dataEntities/networks'
 
 /**
  * Steps:
@@ -44,45 +45,47 @@ export const setupTokenBridgeInLocalEnv = async () => {
   )
 
   // register - needed for retryables
-  addCustomNetwork({
-    customL1Network: l1Network,
-    customL2Network: {
-      ...coreL2Network,
-      tokenBridge: {
-        l1CustomGateway: '',
-        l1ERC20Gateway: '',
-        l1GatewayRouter: '',
-        l1MultiCall: '',
-        l1ProxyAdmin: '',
-        l1Weth: '',
-        l1WethGateway: '',
+  const existingL2Network = l2Networks[coreL2Network.chainID.toString()]
+  if (!existingL2Network) {
+    addCustomNetwork({
+      customL1Network: l1Network,
+      customL2Network: {
+        ...coreL2Network,
+        tokenBridge: {
+          l1CustomGateway: '',
+          l1ERC20Gateway: '',
+          l1GatewayRouter: '',
+          l1MultiCall: '',
+          l1ProxyAdmin: '',
+          l1Weth: '',
+          l1WethGateway: '',
 
-        l2CustomGateway: '',
-        l2ERC20Gateway: '',
-        l2GatewayRouter: '',
-        l2Multicall: '',
-        l2ProxyAdmin: '',
-        l2Weth: '',
-        l2WethGateway: '',
+          l2CustomGateway: '',
+          l2ERC20Gateway: '',
+          l2GatewayRouter: '',
+          l2Multicall: '',
+          l2ProxyAdmin: '',
+          l2Weth: '',
+          l2WethGateway: '',
+        },
       },
-    },
-  })
+    })
+  }
 
   // prerequisite - deploy L1 creator and set templates
   const l1Weth = ethers.Wallet.createRandom().address
-  const l1TokenBridgeCreator = await deployL1TokenBridgeCreator(
-    l1Deployer,
-    l2Deployer.provider!,
-    l1Weth
-  )
+  const { l1TokenBridgeCreator, retryableSender } =
+    await deployL1TokenBridgeCreator(l1Deployer, l2Deployer.provider!, l1Weth)
   console.log('L1TokenBridgeCreator', l1TokenBridgeCreator.address)
+  console.log('L1TokenBridgeRetryableSender', retryableSender.address)
 
   // create token bridge
   const deployedContracts = await createTokenBridge(
     l1Deployer,
     l2Deployer.provider!,
     l1TokenBridgeCreator,
-    coreL2Network.ethBridge.rollup
+    coreL2Network.ethBridge.rollup,
+    l1Deployer.address
   )
 
   const l2Network: L2Network = {
@@ -109,6 +112,8 @@ export const setupTokenBridgeInLocalEnv = async () => {
   return {
     l1Network,
     l2Network,
+    l1TokenBridgeCreator,
+    retryableSender,
   }
 }
 
@@ -192,12 +197,17 @@ export const getLocalNetworks = async (
 }
 
 async function main() {
-  const { l1Network, l2Network } = await setupTokenBridgeInLocalEnv()
+  const { l1Network, l2Network, l1TokenBridgeCreator, retryableSender } =
+    await setupTokenBridgeInLocalEnv()
 
   const NETWORK_FILE = 'network.json'
   fs.writeFileSync(
     NETWORK_FILE,
-    JSON.stringify({ l1Network, l2Network }, null, 2)
+    JSON.stringify(
+      { l1Network, l2Network, l1TokenBridgeCreator, retryableSender },
+      null,
+      2
+    )
   )
   console.log(NETWORK_FILE + ' updated')
 }
