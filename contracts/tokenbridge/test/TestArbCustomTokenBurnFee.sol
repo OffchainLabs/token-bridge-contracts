@@ -16,13 +16,12 @@
  * limitations under the License.
  */
 
-pragma solidity ^0.6.11;
+pragma solidity ^0.8.0;
 
 import "./TestArbCustomToken.sol";
 
 contract TestArbCustomTokenBurnFee is TestArbCustomToken {
     constructor(address _l2Gateway, address _l1Address)
-        public
         TestArbCustomToken(_l2Gateway, _l1Address)
     {}
 

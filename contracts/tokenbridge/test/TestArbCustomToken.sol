@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-pragma solidity ^0.6.11;
+pragma solidity ^0.8.0;
 
 import "../arbitrum/IArbToken.sol";
 import "../arbitrum/ReverseArbToken.sol";
@@ -31,7 +31,7 @@ contract TestArbCustomToken is aeERC20, IArbToken {
         _;
     }
 
-    constructor(address _l2Gateway, address _l1Address) public {
+    constructor(address _l2Gateway, address _l1Address) {
         l2Gateway = _l2Gateway;
         l1Address = _l1Address;
         aeERC20._initialize("TestCustomToken", "CARB", uint8(18));
@@ -50,7 +50,6 @@ contract TestArbCustomToken is aeERC20, IArbToken {
 
 contract MintableTestArbCustomToken is TestArbCustomToken {
     constructor(address _l2Gateway, address _l1Address)
-        public
         TestArbCustomToken(_l2Gateway, _l1Address)
     {}
 
@@ -68,7 +67,7 @@ contract ReverseTestArbCustomToken is aeERC20, IArbToken, ReverseArbToken {
         _;
     }
 
-    constructor(address _l2Gateway, address _l1Address) public {
+    constructor(address _l2Gateway, address _l1Address) {
         l2Gateway = _l2Gateway;
         l1Address = _l1Address;
         aeERC20._initialize("TestReverseCustomToken", "RARB", uint8(18));

@@ -6,6 +6,7 @@ import 'solidity-coverage'
 import 'hardhat-gas-reporter'
 import '@nomiclabs/hardhat-etherscan'
 import 'hardhat-deploy'
+import 'hardhat-contract-sizer'
 
 import { task } from 'hardhat/config'
 import '@nomiclabs/hardhat-ethers'
@@ -35,7 +36,7 @@ const config = {
         },
       },
       {
-        version: '0.8.7',
+        version: '0.8.16',
         settings: {
           optimizer: {
             enabled: true,
