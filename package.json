@@ -34,7 +34,7 @@
   },
   "files": [
     "contracts",
-    "build/contracts"
+    "build/contracts/contracts"
   ],
   "dependencies": {
     "@arbitrum/nitro-contracts": "^1.0.0-beta.8",
