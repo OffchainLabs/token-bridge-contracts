@@ -46,7 +46,7 @@ export const deployTokenBridgeCreator = async (rollupAddress: string) => {
 
   // deploy L1 creator and set templates
   const { l1TokenBridgeCreator, retryableSender } =
-    await deployL1TokenBridgeCreator(l1Deployer, l2Provider, ARB_GOERLI_WETH)
+    await deployL1TokenBridgeCreator(l1Deployer, l2Provider, ARB_GOERLI_WETH, true)
 
   return { l1TokenBridgeCreator, retryableSender }
 }

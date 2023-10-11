@@ -243,7 +243,8 @@ export const createTokenBridge = async (
 export const deployL1TokenBridgeCreator = async (
   l1Deployer: Signer,
   l2Provider: ethers.providers.Provider,
-  l1WethAddress: string
+  l1WethAddress: string,
+  verifyContracts: boolean = false
 ) => {
   /// deploy creator behind proxy
   const l1TokenBridgeCreatorProxyAdmin = await new ProxyAdmin__factory(
@@ -399,111 +400,112 @@ export const deployL1TokenBridgeCreator = async (
   ).wait()
 
   ///// verify contracts
-  console.log('\n\n Start contract verification \n\n')
-  const l1Verifier = new ContractVerifier(
-    (await l1Deployer.provider!.getNetwork()).chainId,
-    process.env.ARBISCAN_API_KEY!
-  )
-  const abi = ethers.utils.defaultAbiCoder
-
-  await l1Verifier.verifyWithAddress(
-    'l1TokenBridgeCreatorProxyAdmin',
-    l1TokenBridgeCreatorProxyAdmin.address
-  )
-  await l1Verifier.verifyWithAddress(
-    'l1TokenBridgeCreatorLogic',
-    l1TokenBridgeCreatorLogic.address
-  )
-  await l1Verifier.verifyWithAddress(
-    'l1TokenBridgeCreatorProxy',
-    l1TokenBridgeCreatorProxy.address,
-    abi.encode(
-      ['address', 'address', 'bytes'],
-      [
-        l1TokenBridgeCreatorLogic.address,
-        l1TokenBridgeCreatorProxyAdmin.address,
-        '0x',
-      ]
+  if (verifyContracts) {
+    console.log('\n\n Start contract verification \n\n')
+    const l1Verifier = new ContractVerifier(
+      (await l1Deployer.provider!.getNetwork()).chainId,
+      process.env.ARBISCAN_API_KEY!
     )
-  )
-  await l1Verifier.verifyWithAddress(
-    'retryableSenderLogic',
-    retryableSenderLogic.address
-  )
-  await l1Verifier.verifyWithAddress(
-    'retryableSenderProxy',
-    retryableSenderProxy.address,
-    abi.encode(
-      ['address', 'address', 'bytes'],
-      [
-        retryableSenderLogic.address,
-        l1TokenBridgeCreatorProxyAdmin.address,
-        '0x',
-      ]
-    )
-  )
-  await l1Verifier.verifyWithAddress('routerTemplate', routerTemplate.address)
-  await l1Verifier.verifyWithAddress(
-    'standardGatewayTemplate',
-    standardGatewayTemplate.address
-  )
-  await l1Verifier.verifyWithAddress(
-    'customGatewayTemplate',
-    customGatewayTemplate.address
-  )
-  await l1Verifier.verifyWithAddress(
-    'wethGatewayTemplate',
-    wethGatewayTemplate.address
-  )
-  await l1Verifier.verifyWithAddress(
-    'feeTokenBasedRouterTemplate',
-    feeTokenBasedRouterTemplate.address
-  )
-  await l1Verifier.verifyWithAddress(
-    'feeTokenBasedStandardGatewayTemplate',
-    feeTokenBasedStandardGatewayTemplate.address
-  )
-  await l1Verifier.verifyWithAddress(
-    'feeTokenBasedCustomGatewayTemplate',
-    feeTokenBasedCustomGatewayTemplate.address
-  )
-  await l1Verifier.verifyWithAddress(
-    'upgradeExecutor',
-    upgradeExecutor.address,
-    '',
-    20000
-  )
-  await l1Verifier.verifyWithAddress(
-    'l2TokenBridgeFactoryOnL1',
-    l2TokenBridgeFactoryOnL1.address
-  )
-  await l1Verifier.verifyWithAddress(
-    'l2GatewayRouterOnL1',
-    l2GatewayRouterOnL1.address
-  )
-  await l1Verifier.verifyWithAddress(
-    'l2StandardGatewayAddressOnL1',
-    l2StandardGatewayAddressOnL1.address
-  )
-  await l1Verifier.verifyWithAddress(
-    'l2CustomGatewayAddressOnL1',
-    l2CustomGatewayAddressOnL1.address
-  )
-  await l1Verifier.verifyWithAddress(
-    'l2WethGatewayAddressOnL1',
-    l2WethGatewayAddressOnL1.address
-  )
-  await l1Verifier.verifyWithAddress(
-    'l2WethAddressOnL1',
-    l2WethAddressOnL1.address
-  )
-  await l1Verifier.verifyWithAddress(
-    'l2MulticallAddressOnL1',
-    l2MulticallAddressOnL1.address
-  )
+    const abi = ethers.utils.defaultAbiCoder
 
-  await new Promise(resolve => setTimeout(resolve, 2000))
-  console.log('\n\n Contract verification done \n\n')
+    await l1Verifier.verifyWithAddress(
+      'l1TokenBridgeCreatorProxyAdmin',
+      l1TokenBridgeCreatorProxyAdmin.address
+    )
+    await l1Verifier.verifyWithAddress(
+      'l1TokenBridgeCreatorLogic',
+      l1TokenBridgeCreatorLogic.address
+    )
+    await l1Verifier.verifyWithAddress(
+      'l1TokenBridgeCreatorProxy',
+      l1TokenBridgeCreatorProxy.address,
+      abi.encode(
+        ['address', 'address', 'bytes'],
+        [
+          l1TokenBridgeCreatorLogic.address,
+          l1TokenBridgeCreatorProxyAdmin.address,
+          '0x',
+        ]
+      )
+    )
+    await l1Verifier.verifyWithAddress(
+      'retryableSenderLogic',
+      retryableSenderLogic.address
+    )
+    await l1Verifier.verifyWithAddress(
+      'retryableSenderProxy',
+      retryableSenderProxy.address,
+      abi.encode(
+        ['address', 'address', 'bytes'],
+        [
+          retryableSenderLogic.address,
+          l1TokenBridgeCreatorProxyAdmin.address,
+          '0x',
+        ]
+      )
+    )
+    await l1Verifier.verifyWithAddress('routerTemplate', routerTemplate.address)
+    await l1Verifier.verifyWithAddress(
+      'standardGatewayTemplate',
+      standardGatewayTemplate.address
+    )
+    await l1Verifier.verifyWithAddress(
+      'customGatewayTemplate',
+      customGatewayTemplate.address
+    )
+    await l1Verifier.verifyWithAddress(
+      'wethGatewayTemplate',
+      wethGatewayTemplate.address
+    )
+    await l1Verifier.verifyWithAddress(
+      'feeTokenBasedRouterTemplate',
+      feeTokenBasedRouterTemplate.address
+    )
+    await l1Verifier.verifyWithAddress(
+      'feeTokenBasedStandardGatewayTemplate',
+      feeTokenBasedStandardGatewayTemplate.address
+    )
+    await l1Verifier.verifyWithAddress(
+      'feeTokenBasedCustomGatewayTemplate',
+      feeTokenBasedCustomGatewayTemplate.address
+    )
+    await l1Verifier.verifyWithAddress(
+      'upgradeExecutor',
+      upgradeExecutor.address,
+      '',
+      20000
+    )
+    await l1Verifier.verifyWithAddress(
+      'l2TokenBridgeFactoryOnL1',
+      l2TokenBridgeFactoryOnL1.address
+    )
+    await l1Verifier.verifyWithAddress(
+      'l2GatewayRouterOnL1',
+      l2GatewayRouterOnL1.address
+    )
+    await l1Verifier.verifyWithAddress(
+      'l2StandardGatewayAddressOnL1',
+      l2StandardGatewayAddressOnL1.address
+    )
+    await l1Verifier.verifyWithAddress(
+      'l2CustomGatewayAddressOnL1',
+      l2CustomGatewayAddressOnL1.address
+    )
+    await l1Verifier.verifyWithAddress(
+      'l2WethGatewayAddressOnL1',
+      l2WethGatewayAddressOnL1.address
+    )
+    await l1Verifier.verifyWithAddress(
+      'l2WethAddressOnL1',
+      l2WethAddressOnL1.address
+    )
+    await l1Verifier.verifyWithAddress(
+      'l2MulticallAddressOnL1',
+      l2MulticallAddressOnL1.address
+    )
+    await new Promise(resolve => setTimeout(resolve, 2000))
+    console.log('\n\n Contract verification done \n\n')
+  }
 
   return { l1TokenBridgeCreator, retryableSender }
 }
