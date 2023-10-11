@@ -7,7 +7,7 @@
   resolved "https://registry.yarnpkg.com/@aduh95/viz.js/-/viz.js-3.7.0.tgz#a20d86c5fc8f6abebdc39b96a4326e10375d77c0"
   integrity sha512-20Pk2Z98fbPLkECcrZSJszKos/OgtvJJR3NcbVfgCJ6EQjDNzW2P1BKqImOz3tJ952dvO2DWEhcLhQ1Wz1e9ng==
 
-"@arbitrum/nitro-contracts@^1.0.0-beta.8":
+"@arbitrum/nitro-contracts@1.0.0-beta.8":
   version "1.0.0-beta.8"
   resolved "https://registry.yarnpkg.com/@arbitrum/nitro-contracts/-/nitro-contracts-1.0.0-beta.8.tgz#56554091b466ea1539c11691c60835625f6675e5"
   integrity sha512-idzrJ/yGbcVUaqm45kFzV157B7V8W05G0cyMZazNhkWs39zO/moVwjMUCJpQ/SGW4OlOQggI8Xuw4xfocno7Xg==
