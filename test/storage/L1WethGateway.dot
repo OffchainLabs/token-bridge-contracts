@@ -1,0 +1,13 @@
+
+digraph StorageDiagram {
+rankdir=LR
+arrowhead=open
+bgcolor="white"
+edge [color="black"]
+node [shape=record, style=filled, color="black", fillcolor="gray95", fontcolor="black", fontname="Courier New"]
+2 [label="L1WethGateway \<\<Contract\>\>\n | {{ slot | 0 | 1 | 2 | 3 | 4 | 5} | { type: \<inherited contract\>.variable (bytes) | {  unallocated (12)  |  address: TokenGateway.counterpartGateway (20) } | {  unallocated (12)  |  address: TokenGateway.router (20) } | {  unallocated (12)  |  address: L1ArbitrumGateway.inbox (20) } | { <7> mapping\(bytes32=\>ExitData\): L1ArbitrumExtendedGateway.redirectedExits (32) } | {  unallocated (12)  |  address: l1Weth (20) } | {  unallocated (12)  |  address: l2Weth (20) }}}"]
+
+1 [label="ExitData \<\<Struct\>\>\n | {{ offset | 0 | 1} | { type: variable (bytes) | {  unallocated (11)  |  address: _newTo (20)  |  bool: isExit (1) } | {  bytes: _newData (32) }}}"]
+
+ 2:7 -> 1
+}
