@@ -113,8 +113,20 @@ const config = {
         ? [process.env['DEVNET_PRIVKEY']]
         : [],
     },
+    sepolia: {
+      url: 'https://sepolia.infura.io/v3/' + process.env['INFURA_KEY'],
+      accounts: process.env['DEVNET_PRIVKEY']
+        ? [process.env['DEVNET_PRIVKEY']]
+        : [],
+    },
     arbGoerliRollup: {
       url: 'https://goerli-rollup.arbitrum.io/rpc',
+      accounts: process.env['DEVNET_PRIVKEY']
+        ? [process.env['DEVNET_PRIVKEY']]
+        : [],
+    },
+    arbSepoliaRollup: {
+      url: 'https://sepolia-rollup.arbitrum.io/rpc',
       accounts: process.env['DEVNET_PRIVKEY']
         ? [process.env['DEVNET_PRIVKEY']]
         : [],
@@ -161,10 +173,12 @@ const config = {
       kovan: process.env['ETHERSCAN_API_KEY'],
       rinkeby: process.env['ETHERSCAN_API_KEY'],
       goerli: process.env['ETHERSCAN_API_KEY'],
+      sepolia: process.env['ETHERSCAN_API_KEY'],
       arbitrumOne: process.env['ARBISCAN_API_KEY'],
       arbitrumTestnet: process.env['ARBISCAN_API_KEY'],
       nova: process.env['NOVA_ARBISCAN_API_KEY'],
       arbGoerliRollup: process.env['ARBISCAN_API_KEY'],
+      arbSepoliaRollup: 'x',
     },
     customChains: [
       {
@@ -183,6 +197,14 @@ const config = {
           browserURL: 'https://goerli.arbiscan.io/',
         },
       },
+      {
+        network: 'arbSepoliaRollup',
+        chainId: 421614,
+        urls: {
+          apiURL: 'https://sepolia-explorer.arbitrum.io/api?module=contract&action=verify',
+          browserURL: 'https://sepolia-explorer.arbitrum.io/',
+        },
+      }
     ],
   },
 }
