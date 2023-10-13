@@ -78,7 +78,8 @@ export const setupTokenBridgeInLocalEnv = async () => {
 
   // prerequisite - deploy L1 creator and set templates
   console.log('Deploying L1TokenBridgeCreator')
-  const l1Weth = ethers.Wallet.createRandom().address
+  // a random address for l1Weth
+  const l1Weth = '0x05EcEffc7CBA4e43a410340E849052AD43815aCA'
   const { l1TokenBridgeCreator, retryableSender } =
     await deployL1TokenBridgeCreator(l1Deployer, l2Deployer.provider!, l1Weth)
   console.log('L1TokenBridgeCreator', l1TokenBridgeCreator.address)
