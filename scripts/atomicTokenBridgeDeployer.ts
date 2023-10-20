@@ -24,6 +24,7 @@ import {
   ArbMulticall2__factory,
   IRollupCore__factory,
   IBridge__factory,
+  Multicall2__factory,
 } from '../build/types'
 import {
   abi as UpgradeExecutorABI,
@@ -378,6 +379,9 @@ export const deployL1TokenBridgeCreator = async (
   ).deploy()
   await l2MulticallAddressOnL1.deployed()
 
+  const l1Multicall = await new Multicall2__factory(l1Deployer).deploy()
+  await l1Multicall.deployed()
+
   //// run retryable estimate for deploying L2 factory
   const deployFactoryGasParams = await getEstimateForDeployingFactory(
     l1Deployer,
@@ -395,6 +399,7 @@ export const deployL1TokenBridgeCreator = async (
       l2WethAddressOnL1.address,
       l2MulticallAddressOnL1.address,
       l1WethAddress,
+      l1Multicall.address,
       deployFactoryGasParams.gasLimit
     )
   ).wait()
@@ -503,6 +508,12 @@ export const deployL1TokenBridgeCreator = async (
       'l2MulticallAddressOnL1',
       l2MulticallAddressOnL1.address
     )
+
+    await l1Verifier.verifyWithAddress(
+      'l1Multicall',
+      l1Multicall.address
+    )
+
     await new Promise(resolve => setTimeout(resolve, 2000))
     console.log('\n\n Contract verification done \n\n')
   }

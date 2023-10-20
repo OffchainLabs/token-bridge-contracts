@@ -103,16 +103,26 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     address public l2CustomGatewayTemplate;
     address public l2WethGatewayTemplate;
     address public l2WethTemplate;
-    address public l2MulticallTemplate;
 
     // WETH address on L1
     address public l1Weth;
+
+    // Multicall2 address on L1, this should NOT be ArbMulticall2
+    address public l1Multicall;
 
     // immutable canonical address for L2 factory
     // other canonical addresses (dependent on L2 template implementations) can be fetched through `getCanonicalL2***Address` functions
     address public canonicalL2FactoryAddress;
 
-    constructor() {
+    // immutable ArbMulticall2 template deployed on L1
+    // Note - due to contract size limits, multicall template and its bytecode hash are set in constructor as immutables
+    address public immutable l2MulticallTemplate;
+    // code hash used for calculation of L2 multicall address
+    bytes32 public immutable ARB_MULTICALL_CODE_HASH;
+
+    constructor(address _l2MulticallTemplate) {
+        l2MulticallTemplate = _l2MulticallTemplate;
+        ARB_MULTICALL_CODE_HASH = keccak256(_creationCodeFor(l2MulticallTemplate.code));
         _disableInitializers();
     }
 
@@ -140,8 +150,8 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         address _l2CustomGatewayTemplate,
         address _l2WethGatewayTemplate,
         address _l2WethTemplate,
-        address _l2MulticallTemplate,
         address _l1Weth,
+        address _l1Multicall,
         uint256 _gasLimitForL2FactoryDeployment
     ) external onlyOwner {
         l1Templates = _l1Templates;
@@ -152,9 +162,9 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         l2CustomGatewayTemplate = _l2CustomGatewayTemplate;
         l2WethGatewayTemplate = _l2WethGatewayTemplate;
         l2WethTemplate = _l2WethTemplate;
-        l2MulticallTemplate = _l2MulticallTemplate;
 
         l1Weth = _l1Weth;
+        l1Multicall = _l1Multicall;
 
         gasLimitForL2FactoryDeployment = _gasLimitForL2FactoryDeployment;
 
@@ -596,6 +606,14 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             _getL2Salt(OrbitSalts.L2_EXECUTOR_LOGIC, chainId),
             _getL2Salt(OrbitSalts.L2_EXECUTOR, chainId),
             chainId
+        );
+    }
+
+    function getCanonicalL2Multicall(uint256 chainId) public view returns (address) {
+        return Create2.computeAddress(
+            _getL2Salt(OrbitSalts.L2_MULTICALL, chainId),
+            ARB_MULTICALL_CODE_HASH,
+            canonicalL2FactoryAddress
         );
     }
 
