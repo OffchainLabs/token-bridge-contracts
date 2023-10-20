@@ -103,24 +103,26 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     address public l2CustomGatewayTemplate;
     address public l2WethGatewayTemplate;
     address public l2WethTemplate;
-    address public l2MulticallTemplate;
 
     // WETH address on L1
     address public l1Weth;
 
-    // Multicall address on L1
+    // multicall address on L1
     address public l1Multicall;
 
     // immutable canonical address for L2 factory
     // other canonical addresses (dependent on L2 template implementations) can be fetched through `getCanonicalL2***Address` functions
     address public canonicalL2FactoryAddress;
 
-    // Code hash used for calculation of L2 multicall address.
-    // Note - assumption is that hash of l2MulticallTemplate's bytecode provided in `setTemplate` matches this code hash
+    // immutable ArbMulticall2 template deployed on L1
+    // Note - due to contract size limits, multicall template and its bytecode hash are set in constructor as immutables
+    address public immutable l2MulticallTemplate;
+    // code hash used for calculation of L2 multicall address
     bytes32 public immutable ARB_MULTICALL_CODE_HASH;
 
-    constructor() {
-        ARB_MULTICALL_CODE_HASH = keccak256(_creationCodeFor(type(ArbMulticall2).runtimeCode));
+    constructor(address _l2MulticallTemplate) {
+        l2MulticallTemplate = _l2MulticallTemplate;
+        ARB_MULTICALL_CODE_HASH = keccak256(_creationCodeFor(l2MulticallTemplate.code));
         _disableInitializers();
     }
 
@@ -148,7 +150,6 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         address _l2CustomGatewayTemplate,
         address _l2WethGatewayTemplate,
         address _l2WethTemplate,
-        address _l2MulticallTemplate,
         address _l1Weth,
         address _l1Multicall,
         uint256 _gasLimitForL2FactoryDeployment
@@ -161,7 +162,6 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         l2CustomGatewayTemplate = _l2CustomGatewayTemplate;
         l2WethGatewayTemplate = _l2WethGatewayTemplate;
         l2WethTemplate = _l2WethTemplate;
-        l2MulticallTemplate = _l2MulticallTemplate;
 
         l1Weth = _l1Weth;
         l1Multicall = _l1Multicall;
