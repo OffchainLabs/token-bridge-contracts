@@ -112,7 +112,12 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     // other canonical addresses (dependent on L2 template implementations) can be fetched through `getCanonicalL2***Address` functions
     address public canonicalL2FactoryAddress;
 
+    // Code hash used for calculation of L2 multicall address.
+    // Note - assumption is that hash of l2MulticallTemplate's bytecode provided in `setTemplate` matches this code hash
+    bytes32 public immutable ARB_MULTICALL_CODE_HASH;
+
     constructor() {
+        ARB_MULTICALL_CODE_HASH = keccak256(_creationCodeFor(type(ArbMulticall2).runtimeCode));
         _disableInitializers();
     }
 
@@ -596,6 +601,14 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             _getL2Salt(OrbitSalts.L2_EXECUTOR_LOGIC, chainId),
             _getL2Salt(OrbitSalts.L2_EXECUTOR, chainId),
             chainId
+        );
+    }
+
+    function getCanonicalL2Multicall(uint256 chainId) public view returns (address) {
+        return Create2.computeAddress(
+            _getL2Salt(OrbitSalts.L2_MULTICALL, chainId),
+            ARB_MULTICALL_CODE_HASH,
+            canonicalL2FactoryAddress
         );
     }
 
