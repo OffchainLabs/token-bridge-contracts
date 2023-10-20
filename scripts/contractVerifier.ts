@@ -51,6 +51,7 @@ export class ContractVerifier {
       'contracts/tokenbridge/arbitrum/gateway/L2WethGateway.sol:L2WethGateway',
     l2WethAddressOnL1: 'contracts/tokenbridge/libraries/aeWETH.sol:aeWETH',
     l2MulticallAddressOnL1: 'contracts/rpc-utils/MulticallV2.sol:ArbMulticall2',
+    l1Multicall: 'contracts/rpc-utils/MulticallV2.sol:Multicall2',
   }
 
   constructor(chainId: number, apiKey: string) {

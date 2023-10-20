@@ -26,18 +26,22 @@ import { l2Networks } from '@arbitrum/sdk/dist/lib/dataEntities/networks'
  */
 export const setupTokenBridgeInLocalEnv = async () => {
   /// setup deployers, load local networks
+  /// L1 URL = parent chain = L2
+  /// L2 URL = child chain = L3
   const config = {
-    l1Url: 'http://localhost:8545',
-    l2Url: 'http://localhost:8547',
+    l1Url: 'http://localhost:8547',
+    l2Url: 'http://localhost:3347',
   }
   const l1Deployer = new ethers.Wallet(
-    ethers.utils.sha256(ethers.utils.toUtf8Bytes('user_l1user')),
+    ethers.utils.sha256(ethers.utils.toUtf8Bytes('user_token_bridge_deployer')),
     new ethers.providers.JsonRpcProvider(config.l1Url)
   )
   const l2Deployer = new ethers.Wallet(
-    ethers.utils.sha256(ethers.utils.toUtf8Bytes('user_l1user')),
+    ethers.utils.sha256(ethers.utils.toUtf8Bytes('user_token_bridge_deployer')),
     new ethers.providers.JsonRpcProvider(config.l2Url)
   )
+  // docker-compose run scripts print-address --account l3owner | tail -n 1 | tr -d '\r\n'
+  const orbitOwner = '0x863c904166E801527125D8672442D736194A3362'
 
   const { l1Network, l2Network: coreL2Network } = await getLocalNetworks(
     config.l1Url,
@@ -73,19 +77,22 @@ export const setupTokenBridgeInLocalEnv = async () => {
   }
 
   // prerequisite - deploy L1 creator and set templates
-  const l1Weth = ethers.Wallet.createRandom().address
+  console.log('Deploying L1TokenBridgeCreator')
+  // a random address for l1Weth
+  const l1Weth = '0x05EcEffc7CBA4e43a410340E849052AD43815aCA'
   const { l1TokenBridgeCreator, retryableSender } =
     await deployL1TokenBridgeCreator(l1Deployer, l2Deployer.provider!, l1Weth)
   console.log('L1TokenBridgeCreator', l1TokenBridgeCreator.address)
   console.log('L1TokenBridgeRetryableSender', retryableSender.address)
 
   // create token bridge
+  console.log('Creating token bridge')
   const deployedContracts = await createTokenBridge(
     l1Deployer,
     l2Deployer.provider!,
     l1TokenBridgeCreator,
     coreL2Network.ethBridge.rollup,
-    l1Deployer.address
+    orbitOwner
   )
 
   const l2Network: L2Network = {
@@ -109,11 +116,14 @@ export const setupTokenBridgeInLocalEnv = async () => {
     },
   }
 
+  const l1TokenBridgeCreatorAddress = l1TokenBridgeCreator.address
+  const retryableSenderAddress = retryableSender.address
+
   return {
     l1Network,
     l2Network,
-    l1TokenBridgeCreator,
-    retryableSender,
+    l1TokenBridgeCreatorAddress,
+    retryableSenderAddress,
   }
 }
 
@@ -129,13 +139,13 @@ export const getLocalNetworks = async (
   let deploymentData: string
 
   let sequencerContainer = execSync(
-    'docker ps --filter "name=sequencer" --format "{{.Names}}"'
+    'docker ps --filter "name=l3node" --format "{{.Names}}"'
   )
     .toString()
     .trim()
 
   deploymentData = execSync(
-    `docker exec ${sequencerContainer} cat /config/deployment.json`
+    `docker exec ${sequencerContainer} cat /config/l3deployment.json`
   ).toString()
 
   const parsedDeploymentData = JSON.parse(deploymentData) as {
@@ -197,8 +207,12 @@ export const getLocalNetworks = async (
 }
 
 async function main() {
-  const { l1Network, l2Network, l1TokenBridgeCreator, retryableSender } =
-    await setupTokenBridgeInLocalEnv()
+  const {
+    l1Network,
+    l2Network,
+    l1TokenBridgeCreatorAddress: l1TokenBridgeCreator,
+    retryableSenderAddress: retryableSender,
+  } = await setupTokenBridgeInLocalEnv()
 
   const NETWORK_FILE = 'network.json'
   fs.writeFileSync(
