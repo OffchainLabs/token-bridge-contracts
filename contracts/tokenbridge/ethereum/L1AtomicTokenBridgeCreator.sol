@@ -107,7 +107,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     // WETH address on L1
     address public l1Weth;
 
-    // multicall address on L1
+    // Multicall2 address on L1, this should NOT be ArbMulticall2
     address public l1Multicall;
 
     // immutable canonical address for L2 factory
