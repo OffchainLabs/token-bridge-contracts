@@ -33,11 +33,11 @@ export const setupTokenBridgeInLocalEnv = async () => {
     l2Url: 'http://localhost:3347',
   }
   const l1Deployer = new ethers.Wallet(
-    ethers.utils.sha256(ethers.utils.toUtf8Bytes('user_l2user')),
+    ethers.utils.sha256(ethers.utils.toUtf8Bytes('user_token_bridge_deployer')),
     new ethers.providers.JsonRpcProvider(config.l1Url)
   )
   const l2Deployer = new ethers.Wallet(
-    ethers.utils.sha256(ethers.utils.toUtf8Bytes('user_l2user')),
+    ethers.utils.sha256(ethers.utils.toUtf8Bytes('user_token_bridge_deployer')),
     new ethers.providers.JsonRpcProvider(config.l2Url)
   )
   // docker-compose run scripts print-address --account l3owner | tail -n 1 | tr -d '\r\n'
