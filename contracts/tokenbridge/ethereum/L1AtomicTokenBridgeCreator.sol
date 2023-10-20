@@ -108,6 +108,9 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     // WETH address on L1
     address public l1Weth;
 
+    // Multicall address on L1
+    address public l1Multicall;
+
     // immutable canonical address for L2 factory
     // other canonical addresses (dependent on L2 template implementations) can be fetched through `getCanonicalL2***Address` functions
     address public canonicalL2FactoryAddress;
@@ -147,6 +150,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         address _l2WethTemplate,
         address _l2MulticallTemplate,
         address _l1Weth,
+        address _l1Multicall,
         uint256 _gasLimitForL2FactoryDeployment
     ) external onlyOwner {
         l1Templates = _l1Templates;
@@ -160,6 +164,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         l2MulticallTemplate = _l2MulticallTemplate;
 
         l1Weth = _l1Weth;
+        l1Multicall = _l1Multicall;
 
         gasLimitForL2FactoryDeployment = _gasLimitForL2FactoryDeployment;
 
