@@ -248,13 +248,20 @@ export const deployL1TokenBridgeCreator = async (
   verifyContracts: boolean = false
 ) => {
   /// deploy creator behind proxy
+  const l2MulticallAddressOnL1Fac = await new ArbMulticall2__factory(
+    l1Deployer
+  ).deploy()
+  const l2MulticallAddressOnL1 = await l2MulticallAddressOnL1Fac.deployed()
+
   const l1TokenBridgeCreatorProxyAdmin = await new ProxyAdmin__factory(
     l1Deployer
   ).deploy()
   await l1TokenBridgeCreatorProxyAdmin.deployed()
 
   const l1TokenBridgeCreatorLogic =
-    await new L1AtomicTokenBridgeCreator__factory(l1Deployer).deploy()
+    await new L1AtomicTokenBridgeCreator__factory(l1Deployer).deploy(
+      l2MulticallAddressOnL1.address
+    )
   await l1TokenBridgeCreatorLogic.deployed()
 
   const l1TokenBridgeCreatorProxy =
@@ -346,7 +353,6 @@ export const deployL1TokenBridgeCreator = async (
   }
 
   /// deploy L2 contracts as placeholders on L1
-
   const l2TokenBridgeFactoryOnL1 =
     await new L2AtomicTokenBridgeFactory__factory(l1Deployer).deploy()
   await l2TokenBridgeFactoryOnL1.deployed()
@@ -374,11 +380,6 @@ export const deployL1TokenBridgeCreator = async (
   const l2WethAddressOnL1 = await new AeWETH__factory(l1Deployer).deploy()
   await l2WethAddressOnL1.deployed()
 
-  const l2MulticallAddressOnL1 = await new ArbMulticall2__factory(
-    l1Deployer
-  ).deploy()
-  await l2MulticallAddressOnL1.deployed()
-
   const l1Multicall = await new Multicall2__factory(l1Deployer).deploy()
   await l1Multicall.deployed()
 
@@ -397,7 +398,6 @@ export const deployL1TokenBridgeCreator = async (
       l2CustomGatewayAddressOnL1.address,
       l2WethGatewayAddressOnL1.address,
       l2WethAddressOnL1.address,
-      l2MulticallAddressOnL1.address,
       l1WethAddress,
       l1Multicall.address,
       deployFactoryGasParams.gasLimit
@@ -509,10 +509,7 @@ export const deployL1TokenBridgeCreator = async (
       l2MulticallAddressOnL1.address
     )
 
-    await l1Verifier.verifyWithAddress(
-      'l1Multicall',
-      l1Multicall.address
-    )
+    await l1Verifier.verifyWithAddress('l1Multicall', l1Multicall.address)
 
     await new Promise(resolve => setTimeout(resolve, 2000))
     console.log('\n\n Contract verification done \n\n')
