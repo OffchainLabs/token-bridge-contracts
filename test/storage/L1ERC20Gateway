@@ -1,0 +1,10 @@
+| Name                 | Type                                                          | Slot | Offset | Bytes | Contract                                                                 |
+|----------------------|---------------------------------------------------------------|------|--------|-------|--------------------------------------------------------------------------|
+| counterpartGateway   | address                                                       | 0    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1ERC20Gateway.sol:L1ERC20Gateway |
+| router               | address                                                       | 1    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1ERC20Gateway.sol:L1ERC20Gateway |
+| inbox                | address                                                       | 2    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1ERC20Gateway.sol:L1ERC20Gateway |
+| redirectedExits      | mapping(bytes32 => struct L1ArbitrumExtendedGateway.ExitData) | 3    | 0      | 32    | contracts/tokenbridge/ethereum/gateway/L1ERC20Gateway.sol:L1ERC20Gateway |
+| cloneableProxyHash   | bytes32                                                       | 4    | 0      | 32    | contracts/tokenbridge/ethereum/gateway/L1ERC20Gateway.sol:L1ERC20Gateway |
+| l2BeaconProxyFactory | address                                                       | 5    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1ERC20Gateway.sol:L1ERC20Gateway |
+| whitelist            | address                                                       | 6    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1ERC20Gateway.sol:L1ERC20Gateway |
+| _status              | uint256                                                       | 7    | 0      | 32    | contracts/tokenbridge/ethereum/gateway/L1ERC20Gateway.sol:L1ERC20Gateway |

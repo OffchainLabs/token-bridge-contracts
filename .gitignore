@@ -15,6 +15,7 @@ forge-cache/
 
 #Storage layout test files
 test/storage/*-old.dot
+test/storage/*-old
 
 # local deployment files
 network.json
