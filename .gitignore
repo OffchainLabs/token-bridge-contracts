@@ -1,8 +1,20 @@
+.gitignore
+.env
 node_modules
+.vscode/
 
 #Hardhat files
 cache
 build
 artifacts
 deployment.json
+
+#Foundry files
+out/
+forge-cache/
+
+#Storage layout test files
 test/storage/*-old.dot
+
+# local deployment files
+network.json

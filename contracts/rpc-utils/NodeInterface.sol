@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // solhint-disable-next-line compiler-version
-pragma solidity >=0.4.21 <0.7.0;
+pragma solidity >=0.4.21 <0.9.0;
 
 /** @title Interface for providing Outbox proof data
  *  @notice This contract doesn't exist on-chain. Instead it is a virtual interface accessible at 0x00000000000000000000000000000000000000C8
