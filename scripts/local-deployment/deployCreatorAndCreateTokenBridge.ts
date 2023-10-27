@@ -32,6 +32,9 @@ export const setupTokenBridgeInLocalEnv = async () => {
     l1Url: 'http://localhost:8547',
     l2Url: 'http://localhost:3347',
   }
+
+  const rollupAddress = process.env['ROLLUP_ADDRESS'] as string
+
   const l1Deployer = new ethers.Wallet(
     ethers.utils.sha256(ethers.utils.toUtf8Bytes('user_token_bridge_deployer')),
     new ethers.providers.JsonRpcProvider(config.l1Url)
@@ -45,7 +48,8 @@ export const setupTokenBridgeInLocalEnv = async () => {
 
   const { l1Network, l2Network: coreL2Network } = await getLocalNetworks(
     config.l1Url,
-    config.l2Url
+    config.l2Url,
+    rollupAddress
   )
 
   // register - needed for retryables
@@ -129,7 +133,8 @@ export const setupTokenBridgeInLocalEnv = async () => {
 
 export const getLocalNetworks = async (
   l1Url: string,
-  l2Url: string
+  l2Url: string,
+  rollupAddress?: string
 ): Promise<{
   l1Network: L1Network
   l2Network: Omit<L2Network, 'tokenBridge'>
@@ -138,33 +143,42 @@ export const getLocalNetworks = async (
   const l2Provider = new JsonRpcProvider(l2Url)
   let deploymentData: string
 
-  let sequencerContainer = execSync(
-    'docker ps --filter "name=l3node" --format "{{.Names}}"'
-  )
-    .toString()
-    .trim()
-
-  deploymentData = execSync(
-    `docker exec ${sequencerContainer} cat /config/l3deployment.json`
-  ).toString()
-
-  const parsedDeploymentData = JSON.parse(deploymentData) as {
-    bridge: string
-    inbox: string
-    ['sequencer-inbox']: string
-    rollup: string
+  let data = {
+    bridge: '',
+    inbox: '',
+    'sequencer-inbox': '',
+    rollup: '',
   }
 
-  const rollup = RollupAdminLogic__factory.connect(
-    parsedDeploymentData.rollup,
-    l1Provider
-  )
+  if (rollupAddress === undefined) {
+    let sequencerContainer = execSync(
+      'docker ps --filter "name=l3node" --format "{{.Names}}"'
+    )
+      .toString()
+      .trim()
+
+    deploymentData = execSync(
+      `docker exec ${sequencerContainer} cat /config/l3deployment.json`
+    ).toString()
+
+    data = JSON.parse(deploymentData) as {
+      bridge: string
+      inbox: string
+      ['sequencer-inbox']: string
+      rollup: string
+    }
+  } else {
+    const rollup = RollupAdminLogic__factory.connect(rollupAddress!, l1Provider)
+    data.bridge = await rollup.bridge()
+    data.inbox = await rollup.inbox()
+    data['sequencer-inbox'] = await rollup.sequencerInbox()
+    data.rollup = rollupAddress!
+  }
+
+  const rollup = RollupAdminLogic__factory.connect(data.rollup, l1Provider)
   const confirmPeriodBlocks = await rollup.confirmPeriodBlocks()
 
-  const bridge = Bridge__factory.connect(
-    parsedDeploymentData.bridge,
-    l1Provider
-  )
+  const bridge = Bridge__factory.connect(data.bridge, l1Provider)
   const outboxAddr = await bridge.allowedOutboxList(0)
 
   const l1NetworkInfo = await l1Provider.getNetwork()
@@ -184,11 +198,11 @@ export const getLocalNetworks = async (
     chainID: l2NetworkInfo.chainId,
     confirmPeriodBlocks: confirmPeriodBlocks.toNumber(),
     ethBridge: {
-      bridge: parsedDeploymentData.bridge,
-      inbox: parsedDeploymentData.inbox,
+      bridge: data.bridge,
+      inbox: data.inbox,
       outbox: outboxAddr,
-      rollup: parsedDeploymentData.rollup,
-      sequencerInbox: parsedDeploymentData['sequencer-inbox'],
+      rollup: data.rollup,
+      sequencerInbox: data['sequencer-inbox'],
     },
     explorerUrl: '',
     isArbitrum: true,
