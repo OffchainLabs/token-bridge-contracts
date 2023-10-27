@@ -1,0 +1,9 @@
+| Name               | Type                        | Slot | Offset | Bytes | Contract                                                                   |
+|--------------------|-----------------------------|------|--------|-------|----------------------------------------------------------------------------|
+| whitelist          | address                     | 0    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1GatewayRouter.sol:L1GatewayRouter |
+| counterpartGateway | address                     | 1    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1GatewayRouter.sol:L1GatewayRouter |
+| router             | address                     | 2    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1GatewayRouter.sol:L1GatewayRouter |
+| l1TokenToGateway   | mapping(address => address) | 3    | 0      | 32    | contracts/tokenbridge/ethereum/gateway/L1GatewayRouter.sol:L1GatewayRouter |
+| defaultGateway     | address                     | 4    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1GatewayRouter.sol:L1GatewayRouter |
+| owner              | address                     | 5    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1GatewayRouter.sol:L1GatewayRouter |
+| inbox              | address                     | 6    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1GatewayRouter.sol:L1GatewayRouter |

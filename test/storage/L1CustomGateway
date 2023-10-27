@@ -1,0 +1,10 @@
+| Name               | Type                                                          | Slot | Offset | Bytes | Contract                                                                   |
+|--------------------|---------------------------------------------------------------|------|--------|-------|----------------------------------------------------------------------------|
+| counterpartGateway | address                                                       | 0    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1CustomGateway.sol:L1CustomGateway |
+| router             | address                                                       | 1    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1CustomGateway.sol:L1CustomGateway |
+| inbox              | address                                                       | 2    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1CustomGateway.sol:L1CustomGateway |
+| redirectedExits    | mapping(bytes32 => struct L1ArbitrumExtendedGateway.ExitData) | 3    | 0      | 32    | contracts/tokenbridge/ethereum/gateway/L1CustomGateway.sol:L1CustomGateway |
+| l1ToL2Token        | mapping(address => address)                                   | 4    | 0      | 32    | contracts/tokenbridge/ethereum/gateway/L1CustomGateway.sol:L1CustomGateway |
+| owner              | address                                                       | 5    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1CustomGateway.sol:L1CustomGateway |
+| whitelist          | address                                                       | 6    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1CustomGateway.sol:L1CustomGateway |
+| _status            | uint256                                                       | 7    | 0      | 32    | contracts/tokenbridge/ethereum/gateway/L1CustomGateway.sol:L1CustomGateway |

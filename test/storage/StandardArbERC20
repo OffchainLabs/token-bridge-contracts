@@ -1,0 +1,22 @@
+| Name                             | Type                                                   | Slot | Offset | Bytes | Contract                                                             |
+|----------------------------------|--------------------------------------------------------|------|--------|-------|----------------------------------------------------------------------|
+| _initialized                     | uint8                                                  | 0    | 0      | 1     | contracts/tokenbridge/arbitrum/StandardArbERC20.sol:StandardArbERC20 |
+| _initializing                    | bool                                                   | 0    | 1      | 1     | contracts/tokenbridge/arbitrum/StandardArbERC20.sol:StandardArbERC20 |
+| __gap                            | uint256[50]                                            | 1    | 0      | 1600  | contracts/tokenbridge/arbitrum/StandardArbERC20.sol:StandardArbERC20 |
+| _balances                        | mapping(address => uint256)                            | 51   | 0      | 32    | contracts/tokenbridge/arbitrum/StandardArbERC20.sol:StandardArbERC20 |
+| _allowances                      | mapping(address => mapping(address => uint256))        | 52   | 0      | 32    | contracts/tokenbridge/arbitrum/StandardArbERC20.sol:StandardArbERC20 |
+| _totalSupply                     | uint256                                                | 53   | 0      | 32    | contracts/tokenbridge/arbitrum/StandardArbERC20.sol:StandardArbERC20 |
+| _name                            | string                                                 | 54   | 0      | 32    | contracts/tokenbridge/arbitrum/StandardArbERC20.sol:StandardArbERC20 |
+| _symbol                          | string                                                 | 55   | 0      | 32    | contracts/tokenbridge/arbitrum/StandardArbERC20.sol:StandardArbERC20 |
+| _decimals                        | uint8                                                  | 56   | 0      | 1     | contracts/tokenbridge/arbitrum/StandardArbERC20.sol:StandardArbERC20 |
+| __gap                            | uint256[44]                                            | 57   | 0      | 1408  | contracts/tokenbridge/arbitrum/StandardArbERC20.sol:StandardArbERC20 |
+| _HASHED_NAME                     | bytes32                                                | 101  | 0      | 32    | contracts/tokenbridge/arbitrum/StandardArbERC20.sol:StandardArbERC20 |
+| _HASHED_VERSION                  | bytes32                                                | 102  | 0      | 32    | contracts/tokenbridge/arbitrum/StandardArbERC20.sol:StandardArbERC20 |
+| __gap                            | uint256[50]                                            | 103  | 0      | 1600  | contracts/tokenbridge/arbitrum/StandardArbERC20.sol:StandardArbERC20 |
+| _nonces                          | mapping(address => struct CountersUpgradeable.Counter) | 153  | 0      | 32    | contracts/tokenbridge/arbitrum/StandardArbERC20.sol:StandardArbERC20 |
+| _PERMIT_TYPEHASH_DEPRECATED_SLOT | bytes32                                                | 154  | 0      | 32    | contracts/tokenbridge/arbitrum/StandardArbERC20.sol:StandardArbERC20 |
+| __gap                            | uint256[49]                                            | 155  | 0      | 1568  | contracts/tokenbridge/arbitrum/StandardArbERC20.sol:StandardArbERC20 |
+| l2Gateway                        | address                                                | 204  | 0      | 20    | contracts/tokenbridge/arbitrum/StandardArbERC20.sol:StandardArbERC20 |
+| l1Address                        | address                                                | 205  | 0      | 20    | contracts/tokenbridge/arbitrum/StandardArbERC20.sol:StandardArbERC20 |
+| isMasterCopy                     | bool                                                   | 205  | 20     | 1     | contracts/tokenbridge/arbitrum/StandardArbERC20.sol:StandardArbERC20 |
+| availableGetters                 | struct StandardArbERC20.ERC20Getters                   | 206  | 0      | 32    | contracts/tokenbridge/arbitrum/StandardArbERC20.sol:StandardArbERC20 |

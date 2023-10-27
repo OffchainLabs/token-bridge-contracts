@@ -74,6 +74,11 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+
       - name: Setup node/yarn
         uses: actions/setup-node@v3
         with:
@@ -85,7 +90,7 @@ jobs:
         run: yarn
 
       - name: Build
-        run: yarn build
+        run: forge build
 
       - name: Test Storage Layouts
         run: yarn run test:storage

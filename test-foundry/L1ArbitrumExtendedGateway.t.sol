@@ -186,16 +186,18 @@ abstract contract L1ArbitrumExtendedGatewayTest is Test {
         );
     }
 
-    function test_supportsInterface(bytes4 iface) public {
-        bool expected = false;
-        if (
-            iface == type(IERC165).interfaceId ||
-            iface == IL1ArbitrumGateway.outboundTransferCustomRefund.selector
-        ) {
-            expected = true;
-        }
+    function test_supportsInterface() public {
+        bytes4 iface = type(IERC165).interfaceId;
+        assertEq(l1Gateway.supportsInterface(iface), true, "Interface should be supported");
 
-        assertEq(l1Gateway.supportsInterface(iface), expected, "Interface shouldn't be supported");
+        iface = IL1ArbitrumGateway.outboundTransferCustomRefund.selector;
+        assertEq(l1Gateway.supportsInterface(iface), true, "Interface should be supported");
+
+        iface = bytes4(0);
+        assertEq(l1Gateway.supportsInterface(iface), false, "Interface shouldn't be supported");
+
+        iface = IL1ArbitrumGateway.inbox.selector;
+        assertEq(l1Gateway.supportsInterface(iface), false, "Interface shouldn't be supported");
     }
 
     function test_transferExitAndCall_EmptyData_NotRedirected(

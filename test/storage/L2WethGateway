@@ -1,0 +1,7 @@
+| Name               | Type    | Slot | Offset | Bytes | Contract                                                               |
+|--------------------|---------|------|--------|-------|------------------------------------------------------------------------|
+| counterpartGateway | address | 0    | 0      | 20    | contracts/tokenbridge/arbitrum/gateway/L2WethGateway.sol:L2WethGateway |
+| router             | address | 1    | 0      | 20    | contracts/tokenbridge/arbitrum/gateway/L2WethGateway.sol:L2WethGateway |
+| exitNum            | uint256 | 2    | 0      | 32    | contracts/tokenbridge/arbitrum/gateway/L2WethGateway.sol:L2WethGateway |
+| l1Weth             | address | 3    | 0      | 20    | contracts/tokenbridge/arbitrum/gateway/L2WethGateway.sol:L2WethGateway |
+| l2Weth             | address | 4    | 0      | 20    | contracts/tokenbridge/arbitrum/gateway/L2WethGateway.sol:L2WethGateway |

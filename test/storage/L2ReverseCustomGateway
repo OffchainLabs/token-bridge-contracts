@@ -1,0 +1,6 @@
+| Name               | Type                        | Slot | Offset | Bytes | Contract                                                                                 |
+|--------------------|-----------------------------|------|--------|-------|------------------------------------------------------------------------------------------|
+| counterpartGateway | address                     | 0    | 0      | 20    | contracts/tokenbridge/arbitrum/gateway/L2ReverseCustomGateway.sol:L2ReverseCustomGateway |
+| router             | address                     | 1    | 0      | 20    | contracts/tokenbridge/arbitrum/gateway/L2ReverseCustomGateway.sol:L2ReverseCustomGateway |
+| exitNum            | uint256                     | 2    | 0      | 32    | contracts/tokenbridge/arbitrum/gateway/L2ReverseCustomGateway.sol:L2ReverseCustomGateway |
+| l1ToL2Token        | mapping(address => address) | 3    | 0      | 32    | contracts/tokenbridge/arbitrum/gateway/L2ReverseCustomGateway.sol:L2ReverseCustomGateway |
