@@ -36,16 +36,28 @@ export const setupTokenBridgeInLocalEnv = async () => {
     childRpc = LOCALHOST_L3_RPC
   }
 
+  // set deployer keys either from env vars or use defaults
+  let parentDeployerKey = process.env['PARENT_KEY'] as string
+  let childDeployerKey = process.env['CHILD_KEY'] as string
+  if (parentDeployerKey === undefined || childDeployerKey === undefined) {
+    parentDeployerKey = ethers.utils.sha256(
+      ethers.utils.toUtf8Bytes('user_token_bridge_deployer')
+    )
+    childDeployerKey = ethers.utils.sha256(
+      ethers.utils.toUtf8Bytes('user_token_bridge_deployer')
+    )
+  }
+
   // if no ROLLUP_ADDRESS is defined, it will be pulled from local container
   const rollupAddress = process.env['ROLLUP_ADDRESS'] as string
 
-  // use test-node.bash funded account
+  // create deployer wallets
   const parentDeployer = new ethers.Wallet(
-    ethers.utils.sha256(ethers.utils.toUtf8Bytes('user_token_bridge_deployer')),
+    parentDeployerKey,
     new ethers.providers.JsonRpcProvider(parentRpc)
   )
   const childDeployer = new ethers.Wallet(
-    ethers.utils.sha256(ethers.utils.toUtf8Bytes('user_token_bridge_deployer')),
+    childDeployerKey,
     new ethers.providers.JsonRpcProvider(childRpc)
   )
   // docker-compose run scripts print-address --account l3owner | tail -n 1 | tr -d '\r\n'
