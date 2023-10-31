@@ -13,6 +13,7 @@ import { l2Networks } from '@arbitrum/sdk/dist/lib/dataEntities/networks'
 
 const LOCALHOST_L2_RPC = 'http://localhost:8547'
 const LOCALHOST_L3_RPC = 'http://localhost:3347'
+const LOCALHOST_L3_OWNER = '0x863c904166E801527125D8672442D736194A3362'
 
 /**
  * Steps:
@@ -48,6 +49,12 @@ export const setupTokenBridgeInLocalEnv = async () => {
     )
   }
 
+  // set rollup owner either from env vars or use defaults
+  let rollupOwner = process.env['ROLLUP_OWNER'] as string
+  if (rollupOwner === undefined) {
+    rollupOwner = LOCALHOST_L3_OWNER
+  }
+
   // if no ROLLUP_ADDRESS is defined, it will be pulled from local container
   const rollupAddress = process.env['ROLLUP_ADDRESS'] as string
 
@@ -60,8 +67,6 @@ export const setupTokenBridgeInLocalEnv = async () => {
     childDeployerKey,
     new ethers.providers.JsonRpcProvider(childRpc)
   )
-  // docker-compose run scripts print-address --account l3owner | tail -n 1 | tr -d '\r\n'
-  const orbitOwner = '0x863c904166E801527125D8672442D736194A3362'
 
   const { l1Network, l2Network: coreL2Network } = await getLocalNetworks(
     parentRpc,
@@ -117,7 +122,7 @@ export const setupTokenBridgeInLocalEnv = async () => {
     childDeployer.provider!,
     l1TokenBridgeCreator,
     coreL2Network.ethBridge.rollup,
-    orbitOwner
+    rollupOwner
   )
 
   const l2Network: L2Network = {
