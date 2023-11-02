@@ -100,7 +100,9 @@ export const createTokenBridge = async (
     multicall: ArbMulticall2__factory.bytecode,
   }
 
-  console.log('l2FactoryTemplate.estimateGas.deployL2Contracts')
+  console.log('l2FactoryTemplate.estimateGas.deployL2Contracts()')
+  console.log('l2FactoryTemplate:', l2FactoryTemplate.address)
+  console.log('l2Code:', l2Code)
   const gasEstimateToDeployContracts =
     await l2FactoryTemplate.estimateGas.deployL2Contracts(
       l2Code,
