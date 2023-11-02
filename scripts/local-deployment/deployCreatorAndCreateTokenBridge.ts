@@ -247,6 +247,14 @@ export const getLocalNetworks = async (
 }
 
 async function main() {
+  console.log('Setting up token bridge in local env')
+  console.log('ROLLUP_OWNER', process.env['ROLLUP_OWNER'] as string)
+  console.log('ROLLUP_ADDRESS', process.env['ROLLUP_ADDRESS'] as string)
+  console.log('PARENT_KEY', process.env['PARENT_KEY'] as string)
+  console.log('PARENT_RPC', process.env['PARENT_RPC'] as string)
+  console.log('CHILD_KEY', process.env['CHILD_KEY'] as string)
+  console.log('CHILD_RPC', process.env['CHILD_RPC'] as string)
+
   const {
     l1Network,
     l2Network,
