@@ -60,7 +60,14 @@ export const createTokenBridge = async (
   rollupAddress: string,
   rollupOwnerAddress: string
 ) => {
+  console.log('l1Signer', await l1Signer.getAddress())
+  console.log('l2Provider', (await l2Provider.getNetwork()).chainId)
+  console.log('l1TokenBridgeCreator', l1TokenBridgeCreator.address)
+  console.log('rollupAddress', rollupAddress)
+  console.log('rollupOwnerAddress', rollupOwnerAddress)
+
   const gasPrice = await l2Provider.getGasPrice()
+  console.log('gasPrice', gasPrice.toString())
 
   //// run retryable estimate for deploying L2 factory
   const deployFactoryGasParams = await getEstimateForDeployingFactory(
@@ -70,7 +77,12 @@ export const createTokenBridge = async (
 
   const maxGasForFactory =
     await l1TokenBridgeCreator.gasLimitForL2FactoryDeployment()
+  console.log('maxGasForFactory', maxGasForFactory.toString())
   const maxSubmissionCostForFactory = deployFactoryGasParams.maxSubmissionCost
+  console.log(
+    'maxSubmissionCostForFactory',
+    maxSubmissionCostForFactory.toString()
+  )
 
   //// run retryable estimate for deploying L2 contracts
   //// we do this estimate using L2 factory template on L1 because on L2 factory does not yet exist
@@ -87,6 +99,8 @@ export const createTokenBridge = async (
     upgradeExecutor: UpgradeExecutorBytecode,
     multicall: ArbMulticall2__factory.bytecode,
   }
+
+  console.log('l2FactoryTemplate.estimateGas.deployL2Contracts')
   const gasEstimateToDeployContracts =
     await l2FactoryTemplate.estimateGas.deployL2Contracts(
       l2Code,
@@ -99,6 +113,7 @@ export const createTokenBridge = async (
       ethers.Wallet.createRandom().address,
       ethers.Wallet.createRandom().address
     )
+  console.log('gasEstimateToDeployContracts', gasEstimateToDeployContracts)
   const maxGasForContracts = gasEstimateToDeployContracts.mul(2)
   const maxSubmissionCostForContracts =
     deployFactoryGasParams.maxSubmissionCost.mul(2)
@@ -114,6 +129,8 @@ export const createTokenBridge = async (
     l1Signer.provider!
   ).inbox()
 
+  console.log('inbox', inbox)
+
   // if fee token is used approve the fee
   const feeToken = await _getFeeToken(inbox, l1Signer.provider!)
   if (feeToken != ethers.constants.AddressZero) {
@@ -127,6 +144,8 @@ export const createTokenBridge = async (
   }
 
   /// do it - create token bridge
+  console.log('l1TokenBridgeCreator.createTokenBridge')
+
   const receipt = await (
     await l1TokenBridgeCreator.createTokenBridge(
       inbox,
@@ -529,9 +548,15 @@ export const getEstimateForDeployingFactory = async (
   l1Deployer: Signer,
   l2Provider: ethers.providers.Provider
 ) => {
+  console.log('getEstimateForDeployingFactory')
+  console.log('l1Deployer', await l1Deployer.getAddress())
+  console.log('l2Provider', (await l2Provider.getNetwork()).chainId)
+
   //// run retryable estimate for deploying L2 factory
   const l1DeployerAddress = await l1Deployer.getAddress()
   const l1ToL2MsgGasEstimate = new L1ToL2MessageGasEstimator(l2Provider)
+
+  console.log('l1ToL2MsgGasEstimate.estimateAll')
   const deployFactoryGasParams = await l1ToL2MsgGasEstimate.estimateAll(
     {
       from: ethers.Wallet.createRandom().address,
@@ -544,6 +569,7 @@ export const getEstimateForDeployingFactory = async (
     await getBaseFee(l1Deployer.provider!),
     l1Deployer.provider!
   )
+  console.log('deployFactoryGasParams', deployFactoryGasParams)
 
   return deployFactoryGasParams
 }
