@@ -51,7 +51,7 @@ export const setupTokenBridgeInLocalEnv = async () => {
 
   // set rollup owner either from env vars or use defaults
   let rollupOwner = process.env['ROLLUP_OWNER'] as string
-  if (rollupOwner === undefined) {
+  if (rollupOwner === undefined || rollupOwner === '') {
     rollupOwner = LOCALHOST_L3_OWNER
   }
 

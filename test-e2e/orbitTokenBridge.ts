@@ -9,8 +9,7 @@ import {
 import { getBaseFee } from '@arbitrum/sdk/dist/lib/utils/lib'
 import { JsonRpcProvider } from '@ethersproject/providers'
 import { expect } from 'chai'
-// import { ethers, Wallet } from '@arbitrum/sdk/node_modules/ethers'
-import { setupTokenBridgeInLocalEnv } from '../scripts/local-deployment/deployCreatorAndCreateTokenBridge'
+import { setupTokenBridgeInLocalEnv } from '../scripts/local-deployment/localDeploymentLib'
 import {
   ERC20,
   ERC20__factory,
@@ -26,12 +25,12 @@ import { defaultAbiCoder } from 'ethers/lib/utils'
 import { BigNumber, Wallet, ethers } from 'ethers'
 
 const config = {
-  arbUrl: 'http://localhost:8547',
-  ethUrl: 'http://localhost:8545',
+  parentUrl: 'http://localhost:8547',
+  childUrl: 'http://localhost:3347',
 }
 
-let l1Provider: JsonRpcProvider
-let l2Provider: JsonRpcProvider
+let parentProvider: JsonRpcProvider
+let childProvider: JsonRpcProvider
 
 let deployerL1Wallet: Wallet
 let deployerL2Wallet: Wallet
@@ -49,16 +48,15 @@ let nativeToken: ERC20
 describe('orbitTokenBridge', () => {
   // configure orbit token bridge
   before(async function () {
-    l1Provider = new ethers.providers.JsonRpcProvider(config.ethUrl)
-    l2Provider = new ethers.providers.JsonRpcProvider(config.arbUrl)
+    parentProvider = new ethers.providers.JsonRpcProvider(config.parentUrl)
+    childProvider = new ethers.providers.JsonRpcProvider(config.childUrl)
 
     const deployerKey = ethers.utils.sha256(
-      ethers.utils.toUtf8Bytes('user_l1user')
+      ethers.utils.toUtf8Bytes('user_token_bridge_deployer')
     )
-    deployerL1Wallet = new ethers.Wallet(deployerKey, l1Provider)
-    deployerL2Wallet = new ethers.Wallet(deployerKey, l2Provider)
+    deployerL1Wallet = new ethers.Wallet(deployerKey, parentProvider)
+    deployerL2Wallet = new ethers.Wallet(deployerKey, childProvider)
 
-    console.log('setupOrbitTokenBridge')
     const { l1Network, l2Network } = await setupTokenBridgeInLocalEnv()
 
     _l1Network = l1Network
@@ -66,8 +64,8 @@ describe('orbitTokenBridge', () => {
 
     // create user wallets and fund it
     const userKey = ethers.utils.sha256(ethers.utils.toUtf8Bytes('user_wallet'))
-    userL1Wallet = new ethers.Wallet(userKey, l1Provider)
-    userL2Wallet = new ethers.Wallet(userKey, l2Provider)
+    userL1Wallet = new ethers.Wallet(userKey, parentProvider)
+    userL2Wallet = new ethers.Wallet(userKey, childProvider)
     await (
       await deployerL1Wallet.sendTransaction({
         to: userL1Wallet.address,
@@ -80,7 +78,7 @@ describe('orbitTokenBridge', () => {
     // get router as entry point
     const l1Router = L1OrbitGatewayRouter__factory.connect(
       _l2Network.tokenBridge.l1GatewayRouter,
-      l1Provider
+      parentProvider
     )
 
     expect((await l1Router.defaultGateway()).toLowerCase()).to.be.eq(
@@ -140,7 +138,7 @@ describe('orbitTokenBridge', () => {
       callhook
     )
 
-    const l1ToL2MessageGasEstimate = new L1ToL2MessageGasEstimator(l2Provider)
+    const l1ToL2MessageGasEstimate = new L1ToL2MessageGasEstimator(childProvider)
     const retryableParams = await l1ToL2MessageGasEstimate.estimateAll(
       {
         from: userL1Wallet.address,
@@ -150,8 +148,8 @@ describe('orbitTokenBridge', () => {
         callValueRefundAddress: userL1Wallet.address,
         data: outboundCalldata,
       },
-      await getBaseFee(l1Provider),
-      l1Provider
+      await getBaseFee(parentProvider),
+      parentProvider
     )
 
     const gasLimit = retryableParams.gasLimit.mul(40)
@@ -193,7 +191,7 @@ describe('orbitTokenBridge', () => {
     ///// checks
 
     const l2TokenAddress = await router.calculateL2TokenAddress(token.address)
-    l2Token = ERC20__factory.connect(l2TokenAddress, l2Provider)
+    l2Token = ERC20__factory.connect(l2TokenAddress, childProvider)
     expect(await l2Token.balanceOf(userL2Wallet.address)).to.be.eq(
       depositAmount
     )
@@ -257,10 +255,10 @@ describe('orbitTokenBridge', () => {
     const messages = await l2Receipt.getL2ToL1Messages(userL1Wallet)
     const l2ToL1Msg = messages[0]
     const timeToWaitMs = 1000
-    await l2ToL1Msg.waitUntilReadyToExecute(l2Provider, timeToWaitMs)
+    await l2ToL1Msg.waitUntilReadyToExecute(childProvider, timeToWaitMs)
 
     // execute on L1
-    await (await l2ToL1Msg.execute(l2Provider)).wait()
+    await (await l2ToL1Msg.execute(childProvider)).wait()
 
     //// checks
     const userL1TokenBalanceAfter = await token.balanceOf(userL1Wallet.address)
@@ -324,13 +322,13 @@ async function depositNativeToL2() {
   const depositRec = await L1TransactionReceipt.monkeyPatchEthDepositWait(
     depositTx
   ).wait()
-  await depositRec.waitForL2(l2Provider)
+  await depositRec.waitForL2(childProvider)
 }
 
 async function waitOnL2Msg(tx: ethers.ContractTransaction) {
   const retryableReceipt = await tx.wait()
   const l1TxReceipt = new L1TransactionReceipt(retryableReceipt)
-  const messages = await l1TxReceipt.getL1ToL2Messages(l2Provider)
+  const messages = await l1TxReceipt.getL1ToL2Messages(childProvider)
 
   // 1 msg expected
   const messageResult = await messages[0].waitForStatus()
@@ -338,15 +336,15 @@ async function waitOnL2Msg(tx: ethers.ContractTransaction) {
   expect(status).to.be.eq(L1ToL2MessageStatus.REDEEMED)
 }
 
-const getFeeToken = async (inbox: string, l1Provider: any) => {
-  const bridge = await IInbox__factory.connect(inbox, l1Provider).bridge()
+const getFeeToken = async (inbox: string, parentProvider: any) => {
+  const bridge = await IInbox__factory.connect(inbox, parentProvider).bridge()
 
   let feeToken = ethers.constants.AddressZero
 
   try {
     feeToken = await IERC20Bridge__factory.connect(
       bridge,
-      l1Provider
+      parentProvider
     ).nativeToken()
   } catch {}
 
