@@ -4,14 +4,8 @@ pragma solidity ^0.8.0;
 
 import {GatewayRouterTest} from "./GatewayRouter.t.sol";
 import {L2GatewayRouter} from "contracts/tokenbridge/arbitrum/gateway/L2GatewayRouter.sol";
-import {L1GatewayRouter} from "contracts/tokenbridge/ethereum/gateway/L1GatewayRouter.sol";
-import {L1ERC20Gateway} from "contracts/tokenbridge/ethereum/gateway/L1ERC20Gateway.sol";
-import {L1CustomGateway} from "contracts/tokenbridge/ethereum/gateway/L1CustomGateway.sol";
-import {InboxMock} from "contracts/tokenbridge/test/InboxMock.sol";
-import {IERC165} from "contracts/tokenbridge/libraries/IERC165.sol";
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {ERC20PresetMinterPauser} from
-    "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetMinterPauser.sol";
+import {L2ERC20Gateway} from "contracts/tokenbridge/arbitrum/gateway/L2ERC20Gateway.sol";
+import {AddressAliasHelper} from "contracts/tokenbridge/libraries/AddressAliasHelper.sol";
 
 contract L2GatewayRouterTest is GatewayRouterTest {
     L2GatewayRouter public l2Router;
@@ -22,8 +16,8 @@ contract L2GatewayRouterTest is GatewayRouterTest {
     address public inbox;
 
     function setUp() public virtual {
-        inbox = address(new InboxMock());
-        defaultGateway = address(new L1ERC20Gateway());
+        inbox = makeAddr("Inbox");
+        defaultGateway = address(new L2ERC20Gateway());
 
         router = new L2GatewayRouter();
         l2Router = L2GatewayRouter(address(router));
@@ -34,5 +28,26 @@ contract L2GatewayRouterTest is GatewayRouterTest {
 
         // vm.deal(owner, 100 ether);
         // vm.deal(user, 100 ether);
+    }
+
+    /* solhint-disable func-name-mixedcase */
+    function test_initialize() public {
+        L2GatewayRouter router = new L2GatewayRouter();
+
+        router.initialize(counterpartGateway, defaultGateway);
+
+        assertEq(router.router(), address(0), "Invalid router");
+        assertEq(router.counterpartGateway(), counterpartGateway, "Invalid counterpartGateway");
+        assertEq(router.defaultGateway(), defaultGateway, "Invalid defaultGateway");
+    }
+
+    function test_setGateway() public virtual {
+        address[] memory tokens = new address[](1);
+        tokens[0] = makeAddr("l1Token");
+        address[] memory gateways = new address[](1);
+        gateways[0] = makeAddr("gateway");
+
+        vm.prank(AddressAliasHelper.applyL1ToL2Alias(counterpartGateway));
+        l2Router.setGateway(tokens, gateways);
     }
 }
