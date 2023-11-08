@@ -4,19 +4,42 @@ pragma solidity ^0.8.0;
 
 import "forge-std/Test.sol";
 import {L2ERC20Gateway} from "contracts/tokenbridge/arbitrum/gateway/L2ERC20Gateway.sol";
+import {StandardArbERC20} from "contracts/tokenbridge/arbitrum/StandardArbERC20.sol";
+import {
+    BeaconProxyFactory,
+    ClonableBeaconProxy
+} from "contracts/tokenbridge/libraries/ClonableBeaconProxy.sol";
+import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
 
 contract L2ERC20GatewayTest is Test {
-    address public l2Gateway;
+    L2ERC20Gateway public l2Gateway;
 
-    address public l2BeaconProxyFactory = makeAddr("l2BeaconProxyFactory");
+    address public l2BeaconProxyFactory;
     address public router = makeAddr("router");
     address public l1Counterpart = makeAddr("l1Counterpart");
 
     function setUp() public virtual {
-        l2Gateway = address(new L2ERC20Gateway());
+        l2Gateway = new L2ERC20Gateway();
+
+        // create beacon
+        StandardArbERC20 standardArbERC20 = new StandardArbERC20();
+        UpgradeableBeacon beacon = new UpgradeableBeacon(address(standardArbERC20));
+        l2BeaconProxyFactory = address(new BeaconProxyFactory());
+        BeaconProxyFactory(l2BeaconProxyFactory).initialize(address(beacon));
+
+        L2ERC20Gateway(l2Gateway).initialize(l1Counterpart, router, l2BeaconProxyFactory);
     }
 
     /* solhint-disable func-name-mixedcase */
+
+    function test_cloneableProxyHash() public {
+        assertEq(
+            l2Gateway.cloneableProxyHash(),
+            keccak256(type(ClonableBeaconProxy).creationCode),
+            "Invalid proxy hash"
+        );
+    }
+
     function test_initialize() public {
         L2ERC20Gateway gateway = new L2ERC20Gateway();
         L2ERC20Gateway(gateway).initialize(l1Counterpart, router, l2BeaconProxyFactory);
