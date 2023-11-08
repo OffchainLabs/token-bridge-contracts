@@ -22,12 +22,6 @@ contract L2GatewayRouterTest is GatewayRouterTest {
         router = new L2GatewayRouter();
         l2Router = L2GatewayRouter(address(router));
         l2Router.initialize(counterpartGateway, defaultGateway);
-
-        // maxSubmissionCost = 50000;
-        // retryableCost = maxSubmissionCost + maxGas * gasPriceBid;
-
-        // vm.deal(owner, 100 ether);
-        // vm.deal(user, 100 ether);
     }
 
     /* solhint-disable func-name-mixedcase */
@@ -41,13 +35,59 @@ contract L2GatewayRouterTest is GatewayRouterTest {
         assertEq(router.defaultGateway(), defaultGateway, "Invalid defaultGateway");
     }
 
-    function test_setGateway() public virtual {
+    function test_outboundTransfer() public {}
+
+    function test_setDefaultGateway() public {
+        address newDefaultGateway = makeAddr("newDefaultGateway");
+
+        vm.expectEmit(true, true, true, true);
+        emit DefaultGatewayUpdated(newDefaultGateway);
+
+        vm.prank(AddressAliasHelper.applyL1ToL2Alias(counterpartGateway));
+        l2Router.setDefaultGateway(newDefaultGateway);
+
+        assertEq(l2Router.defaultGateway(), newDefaultGateway, "New default gateway not set");
+    }
+
+    function test_setDefaultGateway_revert_OnlyCounterpart() public {
+        vm.expectRevert("ONLY_COUNTERPART_GATEWAY");
+        l2Router.setDefaultGateway(address(2));
+    }
+
+    function test_setGateway() public {
         address[] memory tokens = new address[](1);
         tokens[0] = makeAddr("l1Token");
         address[] memory gateways = new address[](1);
         gateways[0] = makeAddr("gateway");
 
+        vm.expectEmit(true, true, true, true);
+        emit GatewaySet(tokens[0], gateways[0]);
+
         vm.prank(AddressAliasHelper.applyL1ToL2Alias(counterpartGateway));
         l2Router.setGateway(tokens, gateways);
+
+        assertEq(l2Router.l1TokenToGateway(tokens[0]), gateways[0], "Gateway[0] not set");
     }
+
+    function test_setGateway_revert_OnlyCounterpart() public {
+        vm.expectRevert("ONLY_COUNTERPART_GATEWAY");
+        l2Router.setGateway(new address[](1), new address[](1));
+    }
+
+    function test_setGateway_revert_WrongLengths() public {
+        vm.expectRevert();
+        vm.prank(AddressAliasHelper.applyL1ToL2Alias(counterpartGateway));
+        l2Router.setGateway(new address[](1), new address[](2));
+    }
+
+    ////
+    // Event declarations
+    ////
+
+    event TransferRouted(
+        address indexed token, address indexed _userFrom, address indexed _userTo, address gateway
+    );
+
+    event GatewaySet(address indexed l1Token, address indexed gateway);
+    event DefaultGatewayUpdated(address newDefaultGateway);
 }
