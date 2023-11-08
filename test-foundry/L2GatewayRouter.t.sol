@@ -15,14 +15,11 @@ contract L2GatewayRouterTest is GatewayRouterTest {
     L2GatewayRouter public l2Router;
     ArbSysMock public arbSysMock = new ArbSysMock();
 
-    address public owner = makeAddr("owner");
     address public user = makeAddr("user");
     address public counterpartGateway = makeAddr("counterpartGateway");
     address public beaconProxyFactory;
-    address public inbox;
 
     function setUp() public virtual {
-        inbox = makeAddr("Inbox");
         defaultGateway = address(new L2ERC20Gateway());
 
         // create beacon
