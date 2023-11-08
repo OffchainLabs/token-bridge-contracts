@@ -6,22 +6,38 @@ import {GatewayRouterTest} from "./GatewayRouter.t.sol";
 import {L2GatewayRouter} from "contracts/tokenbridge/arbitrum/gateway/L2GatewayRouter.sol";
 import {L2ERC20Gateway} from "contracts/tokenbridge/arbitrum/gateway/L2ERC20Gateway.sol";
 import {AddressAliasHelper} from "contracts/tokenbridge/libraries/AddressAliasHelper.sol";
+import {StandardArbERC20} from "contracts/tokenbridge/arbitrum/StandardArbERC20.sol";
+import {BeaconProxyFactory} from "contracts/tokenbridge/libraries/ClonableBeaconProxy.sol";
+import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
+import {ArbSysMock} from "contracts/tokenbridge/test/ArbSysMock.sol";
 
 contract L2GatewayRouterTest is GatewayRouterTest {
     L2GatewayRouter public l2Router;
+    ArbSysMock public arbSysMock = new ArbSysMock();
 
     address public owner = makeAddr("owner");
     address public user = makeAddr("user");
     address public counterpartGateway = makeAddr("counterpartGateway");
+    address public beaconProxyFactory;
     address public inbox;
 
     function setUp() public virtual {
         inbox = makeAddr("Inbox");
         defaultGateway = address(new L2ERC20Gateway());
 
+        // create beacon
+        StandardArbERC20 standardArbERC20 = new StandardArbERC20();
+        UpgradeableBeacon beacon = new UpgradeableBeacon(address(standardArbERC20));
+        beaconProxyFactory = address(new BeaconProxyFactory());
+        BeaconProxyFactory(beaconProxyFactory).initialize(address(beacon));
+
         router = new L2GatewayRouter();
         l2Router = L2GatewayRouter(address(router));
         l2Router.initialize(counterpartGateway, defaultGateway);
+
+        L2ERC20Gateway(defaultGateway).initialize(
+            counterpartGateway, address(l2Router), beaconProxyFactory
+        );
     }
 
     /* solhint-disable func-name-mixedcase */
@@ -35,7 +51,38 @@ contract L2GatewayRouterTest is GatewayRouterTest {
         assertEq(router.defaultGateway(), defaultGateway, "Invalid defaultGateway");
     }
 
-    function test_outboundTransfer() public {}
+    function test_outboundTransfer() public {
+        address l1Token = makeAddr("l1Token");
+
+        // create and init standard l2Token
+        bytes32 salt = keccak256(abi.encode(l1Token));
+        vm.startPrank(defaultGateway);
+        address l2Token = BeaconProxyFactory(beaconProxyFactory).createProxy(salt);
+        StandardArbERC20(l2Token).bridgeInit(
+            l1Token,
+            abi.encode(
+                abi.encode(bytes("Name")), abi.encode(bytes("Symbol")), abi.encode(uint256(18))
+            )
+        );
+        vm.stopPrank();
+
+        // mint token to user
+        deal(l2Token, user, 100 ether);
+
+        // withdrawal params
+        address to = makeAddr("to");
+        uint256 amount = 2400;
+        bytes memory data = new bytes(0);
+
+        // event
+        vm.expectEmit(true, true, true, true);
+        emit TransferRouted(l1Token, user, to, defaultGateway);
+
+        // withdraw
+        vm.etch(0x0000000000000000000000000000000000000064, address(arbSysMock).code);
+        vm.prank(user);
+        l2Router.outboundTransfer(l1Token, to, amount, data);
+    }
 
     function test_setDefaultGateway() public {
         address newDefaultGateway = makeAddr("newDefaultGateway");
