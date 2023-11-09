@@ -24,6 +24,7 @@
     "deploy:goerli:token-bridge-creator": "ts-node ./scripts/goerli-deployment/deployTokenBridgeCreator.ts",
     "create:goerli:token-bridge": "ts-node ./scripts/goerli-deployment/createTokenBridge.ts",
     "test:tokenbridge:deployment": "hardhat test test-e2e/tokenBridgeDeploymentTest.ts",
+    "estimate:token-bridge-creator:deployment": "ts-node ./scripts/estimateTokenBridgeCreatorDeployment.ts",
     "typechain": "hardhat typechain",
     "deploy:tokenbridge": "hardhat run scripts/deploy_token_bridge_l1.ts --network mainnet",
     "gen:uml": "sol2uml ./contracts/tokenbridge/arbitrum,./contracts/tokenbridge/ethereum,./contracts/tokenbridge/libraries -o ./gatewayUML.svg",
