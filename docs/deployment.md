@@ -35,6 +35,8 @@ To deploy to Arbitrum One
 yarn run deploy-factory --network arb1
 ```
 
+Script output will contain all deployed addresses.
+
 
 ## TokenBridgeCreator
 Checkout target code, install dependencies and build
@@ -61,3 +63,12 @@ Finally, deploy token bridge creator. Target chain is defined by `BASECHAIN_RPC`
 ```
 yarn run deploy:token-bridge-creator
 ```
+
+Script outputs `L1TokenBridgeCreator` and `L1TokenBridgeRetryableSender` addresses. All deployed addresses can be obtained through `L1TokenBridgeCreator` contract.
+
+
+## Ownership
+These contracts will be owned by deployer:
+- RollupCreator (owner can set templates)
+- L1AtomicTokenBridgeCreator (owner can set templates)
+- ProxyAdmin of L1AtomicTokenBridgeCreator and L1TokenBridgeRetryableSender (owner can do upgrades)
