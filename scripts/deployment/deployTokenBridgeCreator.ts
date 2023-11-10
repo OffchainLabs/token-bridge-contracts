@@ -14,6 +14,7 @@ export const envVars = {
   baseChainDeployerKey: process.env['BASECHAIN_DEPLOYER_KEY'] as string,
   childChainRpc: process.env['ORBIT_RPC'] as string,
   baseChainWeth: process.env['BASECHAIN_WETH'] as string,
+  rollupAddress: process.env['ROLLUP_ADDRESS'] as string,
 }
 
 /**
@@ -124,8 +125,8 @@ const registerNetworks = async (
 }
 
 async function main() {
-  // this is just random Orbit rollup that will be used to estimate gas needed to deploy L2 token bridge factory via retryable
-  const rollupAddress = '0x8223bd899C6643483872ed2A7b105b2aC9C8aBEc'
+  // this is just any Orbit rollup that will be used to estimate gas needed to deploy L2 token bridge factory via retryable
+  const rollupAddress = envVars.rollupAddress
   const { l1TokenBridgeCreator, retryableSender } =
     await deployTokenBridgeCreator(rollupAddress)
 
