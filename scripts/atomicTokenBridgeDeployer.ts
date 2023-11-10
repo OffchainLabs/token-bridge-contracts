@@ -243,8 +243,8 @@ export const createTokenBridge = async (
  */
 export const deployL1TokenBridgeCreator = async (
   l1Deployer: Signer,
-  l2Provider: ethers.providers.Provider,
   l1WethAddress: string,
+  gasLimitForL2FactoryDeployment: BigNumber,
   verifyContracts: boolean = false
 ) => {
   /// deploy creator behind proxy
@@ -383,12 +383,6 @@ export const deployL1TokenBridgeCreator = async (
   const l1Multicall = await new Multicall2__factory(l1Deployer).deploy()
   await l1Multicall.deployed()
 
-  //// run retryable estimate for deploying L2 factory
-  const deployFactoryGasParams = await getEstimateForDeployingFactory(
-    l1Deployer,
-    l2Provider
-  )
-
   await (
     await l1TokenBridgeCreator.setTemplates(
       l1Templates,
@@ -400,7 +394,7 @@ export const deployL1TokenBridgeCreator = async (
       l2WethAddressOnL1.address,
       l1WethAddress,
       l1Multicall.address,
-      deployFactoryGasParams.gasLimit
+      gasLimitForL2FactoryDeployment
     )
   ).wait()
 
