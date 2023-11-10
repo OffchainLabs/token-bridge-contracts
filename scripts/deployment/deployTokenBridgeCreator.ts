@@ -34,26 +34,25 @@ export const envVars = {
  * @param l2Url
  * @returns
  */
-export const deployTokenBridgeCreator = async (rollupAddress: string) => {
-  if (envVars.baseChainRpc == undefined || envVars.baseChainRpc == '')
+export const deployTokenBridgeCreator = async () => {
+  if (!envVars.baseChainRpc || envVars.baseChainRpc == '') {
     throw new Error('Missing BASECHAIN_RPC in env vars')
-  if (
-    envVars.baseChainDeployerKey == undefined ||
-    envVars.baseChainDeployerKey == ''
-  )
+  }
+  if (!envVars.baseChainDeployerKey || envVars.baseChainDeployerKey == '') {
     throw new Error('Missing BASECHAIN_DEPLOYER_KEY in env vars')
-  if (envVars.childChainRpc == undefined || envVars.childChainRpc == '')
-    throw new Error('Missing ORBIT_RPC in env vars')
-  if (envVars.baseChainWeth == undefined || envVars.baseChainWeth == '')
+  }
+  if (!envVars.baseChainWeth || envVars.baseChainWeth == '') {
     throw new Error('Missing BASECHAIN_WETH in env vars')
+  }
   if (
-    (envVars.rollupAddress == undefined || envVars.rollupAddress == '') &&
-    (envVars.childChainRpc == undefined || envVars.childChainRpc == '') &&
-    envVars.gasLimitForL2FactoryDeployment == undefined
-  )
+    (!envVars.rollupAddress || envVars.rollupAddress == '') &&
+    (!envVars.childChainRpc || envVars.childChainRpc == '') &&
+    !envVars.gasLimitForL2FactoryDeployment
+  ) {
     throw new Error(
       'Either GAS_LIMIT_FOR_L2_FACTORY_DEPLOYMENT or (ROLLUP_ADDRESS and ORBIT_RPC) must be set in env vars'
     )
+  }
 
   const l1Provider = new JsonRpcProvider(envVars.baseChainRpc)
   const l1Deployer = getSigner(l1Provider, envVars.baseChainDeployerKey)
@@ -66,7 +65,7 @@ export const deployTokenBridgeCreator = async (rollupAddress: string) => {
     )
   } else {
     const l2Provider = new JsonRpcProvider(envVars.childChainRpc)
-    await registerNetworks(l1Provider, l2Provider, rollupAddress)
+    await registerNetworks(l1Provider, l2Provider, envVars.rollupAddress)
     //// run retryable estimate for deploying L2 factory
     const deployFactoryGasParams = await getEstimateForDeployingFactory(
       l1Deployer,
@@ -159,10 +158,9 @@ const registerNetworks = async (
 }
 
 async function main() {
-  // this is just any Orbit rollup that will be used to estimate gas needed to deploy L2 token bridge factory via retryable
-  const rollupAddress = envVars.rollupAddress
+  console.log('Deploying token bridge creator...')
   const { l1TokenBridgeCreator, retryableSender } =
-    await deployTokenBridgeCreator(rollupAddress)
+    await deployTokenBridgeCreator()
 
   console.log('Token bridge creator deployed!')
   console.log('L1TokenBridgeCreator:', l1TokenBridgeCreator.address)
