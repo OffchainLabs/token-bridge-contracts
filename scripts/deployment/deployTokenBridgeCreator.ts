@@ -13,9 +13,8 @@ export const envVars = {
   baseChainRpc: process.env['BASECHAIN_RPC'] as string,
   baseChainDeployerKey: process.env['BASECHAIN_DEPLOYER_KEY'] as string,
   childChainRpc: process.env['ORBIT_RPC'] as string,
+  baseChainWeth: process.env['BASECHAIN_WETH'] as string,
 }
-
-const BASECHAIN_WETH = '0xEe01c0CD76354C383B8c7B4e65EA88D00B06f36f'
 
 /**
  * Steps:
@@ -31,12 +30,14 @@ const BASECHAIN_WETH = '0xEe01c0CD76354C383B8c7B4e65EA88D00B06f36f'
  * @returns
  */
 export const deployTokenBridgeCreator = async (rollupAddress: string) => {
-  if (envVars.baseChainRpc == undefined)
+  if (envVars.baseChainRpc == undefined || envVars.baseChainRpc == '')
     throw new Error('Missing BASECHAIN_RPC in env vars')
-  if (envVars.baseChainDeployerKey == undefined)
+  if (envVars.baseChainDeployerKey == undefined || envVars.baseChainDeployerKey == '')
     throw new Error('Missing BASECHAIN_DEPLOYER_KEY in env vars')
-  if (envVars.childChainRpc == undefined)
+  if (envVars.childChainRpc == undefined || envVars.childChainRpc == '')
     throw new Error('Missing ORBIT_RPC in env vars')
+  if (envVars.baseChainWeth == undefined || envVars.baseChainWeth == '')
+    throw new Error('Missing BASECHAIN_WETH in env vars')
 
   const l1Provider = new JsonRpcProvider(envVars.baseChainRpc)
   const l1Deployer = getSigner(l1Provider, envVars.baseChainDeployerKey)
@@ -46,7 +47,7 @@ export const deployTokenBridgeCreator = async (rollupAddress: string) => {
 
   // deploy L1 creator and set templates
   const { l1TokenBridgeCreator, retryableSender } =
-    await deployL1TokenBridgeCreator(l1Deployer, l2Provider, BASECHAIN_WETH, true)
+    await deployL1TokenBridgeCreator(l1Deployer, l2Provider, envVars.baseChainWeth, true)
 
   return { l1TokenBridgeCreator, retryableSender }
 }
