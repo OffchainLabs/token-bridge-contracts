@@ -45,8 +45,7 @@ export const deployTokenBridgeCreator = async () => {
     throw new Error('Missing BASECHAIN_WETH in env vars')
   }
   if (
-    !envVars.rollupAddress &&
-    !envVars.childChainRpc &&
+    !(envVars.rollupAddress && envVars.childChainRpc) &&
     !envVars.gasLimitForL2FactoryDeployment
   ) {
     throw new Error(
