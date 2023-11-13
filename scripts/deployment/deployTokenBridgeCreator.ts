@@ -35,18 +35,18 @@ export const envVars = {
  * @returns
  */
 export const deployTokenBridgeCreator = async () => {
-  if (!envVars.baseChainRpc || envVars.baseChainRpc == '') {
+  if (!envVars.baseChainRpc) {
     throw new Error('Missing BASECHAIN_RPC in env vars')
   }
-  if (!envVars.baseChainDeployerKey || envVars.baseChainDeployerKey == '') {
+  if (!envVars.baseChainDeployerKey) {
     throw new Error('Missing BASECHAIN_DEPLOYER_KEY in env vars')
   }
-  if (!envVars.baseChainWeth || envVars.baseChainWeth == '') {
+  if (!envVars.baseChainWeth) {
     throw new Error('Missing BASECHAIN_WETH in env vars')
   }
   if (
-    (!envVars.rollupAddress || envVars.rollupAddress == '') &&
-    (!envVars.childChainRpc || envVars.childChainRpc == '') &&
+    !envVars.rollupAddress &&
+    !envVars.childChainRpc &&
     !envVars.gasLimitForL2FactoryDeployment
   ) {
     throw new Error(
