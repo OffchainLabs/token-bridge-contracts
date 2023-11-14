@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.0;
 
-import "forge-std/Test.sol";
+import "./L2ArbitrumGateway.t.sol";
 import {L2ERC20Gateway} from "contracts/tokenbridge/arbitrum/gateway/L2ERC20Gateway.sol";
 import {StandardArbERC20} from "contracts/tokenbridge/arbitrum/StandardArbERC20.sol";
 import {
@@ -10,26 +10,15 @@ import {
     ClonableBeaconProxy
 } from "contracts/tokenbridge/libraries/ClonableBeaconProxy.sol";
 import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
-import {ITokenGateway} from "contracts/tokenbridge/libraries/gateway/ITokenGateway.sol";
-import {ArbSysMock} from "contracts/tokenbridge/test/ArbSysMock.sol";
 import {AddressAliasHelper} from "contracts/tokenbridge/libraries/AddressAliasHelper.sol";
 
-contract L2ERC20GatewayTest is Test {
-    L2ERC20Gateway public l2Gateway;
-    ArbSysMock public arbSysMock = new ArbSysMock();
-
+contract L2ERC20GatewayTest is L2ArbitrumGatewayTest {
+    L2ERC20Gateway public l2StandardGateway;
     address public l2BeaconProxyFactory;
-    address public router = makeAddr("router");
-    address public l1Counterpart = makeAddr("l1Counterpart");
-
-    // token transfer params
-    address public l1Token = makeAddr("l1Token");
-    address public receiver = makeAddr("to");
-    address public sender = makeAddr("from");
-    uint256 public amount = 2400;
 
     function setUp() public virtual {
-        l2Gateway = new L2ERC20Gateway();
+        l2StandardGateway = new L2ERC20Gateway();
+        l2Gateway = L2ArbitrumGateway(address(l2StandardGateway));
 
         // create beacon
         StandardArbERC20 standardArbERC20 = new StandardArbERC20();
@@ -37,25 +26,29 @@ contract L2ERC20GatewayTest is Test {
         l2BeaconProxyFactory = address(new BeaconProxyFactory());
         BeaconProxyFactory(l2BeaconProxyFactory).initialize(address(beacon));
 
-        L2ERC20Gateway(l2Gateway).initialize(l1Counterpart, router, l2BeaconProxyFactory);
+        L2ERC20Gateway(l2StandardGateway).initialize(l1Counterpart, router, l2BeaconProxyFactory);
     }
+
+    function _getL2Token() internal {}
 
     /* solhint-disable func-name-mixedcase */
     function test_calculateL2TokenAddress() public {
         assertEq(
-            l2Gateway.getUserSalt(l1Token), keccak256(abi.encode(l1Token)), "Invalid user salt"
+            l2StandardGateway.getUserSalt(l1Token),
+            keccak256(abi.encode(l1Token)),
+            "Invalid user salt"
         );
     }
 
     function test_cloneableProxyHash() public {
         assertEq(
-            l2Gateway.cloneableProxyHash(),
+            l2StandardGateway.cloneableProxyHash(),
             keccak256(type(ClonableBeaconProxy).creationCode),
             "Invalid proxy hash"
         );
     }
 
-    function test_finalizeInboundTransfer() public {
+    function test_finalizeInboundTransfer() public override {
         /// deposit params
         bytes memory gatewayData = abi.encode(
             abi.encode(bytes("Name")), abi.encode(bytes("Symbol")), abi.encode(uint256(18))
@@ -68,12 +61,12 @@ contract L2ERC20GatewayTest is Test {
 
         /// finalize deposit
         vm.prank(AddressAliasHelper.applyL1ToL2Alias(l1Counterpart));
-        l2Gateway.finalizeInboundTransfer(
+        l2StandardGateway.finalizeInboundTransfer(
             l1Token, sender, receiver, amount, abi.encode(gatewayData, callHookData)
         );
 
         /// check tokens have been minted to receiver
-        address expectedL2Address = l2Gateway.calculateL2TokenAddress(l1Token);
+        address expectedL2Address = l2StandardGateway.calculateL2TokenAddress(l1Token);
         assertEq(
             StandardArbERC20(expectedL2Address).balanceOf(receiver),
             amount,
@@ -81,7 +74,7 @@ contract L2ERC20GatewayTest is Test {
         );
     }
 
-    function test_finalizeInboundTransfer_WithCallHook() public {
+    function test_finalizeInboundTransfer_WithCallHook() public override {
         /// deposit params
         bytes memory gatewayData = abi.encode(
             abi.encode(bytes("Name")), abi.encode(bytes("Symbol")), abi.encode(uint256(18))
@@ -94,12 +87,12 @@ contract L2ERC20GatewayTest is Test {
 
         /// finalize deposit
         vm.prank(AddressAliasHelper.applyL1ToL2Alias(l1Counterpart));
-        l2Gateway.finalizeInboundTransfer(
+        l2StandardGateway.finalizeInboundTransfer(
             l1Token, sender, receiver, amount, abi.encode(gatewayData, callHookData)
         );
 
         /// check tokens have been minted to receiver
-        address expectedL2Address = l2Gateway.calculateL2TokenAddress(l1Token);
+        address expectedL2Address = l2StandardGateway.calculateL2TokenAddress(l1Token);
         assertEq(
             StandardArbERC20(expectedL2Address).balanceOf(receiver),
             amount,
@@ -107,7 +100,7 @@ contract L2ERC20GatewayTest is Test {
         );
     }
 
-    function test_finalizeInboundTransfer_ShouldHalt() public {
+    function test_finalizeInboundTransfer_ShouldHalt() public override {
         /// deposit params
         bytes memory gatewayData = abi.encode(
             abi.encode(bytes("Name")), abi.encode(bytes("Symbol")), abi.encode(uint256(18))
@@ -120,48 +113,32 @@ contract L2ERC20GatewayTest is Test {
             address(l2BeaconProxyFactory),
             abi.encodeWithSignature(
                 "calculateExpectedAddress(address,bytes32)",
-                address(l2Gateway),
-                l2Gateway.getUserSalt(l1Token)
+                address(l2StandardGateway),
+                l2StandardGateway.getUserSalt(l1Token)
             ),
             abi.encode(notL2Token)
         );
 
         // check that withdrawal is triggered occurs when deposit is halted
         vm.expectEmit(true, true, true, true);
-        emit WithdrawalInitiated(l1Token, address(l2Gateway), sender, 0, 0, amount);
+        emit WithdrawalInitiated(l1Token, address(l2StandardGateway), sender, 0, 0, amount);
 
         /// finalize deposit
         vm.etch(0x0000000000000000000000000000000000000064, address(arbSysMock).code);
         vm.prank(AddressAliasHelper.applyL1ToL2Alias(l1Counterpart));
-        l2Gateway.finalizeInboundTransfer(
+        l2StandardGateway.finalizeInboundTransfer(
             l1Token, sender, receiver, amount, abi.encode(gatewayData, callHookData)
         );
 
         /// check L2 token hasn't been creted
-        address expectedL2Address = l2Gateway.calculateL2TokenAddress(l1Token);
         assertEq(address(notL2Token).code.length, 0, "L2 token isn't supposed to be created");
-    }
-
-    function test_getOutboundCalldata() public {
-        address token = makeAddr("token");
-        bytes memory data = new bytes(340);
-
-        bytes memory expected = abi.encodeWithSelector(
-            ITokenGateway.finalizeInboundTransfer.selector,
-            token,
-            sender,
-            receiver,
-            amount,
-            abi.encode(0, data)
-        );
-        bytes memory actual = l2Gateway.getOutboundCalldata(token, sender, receiver, amount, data);
-
-        assertEq(actual, expected, "Invalid outbound calldata");
     }
 
     function test_getUserSalt() public {
         assertEq(
-            l2Gateway.getUserSalt(l1Token), keccak256(abi.encode(l1Token)), "Invalid user salt"
+            l2StandardGateway.getUserSalt(l1Token),
+            keccak256(abi.encode(l1Token)),
+            "Invalid user salt"
         );
     }
 
@@ -199,7 +176,7 @@ contract L2ERC20GatewayTest is Test {
         L2ERC20Gateway(gateway).initialize(l1Counterpart, router, l2BeaconProxyFactory);
     }
 
-    function test_outboundTransfer() public {
+    function test_outboundTransfer() public override {
         // create and init standard l2Token
         bytes32 salt = keccak256(abi.encode(l1Token));
         vm.startPrank(address(l2Gateway));
@@ -234,7 +211,7 @@ contract L2ERC20GatewayTest is Test {
         l2Gateway.outboundTransfer(l1Token, receiver, amount, 0, 0, data);
     }
 
-    function test_outboundTransfer_4Args() public {
+    function test_outboundTransfer_4Args() public override {
         // create and init standard l2Token
         bytes32 salt = keccak256(abi.encode(l1Token));
         vm.startPrank(address(l2Gateway));
@@ -269,20 +246,7 @@ contract L2ERC20GatewayTest is Test {
         l2Gateway.outboundTransfer(l1Token, receiver, amount, data);
     }
 
-    function test_outboundTransfer_revert_ExtraDataDisabled() public {
-        vm.expectRevert("EXTRA_DATA_DISABLED");
-        bytes memory extraData = new bytes(0x1234);
-        l2Gateway.outboundTransfer(address(100), address(101), 200, 0, 0, extraData);
-    }
-
-    function test_outboundTransfer_revert_NoValue() public {
-        vm.expectRevert("NO_VALUE");
-        l2Gateway.outboundTransfer{value: 1 ether}(
-            address(100), address(101), 200, 0, 0, new bytes(0)
-        );
-    }
-
-    function test_outboundTransfer_revert_NotExpectedL1Token() public {
+    function test_outboundTransfer_revert_NotExpectedL1Token() public override {
         /// register l1Token
         bytes32 salt = keccak256(abi.encode(l1Token));
         vm.startPrank(address(l2Gateway));
@@ -303,12 +267,6 @@ contract L2ERC20GatewayTest is Test {
 
         vm.expectRevert("NOT_EXPECTED_L1_TOKEN");
         l2Gateway.outboundTransfer(l1Token, address(101), 200, 0, 0, new bytes(0));
-    }
-
-    function test_outboundTransfer_revert_TokenNotDeployed() public {
-        address token = makeAddr("someToken");
-        vm.expectRevert("TOKEN_NOT_DEPLOYED");
-        l2Gateway.outboundTransfer(token, address(101), 200, 0, 0, new bytes(0));
     }
 
     ////
