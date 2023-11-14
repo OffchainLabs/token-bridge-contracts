@@ -3,13 +3,16 @@
 pragma solidity ^0.8.0;
 
 import "./L2ArbitrumGateway.t.sol";
-import {L2CustomGateway} from "contracts/tokenbridge/arbitrum/gateway/L2CustomGateway.sol";
+import {L2CustomGateway, ERC20} from "contracts/tokenbridge/arbitrum/gateway/L2CustomGateway.sol";
+import {L2GatewayToken} from "contracts/tokenbridge/libraries/L2GatewayToken.sol";
 import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import {AddressAliasHelper} from "contracts/tokenbridge/libraries/AddressAliasHelper.sol";
 
 contract L2CustomGatewayTest is L2ArbitrumGatewayTest {
     L2CustomGateway public l2CustomGateway;
     address public l2BeaconProxyFactory;
+
+    address public l1CustomToken = makeAddr("l1CustomToken");
 
     function setUp() public virtual {
         l2CustomGateway = new L2CustomGateway();
@@ -18,20 +21,10 @@ contract L2CustomGatewayTest is L2ArbitrumGatewayTest {
         L2CustomGateway(l2CustomGateway).initialize(l1Counterpart, router);
     }
 
-    function _registerToken() internal {
-        address[] memory l1Tokens = new address[](1);
-        l1Tokens[0] = makeAddr("l1CustomToken");
-
-        address[] memory l2Tokens = new address[](1);
-        l2Tokens[0] = makeAddr("l2CustomToken");
-
-        vm.prank(AddressAliasHelper.applyL1ToL2Alias(l1Counterpart));
-        l2CustomGateway.registerTokenFromL1(l1Tokens, l2Tokens);
-    }
-
     /* solhint-disable func-name-mixedcase */
     function test_calculateL2TokenAddress_NonRegistered() public {
         address nonRegisteredL1Token = makeAddr("nonRegisteredL1Token");
+
         assertEq(
             l2CustomGateway.calculateL2TokenAddress(nonRegisteredL1Token),
             address(0),
@@ -40,19 +33,11 @@ contract L2CustomGatewayTest is L2ArbitrumGatewayTest {
     }
 
     function test_calculateL2TokenAddress_Registered() public {
-        /// register token
-        address[] memory l1Tokens = new address[](1);
-        l1Tokens[0] = makeAddr("l1CustomToken");
-
-        address[] memory l2Tokens = new address[](1);
-        l2Tokens[0] = makeAddr("l2CustomToken");
-
-        vm.prank(AddressAliasHelper.applyL1ToL2Alias(l1Counterpart));
-        l2CustomGateway.registerTokenFromL1(l1Tokens, l2Tokens);
-
-        // check now registered
+        address l2CustomToken = _registerToken();
         assertEq(
-            l2CustomGateway.calculateL2TokenAddress(l1Tokens[0]), l2Tokens[0], "Invalid L2 token"
+            l2CustomGateway.calculateL2TokenAddress(l1CustomToken),
+            l2CustomToken,
+            "Invalid L2 token"
         );
     }
 
@@ -170,110 +155,82 @@ contract L2CustomGatewayTest is L2ArbitrumGatewayTest {
     }
 
     function test_outboundTransfer() public override {
-        // // create and init standard l2Token
-        // bytes32 salt = keccak256(abi.encode(l1Token));
-        // vm.startPrank(address(l2Gateway));
-        // address l2Token = BeaconProxyFactory(l2BeaconProxyFactory).createProxy(salt);
-        // StandardArbERC20(l2Token).bridgeInit(
-        //     l1Token,
-        //     abi.encode(
-        //         abi.encode(bytes("Name")), abi.encode(bytes("Symbol")), abi.encode(uint256(18))
-        //     )
-        // );
-        // vm.stopPrank();
+        // create and init custom l2Token
+        address l2CustomToken = _registerToken();
 
-        // // mint token to user
-        // deal(l2Token, sender, 100 ether);
+        // mint token to user
+        deal(l2CustomToken, sender, 100 ether);
 
-        // // withdrawal params
-        // bytes memory data = new bytes(0);
+        // withdrawal params
+        bytes memory data = new bytes(0);
 
-        // // events
-        // uint256 expectedId = 0;
-        // bytes memory expectedData =
-        //     l2Gateway.getOutboundCalldata(l1Token, sender, receiver, amount, data);
-        // vm.expectEmit(true, true, true, true);
-        // emit TxToL1(sender, l1Counterpart, expectedId, expectedData);
+        // events
+        uint256 expectedId = 0;
+        bytes memory expectedData =
+            l2CustomGateway.getOutboundCalldata(l1CustomToken, sender, receiver, amount, data);
+        vm.expectEmit(true, true, true, true);
+        emit TxToL1(sender, l1Counterpart, expectedId, expectedData);
 
-        // vm.expectEmit(true, true, true, true);
-        // emit WithdrawalInitiated(l1Token, sender, receiver, expectedId, 0, amount);
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawalInitiated(l1CustomToken, sender, receiver, expectedId, 0, amount);
 
-        // // withdraw
-        // vm.etch(0x0000000000000000000000000000000000000064, address(arbSysMock).code);
-        // vm.prank(sender);
-        // l2Gateway.outboundTransfer(l1Token, receiver, amount, 0, 0, data);
+        // withdraw
+        vm.mockCall(
+            address(l2CustomToken),
+            abi.encodeWithSignature("l1Address()"),
+            abi.encode(l1CustomToken)
+        );
+        vm.etch(0x0000000000000000000000000000000000000064, address(arbSysMock).code);
+        vm.prank(sender);
+        l2CustomGateway.outboundTransfer(l1CustomToken, receiver, amount, 0, 0, data);
     }
 
     function test_outboundTransfer_4Args() public override {
-        // // create and init standard l2Token
-        // bytes32 salt = keccak256(abi.encode(l1Token));
-        // vm.startPrank(address(l2Gateway));
-        // address l2Token = BeaconProxyFactory(l2BeaconProxyFactory).createProxy(salt);
-        // StandardArbERC20(l2Token).bridgeInit(
-        //     l1Token,
-        //     abi.encode(
-        //         abi.encode(bytes("Name")), abi.encode(bytes("Symbol")), abi.encode(uint256(18))
-        //     )
-        // );
-        // vm.stopPrank();
+        // create and init custom l2Token
+        address l2CustomToken = _registerToken();
 
-        // // mint token to user
-        // deal(l2Token, sender, 100 ether);
+        // mint token to user
+        deal(l2CustomToken, sender, 100 ether);
 
-        // // withdrawal params
-        // bytes memory data = new bytes(0);
+        // withdrawal params
+        bytes memory data = new bytes(0);
 
-        // // events
-        // uint256 expectedId = 0;
-        // bytes memory expectedData =
-        //     l2Gateway.getOutboundCalldata(l1Token, sender, receiver, amount, data);
-        // vm.expectEmit(true, true, true, true);
-        // emit TxToL1(sender, l1Counterpart, expectedId, expectedData);
+        // events
+        uint256 expectedId = 0;
+        bytes memory expectedData =
+            l2CustomGateway.getOutboundCalldata(l1CustomToken, sender, receiver, amount, data);
+        vm.expectEmit(true, true, true, true);
+        emit TxToL1(sender, l1Counterpart, expectedId, expectedData);
 
-        // vm.expectEmit(true, true, true, true);
-        // emit WithdrawalInitiated(l1Token, sender, receiver, expectedId, 0, amount);
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawalInitiated(l1CustomToken, sender, receiver, expectedId, 0, amount);
 
-        // // withdraw
-        // vm.etch(0x0000000000000000000000000000000000000064, address(arbSysMock).code);
-        // vm.prank(sender);
-        // l2Gateway.outboundTransfer(l1Token, receiver, amount, data);
+        // withdraw
+        vm.mockCall(
+            address(l2CustomToken),
+            abi.encodeWithSignature("l1Address()"),
+            abi.encode(l1CustomToken)
+        );
+        vm.etch(0x0000000000000000000000000000000000000064, address(arbSysMock).code);
+        vm.prank(sender);
+        l2CustomGateway.outboundTransfer(l1CustomToken, receiver, amount, data);
     }
 
     function test_outboundTransfer_revert_NotExpectedL1Token() public override {
-        // /// register l1Token
-        // bytes32 salt = keccak256(abi.encode(l1Token));
-        // vm.startPrank(address(l2Gateway));
-        // address l2Token = BeaconProxyFactory(l2BeaconProxyFactory).createProxy(salt);
-        // StandardArbERC20(l2Token).bridgeInit(
-        //     l1Token,
-        //     abi.encode(
-        //         abi.encode(bytes("Name")), abi.encode(bytes("Symbol")), abi.encode(uint256(18))
-        //     )
-        // );
-        // vm.stopPrank();
+        // create and init custom l2Token
+        address l2CustomToken = _registerToken();
 
-        // // mock invalid L1 token ref
-        // address notOriginalL1Token = makeAddr("notOriginalL1Token");
-        // vm.mockCall(
-        //     address(l2Token), abi.encodeWithSignature("l1Address()"), abi.encode(notOriginalL1Token)
-        // );
+        // mock invalid L1 token ref
+        address notOriginalL1Token = makeAddr("notOriginalL1Token");
+        vm.mockCall(
+            address(l2CustomToken),
+            abi.encodeWithSignature("l1Address()"),
+            abi.encode(notOriginalL1Token)
+        );
 
-        // vm.expectRevert("NOT_EXPECTED_L1_TOKEN");
-        // l2Gateway.outboundTransfer(l1Token, address(101), 200, 0, 0, new bytes(0));
+        vm.expectRevert("NOT_EXPECTED_L1_TOKEN");
+        l2Gateway.outboundTransfer(l1CustomToken, address(101), 200, 0, 0, new bytes(0));
     }
-
-    // function registerTokenFromL1(address[] calldata l1Address, address[] calldata l2Address)
-    //     external
-    //     onlyCounterpartGateway
-    // {
-    //     // we assume both arrays are the same length, safe since its encoded by the L1
-    //     for (uint256 i = 0; i < l1Address.length; i++) {
-    //         // here we don't check if l2Address is a contract and instead deal with that behaviour
-    //         // in `handleNoContract` this way we keep the l1 and l2 address oracles in sync
-    //         l1ToL2Token[l1Address[i]] = l2Address[i];
-    //         emit TokenSet(l1Address[i], l2Address[i]);
-    //     }
-    // }
 
     function test_registerTokenFromL1() public {
         address[] memory l1Tokens = new address[](2);
@@ -304,7 +261,29 @@ contract L2CustomGatewayTest is L2ArbitrumGatewayTest {
     }
 
     ////
+    // Internal helper functions
+    ////
+    function _registerToken() internal returns (address) {
+        address[] memory l1Tokens = new address[](1);
+        l1Tokens[0] = l1CustomToken;
+
+        address[] memory l2Tokens = new address[](1);
+        l2Tokens[0] = address(new L2CustomToken(address(l2CustomGateway), address(l1CustomToken)));
+
+        vm.prank(AddressAliasHelper.applyL1ToL2Alias(l1Counterpart));
+        l2CustomGateway.registerTokenFromL1(l1Tokens, l2Tokens);
+
+        return l2Tokens[0];
+    }
+
+    ////
     // Event declarations
     ////
     event TokenSet(address indexed l1Address, address indexed l2Address);
+}
+
+contract L2CustomToken is L2GatewayToken {
+    constructor(address _l2CustomGateway, address _l1CustomToken) {
+        L2GatewayToken._initialize("L2 token", "L2", 18, _l2CustomGateway, _l1CustomToken);
+    }
 }

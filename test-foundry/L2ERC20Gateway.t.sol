@@ -268,24 +268,4 @@ contract L2ERC20GatewayTest is L2ArbitrumGatewayTest {
         vm.expectRevert("NOT_EXPECTED_L1_TOKEN");
         l2Gateway.outboundTransfer(l1Token, address(101), 200, 0, 0, new bytes(0));
     }
-
-    ////
-    // Event declarations
-    ////
-    event DepositFinalized(
-        address indexed l1Token, address indexed _from, address indexed _receiver, uint256 _amount
-    );
-
-    event WithdrawalInitiated(
-        address l1Token,
-        address indexed _from,
-        address indexed _receiver,
-        uint256 indexed _l2ToL1Id,
-        uint256 _exitNum,
-        uint256 _amount
-    );
-
-    event TxToL1(
-        address indexed _from, address indexed _receiver, uint256 indexed _id, bytes _data
-    );
 }

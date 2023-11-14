@@ -65,4 +65,24 @@ abstract contract L2ArbitrumGatewayTest is Test {
         vm.expectRevert("TOKEN_NOT_DEPLOYED");
         l2Gateway.outboundTransfer(token, address(101), 200, 0, 0, new bytes(0));
     }
+
+    ////
+    // Event declarations
+    ////
+    event DepositFinalized(
+        address indexed l1Token, address indexed _from, address indexed _receiver, uint256 _amount
+    );
+
+    event WithdrawalInitiated(
+        address l1Token,
+        address indexed _from,
+        address indexed _receiver,
+        uint256 indexed _l2ToL1Id,
+        uint256 _exitNum,
+        uint256 _amount
+    );
+
+    event TxToL1(
+        address indexed _from, address indexed _receiver, uint256 indexed _id, bytes _data
+    );
 }
