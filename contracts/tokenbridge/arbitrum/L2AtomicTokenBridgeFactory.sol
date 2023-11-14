@@ -119,6 +119,10 @@ contract L2AtomicTokenBridgeFactory {
             Create2.deploy(0, _getL2Salt(OrbitSalts.L2_ROUTER_LOGIC), _creationCodeFor(runtimeCode));
         ProxyAdmin(proxyAdmin).upgrade(ITransparentUpgradeableProxy(canonicalRouter), routerLogic);
 
+        // init logic contract with dummy values
+        address dead = address(0x000000000000000000000000000000000000dEaD);
+        L2GatewayRouter(routerLogic).initialize(dead, dead);
+
         // init
         L2GatewayRouter(canonicalRouter).initialize(l1Router, l2StandardGatewayCanonicalAddress);
 
@@ -146,6 +150,10 @@ contract L2AtomicTokenBridgeFactory {
         ProxyAdmin(proxyAdmin).upgrade(
             ITransparentUpgradeableProxy(canonicalStdGateway), stdGatewayLogic
         );
+
+        // init logic contract with dummy values
+        address dead = address(0x000000000000000000000000000000000000dEaD);
+        L2ERC20Gateway(stdGatewayLogic).initialize(dead, dead, dead);
 
         // create beacon
         StandardArbERC20 standardArbERC20 = new StandardArbERC20{
@@ -189,8 +197,12 @@ contract L2AtomicTokenBridgeFactory {
             ITransparentUpgradeableProxy(canonicalCustomGateway), customGatewayLogicAddress
         );
 
+        // init logic contract with dummy values
+        address dead = address(0x000000000000000000000000000000000000dEaD);
+        L2CustomGateway(customGatewayLogicAddress).initialize(dead, dead);
+
         // init
-        L2GatewayRouter(canonicalCustomGateway).initialize(l1CustomGateway, router);
+        L2CustomGateway(canonicalCustomGateway).initialize(l1CustomGateway, router);
     }
 
     function _deployWethGateway(
@@ -228,6 +240,10 @@ contract L2AtomicTokenBridgeFactory {
         ProxyAdmin(proxyAdmin).upgrade(
             ITransparentUpgradeableProxy(canonicalL2WethGateway), l2WethGatewayLogic
         );
+
+        // init logic contract with dummy values
+        address dead = address(0x000000000000000000000000000000000000dEaD);
+        L2WethGateway(payable(l2WethGatewayLogic)).initialize(dead, dead, dead, dead);
 
         // init gateway
         L2WethGateway(payable(canonicalL2WethGateway)).initialize(
