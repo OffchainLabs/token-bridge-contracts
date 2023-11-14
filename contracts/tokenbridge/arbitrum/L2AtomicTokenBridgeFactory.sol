@@ -25,6 +25,9 @@ import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 contract L2AtomicTokenBridgeFactory {
     error L2AtomicTokenBridgeFactory_AlreadyExists();
 
+    // Dummy non-zero address which is provided to logic contracts initializers.
+    address private constant ADDRESS_DEAD = address(0x000000000000000000000000000000000000dEaD);
+
     function deployL2Contracts(
         L2RuntimeCode calldata l2Code,
         address l1Router,
@@ -119,9 +122,8 @@ contract L2AtomicTokenBridgeFactory {
             Create2.deploy(0, _getL2Salt(OrbitSalts.L2_ROUTER_LOGIC), _creationCodeFor(runtimeCode));
         ProxyAdmin(proxyAdmin).upgrade(ITransparentUpgradeableProxy(canonicalRouter), routerLogic);
 
-        // init logic contract with dummy values
-        address dead = address(0x000000000000000000000000000000000000dEaD);
-        L2GatewayRouter(routerLogic).initialize(dead, dead);
+        // init logic contract with dummy values.
+        L2GatewayRouter(routerLogic).initialize(ADDRESS_DEAD, ADDRESS_DEAD);
 
         // init
         L2GatewayRouter(canonicalRouter).initialize(l1Router, l2StandardGatewayCanonicalAddress);
@@ -152,8 +154,7 @@ contract L2AtomicTokenBridgeFactory {
         );
 
         // init logic contract with dummy values
-        address dead = address(0x000000000000000000000000000000000000dEaD);
-        L2ERC20Gateway(stdGatewayLogic).initialize(dead, dead, dead);
+        L2ERC20Gateway(stdGatewayLogic).initialize(ADDRESS_DEAD, ADDRESS_DEAD, ADDRESS_DEAD);
 
         // create beacon
         StandardArbERC20 standardArbERC20 = new StandardArbERC20{
@@ -198,8 +199,7 @@ contract L2AtomicTokenBridgeFactory {
         );
 
         // init logic contract with dummy values
-        address dead = address(0x000000000000000000000000000000000000dEaD);
-        L2CustomGateway(customGatewayLogicAddress).initialize(dead, dead);
+        L2CustomGateway(customGatewayLogicAddress).initialize(ADDRESS_DEAD, ADDRESS_DEAD);
 
         // init
         L2CustomGateway(canonicalCustomGateway).initialize(l1CustomGateway, router);
@@ -242,8 +242,9 @@ contract L2AtomicTokenBridgeFactory {
         );
 
         // init logic contract with dummy values
-        address dead = address(0x000000000000000000000000000000000000dEaD);
-        L2WethGateway(payable(l2WethGatewayLogic)).initialize(dead, dead, dead, dead);
+        L2WethGateway(payable(l2WethGatewayLogic)).initialize(
+            ADDRESS_DEAD, ADDRESS_DEAD, ADDRESS_DEAD, ADDRESS_DEAD
+        );
 
         // init gateway
         L2WethGateway(payable(canonicalL2WethGateway)).initialize(
