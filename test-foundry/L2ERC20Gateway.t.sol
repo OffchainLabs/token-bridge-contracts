@@ -16,6 +16,8 @@ contract L2ERC20GatewayTest is L2ArbitrumGatewayTest {
     L2ERC20Gateway public l2StandardGateway;
     address public l2BeaconProxyFactory;
 
+    address public l1Token = makeAddr("l1Token");
+
     function setUp() public virtual {
         l2StandardGateway = new L2ERC20Gateway();
         l2Gateway = L2ArbitrumGateway(address(l2StandardGateway));

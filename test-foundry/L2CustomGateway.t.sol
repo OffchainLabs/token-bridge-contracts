@@ -18,14 +18,43 @@ contract L2CustomGatewayTest is L2ArbitrumGatewayTest {
         L2CustomGateway(l2CustomGateway).initialize(l1Counterpart, router);
     }
 
+    function _registerToken() internal {
+        address[] memory l1Tokens = new address[](1);
+        l1Tokens[0] = makeAddr("l1CustomToken");
+
+        address[] memory l2Tokens = new address[](1);
+        l2Tokens[0] = makeAddr("l2CustomToken");
+
+        vm.prank(AddressAliasHelper.applyL1ToL2Alias(l1Counterpart));
+        l2CustomGateway.registerTokenFromL1(l1Tokens, l2Tokens);
+    }
+
     /* solhint-disable func-name-mixedcase */
-    // function test_calculateL2TokenAddress() public {
-    //     assertEq(
-    //         l2CustomGateway.getUserSalt(l1Token),
-    //         keccak256(abi.encode(l1Token)),
-    //         "Invalid user salt"
-    //     );
-    // }
+    function test_calculateL2TokenAddress_NonRegistered() public {
+        address nonRegisteredL1Token = makeAddr("nonRegisteredL1Token");
+        assertEq(
+            l2CustomGateway.calculateL2TokenAddress(nonRegisteredL1Token),
+            address(0),
+            "Invalid L2 token"
+        );
+    }
+
+    function test_calculateL2TokenAddress_Registered() public {
+        /// register token
+        address[] memory l1Tokens = new address[](1);
+        l1Tokens[0] = makeAddr("l1CustomToken");
+
+        address[] memory l2Tokens = new address[](1);
+        l2Tokens[0] = makeAddr("l2CustomToken");
+
+        vm.prank(AddressAliasHelper.applyL1ToL2Alias(l1Counterpart));
+        l2CustomGateway.registerTokenFromL1(l1Tokens, l2Tokens);
+
+        // check now registered
+        assertEq(
+            l2CustomGateway.calculateL2TokenAddress(l1Tokens[0]), l2Tokens[0], "Invalid L2 token"
+        );
+    }
 
     function test_finalizeInboundTransfer() public override {
         // /// deposit params
@@ -233,23 +262,49 @@ contract L2CustomGatewayTest is L2ArbitrumGatewayTest {
         // l2Gateway.outboundTransfer(l1Token, address(101), 200, 0, 0, new bytes(0));
     }
 
+    // function registerTokenFromL1(address[] calldata l1Address, address[] calldata l2Address)
+    //     external
+    //     onlyCounterpartGateway
+    // {
+    //     // we assume both arrays are the same length, safe since its encoded by the L1
+    //     for (uint256 i = 0; i < l1Address.length; i++) {
+    //         // here we don't check if l2Address is a contract and instead deal with that behaviour
+    //         // in `handleNoContract` this way we keep the l1 and l2 address oracles in sync
+    //         l1ToL2Token[l1Address[i]] = l2Address[i];
+    //         emit TokenSet(l1Address[i], l2Address[i]);
+    //     }
+    // }
+
+    function test_registerTokenFromL1() public {
+        address[] memory l1Tokens = new address[](2);
+        l1Tokens[0] = makeAddr("l1Token0");
+        l1Tokens[1] = makeAddr("l1Token1");
+
+        address[] memory l2Tokens = new address[](2);
+        l2Tokens[0] = makeAddr("l2Token0");
+        l2Tokens[1] = makeAddr("l2Token1");
+
+        // expect events
+        vm.expectEmit(true, true, true, true);
+        emit TokenSet(l1Tokens[0], l2Tokens[0]);
+        emit TokenSet(l1Tokens[1], l2Tokens[1]);
+
+        // register
+        vm.prank(AddressAliasHelper.applyL1ToL2Alias(l1Counterpart));
+        l2CustomGateway.registerTokenFromL1(l1Tokens, l2Tokens);
+
+        // checks
+        assertEq(l2CustomGateway.l1ToL2Token(l1Tokens[0]), l2Tokens[0], "Invalid registeration 0");
+        assertEq(l2CustomGateway.l1ToL2Token(l1Tokens[1]), l2Tokens[1], "Invalid registeration 1");
+    }
+
+    function test_registerTokenFromL1_revert_OnlyCounterpartGateway() public {
+        vm.expectRevert("ONLY_COUNTERPART_GATEWAY");
+        l2CustomGateway.registerTokenFromL1(new address[](0), new address[](0));
+    }
+
     ////
     // Event declarations
     ////
-    event DepositFinalized(
-        address indexed l1Token, address indexed _from, address indexed _receiver, uint256 _amount
-    );
-
-    event WithdrawalInitiated(
-        address l1Token,
-        address indexed _from,
-        address indexed _receiver,
-        uint256 indexed _l2ToL1Id,
-        uint256 _exitNum,
-        uint256 _amount
-    );
-
-    event TxToL1(
-        address indexed _from, address indexed _receiver, uint256 indexed _id, bytes _data
-    );
+    event TokenSet(address indexed l1Address, address indexed l2Address);
 }

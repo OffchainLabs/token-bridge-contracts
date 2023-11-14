@@ -16,7 +16,6 @@ abstract contract L2ArbitrumGatewayTest is Test {
     address public l1Counterpart = makeAddr("l1Counterpart");
 
     // token transfer params
-    address public l1Token = makeAddr("l1Token");
     address public receiver = makeAddr("to");
     address public sender = makeAddr("from");
     uint256 public amount = 2400;
