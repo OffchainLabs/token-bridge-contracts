@@ -25,7 +25,10 @@ import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 contract L2AtomicTokenBridgeFactory {
     error L2AtomicTokenBridgeFactory_AlreadyExists();
 
-    // Dummy non-zero address which is provided to logic contracts initializers.
+    // In order to avoid having uninitialized logic contracts, `initialize` function will be called
+    // on all logic contracts which don't have initializers disabled. This dummy non-zero address
+    // will be provided to those initializers, as values written to the logic contract's storage
+    // are not used.
     address private constant ADDRESS_DEAD = address(0x000000000000000000000000000000000000dEaD);
 
     function deployL2Contracts(
@@ -89,7 +92,8 @@ contract L2AtomicTokenBridgeFactory {
             proxyAdmin, _getL2Salt(OrbitSalts.L2_EXECUTOR), _getL2Salt(OrbitSalts.L2_EXECUTOR_LOGIC)
         );
 
-        // create UpgradeExecutor logic and upgrade to it
+        // Create UpgradeExecutor logic and upgrade to it.
+        // Note: UpgradeExecutor logic has initializer disabled so no need to call it.
         address upExecutorLogic = Create2.deploy(
             0, _getL2Salt(OrbitSalts.L2_EXECUTOR_LOGIC), _creationCodeFor(runtimeCode)
         );
@@ -218,7 +222,7 @@ contract L2AtomicTokenBridgeFactory {
             proxyAdmin, _getL2Salt(OrbitSalts.L2_WETH), _getL2Salt(OrbitSalts.L2_WETH_LOGIC)
         );
 
-        // create L2WETH logic and upgrade
+        // Create L2WETH logic and upgrade. Note: L2WETH logic has initializer disabled so no need to call it.
         address l2WethLogic = Create2.deploy(
             0, _getL2Salt(OrbitSalts.L2_WETH_LOGIC), _creationCodeFor(aeWethRuntimeCode)
         );
