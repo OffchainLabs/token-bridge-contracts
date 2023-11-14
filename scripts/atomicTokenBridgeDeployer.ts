@@ -217,12 +217,18 @@ export const createTokenBridge = async (
   const l2ProxyAdmin =
     await l1TokenBridgeCreator.getCanonicalL2ProxyAdminAddress(chainId)
 
+  const l1Multicall = await l1TokenBridgeCreator.l1Multicall()
+  const l2Multicall = await l1TokenBridgeCreator.getCanonicalL2Multicall(
+    chainId
+  )
+
   return {
     l1Router,
     l1StandardGateway,
     l1CustomGateway,
     l1WethGateway,
     l1ProxyAdmin,
+    l1Multicall,
     l2Router,
     l2StandardGateway: l2StandardGateway.address,
     l2CustomGateway,
@@ -231,6 +237,7 @@ export const createTokenBridge = async (
     l2Weth,
     beaconProxyFactory,
     l2ProxyAdmin,
+    l2Multicall
   }
 }
 
@@ -243,8 +250,8 @@ export const createTokenBridge = async (
  */
 export const deployL1TokenBridgeCreator = async (
   l1Deployer: Signer,
-  l2Provider: ethers.providers.Provider,
   l1WethAddress: string,
+  gasLimitForL2FactoryDeployment: BigNumber,
   verifyContracts: boolean = false
 ) => {
   /// deploy creator behind proxy
@@ -383,12 +390,6 @@ export const deployL1TokenBridgeCreator = async (
   const l1Multicall = await new Multicall2__factory(l1Deployer).deploy()
   await l1Multicall.deployed()
 
-  //// run retryable estimate for deploying L2 factory
-  const deployFactoryGasParams = await getEstimateForDeployingFactory(
-    l1Deployer,
-    l2Provider
-  )
-
   await (
     await l1TokenBridgeCreator.setTemplates(
       l1Templates,
@@ -400,7 +401,7 @@ export const deployL1TokenBridgeCreator = async (
       l2WethAddressOnL1.address,
       l1WethAddress,
       l1Multicall.address,
-      deployFactoryGasParams.gasLimit
+      gasLimitForL2FactoryDeployment
     )
   ).wait()
 

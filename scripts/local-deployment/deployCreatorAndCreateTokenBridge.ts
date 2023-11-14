@@ -8,6 +8,7 @@ import { execSync } from 'child_process'
 import {
   createTokenBridge,
   deployL1TokenBridgeCreator,
+  getEstimateForDeployingFactory,
 } from '../atomicTokenBridgeDeployer'
 import { l2Networks } from '@arbitrum/sdk/dist/lib/dataEntities/networks'
 
@@ -80,8 +81,20 @@ export const setupTokenBridgeInLocalEnv = async () => {
   console.log('Deploying L1TokenBridgeCreator')
   // a random address for l1Weth
   const l1Weth = '0x05EcEffc7CBA4e43a410340E849052AD43815aCA'
+
+  //// run retryable estimate for deploying L2 factory
+  const deployFactoryGasParams = await getEstimateForDeployingFactory(
+    l1Deployer,
+    l2Deployer.provider!
+  )
+  const gasLimitForL2FactoryDeployment = deployFactoryGasParams.gasLimit
+
   const { l1TokenBridgeCreator, retryableSender } =
-    await deployL1TokenBridgeCreator(l1Deployer, l2Deployer.provider!, l1Weth)
+    await deployL1TokenBridgeCreator(
+      l1Deployer,
+      l1Weth,
+      gasLimitForL2FactoryDeployment
+    )
   console.log('L1TokenBridgeCreator', l1TokenBridgeCreator.address)
   console.log('L1TokenBridgeRetryableSender', retryableSender.address)
 
@@ -101,7 +114,7 @@ export const setupTokenBridgeInLocalEnv = async () => {
       l1CustomGateway: deployedContracts.l1CustomGateway,
       l1ERC20Gateway: deployedContracts.l1StandardGateway,
       l1GatewayRouter: deployedContracts.l1Router,
-      l1MultiCall: '',
+      l1MultiCall: deployedContracts.l1Multicall,
       l1ProxyAdmin: deployedContracts.l1ProxyAdmin,
       l1Weth: deployedContracts.l1Weth,
       l1WethGateway: deployedContracts.l1WethGateway,
@@ -109,7 +122,7 @@ export const setupTokenBridgeInLocalEnv = async () => {
       l2CustomGateway: deployedContracts.l2CustomGateway,
       l2ERC20Gateway: deployedContracts.l2StandardGateway,
       l2GatewayRouter: deployedContracts.l2Router,
-      l2Multicall: '',
+      l2Multicall: deployedContracts.l2Multicall,
       l2ProxyAdmin: deployedContracts.l2ProxyAdmin,
       l2Weth: deployedContracts.l2Weth,
       l2WethGateway: deployedContracts.l2WethGateway,
