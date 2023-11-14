@@ -29,8 +29,6 @@ contract L2ERC20GatewayTest is L2ArbitrumGatewayTest {
         L2ERC20Gateway(l2StandardGateway).initialize(l1Counterpart, router, l2BeaconProxyFactory);
     }
 
-    function _getL2Token() internal {}
-
     /* solhint-disable func-name-mixedcase */
     function test_calculateL2TokenAddress() public {
         assertEq(
