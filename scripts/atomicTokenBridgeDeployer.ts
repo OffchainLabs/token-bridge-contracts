@@ -42,6 +42,11 @@ import { RollupAdminLogic__factory } from '@arbitrum/sdk/dist/lib/abi/factories/
 import { ContractVerifier } from './contractVerifier'
 
 /**
+ * Dummy non-zero address which is provided to logic contracts initializers
+ */
+const ADDRESS_DEAD = '0x000000000000000000000000000000000000dEaD'
+
+/**
  * Use already deployed L1TokenBridgeCreator to create and init token bridge contracts.
  * Function first gets estimates for 2 retryable tickets - one for deploying L2 factory and
  * one for deploying L2 side of token bridge. Then it creates retryables, waits for
@@ -250,8 +255,8 @@ export const createTokenBridge = async (
  */
 export const deployL1TokenBridgeCreator = async (
   l1Deployer: Signer,
-  l2Provider: ethers.providers.Provider,
   l1WethAddress: string,
+  gasLimitForL2FactoryDeployment: BigNumber,
   verifyContracts: boolean = false
 ) => {
   /// deploy creator behind proxy
@@ -304,40 +309,104 @@ export const deployL1TokenBridgeCreator = async (
     l1Deployer
   )
 
+  // initialize retryable sender logic contract
+  await (await retryableSenderLogic.initialize()).wait()
+
   /// init creator
   await (await l1TokenBridgeCreator.initialize(retryableSender.address)).wait()
 
-  /// deploy L1 logic contracts
+  /// deploy L1 logic contracts. Initialize them with dummy data
   const routerTemplate = await new L1GatewayRouter__factory(l1Deployer).deploy()
   await routerTemplate.deployed()
+  await (
+    await routerTemplate.initialize(
+      ADDRESS_DEAD,
+      ADDRESS_DEAD,
+      ADDRESS_DEAD,
+      ADDRESS_DEAD,
+      ADDRESS_DEAD
+    )
+  ).wait()
 
   const standardGatewayTemplate = await new L1ERC20Gateway__factory(
     l1Deployer
   ).deploy()
   await standardGatewayTemplate.deployed()
+  await (
+    await standardGatewayTemplate.initialize(
+      ADDRESS_DEAD,
+      ADDRESS_DEAD,
+      ADDRESS_DEAD,
+      ethers.utils.hexZeroPad('0x01', 32),
+      ADDRESS_DEAD
+    )
+  ).wait()
 
   const customGatewayTemplate = await new L1CustomGateway__factory(
     l1Deployer
   ).deploy()
   await customGatewayTemplate.deployed()
+  await (
+    await customGatewayTemplate.initialize(
+      ADDRESS_DEAD,
+      ADDRESS_DEAD,
+      ADDRESS_DEAD,
+      ADDRESS_DEAD
+    )
+  ).wait()
 
   const wethGatewayTemplate = await new L1WethGateway__factory(
     l1Deployer
   ).deploy()
   await wethGatewayTemplate.deployed()
+  await (
+    await wethGatewayTemplate.initialize(
+      ADDRESS_DEAD,
+      ADDRESS_DEAD,
+      ADDRESS_DEAD,
+      ADDRESS_DEAD,
+      ADDRESS_DEAD
+    )
+  ).wait()
 
   const feeTokenBasedRouterTemplate = await new L1OrbitGatewayRouter__factory(
     l1Deployer
   ).deploy()
   await feeTokenBasedRouterTemplate.deployed()
+  await (
+    await feeTokenBasedRouterTemplate.initialize(
+      ADDRESS_DEAD,
+      ADDRESS_DEAD,
+      ADDRESS_DEAD,
+      ADDRESS_DEAD,
+      ADDRESS_DEAD
+    )
+  ).wait()
 
   const feeTokenBasedStandardGatewayTemplate =
     await new L1OrbitERC20Gateway__factory(l1Deployer).deploy()
   await feeTokenBasedStandardGatewayTemplate.deployed()
+  await (
+    await feeTokenBasedStandardGatewayTemplate.initialize(
+      ADDRESS_DEAD,
+      ADDRESS_DEAD,
+      ADDRESS_DEAD,
+      ethers.utils.hexZeroPad('0x01', 32),
+      ADDRESS_DEAD
+    )
+  ).wait()
 
   const feeTokenBasedCustomGatewayTemplate =
     await new L1OrbitCustomGateway__factory(l1Deployer).deploy()
   await feeTokenBasedCustomGatewayTemplate.deployed()
+  await (
+    await feeTokenBasedCustomGatewayTemplate.initialize(
+      ADDRESS_DEAD,
+      ADDRESS_DEAD,
+      ADDRESS_DEAD,
+      ADDRESS_DEAD
+    )
+  ).wait()
 
   const upgradeExecutorFactory = new ethers.ContractFactory(
     UpgradeExecutorABI,
@@ -359,7 +428,7 @@ export const deployL1TokenBridgeCreator = async (
     upgradeExecutor: upgradeExecutor.address,
   }
 
-  /// deploy L2 contracts as placeholders on L1
+  /// deploy L2 contracts as placeholders on L1. Initialize them with dummy data
   const l2TokenBridgeFactoryOnL1 =
     await new L2AtomicTokenBridgeFactory__factory(l1Deployer).deploy()
   await l2TokenBridgeFactoryOnL1.deployed()
@@ -368,33 +437,48 @@ export const deployL1TokenBridgeCreator = async (
     l1Deployer
   ).deploy()
   await l2GatewayRouterOnL1.deployed()
+  await (
+    await l2GatewayRouterOnL1.initialize(ADDRESS_DEAD, ADDRESS_DEAD)
+  ).wait()
 
   const l2StandardGatewayAddressOnL1 = await new L2ERC20Gateway__factory(
     l1Deployer
   ).deploy()
   await l2StandardGatewayAddressOnL1.deployed()
+  await (
+    await l2StandardGatewayAddressOnL1.initialize(
+      ADDRESS_DEAD,
+      ADDRESS_DEAD,
+      ADDRESS_DEAD
+    )
+  ).wait()
 
   const l2CustomGatewayAddressOnL1 = await new L2CustomGateway__factory(
     l1Deployer
   ).deploy()
   await l2CustomGatewayAddressOnL1.deployed()
+  await (
+    await l2CustomGatewayAddressOnL1.initialize(ADDRESS_DEAD, ADDRESS_DEAD)
+  ).wait()
 
   const l2WethGatewayAddressOnL1 = await new L2WethGateway__factory(
     l1Deployer
   ).deploy()
   await l2WethGatewayAddressOnL1.deployed()
+  await (
+    await l2WethGatewayAddressOnL1.initialize(
+      ADDRESS_DEAD,
+      ADDRESS_DEAD,
+      ADDRESS_DEAD,
+      ADDRESS_DEAD
+    )
+  ).wait()
 
   const l2WethAddressOnL1 = await new AeWETH__factory(l1Deployer).deploy()
   await l2WethAddressOnL1.deployed()
 
   const l1Multicall = await new Multicall2__factory(l1Deployer).deploy()
   await l1Multicall.deployed()
-
-  //// run retryable estimate for deploying L2 factory
-  const deployFactoryGasParams = await getEstimateForDeployingFactory(
-    l1Deployer,
-    l2Provider
-  )
 
   await (
     await l1TokenBridgeCreator.setTemplates(
@@ -407,7 +491,7 @@ export const deployL1TokenBridgeCreator = async (
       l2WethAddressOnL1.address,
       l1WethAddress,
       l1Multicall.address,
-      deployFactoryGasParams.gasLimit
+      gasLimitForL2FactoryDeployment
     )
   ).wait()
 
