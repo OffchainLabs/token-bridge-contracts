@@ -222,7 +222,7 @@ contract L2AtomicTokenBridgeFactory {
             proxyAdmin, _getL2Salt(OrbitSalts.L2_WETH), _getL2Salt(OrbitSalts.L2_WETH_LOGIC)
         );
 
-        // Create L2WETH logic and upgrade. Note: L2WETH logic has initializer disabled so no need to call it.
+        // Create L2WETH logic and upgrade
         address l2WethLogic = Create2.deploy(
             0, _getL2Salt(OrbitSalts.L2_WETH_LOGIC), _creationCodeFor(aeWethRuntimeCode)
         );
@@ -254,6 +254,9 @@ contract L2AtomicTokenBridgeFactory {
         L2WethGateway(payable(canonicalL2WethGateway)).initialize(
             l1WethGateway, router, l1Weth, address(canonicalL2Weth)
         );
+
+        // init logic contract with dummy values
+        aeWETH(payable(l2WethLogic)).initialize("", "", 0, ADDRESS_DEAD, ADDRESS_DEAD);
 
         // init L2Weth
         aeWETH(payable(canonicalL2Weth)).initialize(
