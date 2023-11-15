@@ -25,6 +25,12 @@ import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 contract L2AtomicTokenBridgeFactory {
     error L2AtomicTokenBridgeFactory_AlreadyExists();
 
+    // In order to avoid having uninitialized logic contracts, `initialize` function will be called
+    // on all logic contracts which don't have initializers disabled. This dummy non-zero address
+    // will be provided to those initializers, as values written to the logic contract's storage
+    // are not used.
+    address private constant ADDRESS_DEAD = address(0x000000000000000000000000000000000000dEaD);
+
     function deployL2Contracts(
         L2RuntimeCode calldata l2Code,
         address l1Router,
@@ -86,7 +92,8 @@ contract L2AtomicTokenBridgeFactory {
             proxyAdmin, _getL2Salt(OrbitSalts.L2_EXECUTOR), _getL2Salt(OrbitSalts.L2_EXECUTOR_LOGIC)
         );
 
-        // create UpgradeExecutor logic and upgrade to it
+        // Create UpgradeExecutor logic and upgrade to it.
+        // Note: UpgradeExecutor logic has initializer disabled so no need to call it.
         address upExecutorLogic = Create2.deploy(
             0, _getL2Salt(OrbitSalts.L2_EXECUTOR_LOGIC), _creationCodeFor(runtimeCode)
         );
@@ -119,6 +126,9 @@ contract L2AtomicTokenBridgeFactory {
             Create2.deploy(0, _getL2Salt(OrbitSalts.L2_ROUTER_LOGIC), _creationCodeFor(runtimeCode));
         ProxyAdmin(proxyAdmin).upgrade(ITransparentUpgradeableProxy(canonicalRouter), routerLogic);
 
+        // init logic contract with dummy values.
+        L2GatewayRouter(routerLogic).initialize(ADDRESS_DEAD, ADDRESS_DEAD);
+
         // init
         L2GatewayRouter(canonicalRouter).initialize(l1Router, l2StandardGatewayCanonicalAddress);
 
@@ -146,6 +156,9 @@ contract L2AtomicTokenBridgeFactory {
         ProxyAdmin(proxyAdmin).upgrade(
             ITransparentUpgradeableProxy(canonicalStdGateway), stdGatewayLogic
         );
+
+        // init logic contract with dummy values
+        L2ERC20Gateway(stdGatewayLogic).initialize(ADDRESS_DEAD, ADDRESS_DEAD, ADDRESS_DEAD);
 
         // create beacon
         StandardArbERC20 standardArbERC20 = new StandardArbERC20{
@@ -189,8 +202,11 @@ contract L2AtomicTokenBridgeFactory {
             ITransparentUpgradeableProxy(canonicalCustomGateway), customGatewayLogicAddress
         );
 
+        // init logic contract with dummy values
+        L2CustomGateway(customGatewayLogicAddress).initialize(ADDRESS_DEAD, ADDRESS_DEAD);
+
         // init
-        L2GatewayRouter(canonicalCustomGateway).initialize(l1CustomGateway, router);
+        L2CustomGateway(canonicalCustomGateway).initialize(l1CustomGateway, router);
     }
 
     function _deployWethGateway(
@@ -206,7 +222,7 @@ contract L2AtomicTokenBridgeFactory {
             proxyAdmin, _getL2Salt(OrbitSalts.L2_WETH), _getL2Salt(OrbitSalts.L2_WETH_LOGIC)
         );
 
-        // create L2WETH logic and upgrade
+        // Create L2WETH logic and upgrade. Note: L2WETH logic has initializer disabled so no need to call it.
         address l2WethLogic = Create2.deploy(
             0, _getL2Salt(OrbitSalts.L2_WETH_LOGIC), _creationCodeFor(aeWethRuntimeCode)
         );
@@ -227,6 +243,11 @@ contract L2AtomicTokenBridgeFactory {
         );
         ProxyAdmin(proxyAdmin).upgrade(
             ITransparentUpgradeableProxy(canonicalL2WethGateway), l2WethGatewayLogic
+        );
+
+        // init logic contract with dummy values
+        L2WethGateway(payable(l2WethGatewayLogic)).initialize(
+            ADDRESS_DEAD, ADDRESS_DEAD, ADDRESS_DEAD, ADDRESS_DEAD
         );
 
         // init gateway
