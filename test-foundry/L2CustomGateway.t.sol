@@ -43,9 +43,7 @@ contract L2CustomGatewayTest is L2ArbitrumGatewayTest {
 
     function test_finalizeInboundTransfer() public override {
         /// deposit params
-        bytes memory gatewayData = abi.encode(
-            abi.encode(bytes("Name")), abi.encode(bytes("Symbol")), abi.encode(uint256(18))
-        );
+        bytes memory gatewayData = new bytes(0);
         bytes memory callHookData = new bytes(0);
 
         // register custom token
@@ -63,6 +61,52 @@ contract L2CustomGatewayTest is L2ArbitrumGatewayTest {
 
         /// check tokens have been minted to receiver;
         assertEq(ERC20(l2CustomToken).balanceOf(receiver), amount, "Invalid receiver balance");
+    }
+
+    function test_finalizeInboundTransfer_NoL2TokenFound() public {
+        /// deposit params
+        bytes memory gatewayData = new bytes(0);
+        bytes memory callHookData = new bytes(0);
+
+        // check that withdrawal is triggered occurs when deposit is halted
+        bytes memory expectedData = l2CustomGateway.getOutboundCalldata(
+            l1CustomToken, address(l2CustomGateway), sender, amount, new bytes(0)
+        );
+        vm.expectEmit(true, true, true, true);
+        emit TxToL1(address(l2CustomGateway), l1Counterpart, 0, expectedData);
+
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawalInitiated(l1CustomToken, address(l2CustomGateway), sender, 0, 0, amount);
+
+        /// finalize deposit
+        vm.etch(0x0000000000000000000000000000000000000064, address(arbSysMock).code);
+        vm.prank(AddressAliasHelper.applyL1ToL2Alias(l1Counterpart));
+        l2CustomGateway.finalizeInboundTransfer(
+            l1CustomToken, sender, receiver, amount, abi.encode(gatewayData, callHookData)
+        );
+    }
+
+    function test_finalizeInboundTransfer_UnexpectedL1Address() public {
+        /// deposit params
+        bytes memory gatewayData = new bytes(0);
+        bytes memory callHookData = new bytes(0);
+
+        // check that withdrawal is triggered occurs when deposit is halted
+        bytes memory expectedData = l2CustomGateway.getOutboundCalldata(
+            l1CustomToken, address(l2CustomGateway), sender, amount, new bytes(0)
+        );
+        vm.expectEmit(true, true, true, true);
+        emit TxToL1(address(l2CustomGateway), l1Counterpart, 0, expectedData);
+
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawalInitiated(l1CustomToken, address(l2CustomGateway), sender, 0, 0, amount);
+
+        /// finalize deposit
+        vm.etch(0x0000000000000000000000000000000000000064, address(arbSysMock).code);
+        vm.prank(AddressAliasHelper.applyL1ToL2Alias(l1Counterpart));
+        l2CustomGateway.finalizeInboundTransfer(
+            l1CustomToken, sender, receiver, amount, abi.encode(gatewayData, callHookData)
+        );
     }
 
     function test_finalizeInboundTransfer_WithCallHook() public override {
@@ -87,40 +131,6 @@ contract L2CustomGatewayTest is L2ArbitrumGatewayTest {
 
         /// check tokens have been minted to receiver;
         assertEq(ERC20(l2CustomToken).balanceOf(receiver), amount, "Invalid receiver balance");
-    }
-
-    function test_finalizeInboundTransfer_ShouldHalt() public override {
-        // /// deposit params
-        // bytes memory gatewayData = abi.encode(
-        //     abi.encode(bytes("Name")), abi.encode(bytes("Symbol")), abi.encode(uint256(18))
-        // );
-        // bytes memory callHookData = new bytes(0);
-
-        // // mock incorrect address calculation
-        // address notL2Token = makeAddr("notL2Token");
-        // vm.mockCall(
-        //     address(l2BeaconProxyFactory),
-        //     abi.encodeWithSignature(
-        //         "calculateExpectedAddress(address,bytes32)",
-        //         address(l2CustomGateway),
-        //         l2CustomGateway.getUserSalt(l1Token)
-        //     ),
-        //     abi.encode(notL2Token)
-        // );
-
-        // // check that withdrawal is triggered occurs when deposit is halted
-        // vm.expectEmit(true, true, true, true);
-        // emit WithdrawalInitiated(l1Token, address(l2CustomGateway), sender, 0, 0, amount);
-
-        // /// finalize deposit
-        // vm.etch(0x0000000000000000000000000000000000000064, address(arbSysMock).code);
-        // vm.prank(AddressAliasHelper.applyL1ToL2Alias(l1Counterpart));
-        // l2CustomGateway.finalizeInboundTransfer(
-        //     l1Token, sender, receiver, amount, abi.encode(gatewayData, callHookData)
-        // );
-
-        // /// check L2 token hasn't been creted
-        // assertEq(address(notL2Token).code.length, 0, "L2 token isn't supposed to be created");
     }
 
     function test_initialize() public {

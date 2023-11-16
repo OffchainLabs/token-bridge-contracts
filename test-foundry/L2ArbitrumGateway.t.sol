@@ -20,6 +20,7 @@ abstract contract L2ArbitrumGatewayTest is Test {
     address public sender = makeAddr("from");
     uint256 public amount = 2400;
 
+    /* solhint-disable func-name-mixedcase */
     function test_getOutboundCalldata() public {
         address token = makeAddr("token");
         bytes memory data = new bytes(340);
@@ -39,7 +40,6 @@ abstract contract L2ArbitrumGatewayTest is Test {
 
     function test_finalizeInboundTransfer() public virtual;
     function test_finalizeInboundTransfer_WithCallHook() public virtual;
-    function test_finalizeInboundTransfer_ShouldHalt() public virtual;
 
     function test_outboundTransfer() public virtual;
 

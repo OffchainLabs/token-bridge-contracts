@@ -100,7 +100,7 @@ contract L2ERC20GatewayTest is L2ArbitrumGatewayTest {
         );
     }
 
-    function test_finalizeInboundTransfer_ShouldHalt() public override {
+    function test_finalizeInboundTransfer_ShouldHalt() public {
         /// deposit params
         bytes memory gatewayData = abi.encode(
             abi.encode(bytes("Name")), abi.encode(bytes("Symbol")), abi.encode(uint256(18))
