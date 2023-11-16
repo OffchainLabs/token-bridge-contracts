@@ -79,7 +79,7 @@ contract L2ERC20GatewayTest is L2ArbitrumGatewayTest {
         bytes memory gatewayData = abi.encode(
             abi.encode(bytes("Name")), abi.encode(bytes("Symbol")), abi.encode(uint256(18))
         );
-        bytes memory callHookData = new bytes(0x1234ab);
+        bytes memory callHookData = new bytes(0x1);
 
         /// events
         vm.expectEmit(true, true, true, true);

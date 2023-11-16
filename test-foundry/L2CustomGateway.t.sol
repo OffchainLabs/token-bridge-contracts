@@ -42,55 +42,51 @@ contract L2CustomGatewayTest is L2ArbitrumGatewayTest {
     }
 
     function test_finalizeInboundTransfer() public override {
-        // /// deposit params
-        // bytes memory gatewayData = abi.encode(
-        //     abi.encode(bytes("Name")), abi.encode(bytes("Symbol")), abi.encode(uint256(18))
-        // );
-        // bytes memory callHookData = new bytes(0);
+        /// deposit params
+        bytes memory gatewayData = abi.encode(
+            abi.encode(bytes("Name")), abi.encode(bytes("Symbol")), abi.encode(uint256(18))
+        );
+        bytes memory callHookData = new bytes(0);
 
-        // /// events
-        // vm.expectEmit(true, true, true, true);
-        // emit DepositFinalized(l1Token, sender, receiver, amount);
+        // register custom token
+        address l2CustomToken = _registerToken();
 
-        // /// finalize deposit
-        // vm.prank(AddressAliasHelper.applyL1ToL2Alias(l1Counterpart));
-        // l2CustomGateway.finalizeInboundTransfer(
-        //     l1Token, sender, receiver, amount, abi.encode(gatewayData, callHookData)
-        // );
+        /// events
+        vm.expectEmit(true, true, true, true);
+        emit DepositFinalized(l1CustomToken, sender, receiver, amount);
 
-        // /// check tokens have been minted to receiver
-        // address expectedL2Address = l2CustomGateway.calculateL2TokenAddress(l1Token);
-        // assertEq(
-        //     StandardArbERC20(expectedL2Address).balanceOf(receiver),
-        //     amount,
-        //     "Invalid receiver balance"
-        // );
+        /// finalize deposit
+        vm.prank(AddressAliasHelper.applyL1ToL2Alias(l1Counterpart));
+        l2CustomGateway.finalizeInboundTransfer(
+            l1CustomToken, sender, receiver, amount, abi.encode(gatewayData, callHookData)
+        );
+
+        /// check tokens have been minted to receiver;
+        assertEq(ERC20(l2CustomToken).balanceOf(receiver), amount, "Invalid receiver balance");
     }
 
     function test_finalizeInboundTransfer_WithCallHook() public override {
-        // /// deposit params
-        // bytes memory gatewayData = abi.encode(
-        //     abi.encode(bytes("Name")), abi.encode(bytes("Symbol")), abi.encode(uint256(18))
-        // );
-        // bytes memory callHookData = new bytes(0x1234ab);
+        /// deposit params
+        bytes memory gatewayData = abi.encode(
+            abi.encode(bytes("Name")), abi.encode(bytes("Symbol")), abi.encode(uint256(18))
+        );
+        bytes memory callHookData = new bytes(0x1);
 
-        // /// events
-        // vm.expectEmit(true, true, true, true);
-        // emit DepositFinalized(l1Token, sender, receiver, amount);
+        // register custom token
+        address l2CustomToken = _registerToken();
 
-        // /// finalize deposit
-        // vm.prank(AddressAliasHelper.applyL1ToL2Alias(l1Counterpart));
-        // l2CustomGateway.finalizeInboundTransfer(
-        //     l1Token, sender, receiver, amount, abi.encode(gatewayData, callHookData)
-        // );
+        /// events
+        vm.expectEmit(true, true, true, true);
+        emit DepositFinalized(l1CustomToken, sender, receiver, amount);
 
-        // /// check tokens have been minted to receiver
-        // address expectedL2Address = l2CustomGateway.calculateL2TokenAddress(l1Token);
-        // assertEq(
-        //     StandardArbERC20(expectedL2Address).balanceOf(receiver),
-        //     amount,
-        //     "Invalid receiver balance"
-        // );
+        /// finalize deposit
+        vm.prank(AddressAliasHelper.applyL1ToL2Alias(l1Counterpart));
+        l2CustomGateway.finalizeInboundTransfer(
+            l1CustomToken, sender, receiver, amount, abi.encode(gatewayData, callHookData)
+        );
+
+        /// check tokens have been minted to receiver;
+        assertEq(ERC20(l2CustomToken).balanceOf(receiver), amount, "Invalid receiver balance");
     }
 
     function test_finalizeInboundTransfer_ShouldHalt() public override {
@@ -175,11 +171,6 @@ contract L2CustomGatewayTest is L2ArbitrumGatewayTest {
         emit WithdrawalInitiated(l1CustomToken, sender, receiver, expectedId, 0, amount);
 
         // withdraw
-        vm.mockCall(
-            address(l2CustomToken),
-            abi.encodeWithSignature("l1Address()"),
-            abi.encode(l1CustomToken)
-        );
         vm.etch(0x0000000000000000000000000000000000000064, address(arbSysMock).code);
         vm.prank(sender);
         l2CustomGateway.outboundTransfer(l1CustomToken, receiver, amount, 0, 0, data);
@@ -206,11 +197,6 @@ contract L2CustomGatewayTest is L2ArbitrumGatewayTest {
         emit WithdrawalInitiated(l1CustomToken, sender, receiver, expectedId, 0, amount);
 
         // withdraw
-        vm.mockCall(
-            address(l2CustomToken),
-            abi.encodeWithSignature("l1Address()"),
-            abi.encode(l1CustomToken)
-        );
         vm.etch(0x0000000000000000000000000000000000000064, address(arbSysMock).code);
         vm.prank(sender);
         l2CustomGateway.outboundTransfer(l1CustomToken, receiver, amount, data);
