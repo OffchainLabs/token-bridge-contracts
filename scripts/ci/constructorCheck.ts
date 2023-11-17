@@ -1,33 +1,29 @@
-import * as fs from 'fs'
-import * as path from 'path'
+import hre from 'hardhat'
 
-const projectRoot = path.join(__dirname, '../../')
-const artifactsDir = path.join(
-  projectRoot,
-  'build',
-  'contracts',
-  'contracts',
-  'tokenbridge',
-  'arbitrum',
-  'gateway'
-)
+main().then(() => console.log('Done.'))
 
-const contractName = 'L2GatewayRouter'
+async function main() {
+  const contractName = 'L2GatewayRouter'
 
-const artifactPath = path.join(
-  artifactsDir,
-  `${contractName}.sol`,
-  `${contractName}.json`
-)
+  // Extracting the constructor prefix
+  const constructorBytecode = await _getConstructorBytecode(contractName)
 
-// Read the artifact file
-const artifact = JSON.parse(fs.readFileSync(artifactPath, 'utf8'))
+  console.log('Constructor code:', constructorBytecode)
+}
 
-// remove '0x' prefix
-const completeBytecode = artifact.bytecode.substring(2)
-const deployedBytecode = artifact.deployedBytecode.substring(2)
+/**
+ * Get constructor bytecode as a difference between creation and deployed bytecode
+ * @param contractName
+ * @returns
+ */
+async function _getConstructorBytecode(contractName: string): Promise<string> {
+  const artifact = await hre.artifacts.readArtifact(contractName)
 
-// Extracting the constructor prefix
-const constructorPrefix = completeBytecode.replace(deployedBytecode, '')
+  // remove '0x'
+  const completeBytecode = artifact.bytecode.substring(2)
+  const deployedBytecode = artifact.deployedBytecode.substring(2)
 
-console.log('Constructor Prefix:', constructorPrefix)
+  // extract the constructor prefix
+  const constructorPrefix = completeBytecode.replace(deployedBytecode, '')
+  return constructorPrefix
+}
