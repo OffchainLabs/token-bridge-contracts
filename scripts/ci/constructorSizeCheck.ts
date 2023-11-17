@@ -37,6 +37,9 @@ export const CONTRACTS_TO_EXPECTED_CONSTRUCTOR_SIZE: Record<string, number> = {
 main().then(() => console.log('Constructor size check found no issues.'))
 
 async function main() {
+  console.log('Start constructor size check')
+
+  // get constructor bytecode and check if it has expected length
   for (const [contractName, expectedLength] of Object.entries(
     CONTRACTS_TO_EXPECTED_CONSTRUCTOR_SIZE
   )) {
@@ -70,8 +73,7 @@ async function _getConstructorBytecode(contractName: string): Promise<string> {
   }
 
   // extract the constructor code
-  const constructorPrefix = creationCode.replace(runtimeCode, '')
-  return constructorPrefix
+  return creationCode.replace(runtimeCode, '')
 }
 
 /**
