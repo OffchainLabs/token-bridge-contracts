@@ -1,9 +1,31 @@
 import hre from 'hardhat'
 
 /**
- * Contracts defined here are the one for which cosntructor size check will be performed.
+ * Contracts defined here are the ones for which cosntructor size check will be performed.
+ *
+ * The reason why we perform constructor size check is due to atomic token bridge creator
+ * implementation. Due to contract size limits, we deploy child chain templates to the
+ * parent chain. When token bridge is being created, parent chain creator will fetch the
+ * runtime bytecode of the templates and send it to the child chain via retryable tickets.
+ * Child chain factory will then prepend the empty-constructor bytecode to the runtime code
+ * and use resulting bytecode for deployment. That's why we need to ensure that those
+ * impacted contracts don't have any logic in their constructors, as that logic can't be
+ * executed when deploying to the child chain.
+ *
+ * All impacted contracts have 32 bytes of constructor bytecode which look like this:
+ *   608060405234801561001057600080fd5b50615e7c806100206000396000f3fe
+ * This constructor checks that there's no callvalue, copies the contract code to memory
+ * and returns it. The only place where constructor bytecode differs between contracts
+ * is in 61xxxx80 where xxxx is the length of the contract's bytecode.
+ *
+ * One exception is aeWETH, which has a constructor size of 348 bytes. This is because it
+ * inhertis from 'aeERC20' which has 'initializer' modifier in its constructor. This modifier
+ * will set the contract to the initialized state. When aeWETH is created on the child chain
+ * there will be no constructor code invoked as mentioned earlier, so we do the initialization
+ * of the logic contract explicitly in the child chain factory.
  */
 export const CONTRACTS_TO_EXPECTED_CONSTRUCTOR_SIZE: Record<string, number> = {
+  fwefgwe: 6,
   L2AtomicTokenBridgeFactory: 32,
   ArbMulticall2: 32,
   L2GatewayRouter: 32,
@@ -19,13 +41,8 @@ async function main() {
   for (const [contractName, expectedLength] of Object.entries(
     CONTRACTS_TO_EXPECTED_CONSTRUCTOR_SIZE
   )) {
-    // Extracting the constructor prefix
     const constructorBytecode = await _getConstructorBytecode(contractName)
     const constructorBytecodeLength = _lengthInBytes(constructorBytecode)
-
-    console.log(
-      `Constructor length of ${contractName} is ${constructorBytecodeLength} bytes, expected ${expectedLength} bytes.`
-    )
 
     if (constructorBytecodeLength !== expectedLength) {
       throw new Error(
