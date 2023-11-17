@@ -25,7 +25,6 @@ import hre from 'hardhat'
  * of the logic contract explicitly in the child chain factory.
  */
 export const CONTRACTS_TO_EXPECTED_CONSTRUCTOR_SIZE: Record<string, number> = {
-  fwefgwe: 6,
   L2AtomicTokenBridgeFactory: 32,
   ArbMulticall2: 32,
   L2GatewayRouter: 32,
@@ -35,7 +34,7 @@ export const CONTRACTS_TO_EXPECTED_CONSTRUCTOR_SIZE: Record<string, number> = {
   aeWETH: 348,
 }
 
-main().then(() => console.log('Done.'))
+main().then(() => console.log('Constructor size check found no issues.'))
 
 async function main() {
   for (const [contractName, expectedLength] of Object.entries(
@@ -61,11 +60,17 @@ async function _getConstructorBytecode(contractName: string): Promise<string> {
   const artifact = await hre.artifacts.readArtifact(contractName)
 
   // remove '0x'
-  const completeBytecode = artifact.bytecode.substring(2)
-  const deployedBytecode = artifact.deployedBytecode.substring(2)
+  const creationCode = artifact.bytecode.substring(2)
+  const runtimeCode = artifact.deployedBytecode.substring(2)
 
-  // extract the constructor prefix
-  const constructorPrefix = completeBytecode.replace(deployedBytecode, '')
+  if (!creationCode.includes(runtimeCode)) {
+    throw new Error(
+      `Error while extracting constructor bytecode for contract ${contractName}.`
+    )
+  }
+
+  // extract the constructor code
+  const constructorPrefix = creationCode.replace(runtimeCode, '')
   return constructorPrefix
 }
 
