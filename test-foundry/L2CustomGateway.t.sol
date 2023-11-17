@@ -7,6 +7,9 @@ import {L2CustomGateway, ERC20} from "contracts/tokenbridge/arbitrum/gateway/L2C
 import {L2GatewayToken} from "contracts/tokenbridge/libraries/L2GatewayToken.sol";
 import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import {AddressAliasHelper} from "contracts/tokenbridge/libraries/AddressAliasHelper.sol";
+import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
+import {TransparentUpgradeableProxy} from
+    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 contract L2CustomGatewayTest is L2ArbitrumGatewayTest {
     L2CustomGateway public l2CustomGateway;
@@ -268,6 +271,18 @@ contract L2CustomGatewayTest is L2ArbitrumGatewayTest {
 
         vm.expectRevert("NOT_EXPECTED_L1_TOKEN");
         l2Gateway.outboundTransfer(l1CustomToken, address(101), 200, 0, 0, new bytes(0));
+    }
+
+    function test_postUpgradeInit_revert_NotFromAdmin() public {
+        ProxyAdmin pa = new ProxyAdmin();
+        L2CustomGateway _l2Gateway = new L2CustomGateway();
+        L2CustomGateway proxy = L2CustomGateway(
+            address(new TransparentUpgradeableProxy(address(_l2Gateway), address(pa), ""))
+        );
+
+        // no other logic implemented currently
+        vm.expectRevert("NOT_FROM_ADMIN");
+        proxy.postUpgradeInit();
     }
 
     function test_registerTokenFromL1() public {
