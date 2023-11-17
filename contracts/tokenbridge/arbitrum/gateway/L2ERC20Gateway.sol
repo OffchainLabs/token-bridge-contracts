@@ -27,6 +27,12 @@ import "../../libraries/ClonableBeaconProxy.sol";
 contract L2ERC20Gateway is L2ArbitrumGateway {
     address public beaconProxyFactory;
 
+    uint256 immutable X;
+
+    constructor() {
+        X = 100;
+    }
+
     function initialize(
         address _l1Counterpart,
         address _router,
