@@ -91,7 +91,49 @@ contract L2CustomGatewayTest is L2ArbitrumGatewayTest {
         bytes memory gatewayData = new bytes(0);
         bytes memory callHookData = new bytes(0);
 
+        /// L2 token returns unexpected L1 address
+        address l2CustomToken = _registerToken();
+        address notOriginalL1Token = makeAddr("notOriginalL1Token");
+        vm.mockCall(
+            address(l2CustomToken),
+            abi.encodeWithSignature("l1Address()"),
+            abi.encode(notOriginalL1Token)
+        );
+
         // check that withdrawal is triggered occurs when deposit is halted
+        bytes memory expectedData = l2CustomGateway.getOutboundCalldata(
+            l1CustomToken, address(l2CustomGateway), sender, amount, new bytes(0)
+        );
+        vm.expectEmit(true, true, true, true);
+        emit TxToL1(address(l2CustomGateway), l1Counterpart, 0, expectedData);
+
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawalInitiated(l1CustomToken, address(l2CustomGateway), sender, 0, 0, amount);
+
+        /// finalize deposit
+        vm.etch(0x0000000000000000000000000000000000000064, address(arbSysMock).code);
+        vm.prank(AddressAliasHelper.applyL1ToL2Alias(l1Counterpart));
+        l2CustomGateway.finalizeInboundTransfer(
+            l1CustomToken, sender, receiver, amount, abi.encode(gatewayData, callHookData)
+        );
+    }
+
+    function test_finalizeInboundTransfer_NoL1AddressImplemented() public {
+        /// deposit params
+        bytes memory gatewayData = new bytes(0);
+        bytes memory callHookData = new bytes(0);
+
+        /// L2 token returns doesn't implement l1Address()
+        address[] memory l1Tokens = new address[](1);
+        l1Tokens[0] = l1CustomToken;
+
+        address[] memory l2Tokens = new address[](1);
+        l2Tokens[0] = address(new Empty());
+
+        vm.prank(AddressAliasHelper.applyL1ToL2Alias(l1Counterpart));
+        l2CustomGateway.registerTokenFromL1(l1Tokens, l2Tokens);
+
+        // check that withdrawal is triggered occurs
         bytes memory expectedData = l2CustomGateway.getOutboundCalldata(
             l1CustomToken, address(l2CustomGateway), sender, amount, new bytes(0)
         );
@@ -283,3 +325,5 @@ contract L2CustomToken is L2GatewayToken {
         L2GatewayToken._initialize("L2 token", "L2", 18, _l2CustomGateway, _l1CustomToken);
     }
 }
+
+contract Empty {}
