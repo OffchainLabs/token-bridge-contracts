@@ -47,94 +47,6 @@ contract L2WethGatewayTest is L2ArbitrumGatewayTest {
         // assertEq(ERC20(l2CustomToken).balanceOf(receiver), amount, "Invalid receiver balance");
     }
 
-    // function test_finalizeInboundTransfer_NoL2TokenFound() public {
-    //     /// deposit params
-    //     bytes memory gatewayData = new bytes(0);
-    //     bytes memory callHookData = new bytes(0);
-
-    //     // check that withdrawal is triggered occurs when deposit is halted
-    //     bytes memory expectedData = l2WethGateway.getOutboundCalldata(
-    //         l1CustomToken, address(l2WethGateway), sender, amount, new bytes(0)
-    //     );
-    //     vm.expectEmit(true, true, true, true);
-    //     emit TxToL1(address(l2WethGateway), l1Counterpart, 0, expectedData);
-
-    //     vm.expectEmit(true, true, true, true);
-    //     emit WithdrawalInitiated(l1CustomToken, address(l2WethGateway), sender, 0, 0, amount);
-
-    //     /// finalize deposit
-    //     vm.etch(0x0000000000000000000000000000000000000064, address(arbSysMock).code);
-    //     vm.prank(AddressAliasHelper.applyL1ToL2Alias(l1Counterpart));
-    //     l2WethGateway.finalizeInboundTransfer(
-    //         l1CustomToken, sender, receiver, amount, abi.encode(gatewayData, callHookData)
-    //     );
-    // }
-
-    // function test_finalizeInboundTransfer_UnexpectedL1Address() public {
-    //     /// deposit params
-    //     bytes memory gatewayData = new bytes(0);
-    //     bytes memory callHookData = new bytes(0);
-
-    //     /// L2 token returns unexpected L1 address
-    //     address l2CustomToken = _registerToken();
-    //     address notOriginalL1Token = makeAddr("notOriginalL1Token");
-    //     vm.mockCall(
-    //         address(l2CustomToken),
-    //         abi.encodeWithSignature("l1Address()"),
-    //         abi.encode(notOriginalL1Token)
-    //     );
-
-    //     // check that withdrawal is triggered occurs when deposit is halted
-    //     bytes memory expectedData = l2WethGateway.getOutboundCalldata(
-    //         l1CustomToken, address(l2WethGateway), sender, amount, new bytes(0)
-    //     );
-    //     vm.expectEmit(true, true, true, true);
-    //     emit TxToL1(address(l2WethGateway), l1Counterpart, 0, expectedData);
-
-    //     vm.expectEmit(true, true, true, true);
-    //     emit WithdrawalInitiated(l1CustomToken, address(l2WethGateway), sender, 0, 0, amount);
-
-    //     /// finalize deposit
-    //     vm.etch(0x0000000000000000000000000000000000000064, address(arbSysMock).code);
-    //     vm.prank(AddressAliasHelper.applyL1ToL2Alias(l1Counterpart));
-    //     l2WethGateway.finalizeInboundTransfer(
-    //         l1CustomToken, sender, receiver, amount, abi.encode(gatewayData, callHookData)
-    //     );
-    // }
-
-    // function test_finalizeInboundTransfer_NoL1AddressImplemented() public {
-    //     /// deposit params
-    //     bytes memory gatewayData = new bytes(0);
-    //     bytes memory callHookData = new bytes(0);
-
-    //     /// L2 token returns doesn't implement l1Address()
-    //     address[] memory l1Tokens = new address[](1);
-    //     l1Tokens[0] = l1CustomToken;
-
-    //     address[] memory l2Tokens = new address[](1);
-    //     l2Tokens[0] = address(new Empty());
-
-    //     vm.prank(AddressAliasHelper.applyL1ToL2Alias(l1Counterpart));
-    //     l2WethGateway.registerTokenFromL1(l1Tokens, l2Tokens);
-
-    //     // check that withdrawal is triggered occurs
-    //     bytes memory expectedData = l2WethGateway.getOutboundCalldata(
-    //         l1CustomToken, address(l2WethGateway), sender, amount, new bytes(0)
-    //     );
-    //     vm.expectEmit(true, true, true, true);
-    //     emit TxToL1(address(l2WethGateway), l1Counterpart, 0, expectedData);
-
-    //     vm.expectEmit(true, true, true, true);
-    //     emit WithdrawalInitiated(l1CustomToken, address(l2WethGateway), sender, 0, 0, amount);
-
-    //     /// finalize deposit
-    //     vm.etch(0x0000000000000000000000000000000000000064, address(arbSysMock).code);
-    //     vm.prank(AddressAliasHelper.applyL1ToL2Alias(l1Counterpart));
-    //     l2WethGateway.finalizeInboundTransfer(
-    //         l1CustomToken, sender, receiver, amount, abi.encode(gatewayData, callHookData)
-    //     );
-    // }
-
     function test_finalizeInboundTransfer_WithCallHook() public override {
         // /// deposit params
         // bytes memory gatewayData = abi.encode(
@@ -159,32 +71,29 @@ contract L2WethGatewayTest is L2ArbitrumGatewayTest {
         // assertEq(ERC20(l2CustomToken).balanceOf(receiver), amount, "Invalid receiver balance");
     }
 
-    // function test_initialize() public {
-    //     L2WethGateway gateway = new L2WethGateway();
-    //     L2WethGateway(gateway).initialize(l1Counterpart, router);
+    function test_initialize() public {
+        L2WethGateway gateway = new L2WethGateway();
+        L2WethGateway(gateway).initialize(l1Counterpart, router, l1Weth, l2Weth);
 
-    //     assertEq(gateway.counterpartGateway(), l1Counterpart, "Invalid counterpartGateway");
-    //     assertEq(gateway.router(), router, "Invalid router");
-    // }
+        assertEq(gateway.counterpartGateway(), l1Counterpart, "Invalid counterpartGateway");
+        assertEq(gateway.router(), router, "Invalid router");
+        assertEq(gateway.l1Weth(), l1Weth, "Invalid l1Weth");
+        assertEq(gateway.l2Weth(), l2Weth, "Invalid l2Weth");
+    }
 
-    // function test_initialize_revert_BadRouter() public {
-    //     L2WethGateway gateway = new L2WethGateway();
-    //     vm.expectRevert("BAD_ROUTER");
-    //     L2WethGateway(gateway).initialize(l1Counterpart, address(0));
-    // }
+    function test_initialize_revert_InvalidL1Weth() public {
+        L2WethGateway gateway = new L2WethGateway();
+        vm.expectRevert("INVALID_L1WETH");
+        address invalidL1Weth = address(0);
+        L2WethGateway(gateway).initialize(l1Counterpart, router, invalidL1Weth, l2Weth);
+    }
 
-    // function test_initialize_revert_InvalidCounterpart() public {
-    //     L2WethGateway gateway = new L2WethGateway();
-    //     vm.expectRevert("INVALID_COUNTERPART");
-    //     L2WethGateway(gateway).initialize(address(0), router);
-    // }
-
-    // function test_initialize_revert_AlreadyInit() public {
-    //     L2WethGateway gateway = new L2WethGateway();
-    //     L2WethGateway(gateway).initialize(l1Counterpart, router);
-    //     vm.expectRevert("ALREADY_INIT");
-    //     L2WethGateway(gateway).initialize(l1Counterpart, router);
-    // }
+    function test_initialize_revert_InvalidL2Weth() public {
+        L2WethGateway gateway = new L2WethGateway();
+        vm.expectRevert("INVALID_L2WETH");
+        address invalidL2Weth = address(0);
+        L2WethGateway(gateway).initialize(l1Counterpart, router, l1Weth, invalidL2Weth);
+    }
 
     function test_outboundTransfer() public override {
         // // create and init custom l2Token
