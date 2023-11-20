@@ -86,6 +86,27 @@ contract L2WethGatewayTest is L2ArbitrumGatewayTest {
         assertEq(aeWETH(payable(l2Weth)).balanceOf(receiver), amount, "Invalid receiver balance");
     }
 
+    function test_finalizeInboundTransfer_ShouldHalt() public {
+        /// deposit params
+        bytes memory gatewayData = new bytes(0);
+        bytes memory callHookData = new bytes(0);
+
+        address notL1Weth = makeAddr("notL1Weth");
+
+        // check that withdrawal is triggered occurs when deposit is halted
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawalInitiated(notL1Weth, address(l2WethGateway), sender, 0, 0, amount);
+
+        vm.deal(address(l2WethGateway), 100 ether);
+
+        /// finalize deposit
+        vm.etch(0x0000000000000000000000000000000000000064, address(arbSysMock).code);
+        vm.prank(AddressAliasHelper.applyL1ToL2Alias(l1Counterpart));
+        l2WethGateway.finalizeInboundTransfer(
+            notL1Weth, sender, receiver, amount, abi.encode(gatewayData, callHookData)
+        );
+    }
+
     function test_initialize() public {
         L2WethGateway gateway = new L2WethGateway();
         L2WethGateway(gateway).initialize(l1Counterpart, router, l1Weth, l2Weth);
@@ -158,5 +179,20 @@ contract L2WethGatewayTest is L2ArbitrumGatewayTest {
         l2WethGateway.outboundTransfer(l1Weth, receiver, amount, data);
     }
 
-    function test_outboundTransfer_revert_NotExpectedL1Token() public override {}
+    function test_outboundTransfer_revert_NotExpectedL1Token() public override {
+        // mock invalid L1 token ref
+        address notL1Weth = makeAddr("notL1Weth");
+        vm.mockCall(address(l2Weth), abi.encodeWithSignature("l1Address()"), abi.encode(notL1Weth));
+
+        vm.expectRevert("NOT_EXPECTED_L1_TOKEN");
+        l2WethGateway.outboundTransfer(l1Weth, address(101), 200, 0, 0, new bytes(0));
+    }
+
+    function test_receive() public {
+        vm.deal(address(this), 5 ether);
+        bool sent = payable(l2WethGateway).send(5 ether);
+
+        assertTrue(sent, "Failed to send");
+        assertEq(address(l2WethGateway).balance, 5 ether, "Invalid balance");
+    }
 }
