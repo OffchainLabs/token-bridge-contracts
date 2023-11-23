@@ -676,8 +676,6 @@ async function _isInitialized(
 
   // Ethereum storage slots are 32 bytes and a uint8 is 1 byte, we mask the lower 8 bits to convert it to uint8.
   const maskedValue = bigNumberValue.and(255)
-
-  // return address as checksum address
   return maskedValue.toNumber() == 1
 }
 
