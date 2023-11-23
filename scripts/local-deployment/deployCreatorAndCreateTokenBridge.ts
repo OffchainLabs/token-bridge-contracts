@@ -110,14 +110,14 @@ export const setupTokenBridgeInLocalEnv = async () => {
 
   //// run retryable estimate for deploying L2 factory
   const deployFactoryGasParams = await getEstimateForDeployingFactory(
-    l1Deployer,
-    l2Deployer.provider!
+    parentDeployer,
+    childDeployer.provider!
   )
   const gasLimitForL2FactoryDeployment = deployFactoryGasParams.gasLimit
 
   const { l1TokenBridgeCreator, retryableSender } =
     await deployL1TokenBridgeCreator(
-      l1Deployer,
+      parentDeployer,
       l1Weth,
       gasLimitForL2FactoryDeployment
     )
