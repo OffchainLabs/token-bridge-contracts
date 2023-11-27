@@ -5,6 +5,7 @@ import {
   IInbox__factory,
   IOwnable__factory,
   IRollupCore__factory,
+  L1AtomicTokenBridgeCreator,
   L1AtomicTokenBridgeCreator__factory,
   L1CustomGateway,
   L1CustomGateway__factory,
@@ -85,10 +86,15 @@ describe('tokenBridge', () => {
       l1RetryableSender.toLowerCase()
     )
 
+    const creator = L1AtomicTokenBridgeCreator__factory.connect(
+      l1TokenBridgeCreator,
+      l1Provider
+    )
     await checkL1RouterInitialization(
       L1GatewayRouter__factory.connect(l1.router, l1Provider),
       l1,
-      l2
+      l2,
+      creator
     )
 
     await checkL1StandardGatewayInitialization(
@@ -156,9 +162,14 @@ describe('tokenBridge', () => {
 async function checkL1RouterInitialization(
   l1Router: L1GatewayRouter,
   l1: L1,
-  l2: L2
+  l2: L2,
+  creator: L1AtomicTokenBridgeCreator
 ) {
   console.log('checkL1RouterInitialization')
+
+  expect(l1.router.toLowerCase()).to.be.eq(
+    (await creator.getCanonicalL1RouterAddress(l1.inbox)).toLowerCase()
+  )
 
   expect((await l1Router.defaultGateway()).toLowerCase()).to.be.eq(
     l1.standardGateway.toLowerCase()
@@ -379,6 +390,7 @@ async function checkL1Ownership(l1: L1) {
   console.log('checkL1Ownership')
 
   // check proxyAdmins
+
   expect(await _getProxyAdmin(l1.router, l1Provider)).to.be.eq(l1.proxyAdmin)
   expect(await _getProxyAdmin(l1.standardGateway, l1Provider)).to.be.eq(
     l1.proxyAdmin

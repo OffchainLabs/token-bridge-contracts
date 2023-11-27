@@ -333,7 +333,6 @@ struct L2RuntimeCode {
  * Collection of salts used in CREATE2 deployment of L2 token bridge contracts.
  */
 library OrbitSalts {
-    bytes public constant L1_PROXY_ADMIN = bytes("OrbitL1ProxyAdmin");
     bytes public constant L1_ROUTER = bytes("OrbitL1GatewayRouterProxy");
     bytes public constant L1_STANDARD_GATEWAY = bytes("OrbitL1StandardGatewayProxy");
     bytes public constant L1_CUSTOM_GATEWAY = bytes("OrbitL1CustomGatewayProxy");

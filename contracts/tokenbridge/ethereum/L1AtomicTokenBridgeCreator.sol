@@ -518,11 +518,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     }
 
     function getCanonicalL1RouterAddress(address inbox) public view returns (address) {
-        address expectedL1ProxyAdminAddress = Create2.computeAddress(
-            _getL1Salt(OrbitSalts.L1_PROXY_ADMIN, inbox),
-            keccak256(type(ProxyAdmin).creationCode),
-            address(this)
-        );
+        address proxyAdminAddress = IInbox_ProxyAdmin(inbox).getProxyAdmin();
 
         bool isUsingFeeToken = _getFeeToken(inbox) != address(0);
         address template = isUsingFeeToken
@@ -534,7 +530,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             keccak256(
                 abi.encodePacked(
                     type(TransparentUpgradeableProxy).creationCode,
-                    abi.encode(template, expectedL1ProxyAdminAddress, bytes(""))
+                    abi.encode(template, proxyAdminAddress, bytes(""))
                 )
             ),
             address(this)
