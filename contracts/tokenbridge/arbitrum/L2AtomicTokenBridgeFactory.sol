@@ -9,6 +9,7 @@ import {StandardArbERC20} from "./StandardArbERC20.sol";
 import {IUpgradeExecutor} from "@offchainlabs/upgrade-executor/src/IUpgradeExecutor.sol";
 import {BeaconProxyFactory} from "../libraries/ClonableBeaconProxy.sol";
 import {aeWETH} from "../libraries/aeWETH.sol";
+import {Create1} from "../libraries/Create1.sol";
 import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import {
@@ -279,13 +280,13 @@ contract L2AtomicTokenBridgeFactory {
     /**
      * Deploys a proxy with empty logic contract in order to get deterministic address which does not depend on actual logic contract.
      */
-    function _deploySeedProxy(address proxyAdmin, bytes32 proxySalt, bytes32 logicSalt)
+    function _deploySeedProxy(address proxyAdmin, bytes32 proxySalt, bytes32 )
         internal
         returns (address)
     {
         return address(
             new TransparentUpgradeableProxy{ salt: proxySalt }(
-                address(new CanonicalAddressSeed{ salt: logicSalt}()),
+                address(this),
                 proxyAdmin,
                 bytes("")
             )
@@ -313,11 +314,6 @@ contract L2AtomicTokenBridgeFactory {
         return abi.encodePacked(hex"63", uint32(code.length), hex"80600E6000396000F3", code);
     }
 }
-
-/**
- * Dummy contract used as initial logic contract for proxies, in order to get canonical (CREATE2 based) address. Then we can upgrade to any logic without having canonical addresses impacted.
- */
-contract CanonicalAddressSeed {}
 
 /**
  * Placeholder for bytecode of token bridge contracts which is sent from L1 to L2 through retryable ticket.

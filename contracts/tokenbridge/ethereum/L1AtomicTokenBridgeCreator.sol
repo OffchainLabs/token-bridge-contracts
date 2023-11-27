@@ -19,7 +19,6 @@ import {L1OrbitERC20Gateway} from "./gateway/L1OrbitERC20Gateway.sol";
 import {L1OrbitCustomGateway} from "./gateway/L1OrbitCustomGateway.sol";
 import {
     L2AtomicTokenBridgeFactory,
-    CanonicalAddressSeed,
     OrbitSalts,
     L2RuntimeCode,
     ProxyAdmin
@@ -687,17 +686,13 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         view
         returns (address)
     {
-        address logicSeedAddress = Create2.computeAddress(
-            logicSalt, keccak256(type(CanonicalAddressSeed).creationCode), canonicalL2FactoryAddress
-        );
-
         return Create2.computeAddress(
             proxySalt,
             keccak256(
                 abi.encodePacked(
                     type(TransparentUpgradeableProxy).creationCode,
                     abi.encode(
-                        logicSeedAddress, getCanonicalL2ProxyAdminAddress(chainId), bytes("")
+                        canonicalL2FactoryAddress, getCanonicalL2ProxyAdminAddress(chainId), bytes("")
                     )
                 )
             ),
