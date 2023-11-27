@@ -692,7 +692,9 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                 abi.encodePacked(
                     type(TransparentUpgradeableProxy).creationCode,
                     abi.encode(
-                        canonicalL2FactoryAddress, getCanonicalL2ProxyAdminAddress(chainId), bytes("")
+                        canonicalL2FactoryAddress,
+                        getCanonicalL2ProxyAdminAddress(chainId),
+                        bytes("")
                     )
                 )
             ),

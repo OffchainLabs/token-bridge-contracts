@@ -280,7 +280,7 @@ contract L2AtomicTokenBridgeFactory {
     /**
      * Deploys a proxy with address(this) as logic in order to get deterministic address
      */
-    function _deploySeedProxy(address proxyAdmin, bytes32 proxySalt, bytes32 )
+    function _deploySeedProxy(address proxyAdmin, bytes32 proxySalt, bytes32)
         internal
         returns (address)
     {
