@@ -278,7 +278,7 @@ contract L2AtomicTokenBridgeFactory {
     }
 
     /**
-     * Deploys a proxy with empty logic contract in order to get deterministic address which does not depend on actual logic contract.
+     * Deploys a proxy with address(this) as logic in order to get deterministic address
      */
     function _deploySeedProxy(address proxyAdmin, bytes32 proxySalt, bytes32 )
         internal
