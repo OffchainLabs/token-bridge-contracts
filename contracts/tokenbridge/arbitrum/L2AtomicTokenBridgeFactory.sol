@@ -93,13 +93,16 @@ contract L2AtomicTokenBridgeFactory {
         );
 
         // Create UpgradeExecutor logic and upgrade to it.
-        // Note: UpgradeExecutor logic has initializer disabled so no need to call it.
         address upExecutorLogic = Create2.deploy(
             0, _getL2Salt(OrbitSalts.L2_EXECUTOR_LOGIC), _creationCodeFor(runtimeCode)
         );
         ProxyAdmin(proxyAdmin).upgrade(
             ITransparentUpgradeableProxy(canonicalUpgradeExecutor), upExecutorLogic
         );
+
+        // init logic contract with dummy values
+        address[] memory empty = new address[](0);
+        IUpgradeExecutor(upExecutorLogic).initialize(ADDRESS_DEAD, empty);
 
         // init upgrade executor
         address[] memory executors = new address[](2);

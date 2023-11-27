@@ -1,5 +1,6 @@
 import { JsonRpcProvider, Provider, Filter } from '@ethersproject/providers'
 import {
+  AeWETH__factory,
   BeaconProxyFactory__factory,
   IERC20Bridge__factory,
   IInbox__factory,
@@ -109,7 +110,7 @@ describe('tokenBridge', () => {
       l2
     )
 
-    const usingFeeToken = await isUsingFeeToken(l1.inbox, l1Provider)
+    const usingFeeToken = await _isUsingFeeToken(l1.inbox, l1Provider)
     if (!usingFeeToken)
       await checkL1WethGatewayInitialization(
         L1WethGateway__factory.connect(l1.wethGateway, l1Provider),
@@ -154,6 +155,7 @@ describe('tokenBridge', () => {
 
     await checkL1Ownership(l1)
     await checkL2Ownership(l2)
+    await checkLogicContracts(usingFeeToken, l2)
   })
 })
 
@@ -444,8 +446,63 @@ async function checkL2Ownership(l2: L2) {
   expect(await _getOwner(l2ProxyAdmin, l2Provider)).to.be.eq(l2.upgradeExecutor)
 }
 
+async function checkLogicContracts(usingFeeToken: boolean, l2: L2) {
+  console.log('checkLogicContracts')
+
+  const upgExecutorLogic = await _getLogicAddress(
+    l2.upgradeExecutor,
+    l2Provider
+  )
+  expect(await _isInitialized(upgExecutorLogic, l2Provider)).to.be.true
+
+  const routerLogic = await _getLogicAddress(l2.router, l2Provider)
+  expect(
+    await L2GatewayRouter__factory.connect(
+      routerLogic,
+      l2Provider
+    ).counterpartGateway()
+  ).to.be.not.eq(ethers.constants.AddressZero)
+
+  const standardGatewayLogic = await _getLogicAddress(
+    l2.standardGateway,
+    l2Provider
+  )
+  expect(
+    await L2ERC20Gateway__factory.connect(
+      standardGatewayLogic,
+      l2Provider
+    ).counterpartGateway()
+  ).to.be.not.eq(ethers.constants.AddressZero)
+
+  const customGatewayLogic = await _getLogicAddress(
+    l2.customGateway,
+    l2Provider
+  )
+  expect(
+    await L2CustomGateway__factory.connect(
+      customGatewayLogic,
+      l2Provider
+    ).counterpartGateway()
+  ).to.be.not.eq(ethers.constants.AddressZero)
+
+  if (!usingFeeToken) {
+    const wethGatewayLogic = await _getLogicAddress(l2.wethGateway, l2Provider)
+    expect(
+      await L2WethGateway__factory.connect(
+        wethGatewayLogic,
+        l2Provider
+      ).counterpartGateway()
+    ).to.be.not.eq(ethers.constants.AddressZero)
+
+    const wethLogic = await _getLogicAddress(l2.weth, l2Provider)
+    expect(
+      await AeWETH__factory.connect(wethLogic, l2Provider).l2Gateway()
+    ).to.be.not.eq(ethers.constants.AddressZero)
+  }
+}
+
 //// utils
-async function isUsingFeeToken(inbox: string, l1Provider: JsonRpcProvider) {
+async function _isUsingFeeToken(inbox: string, l1Provider: JsonRpcProvider) {
   const bridge = await IInbox__factory.connect(inbox, l1Provider).bridge()
 
   try {
@@ -523,7 +580,7 @@ async function _getTokenBridgeAddresses(
     upgradeExecutor: upgradeExecutor.toLowerCase(),
   }
 
-  const usingFeeToken = await isUsingFeeToken(l1.inbox, l1Provider)
+  const usingFeeToken = await _isUsingFeeToken(l1.inbox, l1Provider)
 
   const chainId = await IRollupCore__factory.connect(
     rollupAddress,
@@ -573,6 +630,19 @@ async function _getProxyAdmin(
   ).toLowerCase()
 }
 
+async function _getLogicAddress(
+  contractAddress: string,
+  provider: Provider
+): Promise<string> {
+  return (
+    await _getAddressAtStorageSlot(
+      contractAddress,
+      provider,
+      '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc'
+    )
+  ).toLowerCase()
+}
+
 async function _getOwner(
   contractAddress: string,
   provider: Provider
@@ -602,6 +672,23 @@ async function _getAddressAtStorageSlot(
 
   // return address as checksum address
   return ethers.utils.getAddress(formatAddress)
+}
+
+/**
+ * Return if contracts is initialized or not. Applicable for contracts which use OpenZeppelin Initializable pattern,
+ * so state of initialization is stored as uint8 in storage slot 0, offset 0.
+ */
+async function _isInitialized(
+  contractAddress: string,
+  provider: Provider
+): Promise<boolean> {
+  const storageSlot = 0
+  const storageValue = await provider.getStorageAt(contractAddress, storageSlot)
+  const bigNumberValue = ethers.BigNumber.from(storageValue)
+
+  // Ethereum storage slots are 32 bytes and a uint8 is 1 byte, we mask the lower 8 bits to convert it to uint8.
+  const maskedValue = bigNumberValue.and(255)
+  return maskedValue.toNumber() == 1
 }
 
 interface L1 {
