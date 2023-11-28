@@ -81,8 +81,22 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         IUpgradeExecutor upgradeExecutor;
     }
 
+    struct DeploymentAddresses {
+        L1DeploymentAddresses l1;
+        address l2Router;
+        address l2StandardGateway;
+        address l2CustomGateway;
+        address l2WethGateway;
+        address l2Weth;
+        address l2ProxyAdmin;
+        address l2BeaconProxyFactory;
+        address l2UpgradeExecutor;
+        address l2Multicall;
+    }
+
     // non-canonical router registry
     mapping(address => address) public inboxToNonCanonicalRouter;
+    mapping(address => DeploymentAddresses) public inboxToDeployment;
 
     // Hard-code gas to make sure gas limit is big enough for L2 factory deployment to succeed.
     // If retryable would've reverted due to too low gas limit, nonce 0 would be burned and
@@ -204,11 +218,25 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         }
 
         uint256 rollupChainId = IRollupCore(address(IInbox(inbox).bridge().rollup())).chainId();
+        // store L2 addresses before deployments
+        DeploymentAddresses memory deployment;
+        deployment.l2Router = getCanonicalL2RouterAddress(rollupChainId);
+        deployment.l2StandardGateway = getCanonicalL2StandardGatewayAddress(rollupChainId);
+        deployment.l2CustomGateway = getCanonicalL2CustomGatewayAddress(rollupChainId);
+        deployment.l2WethGateway = getCanonicalL2WethGatewayAddress(rollupChainId);
+        deployment.l2Weth = getCanonicalL2WethAddress(rollupChainId);
+        deployment.l2ProxyAdmin = getCanonicalL2ProxyAdminAddress(rollupChainId);
+        deployment.l2BeaconProxyFactory = getCanonicalL2BeaconProxyFactoryAddress(rollupChainId);
+        deployment.l2UpgradeExecutor = getCanonicalL2UpgradeExecutorAddress(rollupChainId);
+        deployment.l2Multicall = getCanonicalL2Multicall(rollupChainId);
 
         /// deploy L1 side of token bridge
         bool isUsingFeeToken = _getFeeToken(inbox) != address(0);
         L1DeploymentAddresses memory l1DeploymentAddresses =
-            _deployL1Contracts(inbox, rollupOwner, upgradeExecutor, isUsingFeeToken, rollupChainId);
+            _deployL1Contracts(inbox, rollupOwner, upgradeExecutor, isUsingFeeToken, deployment);
+
+        deployment.l1 = l1DeploymentAddresses;
+        inboxToDeployment[inbox] = deployment;
 
         /// deploy factory and then L2 contracts through L2 factory, using 2 retryables calls
         if (isUsingFeeToken) {
@@ -220,7 +248,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                 gasPriceBid,
                 rollupOwner,
                 upgradeExecutor,
-                rollupChainId
+                deployment
             );
         } else {
             uint256 valueSpentForFactory = _deployL2Factory(inbox, gasPriceBid, isUsingFeeToken);
@@ -233,7 +261,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                 fundsRemaining,
                 rollupOwner,
                 upgradeExecutor,
-                rollupChainId
+                deployment
             );
         }
     }
@@ -269,7 +297,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         address rollupOwner,
         address upgradeExecutor,
         bool isUsingFeeToken,
-        uint256 chainId
+        DeploymentAddresses memory deployment
     ) internal returns (L1DeploymentAddresses memory l1Addresses) {
         // get existing proxy admin and upgrade executor
         address proxyAdmin = IInboxProxyAdmin(inbox).getProxyAdmin();
@@ -289,23 +317,19 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
 
         // deploy and init gateways
         l1Addresses.standardGateway = _deployL1StandardGateway(
-            proxyAdmin, l1Addresses.router, inbox, isUsingFeeToken, chainId
+            proxyAdmin, l1Addresses.router, inbox, isUsingFeeToken, deployment
         );
         l1Addresses.customGateway = _deployL1CustomGateway(
-            proxyAdmin, l1Addresses.router, inbox, upgradeExecutor, isUsingFeeToken, chainId
+            proxyAdmin, l1Addresses.router, inbox, upgradeExecutor, isUsingFeeToken, deployment
         );
         l1Addresses.wethGateway = isUsingFeeToken
             ? address(0)
-            : _deployL1WethGateway(proxyAdmin, l1Addresses.router, inbox, chainId);
+            : _deployL1WethGateway(proxyAdmin, l1Addresses.router, inbox, deployment);
         l1Addresses.weth = isUsingFeeToken ? address(0) : l1Weth;
 
         // init router
         L1GatewayRouter(l1Addresses.router).initialize(
-            upgradeExecutor,
-            l1Addresses.standardGateway,
-            address(0),
-            getCanonicalL2RouterAddress(chainId),
-            inbox
+            upgradeExecutor, l1Addresses.standardGateway, address(0), deployment.l2Router, inbox
         );
 
         // emit it
@@ -326,7 +350,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         address router,
         address inbox,
         bool isUsingFeeToken,
-        uint256 chainId
+        DeploymentAddresses memory deployment
     ) internal returns (address) {
         address template = isUsingFeeToken
             ? address(l1Templates.feeTokenBasedStandardGatewayTemplate)
@@ -341,11 +365,11 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         );
 
         standardGateway.initialize(
-            getCanonicalL2StandardGatewayAddress(chainId),
+            deployment.l2StandardGateway,
             router,
             inbox,
             keccak256(type(ClonableBeaconProxy).creationCode),
-            getCanonicalL2BeaconProxyFactoryAddress(chainId)
+            deployment.l2BeaconProxyFactory
         );
 
         return address(standardGateway);
@@ -357,7 +381,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         address inbox,
         address upgradeExecutor,
         bool isUsingFeeToken,
-        uint256 chainId
+        DeploymentAddresses memory deployment
     ) internal returns (address) {
         address template = isUsingFeeToken
             ? address(l1Templates.feeTokenBasedCustomGatewayTemplate)
@@ -371,9 +395,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             )
         );
 
-        customGateway.initialize(
-            getCanonicalL2CustomGatewayAddress(chainId), router, inbox, upgradeExecutor
-        );
+        customGateway.initialize(deployment.l2CustomGateway, router, inbox, upgradeExecutor);
 
         return address(customGateway);
     }
@@ -382,7 +404,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         address proxyAdmin,
         address router,
         address inbox,
-        uint256 chainId
+        DeploymentAddresses memory deployment
     ) internal returns (address) {
         L1WethGateway wethGateway = L1WethGateway(
             payable(
@@ -394,13 +416,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             )
         );
 
-        wethGateway.initialize(
-            getCanonicalL2WethGatewayAddress(chainId),
-            router,
-            inbox,
-            l1Weth,
-            getCanonicalL2WethAddress(chainId)
-        );
+        wethGateway.initialize(deployment.l2WethGateway, router, inbox, l1Weth, deployment.l2Weth);
 
         return address(wethGateway);
     }
@@ -457,7 +473,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         uint256 availableFunds,
         address rollupOwner,
         address upgradeExecutor,
-        uint256 chainId
+        DeploymentAddresses memory deployment
     ) internal {
         retryableSender.sendRetryableUsingEth{value: availableFunds}(
             RetryableParams(
@@ -473,7 +489,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                 l2MulticallTemplate
             ),
             l1Addresses,
-            getCanonicalL2StandardGatewayAddress(chainId),
+            deployment.l2StandardGateway,
             rollupOwner,
             msg.sender,
             AddressAliasHelper.applyL1ToL2Alias(upgradeExecutor)
@@ -487,7 +503,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         uint256 gasPriceBid,
         address rollupOwner,
         address upgradeExecutor,
-        uint256 chainId
+        DeploymentAddresses memory deployment
     ) internal {
         // transfer fee tokens to inbox to pay for 2nd retryable
         address feeToken = _getFeeToken(inbox);
@@ -508,7 +524,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                 l2MulticallTemplate
             ),
             l1Addresses,
-            getCanonicalL2StandardGatewayAddress(chainId),
+            deployment.l2StandardGateway,
             rollupOwner,
             AddressAliasHelper.applyL1ToL2Alias(upgradeExecutor)
         );
