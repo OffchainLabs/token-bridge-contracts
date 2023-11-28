@@ -124,7 +124,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     address public l1Multicall;
 
     // immutable canonical address for L2 factory
-    // other canonical addresses (dependent on L2 template implementations) can be fetched through `getCanonicalL2***Address` functions
+    // other canonical addresses (dependent on L2 template implementations) can be fetched through `_predictL2***Address` functions
     address public canonicalL2FactoryAddress;
 
     // immutable ArbMulticall2 template deployed on L1
@@ -220,15 +220,15 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         uint256 rollupChainId = IRollupCore(address(IInbox(inbox).bridge().rollup())).chainId();
         // store L2 addresses before deployments
         DeploymentAddresses memory deployment;
-        deployment.l2Router = getCanonicalL2RouterAddress(rollupChainId);
-        deployment.l2StandardGateway = getCanonicalL2StandardGatewayAddress(rollupChainId);
-        deployment.l2CustomGateway = getCanonicalL2CustomGatewayAddress(rollupChainId);
-        deployment.l2WethGateway = getCanonicalL2WethGatewayAddress(rollupChainId);
-        deployment.l2Weth = getCanonicalL2WethAddress(rollupChainId);
-        deployment.l2ProxyAdmin = getCanonicalL2ProxyAdminAddress(rollupChainId);
-        deployment.l2BeaconProxyFactory = getCanonicalL2BeaconProxyFactoryAddress(rollupChainId);
-        deployment.l2UpgradeExecutor = getCanonicalL2UpgradeExecutorAddress(rollupChainId);
-        deployment.l2Multicall = getCanonicalL2Multicall(rollupChainId);
+        deployment.l2Router = _predictL2RouterAddress(rollupChainId);
+        deployment.l2StandardGateway = _predictL2StandardGatewayAddress(rollupChainId);
+        deployment.l2CustomGateway = _predictL2CustomGatewayAddress(rollupChainId);
+        deployment.l2WethGateway = _predictL2WethGatewayAddress(rollupChainId);
+        deployment.l2Weth = _predictL2WethAddress(rollupChainId);
+        deployment.l2ProxyAdmin = _predictL2ProxyAdminAddress(rollupChainId);
+        deployment.l2BeaconProxyFactory = _predictL2BeaconProxyFactoryAddress(rollupChainId);
+        deployment.l2UpgradeExecutor = _predictL2UpgradeExecutorAddress(rollupChainId);
+        deployment.l2Multicall = _predictL2Multicall(rollupChainId);
 
         /// deploy L1 side of token bridge
         bool isUsingFeeToken = _getFeeToken(inbox) != address(0);
@@ -550,27 +550,35 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         );
     }
 
-    function getCanonicalL2RouterAddress(uint256 chainId) public view returns (address) {
+    function getTokenBridgeDeployment(address inbox)
+        external
+        view
+        returns (DeploymentAddresses memory)
+    {
+        return inboxToDeployment[inbox];
+    }
+
+    function _predictL2RouterAddress(uint256 chainId) internal view returns (address) {
         return _getProxyAddress(_getL2Salt(OrbitSalts.L2_ROUTER, chainId), chainId);
     }
 
-    function getCanonicalL2StandardGatewayAddress(uint256 chainId) public view returns (address) {
+    function _predictL2StandardGatewayAddress(uint256 chainId) internal view returns (address) {
         return _getProxyAddress(_getL2Salt(OrbitSalts.L2_STANDARD_GATEWAY, chainId), chainId);
     }
 
-    function getCanonicalL2CustomGatewayAddress(uint256 chainId) public view returns (address) {
+    function _predictL2CustomGatewayAddress(uint256 chainId) internal view returns (address) {
         return _getProxyAddress(_getL2Salt(OrbitSalts.L2_CUSTOM_GATEWAY, chainId), chainId);
     }
 
-    function getCanonicalL2WethGatewayAddress(uint256 chainId) public view returns (address) {
+    function _predictL2WethGatewayAddress(uint256 chainId) internal view returns (address) {
         return _getProxyAddress(_getL2Salt(OrbitSalts.L2_WETH_GATEWAY, chainId), chainId);
     }
 
-    function getCanonicalL2WethAddress(uint256 chainId) public view returns (address) {
+    function _predictL2WethAddress(uint256 chainId) internal view returns (address) {
         return _getProxyAddress(_getL2Salt(OrbitSalts.L2_WETH, chainId), chainId);
     }
 
-    function getCanonicalL2ProxyAdminAddress(uint256 chainId) public view returns (address) {
+    function _predictL2ProxyAdminAddress(uint256 chainId) internal view returns (address) {
         return Create2.computeAddress(
             _getL2Salt(OrbitSalts.L2_PROXY_ADMIN, chainId),
             keccak256(type(ProxyAdmin).creationCode),
@@ -578,11 +586,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         );
     }
 
-    function getCanonicalL2BeaconProxyFactoryAddress(uint256 chainId)
-        public
-        view
-        returns (address)
-    {
+    function _predictL2BeaconProxyFactoryAddress(uint256 chainId) internal view returns (address) {
         return Create2.computeAddress(
             _getL2Salt(OrbitSalts.BEACON_PROXY_FACTORY, chainId),
             keccak256(type(BeaconProxyFactory).creationCode),
@@ -590,11 +594,11 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         );
     }
 
-    function getCanonicalL2UpgradeExecutorAddress(uint256 chainId) public view returns (address) {
+    function _predictL2UpgradeExecutorAddress(uint256 chainId) internal view returns (address) {
         return _getProxyAddress(_getL2Salt(OrbitSalts.L2_EXECUTOR, chainId), chainId);
     }
 
-    function getCanonicalL2Multicall(uint256 chainId) public view returns (address) {
+    function _predictL2Multicall(uint256 chainId) internal view returns (address) {
         return Create2.computeAddress(
             _getL2Salt(OrbitSalts.L2_MULTICALL, chainId),
             ARB_MULTICALL_CODE_HASH,
@@ -677,9 +681,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                 abi.encodePacked(
                     type(TransparentUpgradeableProxy).creationCode,
                     abi.encode(
-                        canonicalL2FactoryAddress,
-                        getCanonicalL2ProxyAdminAddress(chainId),
-                        bytes("")
+                        canonicalL2FactoryAddress, _predictL2ProxyAdminAddress(chainId), bytes("")
                     )
                 )
             ),
