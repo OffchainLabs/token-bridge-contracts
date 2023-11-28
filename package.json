@@ -20,6 +20,7 @@
     "test:unit": "forge test",
     "test:e2e:local-env": "yarn hardhat test test-e2e/*",
     "test:storage": "./scripts/storage_layout_test.bash",
+    "test:constructor-size": "ts-node ./scripts/ci/constructorSizeCheck.ts",
     "deploy:local:token-bridge": "ts-node ./scripts/local-deployment/deployCreatorAndCreateTokenBridge.ts",
     "deploy:token-bridge-creator": "ts-node ./scripts/deployment/deployTokenBridgeCreator.ts",
     "create:token-bridge": "ts-node ./scripts/deployment/createTokenBridge.ts",
