@@ -66,6 +66,9 @@ jobs:
       - name: Run integration tests
         run: yarn test
 
+      - name: Run constructor size check
+        run: yarn test:constructor-size
+
   test-storage:
     name: Test storage layout
     runs-on: ubuntu-latest
