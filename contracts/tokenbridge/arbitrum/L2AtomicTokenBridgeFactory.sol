@@ -154,11 +154,8 @@ contract L2AtomicTokenBridgeFactory {
         L2ERC20Gateway(stdGatewayLogic).initialize(ADDRESS_DEAD, ADDRESS_DEAD, ADDRESS_DEAD);
 
         // create beacon
-        StandardArbERC20 standardArbERC20 =
-            new StandardArbERC20{salt: _getL2Salt(OrbitSalts.L2_STANDARD_ERC20)}();
-        UpgradeableBeacon beacon = new UpgradeableBeacon{
-            salt: _getL2Salt(OrbitSalts.UPGRADEABLE_BEACON)
-        }(address(standardArbERC20));
+        StandardArbERC20 standardArbERC20 = new StandardArbERC20();
+        UpgradeableBeacon beacon = new UpgradeableBeacon(address(standardArbERC20));
         BeaconProxyFactory beaconProxyFactory =
             new BeaconProxyFactory{salt: _getL2Salt(OrbitSalts.BEACON_PROXY_FACTORY)}();
 
@@ -295,20 +292,18 @@ struct L2RuntimeCode {
  * Collection of salts used in CREATE2 deployment of L2 token bridge contracts.
  */
 library OrbitSalts {
-    bytes public constant L1_ROUTER = bytes("OrbitL1GatewayRouterProxy");
-    bytes public constant L1_STANDARD_GATEWAY = bytes("OrbitL1StandardGatewayProxy");
-    bytes public constant L1_CUSTOM_GATEWAY = bytes("OrbitL1CustomGatewayProxy");
-    bytes public constant L1_WETH_GATEWAY = bytes("OrbitL1WethGatewayProxy");
+    bytes internal constant L1_ROUTER = bytes("L1R");
+    bytes internal constant L1_STANDARD_GATEWAY = bytes("L1SGW");
+    bytes internal constant L1_CUSTOM_GATEWAY = bytes("L1CGW");
+    bytes internal constant L1_WETH_GATEWAY = bytes("L1WGW");
 
-    bytes public constant L2_PROXY_ADMIN = bytes("OrbitL2ProxyAdmin");
-    bytes public constant L2_ROUTER = bytes("OrbitL2GatewayRouterProxy");
-    bytes public constant L2_STANDARD_GATEWAY = bytes("OrbitL2StandardGatewayProxy");
-    bytes public constant L2_CUSTOM_GATEWAY = bytes("OrbitL2CustomGatewayProxy");
-    bytes public constant L2_WETH_GATEWAY = bytes("OrbitL2WethGatewayProxy");
-    bytes public constant L2_WETH = bytes("OrbitL2WETHProxy");
-    bytes public constant L2_STANDARD_ERC20 = bytes("OrbitStandardArbERC20");
-    bytes public constant UPGRADEABLE_BEACON = bytes("OrbitUpgradeableBeacon");
-    bytes public constant BEACON_PROXY_FACTORY = bytes("OrbitBeaconProxyFactory");
-    bytes public constant L2_EXECUTOR = bytes("OrbitL2UpgradeExecutorProxy");
-    bytes public constant L2_MULTICALL = bytes("OrbitL2Multicall");
+    bytes internal constant L2_PROXY_ADMIN = bytes("L2PA");
+    bytes internal constant L2_ROUTER = bytes("L2R");
+    bytes internal constant L2_STANDARD_GATEWAY = bytes("L2SGW");
+    bytes internal constant L2_CUSTOM_GATEWAY = bytes("L2CGW");
+    bytes internal constant L2_WETH_GATEWAY = bytes("L2WGW");
+    bytes internal constant L2_WETH = bytes("L2W");
+    bytes internal constant BEACON_PROXY_FACTORY = bytes("L2BPF");
+    bytes internal constant L2_EXECUTOR = bytes("L2E");
+    bytes internal constant L2_MULTICALL = bytes("L2MC");
 }
