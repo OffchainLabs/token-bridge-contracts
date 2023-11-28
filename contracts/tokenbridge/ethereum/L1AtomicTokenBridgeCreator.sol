@@ -58,6 +58,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     error L1AtomicTokenBridgeCreator_TemplatesNotSet();
     error L1AtomicTokenBridgeCreator_RollupOwnershipMisconfig();
     error L1AtomicTokenBridgeCreator_ProxyAdminNotFound();
+    error L1AtomicTokenBridgeCreator_TemplatesAlreadySet();
 
     event OrbitTokenBridgeCreated(
         address indexed inbox,
@@ -158,6 +159,12 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     ) external onlyOwner {
         l1Templates = _l1Templates;
 
+        if (
+            l2TokenBridgeFactoryTemplate != address(0)
+                && l2TokenBridgeFactoryTemplate != _l2TokenBridgeFactoryTemplate
+        ) {
+            revert L1AtomicTokenBridgeCreator_TemplatesAlreadySet();
+        }
         l2TokenBridgeFactoryTemplate = _l2TokenBridgeFactoryTemplate;
         l2RouterTemplate = _l2RouterTemplate;
         l2StandardGatewayTemplate = _l2StandardGatewayTemplate;
