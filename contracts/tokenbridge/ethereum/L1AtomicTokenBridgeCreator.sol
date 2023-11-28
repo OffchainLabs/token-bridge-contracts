@@ -123,7 +123,8 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
 
     constructor(address _l2MulticallTemplate) {
         l2MulticallTemplate = _l2MulticallTemplate;
-        ARB_MULTICALL_CODE_HASH = keccak256(_creationCodeFor(l2MulticallTemplate.code));
+        ARB_MULTICALL_CODE_HASH =
+            keccak256(CreationCodeHelper.getCreationCodeFor(l2MulticallTemplate.code));
         _disableInitializers();
     }
 
@@ -414,7 +415,8 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         returns (uint256)
     {
         // encode L2 factory bytecode
-        bytes memory deploymentData = _creationCodeFor(l2TokenBridgeFactoryTemplate.code);
+        bytes memory deploymentData =
+            CreationCodeHelper.getCreationCodeFor(l2TokenBridgeFactoryTemplate.code);
 
         if (isUsingFeeToken) {
             // transfer fee tokens to inbox to pay for 1st retryable
@@ -656,15 +658,6 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             data = abi.encodePacked(bytes1(0xda), bytes1(0x94), origin, bytes1(0x84), uint32(nonce));
         }
         return address(uint160(uint256(keccak256(data))));
-    }
-
-    /**
-     * @notice Get a creation code that results with a contract with `code` as deployed code.
-     * @param code Deployed bytecode to which constructor bytecode will be prepended
-     * @return Creation code of a new contract
-     */
-    function _creationCodeFor(bytes memory code) internal pure returns (bytes memory) {
-        return CreationCodeHelper.getCreationCodeFor(code);
     }
 
     /**

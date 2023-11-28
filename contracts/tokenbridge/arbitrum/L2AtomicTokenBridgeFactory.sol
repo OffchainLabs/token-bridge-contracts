@@ -76,7 +76,11 @@ contract L2AtomicTokenBridgeFactory {
         }
 
         // deploy multicall
-        Create2.deploy(0, _getL2Salt(OrbitSalts.L2_MULTICALL), _creationCodeFor(l2Code.multicall));
+        Create2.deploy(
+            0,
+            _getL2Salt(OrbitSalts.L2_MULTICALL),
+            CreationCodeHelper.getCreationCodeFor(l2Code.multicall)
+        );
 
         // transfer ownership to L2 upgradeExecutor
         ProxyAdmin(proxyAdmin).transferOwnership(upgradeExecutor);
@@ -95,7 +99,9 @@ contract L2AtomicTokenBridgeFactory {
 
         // Create UpgradeExecutor logic and upgrade to it.
         address upExecutorLogic = Create2.deploy(
-            0, _getL2Salt(OrbitSalts.L2_EXECUTOR_LOGIC), _creationCodeFor(runtimeCode)
+            0,
+            _getL2Salt(OrbitSalts.L2_EXECUTOR_LOGIC),
+            CreationCodeHelper.getCreationCodeFor(runtimeCode)
         );
         ProxyAdmin(proxyAdmin).upgrade(
             ITransparentUpgradeableProxy(canonicalUpgradeExecutor), upExecutorLogic
@@ -126,8 +132,11 @@ contract L2AtomicTokenBridgeFactory {
         );
 
         // create L2 router logic and upgrade
-        address routerLogic =
-            Create2.deploy(0, _getL2Salt(OrbitSalts.L2_ROUTER_LOGIC), _creationCodeFor(runtimeCode));
+        address routerLogic = Create2.deploy(
+            0,
+            _getL2Salt(OrbitSalts.L2_ROUTER_LOGIC),
+            CreationCodeHelper.getCreationCodeFor(runtimeCode)
+        );
         ProxyAdmin(proxyAdmin).upgrade(ITransparentUpgradeableProxy(canonicalRouter), routerLogic);
 
         // init logic contract with dummy values.
@@ -155,7 +164,9 @@ contract L2AtomicTokenBridgeFactory {
 
         // create L2 standard gateway logic and upgrade
         address stdGatewayLogic = Create2.deploy(
-            0, _getL2Salt(OrbitSalts.L2_STANDARD_GATEWAY_LOGIC), _creationCodeFor(runtimeCode)
+            0,
+            _getL2Salt(OrbitSalts.L2_STANDARD_GATEWAY_LOGIC),
+            CreationCodeHelper.getCreationCodeFor(runtimeCode)
         );
         ProxyAdmin(proxyAdmin).upgrade(
             ITransparentUpgradeableProxy(canonicalStdGateway), stdGatewayLogic
@@ -200,7 +211,9 @@ contract L2AtomicTokenBridgeFactory {
 
         // create L2 custom gateway logic and upgrade
         address customGatewayLogicAddress = Create2.deploy(
-            0, _getL2Salt(OrbitSalts.L2_CUSTOM_GATEWAY_LOGIC), _creationCodeFor(runtimeCode)
+            0,
+            _getL2Salt(OrbitSalts.L2_CUSTOM_GATEWAY_LOGIC),
+            CreationCodeHelper.getCreationCodeFor(runtimeCode)
         );
         ProxyAdmin(proxyAdmin).upgrade(
             ITransparentUpgradeableProxy(canonicalCustomGateway), customGatewayLogicAddress
@@ -228,7 +241,9 @@ contract L2AtomicTokenBridgeFactory {
 
         // Create L2WETH logic and upgrade
         address l2WethLogic = Create2.deploy(
-            0, _getL2Salt(OrbitSalts.L2_WETH_LOGIC), _creationCodeFor(aeWethRuntimeCode)
+            0,
+            _getL2Salt(OrbitSalts.L2_WETH_LOGIC),
+            CreationCodeHelper.getCreationCodeFor(aeWethRuntimeCode)
         );
         ProxyAdmin(proxyAdmin).upgrade(ITransparentUpgradeableProxy(canonicalL2Weth), l2WethLogic);
 
@@ -243,7 +258,7 @@ contract L2AtomicTokenBridgeFactory {
         address l2WethGatewayLogic = Create2.deploy(
             0,
             _getL2Salt(OrbitSalts.L2_WETH_GATEWAY_LOGIC),
-            _creationCodeFor(wethGatewayRuntimeCode)
+            CreationCodeHelper.getCreationCodeFor(wethGatewayRuntimeCode)
         );
         ProxyAdmin(proxyAdmin).upgrade(
             ITransparentUpgradeableProxy(canonicalL2WethGateway), l2WethGatewayLogic
@@ -291,15 +306,6 @@ contract L2AtomicTokenBridgeFactory {
                 bytes("")
             )
         );
-    }
-
-    /**
-     * @notice Get a creation code that results with a contract with `code` as deployed code.
-     * @param code Deployed bytecode to which constructor bytecode will be prepended
-     * @return Creation code of a new contract
-     */
-    function _creationCodeFor(bytes memory code) internal pure returns (bytes memory) {
-        return CreationCodeHelper.getCreationCodeFor(code);
     }
 }
 
