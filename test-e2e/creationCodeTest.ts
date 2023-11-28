@@ -1,4 +1,5 @@
 import hre, { ethers } from 'hardhat'
+import { expect } from 'chai'
 import { JsonRpcProvider } from '@ethersproject/providers'
 import {
   CreationCodeTest,
@@ -9,124 +10,81 @@ import {
 import path from 'path'
 import fs from 'fs'
 
-/**
- * Contracts defined here are the ones for which cosntructor size check will be performed.
- *
- * The reason why we perform constructor size check is due to atomic token bridge creator
- * implementation. Due to contract size limits, we deploy child chain templates to the
- * parent chain. When token bridge is being created, parent chain creator will fetch the
- * runtime bytecode of the templates and send it to the child chain via retryable tickets.
- * Child chain factory will then prepend the empty-constructor bytecode to the runtime code
- * and use resulting bytecode for deployment. That's why we need to ensure that those
- * impacted contracts don't have any logic in their constructors, as that logic can't be
- * executed when deploying to the child chain.
- *
- * All impacted contracts have 32 bytes of constructor bytecode which look like this:
- *   608060405234801561001057600080fd5b50615e7c806100206000396000f3fe
- * This constructor checks that there's no callvalue, copies the contract code to memory
- * and returns it. The only place where constructor bytecode differs between contracts
- * is in 61xxxx80 where xxxx is the length of the contract's bytecode.
- *
- * One exception is aeWETH, which has a constructor size of 348 bytes. This is because it
- * inhertis from 'aeERC20' which has 'initializer' modifier in its constructor. This modifier
- * will set the contract to the initialized state. When aeWETH is created on the child chain
- * there will be no constructor code invoked as mentioned earlier, so we do the initialization
- * of the logic contract explicitly in the child chain factory.
- */
-export const CONTRACTS = [
-  'L2AtomicTokenBridgeFactory',
-  'ArbMulticall2',
-  'L2GatewayRouter',
-  'L2ERC20Gateway',
-  'L2CustomGateway',
-  'L2WethGateway',
-  'aeWETH',
-]
-
 const LOCALHOST_L2_RPC = 'http://localhost:8547'
 
-main().then(() => console.log('Creation code check found no issues.'))
+let provider: JsonRpcProvider
+let creationCodeTester: CreationCodeTest
+let l1TokenBridgeCreator: L1AtomicTokenBridgeCreator
 
-async function main() {
-  console.log('Start constructor check')
+describe('creationCodeTest', () => {
+  before(async function () {
+    /// get default deployer params in local test env
+    provider = new ethers.providers.JsonRpcProvider(LOCALHOST_L2_RPC)
+    const deployerKey = ethers.utils.sha256(
+      ethers.utils.toUtf8Bytes('user_token_bridge_deployer')
+    )
+    const deployer = new ethers.Wallet(deployerKey, provider)
 
-  /// get default deployer params in local test env
-  const provider = new ethers.providers.JsonRpcProvider(LOCALHOST_L2_RPC)
-  const deployerKey = ethers.utils.sha256(
-    ethers.utils.toUtf8Bytes('user_token_bridge_deployer')
-  )
-  const deployer = new ethers.Wallet(deployerKey, provider)
+    /// tester which implements the 'getCreationCode' (identical as internal function `_creationCodeFor()` implemented by L1/L2 factories)
+    const testerFactory = await new CreationCodeTest__factory(deployer).deploy()
+    creationCodeTester = await testerFactory.deployed()
 
-  /// tester which implements the 'getCreationCode' (identical as internal function `_creationCodeFor()` implemented by L1/L2 factories)
-  const testerFactory = await new CreationCodeTest__factory(deployer).deploy()
-  const creationCodeTester = await testerFactory.deployed()
+    /// token bridge creator which has the templates stored
+    l1TokenBridgeCreator = await _getTokenBridgeCreator(provider)
+  })
 
-  const l1TokenBridgeCreator = await _getTokenBridgeCreator(provider)
-  await _verifyCreationCodeMatch(
-    provider,
-    creationCodeTester,
-    'L2GatewayRouter',
-    await l1TokenBridgeCreator.l2RouterTemplate()
-  )
-
-  await _verifyCreationCodeMatch(
-    provider,
-    creationCodeTester,
-    'L2ERC20Gateway',
-    await l1TokenBridgeCreator.l2StandardGatewayTemplate()
-  )
-
-  await _verifyCreationCodeMatch(
-    provider,
-    creationCodeTester,
-    'L2CustomGateway',
-    await l1TokenBridgeCreator.l2CustomGatewayTemplate()
-  )
-
-  await _verifyCreationCodeMatch(
-    provider,
-    creationCodeTester,
-    'L2WethGateway',
-    await l1TokenBridgeCreator.l2WethGatewayTemplate()
-  )
-
-  await _verifyCreationCodeMatch(
-    provider,
-    creationCodeTester,
-    'ArbMulticall2',
-    await l1TokenBridgeCreator.l2MulticallTemplate()
-  )
-
-  await _verifyCreationCodeMatch(
-    provider,
-    creationCodeTester,
-    'L2AtomicTokenBridgeFactory',
-    await l1TokenBridgeCreator.l2TokenBridgeFactoryTemplate()
-  )
-}
-
-async function _verifyCreationCodeMatch(
-  provider: JsonRpcProvider,
-  creationCodeTester: CreationCodeTest,
-  contractName: string,
-  templateAddress: string
-) {
-  const compilerGeneratedCreationCode = await _getCompilerGeneratedCreationCode(
-    contractName
-  )
-
-  const solidityLibGeneratedCreationCode =
-    await _getSolidityLibGeneratedCreationCode(
-      provider,
-      creationCodeTester,
-      templateAddress
+  it('compiler generated and solidity lib generated creation code should match for L2 templates', async function () {
+    expect(await _getCompilerGeneratedCreationCode('L2GatewayRouter')).to.be.eq(
+      await _getSolidityLibGeneratedCreationCode(
+        provider,
+        creationCodeTester,
+        await l1TokenBridgeCreator.l2RouterTemplate()
+      )
     )
 
-  console.log('Verify creation code match for', contractName)
-  if (compilerGeneratedCreationCode != solidityLibGeneratedCreationCode) {
-    throw new Error(`Creation code mismatch for ${contractName}`)
-  }
-}
+    expect(await _getCompilerGeneratedCreationCode('L2ERC20Gateway')).to.be.eq(
+      await _getSolidityLibGeneratedCreationCode(
+        provider,
+        creationCodeTester,
+        await l1TokenBridgeCreator.l2StandardGatewayTemplate()
+      )
+    )
+
+    expect(await _getCompilerGeneratedCreationCode('L2CustomGateway')).to.be.eq(
+      await _getSolidityLibGeneratedCreationCode(
+        provider,
+        creationCodeTester,
+        await l1TokenBridgeCreator.l2CustomGatewayTemplate()
+      )
+    )
+
+    expect(await _getCompilerGeneratedCreationCode('L2WethGateway')).to.be.eq(
+      await _getSolidityLibGeneratedCreationCode(
+        provider,
+        creationCodeTester,
+        await l1TokenBridgeCreator.l2WethGatewayTemplate()
+      )
+    )
+
+    expect(await _getCompilerGeneratedCreationCode('ArbMulticall2')).to.be.eq(
+      await _getSolidityLibGeneratedCreationCode(
+        provider,
+        creationCodeTester,
+        await l1TokenBridgeCreator.l2MulticallTemplate()
+      )
+    )
+
+    expect(
+      await _getCompilerGeneratedCreationCode('L2AtomicTokenBridgeFactory')
+    ).to.be.eq(
+      await _getSolidityLibGeneratedCreationCode(
+        provider,
+        creationCodeTester,
+        await l1TokenBridgeCreator.l2TokenBridgeFactoryTemplate()
+      )
+    )
+  })
+})
 
 async function _getCompilerGeneratedCreationCode(
   contractName: string
