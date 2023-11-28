@@ -9,7 +9,6 @@ import {StandardArbERC20} from "./StandardArbERC20.sol";
 import {IUpgradeExecutor} from "@offchainlabs/upgrade-executor/src/IUpgradeExecutor.sol";
 import {BeaconProxyFactory} from "../libraries/ClonableBeaconProxy.sol";
 import {aeWETH} from "../libraries/aeWETH.sol";
-import {Create1} from "../libraries/Create1.sol";
 import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import {
