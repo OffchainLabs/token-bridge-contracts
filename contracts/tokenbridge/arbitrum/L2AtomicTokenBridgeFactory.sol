@@ -53,8 +53,7 @@ contract L2AtomicTokenBridgeFactory {
                 revert L2AtomicTokenBridgeFactory_AlreadyExists();
             }
         }
-        address proxyAdmin =
-            address(new ProxyAdmin{ salt: _getL2Salt(OrbitSalts.L2_PROXY_ADMIN) }());
+        address proxyAdmin = address(new ProxyAdmin{salt: _getL2Salt(OrbitSalts.L2_PROXY_ADMIN)}());
 
         // deploy router/gateways/executor
         address upgradeExecutor = _deployUpgradeExecutor(
@@ -164,15 +163,13 @@ contract L2AtomicTokenBridgeFactory {
         L2ERC20Gateway(stdGatewayLogic).initialize(ADDRESS_DEAD, ADDRESS_DEAD, ADDRESS_DEAD);
 
         // create beacon
-        StandardArbERC20 standardArbERC20 = new StandardArbERC20{
-            salt: _getL2Salt(OrbitSalts.L2_STANDARD_ERC20)
-        }();
+        StandardArbERC20 standardArbERC20 =
+            new StandardArbERC20{salt: _getL2Salt(OrbitSalts.L2_STANDARD_ERC20)}();
         UpgradeableBeacon beacon = new UpgradeableBeacon{
             salt: _getL2Salt(OrbitSalts.UPGRADEABLE_BEACON)
         }(address(standardArbERC20));
-        BeaconProxyFactory beaconProxyFactory = new BeaconProxyFactory{
-            salt: _getL2Salt(OrbitSalts.BEACON_PROXY_FACTORY)
-        }();
+        BeaconProxyFactory beaconProxyFactory =
+            new BeaconProxyFactory{salt: _getL2Salt(OrbitSalts.BEACON_PROXY_FACTORY)}();
 
         // init contracts
         beaconProxyFactory.initialize(address(beacon));
@@ -284,11 +281,7 @@ contract L2AtomicTokenBridgeFactory {
         returns (address)
     {
         return address(
-            new TransparentUpgradeableProxy{ salt: proxySalt }(
-                address(this),
-                proxyAdmin,
-                bytes("")
-            )
+            new TransparentUpgradeableProxy{salt: proxySalt}(address(this), proxyAdmin, bytes(""))
         );
     }
 

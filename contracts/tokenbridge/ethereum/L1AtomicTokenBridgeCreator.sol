@@ -282,10 +282,8 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             ? address(l1Templates.feeTokenBasedRouterTemplate)
             : address(l1Templates.routerTemplate);
         l1Addresses.router = address(
-            new TransparentUpgradeableProxy{ salt: _getL1Salt(OrbitSalts.L1_ROUTER, inbox) }(
-                routerTemplate,
-                proxyAdmin,
-                bytes("")
+            new TransparentUpgradeableProxy{salt: _getL1Salt(OrbitSalts.L1_ROUTER, inbox)}(
+                routerTemplate, proxyAdmin, bytes("")
             )
         );
 
