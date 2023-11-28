@@ -272,7 +272,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         uint256 chainId
     ) internal returns (L1DeploymentAddresses memory l1Addresses) {
         // get existing proxy admin and upgrade executor
-        address proxyAdmin = IInbox_ProxyAdmin(inbox).getProxyAdmin();
+        address proxyAdmin = IInboxProxyAdmin(inbox).getProxyAdmin();
         if (proxyAdmin == address(0)) {
             revert L1AtomicTokenBridgeCreator_ProxyAdminNotFound();
         }
@@ -515,7 +515,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     }
 
     function getCanonicalL1RouterAddress(address inbox) public view returns (address) {
-        address proxyAdminAddress = IInbox_ProxyAdmin(inbox).getProxyAdmin();
+        address proxyAdminAddress = IInboxProxyAdmin(inbox).getProxyAdmin();
 
         bool isUsingFeeToken = _getFeeToken(inbox) != address(0);
         address template = isUsingFeeToken
@@ -699,7 +699,7 @@ interface IERC20Bridge {
     function nativeToken() external view returns (address);
 }
 
-interface IInbox_ProxyAdmin {
+interface IInboxProxyAdmin {
     function getProxyAdmin() external view returns (address);
 }
 
