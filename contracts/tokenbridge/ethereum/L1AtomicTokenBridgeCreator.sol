@@ -535,43 +535,23 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     }
 
     function getCanonicalL2RouterAddress(uint256 chainId) public view returns (address) {
-        return _getProxyAddress(
-            _getL2Salt(OrbitSalts.L2_ROUTER_LOGIC, chainId),
-            _getL2Salt(OrbitSalts.L2_ROUTER, chainId),
-            chainId
-        );
+        return _getProxyAddress(_getL2Salt(OrbitSalts.L2_ROUTER, chainId), chainId);
     }
 
     function getCanonicalL2StandardGatewayAddress(uint256 chainId) public view returns (address) {
-        return _getProxyAddress(
-            _getL2Salt(OrbitSalts.L2_STANDARD_GATEWAY_LOGIC, chainId),
-            _getL2Salt(OrbitSalts.L2_STANDARD_GATEWAY, chainId),
-            chainId
-        );
+        return _getProxyAddress(_getL2Salt(OrbitSalts.L2_STANDARD_GATEWAY, chainId), chainId);
     }
 
     function getCanonicalL2CustomGatewayAddress(uint256 chainId) public view returns (address) {
-        return _getProxyAddress(
-            _getL2Salt(OrbitSalts.L2_CUSTOM_GATEWAY_LOGIC, chainId),
-            _getL2Salt(OrbitSalts.L2_CUSTOM_GATEWAY, chainId),
-            chainId
-        );
+        return _getProxyAddress(_getL2Salt(OrbitSalts.L2_CUSTOM_GATEWAY, chainId), chainId);
     }
 
     function getCanonicalL2WethGatewayAddress(uint256 chainId) public view returns (address) {
-        return _getProxyAddress(
-            _getL2Salt(OrbitSalts.L2_WETH_GATEWAY_LOGIC, chainId),
-            _getL2Salt(OrbitSalts.L2_WETH_GATEWAY, chainId),
-            chainId
-        );
+        return _getProxyAddress(_getL2Salt(OrbitSalts.L2_WETH_GATEWAY, chainId), chainId);
     }
 
     function getCanonicalL2WethAddress(uint256 chainId) public view returns (address) {
-        return _getProxyAddress(
-            _getL2Salt(OrbitSalts.L2_WETH_LOGIC, chainId),
-            _getL2Salt(OrbitSalts.L2_WETH, chainId),
-            chainId
-        );
+        return _getProxyAddress(_getL2Salt(OrbitSalts.L2_WETH, chainId), chainId);
     }
 
     function getCanonicalL2ProxyAdminAddress(uint256 chainId) public view returns (address) {
@@ -595,11 +575,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     }
 
     function getCanonicalL2UpgradeExecutorAddress(uint256 chainId) public view returns (address) {
-        return _getProxyAddress(
-            _getL2Salt(OrbitSalts.L2_EXECUTOR_LOGIC, chainId),
-            _getL2Salt(OrbitSalts.L2_EXECUTOR, chainId),
-            chainId
-        );
+        return _getProxyAddress(_getL2Salt(OrbitSalts.L2_EXECUTOR, chainId), chainId);
     }
 
     function getCanonicalL2Multicall(uint256 chainId) public view returns (address) {
@@ -678,11 +654,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
      * @notice L2 contracts are deployed as proxy with dummy seed logic contracts using CREATE2. That enables
      *         us to upfront calculate the expected canonical addresses.
      */
-    function _getProxyAddress(bytes32 logicSalt, bytes32 proxySalt, uint256 chainId)
-        internal
-        view
-        returns (address)
-    {
+    function _getProxyAddress(bytes32 proxySalt, uint256 chainId) internal view returns (address) {
         return Create2.computeAddress(
             proxySalt,
             keccak256(
