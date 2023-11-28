@@ -53,7 +53,7 @@ describe('creationCodeTest', () => {
     )
     const deployer = new ethers.Wallet(deployerKey, provider)
 
-    /// tester which implements the 'getCreationCode' (identical as internal function `_creationCodeFor()` implemented by L1/L2 factories)
+    /// tester which implements the 'getCreationCode' lib function
     const testerFactory = await new CreationCodeTest__factory(deployer).deploy()
     creationCodeTester = await testerFactory.deployed()
 
