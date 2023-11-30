@@ -228,6 +228,18 @@ struct L1DeploymentAddresses {
     address weth;
 }
 
+struct L2DeploymentAddresses {
+    address router;
+    address standardGateway;
+    address customGateway;
+    address wethGateway;
+    address weth;
+    address proxyAdmin;
+    address beaconProxyFactory;
+    address upgradeExecutor;
+    address multicall;
+}
+
 interface IERC20Inbox {
     function createRetryableTicket(
         address to,

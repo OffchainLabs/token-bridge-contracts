@@ -4,6 +4,7 @@ pragma solidity ^0.8.4;
 import {
     L1TokenBridgeRetryableSender,
     L1DeploymentAddresses,
+    L2DeploymentAddresses,
     RetryableParams,
     L2TemplateAddresses,
     IERC20Inbox,
@@ -62,7 +63,8 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     event OrbitTokenBridgeCreated(
         address indexed inbox,
         address indexed owner,
-        DeploymentAddresses deployment,
+        L1DeploymentAddresses l1Deployment,
+        L2DeploymentAddresses l2Deployment,
         address proxyAdmin,
         address upgradeExecutor
     );
@@ -80,22 +82,13 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         IUpgradeExecutor upgradeExecutor;
     }
 
-    struct DeploymentAddresses {
-        L1DeploymentAddresses l1;
-        address l2Router;
-        address l2StandardGateway;
-        address l2CustomGateway;
-        address l2WethGateway;
-        address l2Weth;
-        address l2ProxyAdmin;
-        address l2BeaconProxyFactory;
-        address l2UpgradeExecutor;
-        address l2Multicall;
-    }
-
     // non-canonical router registry
     mapping(address => address) public inboxToNonCanonicalRouter;
-    mapping(address => DeploymentAddresses) public inboxToDeployment;
+
+    // use separate mapping to allow appending to the struct in the future
+    // and workaround some stack too deep issues
+    mapping(address => L1DeploymentAddresses) public inboxToL1Deployment;
+    mapping(address => L2DeploymentAddresses) public inboxToL2Deployment;
 
     // Hard-code gas to make sure gas limit is big enough for L2 factory deployment to succeed.
     // If retryable would've reverted due to too low gas limit, nonce 0 would be burned and
@@ -225,16 +218,17 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
 
         uint256 rollupChainId = IRollupCore(address(IInbox(inbox).bridge().rollup())).chainId();
         // store L2 addresses before deployments
-        DeploymentAddresses memory deployment;
-        deployment.l2Router = _predictL2RouterAddress(rollupChainId);
-        deployment.l2StandardGateway = _predictL2StandardGatewayAddress(rollupChainId);
-        deployment.l2CustomGateway = _predictL2CustomGatewayAddress(rollupChainId);
-        deployment.l2WethGateway = _predictL2WethGatewayAddress(rollupChainId);
-        deployment.l2Weth = _predictL2WethAddress(rollupChainId);
-        deployment.l2ProxyAdmin = _predictL2ProxyAdminAddress(rollupChainId);
-        deployment.l2BeaconProxyFactory = _predictL2BeaconProxyFactoryAddress(rollupChainId);
-        deployment.l2UpgradeExecutor = _predictL2UpgradeExecutorAddress(rollupChainId);
-        deployment.l2Multicall = _predictL2Multicall(rollupChainId);
+        L1DeploymentAddresses memory l1Deployment;
+        L2DeploymentAddresses memory l2Deployment;
+        l2Deployment.router = _predictL2RouterAddress(rollupChainId);
+        l2Deployment.standardGateway = _predictL2StandardGatewayAddress(rollupChainId);
+        l2Deployment.customGateway = _predictL2CustomGatewayAddress(rollupChainId);
+        l2Deployment.wethGateway = _predictL2WethGatewayAddress(rollupChainId);
+        l2Deployment.weth = _predictL2WethAddress(rollupChainId);
+        l2Deployment.proxyAdmin = _predictL2ProxyAdminAddress(rollupChainId);
+        l2Deployment.beaconProxyFactory = _predictL2BeaconProxyFactoryAddress(rollupChainId);
+        l2Deployment.upgradeExecutor = _predictL2UpgradeExecutorAddress(rollupChainId);
+        l2Deployment.multicall = _predictL2Multicall(rollupChainId);
 
         /// deploy L1 side of token bridge
         bool isUsingFeeToken = _getFeeToken(inbox) != address(0);
@@ -250,7 +244,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             address routerTemplate = isUsingFeeToken
                 ? address(l1Templates.feeTokenBasedRouterTemplate)
                 : address(l1Templates.routerTemplate);
-            deployment.l1.router = _deployProxyWithSalt(
+            l1Deployment.router = _deployProxyWithSalt(
                 _getL1Salt(OrbitSalts.L1_ROUTER, inbox), routerTemplate, proxyAdmin
             );
         }
@@ -268,14 +262,14 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             );
 
             standardGateway.initialize(
-                deployment.l2StandardGateway,
-                deployment.l1.router,
+                l2Deployment.standardGateway,
+                l1Deployment.router,
                 inbox,
                 keccak256(type(ClonableBeaconProxy).creationCode),
-                deployment.l2BeaconProxyFactory
+                l2Deployment.beaconProxyFactory
             );
 
-            deployment.l1.standardGateway = address(standardGateway);
+            l1Deployment.standardGateway = address(standardGateway);
         }
 
         // l1 custom gateway deployment block
@@ -291,10 +285,10 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             );
 
             customGateway.initialize(
-                deployment.l2CustomGateway, deployment.l1.router, inbox, upgradeExecutor
+                l2Deployment.customGateway, l1Deployment.router, inbox, upgradeExecutor
             );
 
-            deployment.l1.customGateway = address(customGateway);
+            l1Deployment.customGateway = address(customGateway);
         }
 
         // l1 weth gateway deployment block
@@ -310,16 +304,16 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             );
 
             wethGateway.initialize(
-                deployment.l2WethGateway, deployment.l1.router, inbox, l1Weth, deployment.l2Weth
+                l2Deployment.wethGateway, l1Deployment.router, inbox, l1Weth, l2Deployment.weth
             );
 
-            deployment.l1.wethGateway = address(wethGateway);
-            deployment.l1.weth = l1Weth;
+            l1Deployment.wethGateway = address(wethGateway);
+            l1Deployment.weth = l1Weth;
         }
 
         // init router
-        L1GatewayRouter(deployment.l1.router).initialize(
-            upgradeExecutor, deployment.l1.standardGateway, address(0), deployment.l2Router, inbox
+        L1GatewayRouter(l1Deployment.router).initialize(
+            upgradeExecutor, l1Deployment.standardGateway, address(0), l2Deployment.router, inbox
         );
 
         // deploy factory and then L2 contracts through L2 factory, using 2 retryables calls
@@ -350,16 +344,19 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                 address(l1Templates.upgradeExecutor),
                 l2MulticallTemplate
             ),
-            deployment.l1,
-            deployment.l2StandardGateway,
+            l1Deployment,
+            l2Deployment.standardGateway,
             rollupOwner,
             msg.sender,
             AddressAliasHelper.applyL1ToL2Alias(upgradeExecutor),
             isUsingFeeToken
         );
 
-        emit OrbitTokenBridgeCreated(inbox, rollupOwner, deployment, proxyAdmin, upgradeExecutor);
-        inboxToDeployment[inbox] = deployment;
+        emit OrbitTokenBridgeCreated(
+            inbox, rollupOwner, l1Deployment, l2Deployment, proxyAdmin, upgradeExecutor
+        );
+        inboxToL1Deployment[inbox] = l1Deployment;
+        inboxToL2Deployment[inbox] = l2Deployment;
     }
 
     /**
@@ -388,9 +385,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         return getCanonicalL1RouterAddress(inbox);
     }
 
-    function _deployL2Factory(address inbox, uint256 gasPriceBid, bool isUsingFeeToken)
-        internal
-    {
+    function _deployL2Factory(address inbox, uint256 gasPriceBid, bool isUsingFeeToken) internal {
         // encode L2 factory bytecode
         bytes memory deploymentData =
             CreationCodeHelper.getCreationCodeFor(l2TokenBridgeFactoryTemplate.code);
@@ -453,9 +448,9 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     function getTokenBridgeDeployment(address inbox)
         external
         view
-        returns (DeploymentAddresses memory)
+        returns (L1DeploymentAddresses memory, L2DeploymentAddresses memory)
     {
-        return inboxToDeployment[inbox];
+        return (inboxToL1Deployment[inbox], inboxToL2Deployment[inbox]);
     }
 
     function _predictL2RouterAddress(uint256 chainId) internal view returns (address) {
