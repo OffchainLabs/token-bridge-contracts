@@ -69,6 +69,10 @@ describe('tokenBridge', () => {
       }
     }
 
+    console.log(
+      `Testing token bridge deployment for rollup ${rollupAddress} deployed by creator ${l1TokenBridgeCreator}`
+    )
+
     /// get addresses
     const { l1, l2 } = await _getTokenBridgeAddresses(
       rollupAddress,

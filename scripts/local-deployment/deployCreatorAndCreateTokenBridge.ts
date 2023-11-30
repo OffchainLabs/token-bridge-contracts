@@ -125,7 +125,10 @@ export const setupTokenBridgeInLocalEnv = async () => {
   console.log('L1TokenBridgeRetryableSender', retryableSender.address)
 
   // create token bridge
-  console.log('Creating token bridge')
+  console.log(
+    '\nCreating token bridge for rollup',
+    coreL2Network.ethBridge.rollup
+  )
   const { deploymentAddresses, l1MultiCall, l1ProxyAdmin } =
     await createTokenBridge(
       parentDeployer,
