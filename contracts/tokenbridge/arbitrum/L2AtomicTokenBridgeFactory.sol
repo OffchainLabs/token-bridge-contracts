@@ -9,7 +9,6 @@ import {StandardArbERC20} from "./StandardArbERC20.sol";
 import {IUpgradeExecutor} from "@offchainlabs/upgrade-executor/src/IUpgradeExecutor.sol";
 import {BeaconProxyFactory} from "../libraries/ClonableBeaconProxy.sol";
 import {aeWETH} from "../libraries/aeWETH.sol";
-import {Create1} from "../libraries/Create1.sol";
 import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import {
@@ -92,7 +91,8 @@ contract L2AtomicTokenBridgeFactory {
             _deploySeedProxy(proxyAdmin, _getL2Salt(OrbitSalts.L2_EXECUTOR));
 
         // Create UpgradeExecutor logic and upgrade to it.
-        address upExecutorLogic = Create1.deploy(0, _creationCodeFor(runtimeCode));
+        address upExecutorLogic =
+            Create2.deploy(0, OrbitSalts.UNSALTED, _creationCodeFor(runtimeCode));
 
         ProxyAdmin(proxyAdmin).upgrade(
             ITransparentUpgradeableProxy(canonicalUpgradeExecutor), upExecutorLogic
@@ -121,7 +121,7 @@ contract L2AtomicTokenBridgeFactory {
         address canonicalRouter = _deploySeedProxy(proxyAdmin, _getL2Salt(OrbitSalts.L2_ROUTER));
 
         // create L2 router logic and upgrade
-        address routerLogic = Create1.deploy(0, _creationCodeFor(runtimeCode));
+        address routerLogic = Create2.deploy(0, OrbitSalts.UNSALTED, _creationCodeFor(runtimeCode));
         ProxyAdmin(proxyAdmin).upgrade(ITransparentUpgradeableProxy(canonicalRouter), routerLogic);
 
         // init logic contract with dummy values.
@@ -145,7 +145,8 @@ contract L2AtomicTokenBridgeFactory {
             _deploySeedProxy(proxyAdmin, _getL2Salt(OrbitSalts.L2_STANDARD_GATEWAY));
 
         // create L2 standard gateway logic and upgrade
-        address stdGatewayLogic = Create1.deploy(0, _creationCodeFor(runtimeCode));
+        address stdGatewayLogic =
+            Create2.deploy(0, OrbitSalts.UNSALTED, _creationCodeFor(runtimeCode));
         ProxyAdmin(proxyAdmin).upgrade(
             ITransparentUpgradeableProxy(canonicalStdGateway), stdGatewayLogic
         );
@@ -180,7 +181,8 @@ contract L2AtomicTokenBridgeFactory {
             _deploySeedProxy(proxyAdmin, _getL2Salt(OrbitSalts.L2_CUSTOM_GATEWAY));
 
         // create L2 custom gateway logic and upgrade
-        address customGatewayLogicAddress = Create1.deploy(0, _creationCodeFor(runtimeCode));
+        address customGatewayLogicAddress =
+            Create2.deploy(0, OrbitSalts.UNSALTED, _creationCodeFor(runtimeCode));
         ProxyAdmin(proxyAdmin).upgrade(
             ITransparentUpgradeableProxy(canonicalCustomGateway), customGatewayLogicAddress
         );
@@ -204,7 +206,8 @@ contract L2AtomicTokenBridgeFactory {
         address canonicalL2Weth = _deploySeedProxy(proxyAdmin, _getL2Salt(OrbitSalts.L2_WETH));
 
         // Create L2WETH logic and upgrade
-        address l2WethLogic = Create1.deploy(0, _creationCodeFor(aeWethRuntimeCode));
+        address l2WethLogic =
+            Create2.deploy(0, OrbitSalts.UNSALTED, _creationCodeFor(aeWethRuntimeCode));
         ProxyAdmin(proxyAdmin).upgrade(ITransparentUpgradeableProxy(canonicalL2Weth), l2WethLogic);
 
         // canonical L2 WETH gateway with dummy logic
@@ -212,7 +215,8 @@ contract L2AtomicTokenBridgeFactory {
             _deploySeedProxy(proxyAdmin, _getL2Salt(OrbitSalts.L2_WETH_GATEWAY));
 
         // create L2WETH gateway logic and upgrade
-        address l2WethGatewayLogic = Create1.deploy(0, _creationCodeFor(wethGatewayRuntimeCode));
+        address l2WethGatewayLogic =
+            Create2.deploy(0, OrbitSalts.UNSALTED, _creationCodeFor(wethGatewayRuntimeCode));
         ProxyAdmin(proxyAdmin).upgrade(
             ITransparentUpgradeableProxy(canonicalL2WethGateway), l2WethGatewayLogic
         );
@@ -292,6 +296,8 @@ struct L2RuntimeCode {
  * Collection of salts used in CREATE2 deployment of L2 token bridge contracts.
  */
 library OrbitSalts {
+    bytes32 internal constant UNSALTED = bytes32(0);
+
     bytes internal constant L1_ROUTER = bytes("L1R");
     bytes internal constant L1_STANDARD_GATEWAY = bytes("L1SGW");
     bytes internal constant L1_CUSTOM_GATEWAY = bytes("L1CGW");
