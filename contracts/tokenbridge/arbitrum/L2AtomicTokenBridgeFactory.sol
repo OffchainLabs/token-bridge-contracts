@@ -155,8 +155,9 @@ contract L2AtomicTokenBridgeFactory {
         L2ERC20Gateway(stdGatewayLogic).initialize(ADDRESS_DEAD, ADDRESS_DEAD, ADDRESS_DEAD);
 
         // create beacon
-        StandardArbERC20 standardArbERC20 = new StandardArbERC20();
-        UpgradeableBeacon beacon = new UpgradeableBeacon(address(standardArbERC20));
+        StandardArbERC20 standardArbERC20 = new StandardArbERC20{salt: OrbitSalts.UNSALTED}();
+        UpgradeableBeacon beacon =
+            new UpgradeableBeacon{salt: OrbitSalts.UNSALTED}(address(standardArbERC20));
         BeaconProxyFactory beaconProxyFactory =
             new BeaconProxyFactory{salt: _getL2Salt(OrbitSalts.BEACON_PROXY_FACTORY)}();
 
