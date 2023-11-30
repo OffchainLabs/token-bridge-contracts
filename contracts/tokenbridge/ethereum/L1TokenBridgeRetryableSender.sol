@@ -33,12 +33,44 @@ contract L1TokenBridgeRetryableSender is Initializable, OwnableUpgradeable {
         __Ownable_init();
     }
 
+    function sendRetryable(
+        RetryableParams calldata retryableParams,
+        L2TemplateAddresses calldata l2,
+        L1DeploymentAddresses calldata l1,
+        address l2StandardGatewayAddress,
+        address rollupOwner,
+        address deployer,
+        address aliasedL1UpgradeExecutor,
+        bool isUsingFeeToken
+    ) external payable onlyOwner {
+        if (!isUsingFeeToken) {
+            _sendRetryableUsingEth(
+                retryableParams,
+                l2,
+                l1,
+                l2StandardGatewayAddress,
+                rollupOwner,
+                deployer,
+                aliasedL1UpgradeExecutor
+            );
+        } else {
+            _sendRetryableUsingFeeToken(
+                retryableParams,
+                l2,
+                l1,
+                l2StandardGatewayAddress,
+                rollupOwner,
+                aliasedL1UpgradeExecutor
+            );
+        }
+    }
+
     /**
      * @notice Creates retryable which deploys L2 side of the token bridge.
      * @dev Function will build retryable data, calculate submission cost and retryable value, create retryable
      *      and then refund the remaining funds to original delpoyer.
      */
-    function sendRetryableUsingEth(
+    function _sendRetryableUsingEth(
         RetryableParams calldata retryableParams,
         L2TemplateAddresses calldata l2,
         L1DeploymentAddresses calldata l1,
@@ -46,7 +78,7 @@ contract L1TokenBridgeRetryableSender is Initializable, OwnableUpgradeable {
         address rollupOwner,
         address deployer,
         address aliasedL1UpgradeExecutor
-    ) external payable onlyOwner {
+    ) internal {
         bytes memory data = abi.encodeCall(
             L2AtomicTokenBridgeFactory.deployL2Contracts,
             (
@@ -87,14 +119,14 @@ contract L1TokenBridgeRetryableSender is Initializable, OwnableUpgradeable {
      * @dev Function will build retryable data, calculate submission cost and retryable value, create retryable
      *      and then refund the remaining funds to original delpoyer.
      */
-    function sendRetryableUsingFeeToken(
+    function _sendRetryableUsingFeeToken(
         RetryableParams calldata retryableParams,
         L2TemplateAddresses calldata l2,
         L1DeploymentAddresses calldata l1,
         address l2StandardGatewayAddress,
         address rollupOwner,
         address aliasedL1UpgradeExecutor
-    ) external payable onlyOwner {
+    ) internal {
         bytes memory data = abi.encodeCall(
             L2AtomicTokenBridgeFactory.deployL2Contracts,
             (
