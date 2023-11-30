@@ -720,29 +720,6 @@ async function _isInitialized(
   return maskedValue.toNumber() == 1
 }
 
-interface L1 {
-  inbox: string
-  rollupOwner: string
-  router: string
-  standardGateway: string
-  customGateway: string
-  wethGateway: string
-  proxyAdmin: string
-  upgradeExecutor: string
-}
-
-interface L2 {
-  router: string
-  standardGateway: string
-  customGateway: string
-  wethGateway: string
-  weth: string
-  upgradeExecutor: string
-  multicall: string
-  proxyAdmin: string
-  beaconProxyFactory: string
-}
-
 interface RollupAddresses {
   rollup: string
   inbox: string
