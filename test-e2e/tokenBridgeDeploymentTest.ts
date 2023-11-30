@@ -1,6 +1,8 @@
 import { JsonRpcProvider, Provider, Filter } from '@ethersproject/providers'
 import {
   AeWETH__factory,
+  ArbMulticall2,
+  ArbMulticall2__factory,
   BeaconProxyFactory__factory,
   IERC20Bridge__factory,
   IInboxProxyAdmin__factory,
@@ -156,6 +158,13 @@ describe('tokenBridge', () => {
         l2Provider
       ),
       deploymentAddresses
+    )
+
+    await checkL2MulticallInitialization(
+      ArbMulticall2__factory.connect(
+        deploymentAddresses.l2Multicall,
+        l2Provider
+      )
     )
 
     if (!usingFeeToken) {
@@ -400,6 +409,12 @@ async function checkL2WethGatewayInitialization(
   expect((await l2WethGateway.l2Weth()).toLowerCase()).to.not.be.eq(
     ethers.constants.AddressZero
   )
+}
+
+async function checkL2MulticallInitialization(l2Multicall: ArbMulticall2) {
+  // check l2Multicall is deployed
+  const l2MulticallCode = await l2Provider.getCode(l2Multicall.address)
+  expect(l2MulticallCode.length).to.be.gt(0)
 }
 
 async function checkL1Ownership(
@@ -662,10 +677,6 @@ async function _getRollupOwnerFromLogs(
   l1TokenBridgeCreator: L1AtomicTokenBridgeCreator,
   inboxAddress: string
 ): Promise<string> {
-  console.log('getRollupOwnerFromLogs')
-  console.log('l1TokenBridgeCreatorAddress', l1TokenBridgeCreator.address)
-  console.log('inboxAddress', ethers.utils.hexZeroPad(inboxAddress, 32))
-
   const filter: Filter = {
     address: l1TokenBridgeCreator.address,
     topics: [
@@ -675,12 +686,6 @@ async function _getRollupOwnerFromLogs(
       ethers.utils.hexZeroPad(inboxAddress, 32),
     ],
   }
-
-  console.log(
-    ethers.utils.id(
-      'OrbitTokenBridgeCreated(address,address,address,address,address,address,address,address)'
-    )
-  )
 
   // Fetch the logs
   const logs = await provider.getLogs({
@@ -733,6 +738,37 @@ interface L2 {
   wethGateway: string
   weth: string
   upgradeExecutor: string
+  multicall: string
+  proxyAdmin: string
+  beaconProxyFactory: string
+}
+
+interface RollupAddresses {
+  rollup: string
+  inbox: string
+  rollupOwner: string
+  proxyAdmin: string
+  upgradeExecutor: string
+  multicall: string
+}
+
+interface DeploymentAddresses {
+  l1: {
+    router: string
+    standardGateway: string
+    customGateway: string
+    wethGateway: string
+    weth: string
+  }
+  l2Router: string
+  l2StandardGateway: string
+  l2CustomGateway: string
+  l2WethGateway: string
+  l2Weth: string
+  l2ProxyAdmin: string
+  l2BeaconProxyFactory: string
+  l2UpgradeExecutor: string
+  l2Multicall: string
 }
 
 interface RollupAddresses {
