@@ -1,4 +1,4 @@
-import { JsonRpcProvider, Provider } from '@ethersproject/providers'
+import { JsonRpcProvider, Provider, Filter } from '@ethersproject/providers'
 import {
   AeWETH__factory,
   BeaconProxyFactory__factory,
@@ -6,6 +6,7 @@ import {
   IInboxProxyAdmin__factory,
   IInbox__factory,
   IOwnable__factory,
+  L1AtomicTokenBridgeCreator,
   L1AtomicTokenBridgeCreator__factory,
   L1CustomGateway,
   L1CustomGateway__factory,
@@ -303,8 +304,8 @@ async function checkL2UpgradeExecutorInitialization(
   const executorRole = await l2Executor.EXECUTOR_ROLE()
 
   expect(await l2Executor.hasRole(adminRole, l2Executor.address)).to.be.true
-  // expect(await l2Executor.hasRole(executorRole, rollupAddresses.rollupOwner)).to
-  // .be.true
+  expect(await l2Executor.hasRole(executorRole, rollupAddresses.rollupOwner)).to
+    .be.true
   const aliasedL1Executor = applyAlias(rollupAddresses.upgradeExecutor)
   expect(await l2Executor.hasRole(executorRole, aliasedL1Executor)).to.be.true
 }
@@ -582,7 +583,11 @@ async function _getAddresses(
   const rollupAddresses = {
     rollup: rollupAddress.toLowerCase(),
     inbox: inbox.toLowerCase(),
-    rollupOwner: '',
+    rollupOwner: await _getRollupOwnerFromLogs(
+      l1Provider,
+      l1TokenBridgeCreator,
+      inbox
+    ),
     proxyAdmin: proxyAdmin.toLowerCase(),
     upgradeExecutor: upgradeExecutor.toLowerCase(),
     multicall: multicall.toLowerCase(),
@@ -650,6 +655,47 @@ async function _getAddressAtStorageSlot(
 
   // return address as checksum address
   return ethers.utils.getAddress(formatAddress)
+}
+
+async function _getRollupOwnerFromLogs(
+  provider: JsonRpcProvider,
+  l1TokenBridgeCreator: L1AtomicTokenBridgeCreator,
+  inboxAddress: string
+): Promise<string> {
+  console.log('getRollupOwnerFromLogs')
+  console.log('l1TokenBridgeCreatorAddress', l1TokenBridgeCreator.address)
+  console.log('inboxAddress', ethers.utils.hexZeroPad(inboxAddress, 32))
+
+  const filter: Filter = {
+    address: l1TokenBridgeCreator.address,
+    topics: [
+      ethers.utils.id(
+        'OrbitTokenBridgeCreated(address,address,address,address,address,address,address,address)'
+      ),
+      ethers.utils.hexZeroPad(inboxAddress, 32),
+    ],
+  }
+
+  console.log(
+    ethers.utils.id(
+      'OrbitTokenBridgeCreated(address,address,address,address,address,address,address,address)'
+    )
+  )
+
+  // Fetch the logs
+  const logs = await provider.getLogs({
+    ...filter,
+    fromBlock: '0x1',
+    toBlock: 'latest',
+  })
+  if (logs.length === 0) {
+    throw new Error(
+      `Couldn't find any OrbitTokenBridgeCreated events for inbox ${inboxAddress}`
+    )
+  }
+
+  const logData = l1TokenBridgeCreator.interface.parseLog(logs[logs.length - 1])
+  return logData.args.owner
 }
 
 /**
