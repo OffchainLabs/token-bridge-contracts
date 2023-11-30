@@ -309,10 +309,8 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         address routerTemplate = isUsingFeeToken
             ? address(l1Templates.feeTokenBasedRouterTemplate)
             : address(l1Templates.routerTemplate);
-        l1Addresses.router = address(
-            new TransparentUpgradeableProxy{salt: _getL1Salt(OrbitSalts.L1_ROUTER, inbox)}(
-                routerTemplate, proxyAdmin, bytes("")
-            )
+        l1Addresses.router = _deployProxyWithSalt(
+            _getL1Salt(OrbitSalts.L1_ROUTER, inbox), routerTemplate, proxyAdmin
         );
 
         // deploy and init gateways
@@ -357,10 +355,8 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             : address(l1Templates.standardGatewayTemplate);
 
         L1ERC20Gateway standardGateway = L1ERC20Gateway(
-            address(
-                new TransparentUpgradeableProxy{
-                    salt: _getL1Salt(OrbitSalts.L1_STANDARD_GATEWAY, inbox)
-                }(template, proxyAdmin, bytes(""))
+            _deployProxyWithSalt(
+                _getL1Salt(OrbitSalts.L1_STANDARD_GATEWAY, inbox), template, proxyAdmin
             )
         );
 
@@ -388,10 +384,8 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             : address(l1Templates.customGatewayTemplate);
 
         L1CustomGateway customGateway = L1CustomGateway(
-            address(
-                new TransparentUpgradeableProxy{
-                    salt: _getL1Salt(OrbitSalts.L1_CUSTOM_GATEWAY, inbox)
-                }(template, proxyAdmin, bytes(""))
+            _deployProxyWithSalt(
+                _getL1Salt(OrbitSalts.L1_CUSTOM_GATEWAY, inbox), template, proxyAdmin
             )
         );
 
@@ -408,10 +402,10 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     ) internal returns (address) {
         L1WethGateway wethGateway = L1WethGateway(
             payable(
-                address(
-                    new TransparentUpgradeableProxy{
-                        salt: _getL1Salt(OrbitSalts.L1_WETH_GATEWAY, inbox)
-                    }(address(l1Templates.wethGatewayTemplate), proxyAdmin, bytes(""))
+                _deployProxyWithSalt(
+                    _getL1Salt(OrbitSalts.L1_WETH_GATEWAY, inbox),
+                    address(l1Templates.wethGatewayTemplate),
+                    proxyAdmin
                 )
             )
         );
@@ -710,6 +704,16 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                 prefix, chainId, AddressAliasHelper.applyL1ToL2Alias(address(retryableSender))
             )
         );
+    }
+
+    /**
+     * @notice Internal method to deploy TransparentUpgradeableProxy with CREATE2 opcode.
+     */
+    function _deployProxyWithSalt(bytes32 salt, address logic, address admin)
+        internal
+        returns (address)
+    {
+        return address(new TransparentUpgradeableProxy{salt: salt}(logic, admin, bytes("")));
     }
 }
 
