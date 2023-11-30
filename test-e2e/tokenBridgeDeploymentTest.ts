@@ -1,6 +1,8 @@
 import { JsonRpcProvider, Provider, Filter } from '@ethersproject/providers'
 import {
   AeWETH__factory,
+  ArbMulticall2,
+  ArbMulticall2__factory,
   BeaconProxyFactory__factory,
   IERC20Bridge__factory,
   IInbox__factory,
@@ -138,6 +140,10 @@ describe('tokenBridge', () => {
       l2
     )
 
+    await checkL2MulticallInitialization(
+      ArbMulticall2__factory.connect(l2.multicall, l2Provider)
+    )
+
     if (!usingFeeToken) {
       await checkL2WethGatewayInitialization(
         L2WethGateway__factory.connect(l2.wethGateway, l2Provider),
@@ -202,6 +208,9 @@ async function checkL1StandardGatewayInitialization(
   )
   expect((await l1ERC20Gateway.inbox()).toLowerCase()).to.be.eq(
     l1.inbox.toLowerCase()
+  )
+  expect((await l1ERC20Gateway.l2BeaconProxyFactory()).toLowerCase()).to.be.eq(
+    l2.beaconProxyFactory
   )
   expect((await l1ERC20Gateway.l2BeaconProxyFactory()).toLowerCase()).to.be.eq(
     (
@@ -388,6 +397,12 @@ async function checkL2WethGatewayInitialization(
   )
 }
 
+async function checkL2MulticallInitialization(l2Multicall: ArbMulticall2) {
+  // check l2Multicall is deployed
+  const l2MulticallCode = await l2Provider.getCode(l2Multicall.address)
+  expect(l2MulticallCode.length).to.be.gt(0)
+}
+
 async function checkL1Ownership(l1: L1) {
   console.log('checkL1Ownership')
 
@@ -425,6 +440,7 @@ async function checkL2Ownership(l2: L2) {
   const l2ProxyAdmin = await _getProxyAdmin(l2.router, l2Provider)
 
   // check proxyAdmins
+  expect(l2ProxyAdmin).to.be.eq(l2.proxyAdmin)
   expect(await _getProxyAdmin(l2.router, l2Provider)).to.be.eq(l2ProxyAdmin)
   expect(await _getProxyAdmin(l2.standardGateway, l2Provider)).to.be.eq(
     l2ProxyAdmin
@@ -609,6 +625,17 @@ async function _getTokenBridgeAddresses(
     upgradeExecutor: (
       await l1TokenBridgeCreator.getCanonicalL2UpgradeExecutorAddress(chainId)
     ).toLowerCase(),
+    multicall: (
+      await l1TokenBridgeCreator.getCanonicalL2Multicall(chainId)
+    ).toLowerCase(),
+    proxyAdmin: (
+      await l1TokenBridgeCreator.getCanonicalL2ProxyAdminAddress(chainId)
+    ).toLowerCase(),
+    beaconProxyFactory: (
+      await l1TokenBridgeCreator.getCanonicalL2BeaconProxyFactoryAddress(
+        chainId
+      )
+    ).toLowerCase(),
   }
 
   return {
@@ -709,4 +736,7 @@ interface L2 {
   wethGateway: string
   weth: string
   upgradeExecutor: string
+  multicall: string
+  proxyAdmin: string
+  beaconProxyFactory: string
 }
