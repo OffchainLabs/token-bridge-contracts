@@ -390,7 +390,6 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
 
     function _deployL2Factory(address inbox, uint256 gasPriceBid, bool isUsingFeeToken)
         internal
-        returns (uint256)
     {
         // encode L2 factory bytecode
         bytes memory deploymentData =
@@ -413,7 +412,6 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                 retryableFee,
                 deploymentData
             );
-            return 0;
         } else {
             uint256 maxSubmissionCost =
                 IInbox(inbox).calculateRetryableSubmissionFee(deploymentData.length, 0);
@@ -429,7 +427,6 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                 gasPriceBid,
                 deploymentData
             );
-            return retryableFee;
         }
     }
 
