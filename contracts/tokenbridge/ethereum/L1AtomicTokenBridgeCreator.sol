@@ -62,10 +62,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     event OrbitTokenBridgeCreated(
         address indexed inbox,
         address indexed owner,
-        address router,
-        address standardGateway,
-        address customGateway,
-        address wethGateway,
+        DeploymentAddresses deployment,
         address proxyAdmin,
         address upgradeExecutor
     );
@@ -150,7 +147,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         retryableSender.initialize();
 
         canonicalL2FactoryAddress =
-            _computeAddress(AddressAliasHelper.applyL1ToL2Alias(address(this)), 0);
+            _computeAddressAtNonce0(AddressAliasHelper.applyL1ToL2Alias(address(this)));
     }
 
     /**
@@ -241,38 +238,128 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
 
         /// deploy L1 side of token bridge
         bool isUsingFeeToken = _getFeeToken(inbox) != address(0);
-        L1DeploymentAddresses memory l1DeploymentAddresses =
-            _deployL1Contracts(inbox, rollupOwner, upgradeExecutor, isUsingFeeToken, deployment);
 
-        deployment.l1 = l1DeploymentAddresses;
-        inboxToDeployment[inbox] = deployment;
+        // get existing proxy admin and upgrade executor
+        address proxyAdmin = IInboxProxyAdmin(inbox).getProxyAdmin();
+        if (proxyAdmin == address(0)) {
+            revert L1AtomicTokenBridgeCreator_ProxyAdminNotFound();
+        }
 
-        /// deploy factory and then L2 contracts through L2 factory, using 2 retryables calls
-        if (isUsingFeeToken) {
-            _deployL2Factory(inbox, gasPriceBid, isUsingFeeToken);
-            _deployL2ContractsUsingFeeToken(
-                l1DeploymentAddresses,
-                inbox,
-                maxGasForContracts,
-                gasPriceBid,
-                rollupOwner,
-                upgradeExecutor,
-                deployment
-            );
-        } else {
-            uint256 valueSpentForFactory = _deployL2Factory(inbox, gasPriceBid, isUsingFeeToken);
-            uint256 fundsRemaining = msg.value - valueSpentForFactory;
-            _deployL2ContractsUsingEth(
-                l1DeploymentAddresses,
-                inbox,
-                maxGasForContracts,
-                gasPriceBid,
-                fundsRemaining,
-                rollupOwner,
-                upgradeExecutor,
-                deployment
+        // l1 router deployment block
+        {
+            address routerTemplate = isUsingFeeToken
+                ? address(l1Templates.feeTokenBasedRouterTemplate)
+                : address(l1Templates.routerTemplate);
+            deployment.l1.router = _deployProxyWithSalt(
+                _getL1Salt(OrbitSalts.L1_ROUTER, inbox), routerTemplate, proxyAdmin
             );
         }
+
+        // l1 standard gateway deployment block
+        {
+            address template = isUsingFeeToken
+                ? address(l1Templates.feeTokenBasedStandardGatewayTemplate)
+                : address(l1Templates.standardGatewayTemplate);
+
+            L1ERC20Gateway standardGateway = L1ERC20Gateway(
+                _deployProxyWithSalt(
+                    _getL1Salt(OrbitSalts.L1_STANDARD_GATEWAY, inbox), template, proxyAdmin
+                )
+            );
+
+            standardGateway.initialize(
+                deployment.l2StandardGateway,
+                deployment.l1.router,
+                inbox,
+                keccak256(type(ClonableBeaconProxy).creationCode),
+                deployment.l2BeaconProxyFactory
+            );
+
+            deployment.l1.standardGateway = address(standardGateway);
+        }
+
+        // l1 custom gateway deployment block
+        {
+            address template = isUsingFeeToken
+                ? address(l1Templates.feeTokenBasedCustomGatewayTemplate)
+                : address(l1Templates.customGatewayTemplate);
+
+            L1CustomGateway customGateway = L1CustomGateway(
+                _deployProxyWithSalt(
+                    _getL1Salt(OrbitSalts.L1_CUSTOM_GATEWAY, inbox), template, proxyAdmin
+                )
+            );
+
+            customGateway.initialize(
+                deployment.l2CustomGateway, deployment.l1.router, inbox, upgradeExecutor
+            );
+
+            deployment.l1.customGateway = address(customGateway);
+        }
+
+        // l1 weth gateway deployment block
+        if (!isUsingFeeToken) {
+            L1WethGateway wethGateway = L1WethGateway(
+                payable(
+                    _deployProxyWithSalt(
+                        _getL1Salt(OrbitSalts.L1_WETH_GATEWAY, inbox),
+                        address(l1Templates.wethGatewayTemplate),
+                        proxyAdmin
+                    )
+                )
+            );
+
+            wethGateway.initialize(
+                deployment.l2WethGateway, deployment.l1.router, inbox, l1Weth, deployment.l2Weth
+            );
+
+            deployment.l1.wethGateway = address(wethGateway);
+            deployment.l1.weth = l1Weth;
+        }
+
+        // init router
+        L1GatewayRouter(deployment.l1.router).initialize(
+            upgradeExecutor, deployment.l1.standardGateway, address(0), deployment.l2Router, inbox
+        );
+
+        // deploy factory and then L2 contracts through L2 factory, using 2 retryables calls
+        _deployL2Factory(inbox, gasPriceBid, isUsingFeeToken);
+        if (isUsingFeeToken) {
+            // transfer fee tokens to inbox to pay for 2nd retryable
+            address feeToken = _getFeeToken(inbox);
+            uint256 fee = maxGasForContracts * gasPriceBid;
+            IERC20(feeToken).safeTransferFrom(msg.sender, inbox, fee);
+        }
+        // sweep the balance to send the retryable and refund the difference
+        // it is known that any eth in this contract can be extracted
+        retryableSender.sendRetryable{value: isUsingFeeToken ? 0 : address(this).balance}(
+            RetryableParams(
+                inbox,
+                canonicalL2FactoryAddress,
+                msg.sender,
+                msg.sender,
+                maxGasForContracts,
+                gasPriceBid
+            ),
+            L2TemplateAddresses(
+                l2RouterTemplate,
+                l2StandardGatewayTemplate,
+                l2CustomGatewayTemplate,
+                isUsingFeeToken ? address(0) : l2WethGatewayTemplate,
+                isUsingFeeToken ? address(0) : l2WethTemplate,
+                address(l1Templates.upgradeExecutor),
+                l2MulticallTemplate
+            ),
+            deployment.l1,
+            deployment.l2StandardGateway,
+            rollupOwner,
+            msg.sender,
+            AddressAliasHelper.applyL1ToL2Alias(upgradeExecutor),
+            isUsingFeeToken
+        );
+
+        emit OrbitTokenBridgeCreated(inbox, rollupOwner, deployment, proxyAdmin, upgradeExecutor);
+        inboxToDeployment[inbox] = deployment;
     }
 
     /**
@@ -299,129 +386,6 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         }
 
         return getCanonicalL1RouterAddress(inbox);
-    }
-
-    function _deployL1Contracts(
-        address inbox,
-        address rollupOwner,
-        address upgradeExecutor,
-        bool isUsingFeeToken,
-        DeploymentAddresses memory deployment
-    ) internal returns (L1DeploymentAddresses memory l1Addresses) {
-        // get existing proxy admin and upgrade executor
-        address proxyAdmin = IInboxProxyAdmin(inbox).getProxyAdmin();
-        if (proxyAdmin == address(0)) {
-            revert L1AtomicTokenBridgeCreator_ProxyAdminNotFound();
-        }
-
-        // deploy router
-        address routerTemplate = isUsingFeeToken
-            ? address(l1Templates.feeTokenBasedRouterTemplate)
-            : address(l1Templates.routerTemplate);
-        l1Addresses.router = _deployProxyWithSalt(
-            _getL1Salt(OrbitSalts.L1_ROUTER, inbox), routerTemplate, proxyAdmin
-        );
-
-        // deploy and init gateways
-        l1Addresses.standardGateway = _deployL1StandardGateway(
-            proxyAdmin, l1Addresses.router, inbox, isUsingFeeToken, deployment
-        );
-        l1Addresses.customGateway = _deployL1CustomGateway(
-            proxyAdmin, l1Addresses.router, inbox, upgradeExecutor, isUsingFeeToken, deployment
-        );
-        l1Addresses.wethGateway = isUsingFeeToken
-            ? address(0)
-            : _deployL1WethGateway(proxyAdmin, l1Addresses.router, inbox, deployment);
-        l1Addresses.weth = isUsingFeeToken ? address(0) : l1Weth;
-
-        // init router
-        L1GatewayRouter(l1Addresses.router).initialize(
-            upgradeExecutor, l1Addresses.standardGateway, address(0), deployment.l2Router, inbox
-        );
-
-        // emit it
-        emit OrbitTokenBridgeCreated(
-            inbox,
-            rollupOwner,
-            l1Addresses.router,
-            l1Addresses.standardGateway,
-            l1Addresses.customGateway,
-            l1Addresses.wethGateway,
-            proxyAdmin,
-            upgradeExecutor
-        );
-    }
-
-    function _deployL1StandardGateway(
-        address proxyAdmin,
-        address router,
-        address inbox,
-        bool isUsingFeeToken,
-        DeploymentAddresses memory deployment
-    ) internal returns (address) {
-        address template = isUsingFeeToken
-            ? address(l1Templates.feeTokenBasedStandardGatewayTemplate)
-            : address(l1Templates.standardGatewayTemplate);
-
-        L1ERC20Gateway standardGateway = L1ERC20Gateway(
-            _deployProxyWithSalt(
-                _getL1Salt(OrbitSalts.L1_STANDARD_GATEWAY, inbox), template, proxyAdmin
-            )
-        );
-
-        standardGateway.initialize(
-            deployment.l2StandardGateway,
-            router,
-            inbox,
-            keccak256(type(ClonableBeaconProxy).creationCode),
-            deployment.l2BeaconProxyFactory
-        );
-
-        return address(standardGateway);
-    }
-
-    function _deployL1CustomGateway(
-        address proxyAdmin,
-        address router,
-        address inbox,
-        address upgradeExecutor,
-        bool isUsingFeeToken,
-        DeploymentAddresses memory deployment
-    ) internal returns (address) {
-        address template = isUsingFeeToken
-            ? address(l1Templates.feeTokenBasedCustomGatewayTemplate)
-            : address(l1Templates.customGatewayTemplate);
-
-        L1CustomGateway customGateway = L1CustomGateway(
-            _deployProxyWithSalt(
-                _getL1Salt(OrbitSalts.L1_CUSTOM_GATEWAY, inbox), template, proxyAdmin
-            )
-        );
-
-        customGateway.initialize(deployment.l2CustomGateway, router, inbox, upgradeExecutor);
-
-        return address(customGateway);
-    }
-
-    function _deployL1WethGateway(
-        address proxyAdmin,
-        address router,
-        address inbox,
-        DeploymentAddresses memory deployment
-    ) internal returns (address) {
-        L1WethGateway wethGateway = L1WethGateway(
-            payable(
-                _deployProxyWithSalt(
-                    _getL1Salt(OrbitSalts.L1_WETH_GATEWAY, inbox),
-                    address(l1Templates.wethGatewayTemplate),
-                    proxyAdmin
-                )
-            )
-        );
-
-        wethGateway.initialize(deployment.l2WethGateway, router, inbox, l1Weth, deployment.l2Weth);
-
-        return address(wethGateway);
     }
 
     function _deployL2Factory(address inbox, uint256 gasPriceBid, bool isUsingFeeToken)
@@ -467,71 +431,6 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             );
             return retryableFee;
         }
-    }
-
-    function _deployL2ContractsUsingEth(
-        L1DeploymentAddresses memory l1Addresses,
-        address inbox,
-        uint256 maxGas,
-        uint256 gasPriceBid,
-        uint256 availableFunds,
-        address rollupOwner,
-        address upgradeExecutor,
-        DeploymentAddresses memory deployment
-    ) internal {
-        retryableSender.sendRetryableUsingEth{value: availableFunds}(
-            RetryableParams(
-                inbox, canonicalL2FactoryAddress, msg.sender, msg.sender, maxGas, gasPriceBid
-            ),
-            L2TemplateAddresses(
-                l2RouterTemplate,
-                l2StandardGatewayTemplate,
-                l2CustomGatewayTemplate,
-                l2WethGatewayTemplate,
-                l2WethTemplate,
-                address(l1Templates.upgradeExecutor),
-                l2MulticallTemplate
-            ),
-            l1Addresses,
-            deployment.l2StandardGateway,
-            rollupOwner,
-            msg.sender,
-            AddressAliasHelper.applyL1ToL2Alias(upgradeExecutor)
-        );
-    }
-
-    function _deployL2ContractsUsingFeeToken(
-        L1DeploymentAddresses memory l1Addresses,
-        address inbox,
-        uint256 maxGas,
-        uint256 gasPriceBid,
-        address rollupOwner,
-        address upgradeExecutor,
-        DeploymentAddresses memory deployment
-    ) internal {
-        // transfer fee tokens to inbox to pay for 2nd retryable
-        address feeToken = _getFeeToken(inbox);
-        uint256 fee = maxGas * gasPriceBid;
-        IERC20(feeToken).safeTransferFrom(msg.sender, inbox, fee);
-
-        retryableSender.sendRetryableUsingFeeToken(
-            RetryableParams(
-                inbox, canonicalL2FactoryAddress, msg.sender, msg.sender, maxGas, gasPriceBid
-            ),
-            L2TemplateAddresses(
-                l2RouterTemplate,
-                l2StandardGatewayTemplate,
-                l2CustomGatewayTemplate,
-                address(0),
-                address(0),
-                address(l1Templates.upgradeExecutor),
-                l2MulticallTemplate
-            ),
-            l1Addresses,
-            deployment.l2StandardGateway,
-            rollupOwner,
-            AddressAliasHelper.applyL1ToL2Alias(upgradeExecutor)
-        );
     }
 
     function getCanonicalL1RouterAddress(address inbox) public view returns (address) {
@@ -636,22 +535,14 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
      *
      * @return computed address
      */
-    function _computeAddress(address origin, uint256 nonce) internal pure returns (address) {
-        bytes memory data;
-        if (nonce == 0x00) {
-            data = abi.encodePacked(bytes1(0xd6), bytes1(0x94), origin, bytes1(0x80));
-        } else if (nonce <= 0x7f) {
-            data = abi.encodePacked(bytes1(0xd6), bytes1(0x94), origin, uint8(nonce));
-        } else if (nonce <= 0xff) {
-            data = abi.encodePacked(bytes1(0xd7), bytes1(0x94), origin, bytes1(0x81), uint8(nonce));
-        } else if (nonce <= 0xffff) {
-            data = abi.encodePacked(bytes1(0xd8), bytes1(0x94), origin, bytes1(0x82), uint16(nonce));
-        } else if (nonce <= 0xffffff) {
-            data = abi.encodePacked(bytes1(0xd9), bytes1(0x94), origin, bytes1(0x83), uint24(nonce));
-        } else {
-            data = abi.encodePacked(bytes1(0xda), bytes1(0x94), origin, bytes1(0x84), uint32(nonce));
-        }
-        return address(uint160(uint256(keccak256(data))));
+    function _computeAddressAtNonce0(address origin) internal pure returns (address) {
+        return address(
+            uint160(
+                uint256(
+                    keccak256(abi.encodePacked(bytes1(0xd6), bytes1(0x94), origin, bytes1(0x80)))
+                )
+            )
+        );
     }
 
     /**
