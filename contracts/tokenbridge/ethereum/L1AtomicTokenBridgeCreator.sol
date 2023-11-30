@@ -69,7 +69,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         address upgradeExecutor
     );
     event OrbitTokenBridgeTemplatesUpdated();
-    event NonCanonicalRouterSet(address indexed inbox, address indexed router);
+    event DeploymentSet(address indexed inbox, L1DeploymentAddresses l1, L2DeploymentAddresses l2);
 
     struct L1Templates {
         L1GatewayRouter routerTemplate;
@@ -81,9 +81,6 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         L1OrbitCustomGateway feeTokenBasedCustomGatewayTemplate;
         IUpgradeExecutor upgradeExecutor;
     }
-
-    // non-canonical router registry
-    mapping(address => address) public inboxToNonCanonicalRouter;
 
     // use separate mapping to allow appending to the struct in the future
     // and workaround some stack too deep issues
@@ -123,7 +120,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     // Note - due to contract size limits, multicall template and its bytecode hash are set in constructor as immutables
     address public immutable l2MulticallTemplate;
     // code hash used for calculation of L2 multicall address
-    bytes32 public immutable ARB_MULTICALL_CODE_HASH;
+    bytes32 internal immutable ARB_MULTICALL_CODE_HASH;
 
     constructor(address _l2MulticallTemplate) {
         l2MulticallTemplate = _l2MulticallTemplate;
@@ -360,29 +357,24 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     }
 
     /**
-     * @notice Rollup owner can override canonical router address by registering other non-canonical router.
-     * @dev Non-canonical router can be unregistered by re-setting it to address(0) - it makes canonical router the valid one.
+     * @notice Rollup owner can override deployment
      */
-    function setNonCanonicalRouter(address inbox, address nonCanonicalRouter) external {
+    function setDeployment(
+        address inbox,
+        L1DeploymentAddresses memory l1Deployment,
+        L2DeploymentAddresses memory l2Deployment
+    ) external {
         if (msg.sender != IInbox(inbox).bridge().rollup().owner()) {
             revert L1AtomicTokenBridgeCreator_OnlyRollupOwner();
         }
-        if (nonCanonicalRouter == getCanonicalL1RouterAddress(inbox)) {
-            revert L1AtomicTokenBridgeCreator_InvalidRouterAddr();
-        }
 
-        inboxToNonCanonicalRouter[inbox] = nonCanonicalRouter;
-        emit NonCanonicalRouterSet(inbox, nonCanonicalRouter);
+        inboxToL1Deployment[inbox] = l1Deployment;
+        inboxToL2Deployment[inbox] = l2Deployment;
+        emit DeploymentSet(inbox, l1Deployment, l2Deployment);
     }
 
     function getRouter(address inbox) public view returns (address) {
-        address nonCanonicalRouter = inboxToNonCanonicalRouter[inbox];
-
-        if (nonCanonicalRouter != address(0)) {
-            return nonCanonicalRouter;
-        }
-
-        return getCanonicalL1RouterAddress(inbox);
+        return inboxToL1Deployment[inbox].router;
     }
 
     function _deployL2Factory(address inbox, uint256 gasPriceBid, bool isUsingFeeToken) internal {
@@ -443,14 +435,6 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             ),
             address(this)
         );
-    }
-
-    function getTokenBridgeDeployment(address inbox)
-        external
-        view
-        returns (L1DeploymentAddresses memory, L2DeploymentAddresses memory)
-    {
-        return (inboxToL1Deployment[inbox], inboxToL2Deployment[inbox]);
     }
 
     function _predictL2RouterAddress(uint256 chainId) internal view returns (address) {
