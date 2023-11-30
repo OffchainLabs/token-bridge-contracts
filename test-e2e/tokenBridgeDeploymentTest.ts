@@ -76,7 +76,7 @@ describe('tokenBridge', () => {
     )
 
     /// get core contract and token bridge addresses
-    const { rollupAddresses, deploymentAddresses } = await _getAddresses(
+    const { rollupAddresses, l1Deployment, l2Deployment } = await _getAddresses(
       rollupAddress,
       l1TokenBridgeCreator
     )
@@ -94,29 +94,23 @@ describe('tokenBridge', () => {
     )
 
     await checkL1RouterInitialization(
-      L1GatewayRouter__factory.connect(
-        deploymentAddresses.l1.router,
-        l1Provider
-      ),
-      deploymentAddresses,
+      L1GatewayRouter__factory.connect(l1Deployment.router, l1Provider),
+      l1Deployment,
+      l2Deployment,
       rollupAddresses
     )
 
     await checkL1StandardGatewayInitialization(
-      L1ERC20Gateway__factory.connect(
-        deploymentAddresses.l1.standardGateway,
-        l1Provider
-      ),
-      deploymentAddresses,
+      L1ERC20Gateway__factory.connect(l1Deployment.standardGateway, l1Provider),
+      l1Deployment,
+      l2Deployment,
       rollupAddresses
     )
 
     await checkL1CustomGatewayInitialization(
-      L1CustomGateway__factory.connect(
-        deploymentAddresses.l1.customGateway,
-        l1Provider
-      ),
-      deploymentAddresses,
+      L1CustomGateway__factory.connect(l1Deployment.customGateway, l1Provider),
+      l1Deployment,
+      l2Deployment,
       rollupAddresses
     )
 
@@ -126,67 +120,54 @@ describe('tokenBridge', () => {
     )
     if (!usingFeeToken)
       await checkL1WethGatewayInitialization(
-        L1WethGateway__factory.connect(
-          deploymentAddresses.l1.wethGateway,
-          l1Provider
-        ),
-        deploymentAddresses,
+        L1WethGateway__factory.connect(l1Deployment.wethGateway, l1Provider),
+        l1Deployment,
+        l2Deployment,
         rollupAddresses
       )
 
     //// L2 checks
 
     await checkL2RouterInitialization(
-      L2GatewayRouter__factory.connect(
-        deploymentAddresses.l2Router,
-        l2Provider
-      ),
-      deploymentAddresses
+      L2GatewayRouter__factory.connect(l2Deployment.router, l2Provider),
+      l1Deployment,
+      l2Deployment
     )
 
     await checkL2StandardGatewayInitialization(
-      L2ERC20Gateway__factory.connect(
-        deploymentAddresses.l2StandardGateway,
-        l2Provider
-      ),
-      deploymentAddresses
+      L2ERC20Gateway__factory.connect(l2Deployment.standardGateway, l2Provider),
+      l1Deployment,
+      l2Deployment
     )
 
     await checkL2CustomGatewayInitialization(
-      L2CustomGateway__factory.connect(
-        deploymentAddresses.l2CustomGateway,
-        l2Provider
-      ),
-      deploymentAddresses
+      L2CustomGateway__factory.connect(l2Deployment.customGateway, l2Provider),
+      l1Deployment,
+      l2Deployment
     )
 
     await checkL2MulticallInitialization(
-      ArbMulticall2__factory.connect(
-        deploymentAddresses.l2Multicall,
-        l2Provider
-      )
+      ArbMulticall2__factory.connect(l2Deployment.multicall, l2Provider)
     )
 
     if (!usingFeeToken) {
       await checkL2WethGatewayInitialization(
-        L2WethGateway__factory.connect(
-          deploymentAddresses.l2WethGateway,
-          l2Provider
-        ),
-        deploymentAddresses
+        L2WethGateway__factory.connect(l2Deployment.wethGateway, l2Provider),
+        l1Deployment,
+        l2Deployment
       )
     }
 
     const upgExecutor = new ethers.Contract(
-      deploymentAddresses.l2UpgradeExecutor,
+      l2Deployment.upgradeExecutor,
       UpgradeExecutorABI,
       l2Provider
     )
     await checkL2UpgradeExecutorInitialization(upgExecutor, rollupAddresses)
 
-    await checkL1Ownership(deploymentAddresses, rollupAddresses)
-    await checkL2Ownership(deploymentAddresses)
-    await checkLogicContracts(usingFeeToken, deploymentAddresses)
+    await checkL1Ownership(l1Deployment, rollupAddresses)
+    await checkL2Ownership(l1Deployment, l2Deployment)
+    await checkLogicContracts(usingFeeToken, l1Deployment, l2Deployment)
   })
 })
 
@@ -194,13 +175,14 @@ describe('tokenBridge', () => {
 
 async function checkL1RouterInitialization(
   l1Router: L1GatewayRouter,
-  deploymentAddresses: DeploymentAddresses,
+  l1Deployment: L1DeploymentAddresses,
+  l2Deployment: L2DeploymentAddresses,
   rollupAddresses: RollupAddresses
 ) {
   console.log('checkL1RouterInitialization')
 
   expect((await l1Router.defaultGateway()).toLowerCase()).to.be.eq(
-    deploymentAddresses.l1.standardGateway.toLowerCase()
+    l1Deployment.standardGateway.toLowerCase()
   )
   expect((await l1Router.inbox()).toLowerCase()).to.be.eq(
     rollupAddresses.inbox.toLowerCase()
@@ -209,22 +191,23 @@ async function checkL1RouterInitialization(
     ethers.constants.AddressZero
   )
   expect((await l1Router.counterpartGateway()).toLowerCase()).to.be.eq(
-    deploymentAddresses.l2Router.toLowerCase()
+    l2Deployment.router.toLowerCase()
   )
 }
 
 async function checkL1StandardGatewayInitialization(
   l1ERC20Gateway: L1ERC20Gateway,
-  deploymentAddresses: DeploymentAddresses,
+  l1Deployment: L1DeploymentAddresses,
+  l2Deployment: L2DeploymentAddresses,
   rollupAddresses: RollupAddresses
 ) {
   console.log('checkL1StandardGatewayInitialization')
 
   expect((await l1ERC20Gateway.counterpartGateway()).toLowerCase()).to.be.eq(
-    deploymentAddresses.l2StandardGateway.toLowerCase()
+    l2Deployment.standardGateway.toLowerCase()
   )
   expect((await l1ERC20Gateway.router()).toLowerCase()).to.be.eq(
-    deploymentAddresses.l1.router.toLowerCase()
+    l1Deployment.router.toLowerCase()
   )
   expect((await l1ERC20Gateway.inbox()).toLowerCase()).to.be.eq(
     rollupAddresses.inbox.toLowerCase()
@@ -252,17 +235,18 @@ async function checkL1StandardGatewayInitialization(
 
 async function checkL1CustomGatewayInitialization(
   l1CustomGateway: L1CustomGateway,
-  deploymentAddresses: DeploymentAddresses,
+  l1Deployment: L1DeploymentAddresses,
+  l2Deployment: L2DeploymentAddresses,
   rollupAddresses: RollupAddresses
 ) {
   console.log('checkL1CustomGatewayInitialization')
 
   expect((await l1CustomGateway.counterpartGateway()).toLowerCase()).to.be.eq(
-    deploymentAddresses.l2CustomGateway.toLowerCase()
+    l2Deployment.customGateway.toLowerCase()
   )
 
   expect((await l1CustomGateway.router()).toLowerCase()).to.be.eq(
-    deploymentAddresses.l1.router.toLowerCase()
+    l1Deployment.router.toLowerCase()
   )
 
   expect((await l1CustomGateway.inbox()).toLowerCase()).to.be.eq(
@@ -276,17 +260,18 @@ async function checkL1CustomGatewayInitialization(
 
 async function checkL1WethGatewayInitialization(
   l1WethGateway: L1WethGateway,
-  deploymentAddresses: DeploymentAddresses,
+  l1Deployment: L1DeploymentAddresses,
+  l2Deployment: L2DeploymentAddresses,
   rollupAddresses: RollupAddresses
 ) {
   console.log('checkL1WethGatewayInitialization')
 
   expect((await l1WethGateway.counterpartGateway()).toLowerCase()).to.be.eq(
-    deploymentAddresses.l2WethGateway.toLowerCase()
+    l2Deployment.wethGateway.toLowerCase()
   )
 
   expect((await l1WethGateway.router()).toLowerCase()).to.be.eq(
-    deploymentAddresses.l1.router.toLowerCase()
+    l1Deployment.router.toLowerCase()
   )
 
   expect((await l1WethGateway.inbox()).toLowerCase()).to.be.eq(
@@ -323,12 +308,13 @@ async function checkL2UpgradeExecutorInitialization(
 
 async function checkL2RouterInitialization(
   l2Router: L2GatewayRouter,
-  deploymentAddresses: DeploymentAddresses
+  l1Deployment: L1DeploymentAddresses,
+  l2Deployment: L2DeploymentAddresses
 ) {
   console.log('checkL2RouterInitialization')
 
   expect((await l2Router.defaultGateway()).toLowerCase()).to.be.eq(
-    deploymentAddresses.l2StandardGateway.toLowerCase()
+    l2Deployment.standardGateway.toLowerCase()
   )
 
   expect((await l2Router.router()).toLowerCase()).to.be.eq(
@@ -336,22 +322,23 @@ async function checkL2RouterInitialization(
   )
 
   expect((await l2Router.counterpartGateway()).toLowerCase()).to.be.eq(
-    deploymentAddresses.l1.router.toLowerCase()
+    l1Deployment.router.toLowerCase()
   )
 }
 
 async function checkL2StandardGatewayInitialization(
   l2ERC20Gateway: L2ERC20Gateway,
-  deploymentAddresses: DeploymentAddresses
+  l1Deployment: L1DeploymentAddresses,
+  l2Deployment: L2DeploymentAddresses
 ) {
   console.log('checkL2StandardGatewayInitialization')
 
   expect((await l2ERC20Gateway.counterpartGateway()).toLowerCase()).to.be.eq(
-    deploymentAddresses.l1.standardGateway.toLowerCase()
+    l1Deployment.standardGateway.toLowerCase()
   )
 
   expect((await l2ERC20Gateway.router()).toLowerCase()).to.be.eq(
-    deploymentAddresses.l2Router.toLowerCase()
+    l2Deployment.router.toLowerCase()
   )
 
   expect((await l2ERC20Gateway.beaconProxyFactory()).toLowerCase()).to.be.eq(
@@ -375,31 +362,33 @@ async function checkL2StandardGatewayInitialization(
 
 async function checkL2CustomGatewayInitialization(
   l2CustomGateway: L2CustomGateway,
-  deploymentAddresses: DeploymentAddresses
+  l1Deployment: L1DeploymentAddresses,
+  l2Deployment: L2DeploymentAddresses
 ) {
   console.log('checkL2CustomGatewayInitialization')
 
   expect((await l2CustomGateway.counterpartGateway()).toLowerCase()).to.be.eq(
-    deploymentAddresses.l1.customGateway.toLowerCase()
+    l1Deployment.customGateway.toLowerCase()
   )
 
   expect((await l2CustomGateway.router()).toLowerCase()).to.be.eq(
-    deploymentAddresses.l2Router.toLowerCase()
+    l2Deployment.router.toLowerCase()
   )
 }
 
 async function checkL2WethGatewayInitialization(
   l2WethGateway: L2WethGateway,
-  deploymentAddresses: DeploymentAddresses
+  l1Deployment: L1DeploymentAddresses,
+  l2Deployment: L2DeploymentAddresses
 ) {
   console.log('checkL2WethGatewayInitialization')
 
   expect((await l2WethGateway.counterpartGateway()).toLowerCase()).to.be.eq(
-    deploymentAddresses.l1.wethGateway.toLowerCase()
+    l1Deployment.wethGateway.toLowerCase()
   )
 
   expect((await l2WethGateway.router()).toLowerCase()).to.be.eq(
-    deploymentAddresses.l2Router.toLowerCase()
+    l2Deployment.router.toLowerCase()
   )
 
   expect((await l2WethGateway.l1Weth()).toLowerCase()).to.not.be.eq(
@@ -418,26 +407,26 @@ async function checkL2MulticallInitialization(l2Multicall: ArbMulticall2) {
 }
 
 async function checkL1Ownership(
-  deploymentAddresses: DeploymentAddresses,
+  l1Deployment: L1DeploymentAddresses,
   rollupAddresses: RollupAddresses
 ) {
   console.log('checkL1Ownership')
 
   // check proxyAdmins
 
+  expect(await _getProxyAdmin(l1Deployment.router, l1Provider)).to.be.eq(
+    rollupAddresses.proxyAdmin
+  )
   expect(
-    await _getProxyAdmin(deploymentAddresses.l1.router, l1Provider)
+    await _getProxyAdmin(l1Deployment.standardGateway, l1Provider)
   ).to.be.eq(rollupAddresses.proxyAdmin)
-  expect(
-    await _getProxyAdmin(deploymentAddresses.l1.standardGateway, l1Provider)
-  ).to.be.eq(rollupAddresses.proxyAdmin)
-  expect(
-    await _getProxyAdmin(deploymentAddresses.l1.customGateway, l1Provider)
-  ).to.be.eq(rollupAddresses.proxyAdmin)
-  if (deploymentAddresses.l1.wethGateway !== ethers.constants.AddressZero) {
-    expect(
-      await _getProxyAdmin(deploymentAddresses.l1.wethGateway, l1Provider)
-    ).to.be.eq(rollupAddresses.proxyAdmin)
+  expect(await _getProxyAdmin(l1Deployment.customGateway, l1Provider)).to.be.eq(
+    rollupAddresses.proxyAdmin
+  )
+  if (l1Deployment.wethGateway !== ethers.constants.AddressZero) {
+    expect(await _getProxyAdmin(l1Deployment.wethGateway, l1Provider)).to.be.eq(
+      rollupAddresses.proxyAdmin
+    )
   }
   expect(
     await _getProxyAdmin(rollupAddresses.upgradeExecutor, l1Provider)
@@ -447,64 +436,62 @@ async function checkL1Ownership(
   expect(await _getOwner(rollupAddresses.proxyAdmin, l1Provider)).to.be.eq(
     rollupAddresses.upgradeExecutor
   )
-  expect(await _getOwner(deploymentAddresses.l1.router, l1Provider)).to.be.eq(
+  expect(await _getOwner(l1Deployment.router, l1Provider)).to.be.eq(
     rollupAddresses.upgradeExecutor
   )
-  expect(
-    await _getOwner(deploymentAddresses.l1.customGateway, l1Provider)
-  ).to.be.eq(rollupAddresses.upgradeExecutor)
+  expect(await _getOwner(l1Deployment.customGateway, l1Provider)).to.be.eq(
+    rollupAddresses.upgradeExecutor
+  )
 }
 
-async function checkL2Ownership(deploymentAddresses: DeploymentAddresses) {
+async function checkL2Ownership(
+  l1Deployment: L1DeploymentAddresses,
+  l2Deployment: L2DeploymentAddresses
+) {
   console.log('checkL2Ownership')
 
-  const l2ProxyAdmin = await _getProxyAdmin(
-    deploymentAddresses.l2Router,
-    l2Provider
-  )
+  const l2ProxyAdmin = await _getProxyAdmin(l2Deployment.router, l2Provider)
 
   // check proxyAdmins
+  expect(await _getProxyAdmin(l2Deployment.router, l2Provider)).to.be.eq(
+    l2ProxyAdmin
+  )
   expect(
-    await _getProxyAdmin(deploymentAddresses.l2Router, l2Provider)
+    await _getProxyAdmin(l2Deployment.standardGateway, l2Provider)
   ).to.be.eq(l2ProxyAdmin)
-  expect(
-    await _getProxyAdmin(deploymentAddresses.l2StandardGateway, l2Provider)
-  ).to.be.eq(l2ProxyAdmin)
-  expect(
-    await _getProxyAdmin(deploymentAddresses.l2CustomGateway, l2Provider)
-  ).to.be.eq(l2ProxyAdmin)
+  expect(await _getProxyAdmin(l2Deployment.customGateway, l2Provider)).to.be.eq(
+    l2ProxyAdmin
+  )
 
-  if (deploymentAddresses.l2WethGateway != ethers.constants.AddressZero) {
-    expect(
-      await _getProxyAdmin(deploymentAddresses.l2WethGateway, l2Provider)
-    ).to.be.eq(l2ProxyAdmin)
+  if (l2Deployment.wethGateway != ethers.constants.AddressZero) {
+    expect(await _getProxyAdmin(l2Deployment.wethGateway, l2Provider)).to.be.eq(
+      l2ProxyAdmin
+    )
   }
   expect(
-    await _getProxyAdmin(deploymentAddresses.l2UpgradeExecutor, l2Provider)
+    await _getProxyAdmin(l2Deployment.upgradeExecutor, l2Provider)
   ).to.be.eq(l2ProxyAdmin)
 
   // check ownables
   expect(await _getOwner(l2ProxyAdmin, l2Provider)).to.be.eq(
-    deploymentAddresses.l2UpgradeExecutor.toLowerCase()
+    l2Deployment.upgradeExecutor.toLowerCase()
   )
 }
 
 async function checkLogicContracts(
   usingFeeToken: boolean,
-  deploymentAddresses: DeploymentAddresses
+  l1Deployment: L1DeploymentAddresses,
+  l2Deployment: L2DeploymentAddresses
 ) {
   console.log('checkLogicContracts')
 
   const upgExecutorLogic = await _getLogicAddress(
-    deploymentAddresses.l2UpgradeExecutor,
+    l2Deployment.upgradeExecutor,
     l2Provider
   )
   expect(await _isInitialized(upgExecutorLogic, l2Provider)).to.be.true
 
-  const routerLogic = await _getLogicAddress(
-    deploymentAddresses.l2Router,
-    l2Provider
-  )
+  const routerLogic = await _getLogicAddress(l2Deployment.router, l2Provider)
   expect(
     await L2GatewayRouter__factory.connect(
       routerLogic,
@@ -513,7 +500,7 @@ async function checkLogicContracts(
   ).to.be.not.eq(ethers.constants.AddressZero)
 
   const standardGatewayLogic = await _getLogicAddress(
-    deploymentAddresses.l2StandardGateway,
+    l2Deployment.standardGateway,
     l2Provider
   )
   expect(
@@ -524,7 +511,7 @@ async function checkLogicContracts(
   ).to.be.not.eq(ethers.constants.AddressZero)
 
   const customGatewayLogic = await _getLogicAddress(
-    deploymentAddresses.l2CustomGateway,
+    l2Deployment.customGateway,
     l2Provider
   )
   expect(
@@ -536,7 +523,7 @@ async function checkLogicContracts(
 
   if (!usingFeeToken) {
     const wethGatewayLogic = await _getLogicAddress(
-      deploymentAddresses.l2WethGateway,
+      l2Deployment.wethGateway,
       l2Provider
     )
     expect(
@@ -546,10 +533,7 @@ async function checkLogicContracts(
       ).counterpartGateway()
     ).to.be.not.eq(ethers.constants.AddressZero)
 
-    const wethLogic = await _getLogicAddress(
-      deploymentAddresses.l2Weth,
-      l2Provider
-    )
+    const wethLogic = await _getLogicAddress(l2Deployment.weth, l2Provider)
     expect(
       await AeWETH__factory.connect(wethLogic, l2Provider).l2Gateway()
     ).to.be.not.eq(ethers.constants.AddressZero)
@@ -609,10 +593,10 @@ async function _getAddresses(
   }
 
   /// fetch deployment addresses from registry
-  const deploymentAddresses =
-    await l1TokenBridgeCreator.getTokenBridgeDeployment(inbox)
+  const l1Deployment = await l1TokenBridgeCreator.inboxToL1Deployment(inbox)
+  const l2Deployment = await l1TokenBridgeCreator.inboxToL2Deployment(inbox)
 
-  return { rollupAddresses, deploymentAddresses }
+  return { rollupAddresses, l1Deployment, l2Deployment }
 }
 
 async function _getProxyAdmin(
@@ -681,7 +665,7 @@ async function _getRollupOwnerFromLogs(
     address: l1TokenBridgeCreator.address,
     topics: [
       ethers.utils.id(
-        'OrbitTokenBridgeCreated(address,address,address,address,address,address,address,address)'
+        'OrbitTokenBridgeCreated(address,address,(address,address,address,address,address),(address,address,address,address,address,address,address,address,address),address,address)'
       ),
       ethers.utils.hexZeroPad(inboxAddress, 32),
     ],
@@ -729,49 +713,21 @@ interface RollupAddresses {
   multicall: string
 }
 
-interface DeploymentAddresses {
-  l1: {
-    router: string
-    standardGateway: string
-    customGateway: string
-    wethGateway: string
-    weth: string
-  }
-  l2Router: string
-  l2StandardGateway: string
-  l2CustomGateway: string
-  l2WethGateway: string
-  l2Weth: string
-  l2ProxyAdmin: string
-  l2BeaconProxyFactory: string
-  l2UpgradeExecutor: string
-  l2Multicall: string
+interface L1DeploymentAddresses {
+  router: string
+  standardGateway: string
+  customGateway: string
+  wethGateway: string
+  weth: string
 }
-
-interface RollupAddresses {
-  rollup: string
-  inbox: string
-  rollupOwner: string
+interface L2DeploymentAddresses {
+  router: string
+  standardGateway: string
+  customGateway: string
+  wethGateway: string
+  weth: string
   proxyAdmin: string
+  beaconProxyFactory: string
   upgradeExecutor: string
   multicall: string
-}
-
-interface DeploymentAddresses {
-  l1: {
-    router: string
-    standardGateway: string
-    customGateway: string
-    wethGateway: string
-    weth: string
-  }
-  l2Router: string
-  l2StandardGateway: string
-  l2CustomGateway: string
-  l2WethGateway: string
-  l2Weth: string
-  l2ProxyAdmin: string
-  l2BeaconProxyFactory: string
-  l2UpgradeExecutor: string
-  l2Multicall: string
 }

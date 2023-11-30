@@ -179,8 +179,8 @@ export const createTokenBridge = async (
   console.log('L2AtomicTokenBridgeFactory', l2AtomicTokenBridgeFactory.address)
 
   /// fetch deployment addresses from registry
-  const deploymentAddresses =
-    await l1TokenBridgeCreator.getTokenBridgeDeployment(inbox)
+  const l1Deployment = await l1TokenBridgeCreator.inboxToL1Deployment(inbox)
+  const l2Deployment = await l1TokenBridgeCreator.inboxToL2Deployment(inbox)
 
   /// fetch l1 multicall and l1 proxy admin from creator
   const l1MultiCall = await l1TokenBridgeCreator.l1Multicall()
@@ -189,7 +189,7 @@ export const createTokenBridge = async (
     l1Signer.provider!
   ).getProxyAdmin()
 
-  return { deploymentAddresses, l1MultiCall, l1ProxyAdmin }
+  return { l1Deployment, l2Deployment, l1MultiCall, l1ProxyAdmin }
 }
 
 /**
@@ -217,9 +217,7 @@ export const deployL1TokenBridgeCreator = async (
   await l1TokenBridgeCreatorProxyAdmin.deployed()
 
   const l1TokenBridgeCreatorLogic =
-    await new L1AtomicTokenBridgeCreator__factory(l1Deployer).deploy(
-      l2MulticallAddressOnL1.address
-    )
+    await new L1AtomicTokenBridgeCreator__factory(l1Deployer).deploy()
   await l1TokenBridgeCreatorLogic.deployed()
 
   const l1TokenBridgeCreatorProxy =
@@ -435,6 +433,7 @@ export const deployL1TokenBridgeCreator = async (
       l2CustomGatewayAddressOnL1.address,
       l2WethGatewayAddressOnL1.address,
       l2WethAddressOnL1.address,
+      l2MulticallAddressOnL1.address,
       l1WethAddress,
       l1Multicall.address,
       gasLimitForL2FactoryDeployment
