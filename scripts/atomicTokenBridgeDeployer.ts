@@ -186,7 +186,7 @@ export const createTokenBridge = async (
   const l1MultiCall = await l1TokenBridgeCreator.l1Multicall()
   const l1ProxyAdmin = await IInboxProxyAdmin__factory.connect(
     inbox,
-    l1Signer
+    l1Signer.provider!
   ).getProxyAdmin()
 
   return { deploymentAddresses, l1MultiCall, l1ProxyAdmin }
