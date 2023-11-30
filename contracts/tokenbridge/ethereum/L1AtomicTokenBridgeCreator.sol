@@ -105,6 +105,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     address public l2CustomGatewayTemplate;
     address public l2WethGatewayTemplate;
     address public l2WethTemplate;
+    address public l2MulticallTemplate;
 
     // WETH address on L1
     address public l1Weth;
@@ -116,16 +117,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     // other canonical addresses (dependent on L2 template implementations) can be fetched through `_predictL2***Address` functions
     address public canonicalL2FactoryAddress;
 
-    // immutable ArbMulticall2 template deployed on L1
-    // Note - due to contract size limits, multicall template and its bytecode hash are set in constructor as immutables
-    address public immutable l2MulticallTemplate;
-    // code hash used for calculation of L2 multicall address
-    bytes32 internal immutable ARB_MULTICALL_CODE_HASH;
-
-    constructor(address _l2MulticallTemplate) {
-        l2MulticallTemplate = _l2MulticallTemplate;
-        ARB_MULTICALL_CODE_HASH =
-            keccak256(CreationCodeHelper.getCreationCodeFor(l2MulticallTemplate.code));
+    constructor() {
         _disableInitializers();
     }
 
@@ -153,6 +145,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         address _l2CustomGatewayTemplate,
         address _l2WethGatewayTemplate,
         address _l2WethTemplate,
+        address _l2MulticallTemplate,
         address _l1Weth,
         address _l1Multicall,
         uint256 _gasLimitForL2FactoryDeployment
@@ -171,6 +164,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         l2CustomGatewayTemplate = _l2CustomGatewayTemplate;
         l2WethGatewayTemplate = _l2WethGatewayTemplate;
         l2WethTemplate = _l2WethTemplate;
+        l2MulticallTemplate = _l2MulticallTemplate;
 
         l1Weth = _l1Weth;
         l1Multicall = _l1Multicall;
@@ -480,7 +474,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     function _predictL2Multicall(uint256 chainId) internal view returns (address) {
         return Create2.computeAddress(
             _getL2Salt(OrbitSalts.L2_MULTICALL, chainId),
-            ARB_MULTICALL_CODE_HASH,
+            l2MulticallTemplate.codehash,
             canonicalL2FactoryAddress
         );
     }
