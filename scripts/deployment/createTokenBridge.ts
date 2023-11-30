@@ -63,32 +63,33 @@ export const createTokenBridgeOnTargetChain = async () => {
   )
 
   // create token bridge
-  const deployedContracts = await createTokenBridge(
-    l1Deployer,
-    l2Provider,
-    l1TokenBridgeCreator,
-    envVars.rollupAddress,
-    envVars.rollupOwner
-  )
+  const { deploymentAddresses, l1MultiCall, l1ProxyAdmin } =
+    await createTokenBridge(
+      l1Deployer,
+      l2Provider,
+      l1TokenBridgeCreator,
+      envVars.rollupAddress,
+      envVars.rollupOwner
+    )
 
   const l2Network = {
     ...corel2Network,
     tokenBridge: {
-      l1CustomGateway: deployedContracts.l1CustomGateway,
-      l1ERC20Gateway: deployedContracts.l1StandardGateway,
-      l1GatewayRouter: deployedContracts.l1Router,
-      l1MultiCall: deployedContracts.l1Multicall,
-      l1ProxyAdmin: deployedContracts.l1ProxyAdmin,
-      l1Weth: deployedContracts.l1Weth,
-      l1WethGateway: deployedContracts.l1WethGateway,
+      l1CustomGateway: deploymentAddresses.l1.customGateway,
+      l1ERC20Gateway: deploymentAddresses.l1.standardGateway,
+      l1GatewayRouter: deploymentAddresses.l1.router,
+      l1MultiCall: l1MultiCall,
+      l1ProxyAdmin: l1ProxyAdmin,
+      l1Weth: deploymentAddresses.l1.weth,
+      l1WethGateway: deploymentAddresses.l1.wethGateway,
 
-      l2CustomGateway: deployedContracts.l2CustomGateway,
-      l2ERC20Gateway: deployedContracts.l2StandardGateway,
-      l2GatewayRouter: deployedContracts.l2Router,
-      l2Multicall: deployedContracts.l2Multicall,
-      l2ProxyAdmin: deployedContracts.l2ProxyAdmin,
-      l2Weth: deployedContracts.l2Weth,
-      l2WethGateway: deployedContracts.l2WethGateway,
+      l2CustomGateway: deploymentAddresses.l2CustomGateway,
+      l2ERC20Gateway: deploymentAddresses.l2StandardGateway,
+      l2GatewayRouter: deploymentAddresses.l2Router,
+      l2Multicall: deploymentAddresses.l2Multicall,
+      l2ProxyAdmin: deploymentAddresses.l2ProxyAdmin,
+      l2Weth: deploymentAddresses.l2Weth,
+      l2WethGateway: deploymentAddresses.l2WethGateway,
     },
   }
 
