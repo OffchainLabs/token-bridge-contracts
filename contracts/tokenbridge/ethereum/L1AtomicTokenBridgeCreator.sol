@@ -25,7 +25,6 @@ import {
     ProxyAdmin
 } from "../arbitrum/L2AtomicTokenBridgeFactory.sol";
 import {CreationCodeHelper} from "../libraries/CreationCodeHelper.sol";
-import {BytesLib} from "../libraries/BytesLib.sol";
 import {
     IUpgradeExecutor,
     UpgradeExecutor
@@ -59,6 +58,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     error L1AtomicTokenBridgeCreator_RollupOwnershipMisconfig();
     error L1AtomicTokenBridgeCreator_ProxyAdminNotFound();
     error L1AtomicTokenBridgeCreator_L2FactoryCannotBeChanged();
+    error L1AtomicTokenBridgeCreator_AlreadyCreated();
 
     event OrbitTokenBridgeCreated(
         address indexed inbox,
@@ -69,7 +69,9 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         address upgradeExecutor
     );
     event OrbitTokenBridgeTemplatesUpdated();
-    event DeploymentSet(address indexed inbox, L1DeploymentAddresses l1, L2DeploymentAddresses l2);
+    event OrbitTokenBridgeDeploymentSet(
+        address indexed inbox, L1DeploymentAddresses l1, L2DeploymentAddresses l2
+    );
 
     struct L1Templates {
         L1GatewayRouter routerTemplate;
@@ -207,23 +209,29 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             revert L1AtomicTokenBridgeCreator_RollupOwnershipMisconfig();
         }
 
+        if (inboxToL1Deployment[inbox].router != address(0)) {
+            revert L1AtomicTokenBridgeCreator_AlreadyCreated();
+        }
+
         uint256 rollupChainId = IRollupCore(address(IInbox(inbox).bridge().rollup())).chainId();
+        bool isUsingFeeToken = _getFeeToken(inbox) != address(0);
+
         // store L2 addresses before deployments
         L1DeploymentAddresses memory l1Deployment;
         L2DeploymentAddresses memory l2Deployment;
         l2Deployment.router = _predictL2RouterAddress(rollupChainId);
         l2Deployment.standardGateway = _predictL2StandardGatewayAddress(rollupChainId);
         l2Deployment.customGateway = _predictL2CustomGatewayAddress(rollupChainId);
-        l2Deployment.wethGateway = _predictL2WethGatewayAddress(rollupChainId);
-        l2Deployment.weth = _predictL2WethAddress(rollupChainId);
+        if (!isUsingFeeToken) {
+            l2Deployment.wethGateway = _predictL2WethGatewayAddress(rollupChainId);
+            l2Deployment.weth = _predictL2WethAddress(rollupChainId);
+        }
         l2Deployment.proxyAdmin = _predictL2ProxyAdminAddress(rollupChainId);
         l2Deployment.beaconProxyFactory = _predictL2BeaconProxyFactoryAddress(rollupChainId);
         l2Deployment.upgradeExecutor = _predictL2UpgradeExecutorAddress(rollupChainId);
         l2Deployment.multicall = _predictL2Multicall(rollupChainId);
 
-        /// deploy L1 side of token bridge
-        bool isUsingFeeToken = _getFeeToken(inbox) != address(0);
-
+        // deploy L1 side of token bridge
         // get existing proxy admin and upgrade executor
         address proxyAdmin = IInboxProxyAdmin(inbox).getProxyAdmin();
         if (proxyAdmin == address(0)) {
@@ -316,7 +324,8 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             IERC20(feeToken).safeTransferFrom(msg.sender, inbox, fee);
         }
         // sweep the balance to send the retryable and refund the difference
-        // it is known that any eth in this contract can be extracted
+        // it is known that any eth previously in this contract can be extracted
+        // tho it is not expected that this contract will have any eth
         retryableSender.sendRetryable{value: isUsingFeeToken ? 0 : address(this).balance}(
             RetryableParams(
                 inbox,
@@ -364,9 +373,14 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
 
         inboxToL1Deployment[inbox] = l1Deployment;
         inboxToL2Deployment[inbox] = l2Deployment;
-        emit DeploymentSet(inbox, l1Deployment, l2Deployment);
+        emit OrbitTokenBridgeDeploymentSet(inbox, l1Deployment, l2Deployment);
     }
 
+    /**
+     * @notice Get the L1 router address for a given inbox
+     * @dev    This is kept since its cheaper than accessing the mapping getter
+     *         and is useful enough for most onchain purposes
+     */
     function getRouter(address inbox) public view returns (address) {
         return inboxToL1Deployment[inbox].router;
     }
@@ -409,26 +423,6 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                 deploymentData
             );
         }
-    }
-
-    function getCanonicalL1RouterAddress(address inbox) public view returns (address) {
-        address proxyAdminAddress = IInboxProxyAdmin(inbox).getProxyAdmin();
-
-        bool isUsingFeeToken = _getFeeToken(inbox) != address(0);
-        address template = isUsingFeeToken
-            ? address(l1Templates.feeTokenBasedRouterTemplate)
-            : address(l1Templates.routerTemplate);
-
-        return Create2.computeAddress(
-            _getL1Salt(OrbitSalts.L1_ROUTER, inbox),
-            keccak256(
-                abi.encodePacked(
-                    type(TransparentUpgradeableProxy).creationCode,
-                    abi.encode(template, proxyAdminAddress, bytes(""))
-                )
-            ),
-            address(this)
-        );
     }
 
     function _predictL2RouterAddress(uint256 chainId) internal view returns (address) {
@@ -481,19 +475,15 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
 
     function _getFeeToken(address inbox) internal view returns (address) {
         address bridge = address(IInbox(inbox).bridge());
-
-        (bool success, bytes memory feeTokenAddressData) =
-            bridge.staticcall(abi.encodeWithSelector(IERC20Bridge.nativeToken.selector));
-
-        if (!success || feeTokenAddressData.length < 32) {
+        try IERC20Bridge(bridge).nativeToken() returns (address feeToken) {
+            return feeToken;
+        } catch {
             return address(0);
         }
-
-        return BytesLib.toAddress(feeTokenAddressData, 12);
     }
 
     /**
-     * @notice Compute address of contract deployed using CREATE opcode
+     * @notice Compute address of contract deployed using CREATE opcode at nonce 0
      * @dev The contract address is derived by RLP encoding the deployer's address and the nonce using the Keccak-256 hashing algorithm.
      *      More formally: keccak256(rlp.encode([origin, nonce])[12:]
      *
@@ -503,6 +493,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
      *        - prefix of the whole list is 0xc0 + lenInBytes(RLP(list))
      *      After we have RLP encoding in place last step is to hash it, take last 20 bytes and cast is to an address.
      *
+     *      This function is an codesize optimized version to only calculate the address for nonce 0.
      * @return computed address
      */
     function _computeAddressAtNonce0(address origin) internal pure returns (address) {
