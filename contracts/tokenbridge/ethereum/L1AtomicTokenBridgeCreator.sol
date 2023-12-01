@@ -481,7 +481,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     }
 
     /**
-     * @notice Compute address of contract deployed using CREATE opcode
+     * @notice Compute address of contract deployed using CREATE opcode at nonce 0
      * @dev The contract address is derived by RLP encoding the deployer's address and the nonce using the Keccak-256 hashing algorithm.
      *      More formally: keccak256(rlp.encode([origin, nonce])[12:]
      *
@@ -491,6 +491,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
      *        - prefix of the whole list is 0xc0 + lenInBytes(RLP(list))
      *      After we have RLP encoding in place last step is to hash it, take last 20 bytes and cast is to an address.
      *
+     *      This function is an codesize optimized version to only calculate the address for nonce 0.
      * @return computed address
      */
     function _computeAddressAtNonce0(address origin) internal pure returns (address) {
