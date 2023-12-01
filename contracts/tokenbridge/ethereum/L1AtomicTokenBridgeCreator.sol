@@ -316,7 +316,8 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             IERC20(feeToken).safeTransferFrom(msg.sender, inbox, fee);
         }
         // sweep the balance to send the retryable and refund the difference
-        // it is known that any eth in this contract can be extracted
+        // it is known that any eth previously in this contract can be extracted
+        // tho it is not expected that this contract will have any eth
         retryableSender.sendRetryable{value: isUsingFeeToken ? 0 : address(this).balance}(
             RetryableParams(
                 inbox,
@@ -409,26 +410,6 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                 deploymentData
             );
         }
-    }
-
-    function getCanonicalL1RouterAddress(address inbox) public view returns (address) {
-        address proxyAdminAddress = IInboxProxyAdmin(inbox).getProxyAdmin();
-
-        bool isUsingFeeToken = _getFeeToken(inbox) != address(0);
-        address template = isUsingFeeToken
-            ? address(l1Templates.feeTokenBasedRouterTemplate)
-            : address(l1Templates.routerTemplate);
-
-        return Create2.computeAddress(
-            _getL1Salt(OrbitSalts.L1_ROUTER, inbox),
-            keccak256(
-                abi.encodePacked(
-                    type(TransparentUpgradeableProxy).creationCode,
-                    abi.encode(template, proxyAdminAddress, bytes(""))
-                )
-            ),
-            address(this)
-        );
     }
 
     function _predictL2RouterAddress(uint256 chainId) internal view returns (address) {
