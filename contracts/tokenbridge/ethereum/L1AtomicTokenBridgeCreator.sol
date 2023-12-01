@@ -25,7 +25,6 @@ import {
     ProxyAdmin
 } from "../arbitrum/L2AtomicTokenBridgeFactory.sol";
 import {CreationCodeHelper} from "../libraries/CreationCodeHelper.sol";
-import {BytesLib} from "../libraries/BytesLib.sol";
 import {
     IUpgradeExecutor,
     UpgradeExecutor
@@ -469,15 +468,11 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
 
     function _getFeeToken(address inbox) internal view returns (address) {
         address bridge = address(IInbox(inbox).bridge());
-
-        (bool success, bytes memory feeTokenAddressData) =
-            bridge.staticcall(abi.encodeWithSelector(IERC20Bridge.nativeToken.selector));
-
-        if (!success || feeTokenAddressData.length < 32) {
+        try IERC20Bridge(bridge).nativeToken() returns (address feeToken) {
+            return feeToken;
+        } catch {
             return address(0);
         }
-
-        return BytesLib.toAddress(feeTokenAddressData, 12);
     }
 
     /**
