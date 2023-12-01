@@ -68,7 +68,9 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         address upgradeExecutor
     );
     event OrbitTokenBridgeTemplatesUpdated();
-    event DeploymentSet(address indexed inbox, L1DeploymentAddresses l1, L2DeploymentAddresses l2);
+    event OrbitTokenBridgeDeploymentSet(
+        address indexed inbox, L1DeploymentAddresses l1, L2DeploymentAddresses l2
+    );
 
     struct L1Templates {
         L1GatewayRouter routerTemplate;
@@ -366,7 +368,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
 
         inboxToL1Deployment[inbox] = l1Deployment;
         inboxToL2Deployment[inbox] = l2Deployment;
-        emit DeploymentSet(inbox, l1Deployment, l2Deployment);
+        emit OrbitTokenBridgeDeploymentSet(inbox, l1Deployment, l2Deployment);
     }
 
     /**
