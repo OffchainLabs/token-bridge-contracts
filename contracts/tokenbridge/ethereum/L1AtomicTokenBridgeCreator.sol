@@ -370,6 +370,11 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         emit DeploymentSet(inbox, l1Deployment, l2Deployment);
     }
 
+    /**
+     * @notice Get the L1 router address for a given inbox
+     * @dev    This is kept since its cheaper than accessing the mapping getter
+     *         and is useful enough for most onchain purposes
+     */
     function getRouter(address inbox) public view returns (address) {
         return inboxToL1Deployment[inbox].router;
     }
