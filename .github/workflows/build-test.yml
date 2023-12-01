@@ -132,7 +132,7 @@ jobs:
         run: yarn test:creation-code
 
   test-e2e-custom-fee-token:
-    name: Test e2e
+    name: Test e2e on custom fee token chain
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
