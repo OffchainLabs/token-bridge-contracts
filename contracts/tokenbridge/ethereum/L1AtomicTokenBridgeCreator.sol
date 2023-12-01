@@ -208,22 +208,24 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         }
 
         uint256 rollupChainId = IRollupCore(address(IInbox(inbox).bridge().rollup())).chainId();
+        bool isUsingFeeToken = _getFeeToken(inbox) != address(0);
+
         // store L2 addresses before deployments
         L1DeploymentAddresses memory l1Deployment;
         L2DeploymentAddresses memory l2Deployment;
         l2Deployment.router = _predictL2RouterAddress(rollupChainId);
         l2Deployment.standardGateway = _predictL2StandardGatewayAddress(rollupChainId);
         l2Deployment.customGateway = _predictL2CustomGatewayAddress(rollupChainId);
-        l2Deployment.wethGateway = _predictL2WethGatewayAddress(rollupChainId);
-        l2Deployment.weth = _predictL2WethAddress(rollupChainId);
+        if (!isUsingFeeToken) {
+            l2Deployment.wethGateway = _predictL2WethGatewayAddress(rollupChainId);
+            l2Deployment.weth = _predictL2WethAddress(rollupChainId);
+        }
         l2Deployment.proxyAdmin = _predictL2ProxyAdminAddress(rollupChainId);
         l2Deployment.beaconProxyFactory = _predictL2BeaconProxyFactoryAddress(rollupChainId);
         l2Deployment.upgradeExecutor = _predictL2UpgradeExecutorAddress(rollupChainId);
         l2Deployment.multicall = _predictL2Multicall(rollupChainId);
 
-        /// deploy L1 side of token bridge
-        bool isUsingFeeToken = _getFeeToken(inbox) != address(0);
-
+        // deploy L1 side of token bridge
         // get existing proxy admin and upgrade executor
         address proxyAdmin = IInboxProxyAdmin(inbox).getProxyAdmin();
         if (proxyAdmin == address(0)) {
