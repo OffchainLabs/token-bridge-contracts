@@ -28,6 +28,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
  */
 contract L1TokenBridgeRetryableSender is Initializable, OwnableUpgradeable {
     error L1TokenBridgeRetryableSender_RefundFailed();
+    error L1TokenBridgeRetryableSender_EthReceivedForFeeToken();
 
     function initialize() public initializer {
         __Ownable_init();
@@ -59,6 +60,7 @@ contract L1TokenBridgeRetryableSender is Initializable, OwnableUpgradeable {
                 aliasedL1UpgradeExecutor
             );
         } else {
+            if (msg.value > 0) revert L1TokenBridgeRetryableSender_EthReceivedForFeeToken();
             _sendRetryableUsingFeeToken(
                 retryableParams,
                 l2,
@@ -109,8 +111,9 @@ contract L1TokenBridgeRetryableSender is Initializable, OwnableUpgradeable {
         _createRetryableUsingEth(retryableParams, maxSubmissionCost, retryableValue, data);
 
         // refund excess value to the deployer
-        uint256 refund = msg.value - retryableValue;
-        (bool success,) = deployer.call{value: refund}("");
+        // it is known that any eth previously in this contract can be extracted
+        // tho it is not expected that this contract will have any eth
+        (bool success,) = deployer.call{value: address(this).balance}("");
         if (!success) revert L1TokenBridgeRetryableSender_RefundFailed();
     }
 
