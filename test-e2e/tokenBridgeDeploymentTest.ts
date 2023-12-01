@@ -118,13 +118,19 @@ describe('tokenBridge', () => {
       rollupAddresses.inbox,
       l1Provider
     )
-    if (!usingFeeToken)
+    if (!usingFeeToken) {
       await checkL1WethGatewayInitialization(
         L1WethGateway__factory.connect(l1Deployment.wethGateway, l1Provider),
         l1Deployment,
         l2Deployment,
         rollupAddresses
       )
+    } else {
+      expect(l1Deployment.wethGateway).to.be.eq(ethers.constants.AddressZero)
+      expect(l1Deployment.weth).to.be.eq(ethers.constants.AddressZero)
+      expect(l2Deployment.wethGateway).to.be.eq(ethers.constants.AddressZero)
+      expect(l2Deployment.weth).to.be.eq(ethers.constants.AddressZero)
+    }
 
     //// L2 checks
 
@@ -166,8 +172,8 @@ describe('tokenBridge', () => {
     await checkL2UpgradeExecutorInitialization(upgExecutor, rollupAddresses)
 
     await checkL1Ownership(l1Deployment, rollupAddresses)
-    await checkL2Ownership(l1Deployment, l2Deployment)
-    await checkLogicContracts(usingFeeToken, l1Deployment, l2Deployment)
+    await checkL2Ownership(l2Deployment, usingFeeToken)
+    await checkLogicContracts(usingFeeToken, l2Deployment)
   })
 })
 
@@ -445,8 +451,8 @@ async function checkL1Ownership(
 }
 
 async function checkL2Ownership(
-  l1Deployment: L1DeploymentAddresses,
-  l2Deployment: L2DeploymentAddresses
+  l2Deployment: L2DeploymentAddresses,
+  usingFeeToken: boolean
 ) {
   console.log('checkL2Ownership')
 
@@ -463,7 +469,7 @@ async function checkL2Ownership(
     l2ProxyAdmin
   )
 
-  if (l2Deployment.wethGateway != ethers.constants.AddressZero) {
+  if (!usingFeeToken) {
     expect(await _getProxyAdmin(l2Deployment.wethGateway, l2Provider)).to.be.eq(
       l2ProxyAdmin
     )
@@ -480,7 +486,6 @@ async function checkL2Ownership(
 
 async function checkLogicContracts(
   usingFeeToken: boolean,
-  l1Deployment: L1DeploymentAddresses,
   l2Deployment: L2DeploymentAddresses
 ) {
   console.log('checkLogicContracts')
