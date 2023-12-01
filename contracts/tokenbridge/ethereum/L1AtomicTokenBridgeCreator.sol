@@ -53,7 +53,6 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     using SafeERC20 for IERC20;
 
     error L1AtomicTokenBridgeCreator_OnlyRollupOwner();
-    error L1AtomicTokenBridgeCreator_InvalidRouterAddr();
     error L1AtomicTokenBridgeCreator_TemplatesNotSet();
     error L1AtomicTokenBridgeCreator_RollupOwnershipMisconfig();
     error L1AtomicTokenBridgeCreator_ProxyAdminNotFound();
