@@ -33,6 +33,11 @@ contract L1TokenBridgeRetryableSender is Initializable, OwnableUpgradeable {
         __Ownable_init();
     }
 
+    /**
+     * @notice Creates retryable which deploys L2 side of the token bridge.
+     * @dev Function will build retryable data, calculate submission cost and retryable value, create retryable
+     *      and then refund the remaining funds to original delpoyer if excess eth was sent.
+     */
     function sendRetryable(
         RetryableParams calldata retryableParams,
         L2TemplateAddresses calldata l2,
@@ -65,11 +70,6 @@ contract L1TokenBridgeRetryableSender is Initializable, OwnableUpgradeable {
         }
     }
 
-    /**
-     * @notice Creates retryable which deploys L2 side of the token bridge.
-     * @dev Function will build retryable data, calculate submission cost and retryable value, create retryable
-     *      and then refund the remaining funds to original delpoyer.
-     */
     function _sendRetryableUsingEth(
         RetryableParams calldata retryableParams,
         L2TemplateAddresses calldata l2,
@@ -114,11 +114,6 @@ contract L1TokenBridgeRetryableSender is Initializable, OwnableUpgradeable {
         if (!success) revert L1TokenBridgeRetryableSender_RefundFailed();
     }
 
-    /**
-     * @notice Creates retryable which deploys L2 side of the token bridge.
-     * @dev Function will build retryable data, calculate submission cost and retryable value, create retryable
-     *      and then refund the remaining funds to original delpoyer.
-     */
     function _sendRetryableUsingFeeToken(
         RetryableParams calldata retryableParams,
         L2TemplateAddresses calldata l2,
