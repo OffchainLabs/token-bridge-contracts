@@ -58,6 +58,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     error L1AtomicTokenBridgeCreator_RollupOwnershipMisconfig();
     error L1AtomicTokenBridgeCreator_ProxyAdminNotFound();
     error L1AtomicTokenBridgeCreator_L2FactoryCannotBeChanged();
+    error L1AtomicTokenBridgeCreator_AlreadyCreated();
 
     event OrbitTokenBridgeCreated(
         address indexed inbox,
@@ -206,6 +207,10 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             )
         ) {
             revert L1AtomicTokenBridgeCreator_RollupOwnershipMisconfig();
+        }
+
+        if (inboxToL1Deployment[inbox].router != address(0)) {
+            revert L1AtomicTokenBridgeCreator_AlreadyCreated();
         }
 
         uint256 rollupChainId = IRollupCore(address(IInbox(inbox).bridge().rollup())).chainId();
