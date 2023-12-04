@@ -113,8 +113,7 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
     function test_createTokenBridge() public {
         // prepare
         _setTemplates();
-        (RollupProxy rollup, Inbox inbox, ProxyAdmin pa, UpgradeExecutor upgExecutor) =
-            _createRollup();
+        (RollupProxy rollup, Inbox inbox,, UpgradeExecutor upgExecutor) = _createRollup();
 
         {
             // mock owner() => upgExecutor
@@ -185,6 +184,7 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
             assertTrue(l2ProxyAdmin != address(0), "Wrong l2ProxyAdmin");
             assertTrue(l2Weth != address(0), "Wrong l2Weth");
             assertTrue(l2BeaconProxyFactory != address(0), "Wrong l2BeaconProxyFactory");
+            assertTrue(l2UpgradeExecutor != address(0), "Wrong l2UpgradeExecutor");
             assertTrue(l2Multicall != address(0), "Wrong l2Multicall");
         }
 
@@ -208,8 +208,7 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
     function test_createTokenBridge_revert_RollupOwnershipMisconfig() public {
         // prepare
         _setTemplates();
-        (RollupProxy rollup, Inbox inbox, ProxyAdmin pa, UpgradeExecutor upgExecutor) =
-            _createRollup();
+        (RollupProxy rollup, Inbox inbox,, UpgradeExecutor upgExecutor) = _createRollup();
 
         // mock owner() => upgExecutor
         vm.mockCall(
@@ -230,8 +229,7 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
     function test_createTokenBridge_revert_AlreadyCreated() public {
         // prepare
         _setTemplates();
-        (RollupProxy rollup, Inbox inbox, ProxyAdmin pa, UpgradeExecutor upgExecutor) =
-            _createRollup();
+        (RollupProxy rollup, Inbox inbox,, UpgradeExecutor upgExecutor) = _createRollup();
 
         // mocks
         vm.mockCall(
@@ -274,6 +272,162 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
 
         vm.prank(deployer);
         l1Creator.createTokenBridge{value: 1 ether}(address(inbox), deployer, 100, 200);
+    }
+
+    function test_getRouter_NonExistent() public {
+        assertEq(l1Creator.getRouter(makeAddr("non-existent")), address(0), "Should be empty");
+    }
+
+    function test_getRouter() public {
+        // prepare
+        _setTemplates();
+        (RollupProxy rollup, Inbox inbox,, UpgradeExecutor upgExecutor) = _createRollup();
+
+        {
+            // mock owner() => upgExecutor
+            vm.mockCall(
+                address(rollup),
+                abi.encodeWithSignature("owner()"),
+                abi.encode(address(upgExecutor))
+            );
+
+            // mock rollupOwner is executor on upgExecutor
+            vm.mockCall(
+                address(upgExecutor),
+                abi.encodeWithSignature(
+                    "hasRole(bytes32,address)", upgExecutor.EXECUTOR_ROLE(), deployer
+                ),
+                abi.encode(true)
+            );
+
+            // mock chain id
+            uint256 mockChainId = 2000;
+            vm.mockCall(
+                address(rollup), abi.encodeWithSignature("chainId()"), abi.encode(mockChainId)
+            );
+        }
+
+        /// do it
+        vm.deal(deployer, 10 ether);
+        vm.prank(deployer);
+        l1Creator.createTokenBridge{value: 1 ether}(address(inbox), deployer, 100, 200);
+
+        /// state check
+        (address expectedRouter,,,,) = l1Creator.inboxToL1Deployment(address(inbox));
+        assertEq(l1Creator.getRouter(address(inbox)), expectedRouter, "Wrong router");
+    }
+
+    function test_setDeployment() public {
+        (RollupProxy rollup, Inbox inbox,, UpgradeExecutor upgExecutor) = _createRollup();
+
+        // mock owner() => upgExecutor
+        vm.mockCall(
+            address(rollup), abi.encodeWithSignature("owner()"), abi.encode(address(upgExecutor))
+        );
+
+        L1DeploymentAddresses memory l1 = L1DeploymentAddresses(
+            makeAddr("l1Router"),
+            makeAddr("l1StandardGateway"),
+            makeAddr("l1CustomGateway"),
+            makeAddr("l1WethGateway"),
+            makeAddr("l1Weth")
+        );
+
+        L2DeploymentAddresses memory l2 = L2DeploymentAddresses(
+            makeAddr("l2Router"),
+            makeAddr("l2StandardGateway"),
+            makeAddr("l2CustomGateway"),
+            makeAddr("l2WethGateway"),
+            makeAddr("l2Weth"),
+            makeAddr("l2ProxyAdmin"),
+            makeAddr("l2BeaconProxyFactory"),
+            makeAddr("l2UpgradeExecutor"),
+            makeAddr("l2Multicall")
+        );
+
+        /// expect event
+        vm.expectEmit(true, true, true, true);
+        emit OrbitTokenBridgeDeploymentSet(address(inbox), l1, l2);
+
+        /// do it
+        vm.prank(address(upgExecutor));
+        l1Creator.setDeployment(address(inbox), l1, l2);
+
+        /// check state
+        {
+            (
+                address l1Router,
+                address l1StandardGateway,
+                address l1CustomGateway,
+                address l1WethGateway,
+                address l1Weth
+            ) = l1Creator.inboxToL1Deployment(address(inbox));
+            assertEq(l1Router, l1.router, "Wrong l1Router");
+            assertEq(l1StandardGateway, l1.standardGateway, "Wrong l1StandardGateway");
+            assertEq(l1CustomGateway, l1.customGateway, "Wrong l1CustomGateway");
+            assertEq(l1WethGateway, l1.wethGateway, "Wrong l1WethGateway");
+            assertEq(l1Weth, l1.weth, "Wrong l1Weth");
+        }
+
+        {
+            (
+                address l2Router,
+                address l2StandardGateway,
+                address l2CustomGateway,
+                address l2WethGateway,
+                address l2Weth,
+                address l2ProxyAdmin,
+                address l2BeaconProxyFactory,
+                address l2UpgradeExecutor,
+                address l2Multicall
+            ) = l1Creator.inboxToL2Deployment(address(inbox));
+            assertEq(l2Router, l2.router, "Wrong l2Router");
+            assertEq(l2StandardGateway, l2.standardGateway, "Wrong l2StandardGateway");
+            assertEq(l2CustomGateway, l2.customGateway, "Wrong l2CustomGateway");
+            assertEq(l2WethGateway, l2.wethGateway, "Wrong l2WethGateway");
+            assertEq(l2Weth, l2.weth, "Wrong l2Weth");
+            assertEq(l2ProxyAdmin, l2.proxyAdmin, "Wrong l2ProxyAdmin");
+            assertEq(l2Weth, l2.weth, "Wrong l2Weth");
+            assertEq(l2BeaconProxyFactory, l2.beaconProxyFactory, "Wrong l2BeaconProxyFactory");
+            assertEq(l2UpgradeExecutor, l2.l2UpgradeExecutor, "Wrong l2UpgradeExecutor");
+            assertEq(l2Multicall, l2.multicall, "Wrong l2Multicall");
+        }
+    }
+
+    function test_setDeployment_revert_OnlyRollupOwner() public {
+        (RollupProxy rollup, Inbox inbox,, UpgradeExecutor upgExecutor) = _createRollup();
+
+        // mock owner() => upgExecutor
+        vm.mockCall(
+            address(rollup), abi.encodeWithSignature("owner()"), abi.encode(address(upgExecutor))
+        );
+
+        L1DeploymentAddresses memory l1 = L1DeploymentAddresses(
+            makeAddr("l1Router"),
+            makeAddr("l1StandardGateway"),
+            makeAddr("l1CustomGateway"),
+            makeAddr("l1WethGateway"),
+            makeAddr("l1Weth")
+        );
+
+        L2DeploymentAddresses memory l2 = L2DeploymentAddresses(
+            makeAddr("l2Router"),
+            makeAddr("l2StandardGateway"),
+            makeAddr("l2CustomGateway"),
+            makeAddr("l2WethGateway"),
+            makeAddr("l2Weth"),
+            makeAddr("l2ProxyAdmin"),
+            makeAddr("l2BeaconProxyFactory"),
+            makeAddr("l2UpgradeExecutor"),
+            makeAddr("l2Multicall")
+        );
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                L1AtomicTokenBridgeCreator.L1AtomicTokenBridgeCreator_OnlyRollupOwner.selector
+            )
+        );
+        l1Creator.setDeployment(address(inbox), l1, l2);
     }
 
     function test_setTemplates() public {
