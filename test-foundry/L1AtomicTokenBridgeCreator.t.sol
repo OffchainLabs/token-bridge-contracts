@@ -3,7 +3,13 @@
 pragma solidity ^0.8.0;
 
 import "forge-std/Test.sol";
-import "contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol";
+import {
+    L1AtomicTokenBridgeCreator,
+    L1DeploymentAddresses,
+    L2DeploymentAddresses,
+    TransparentUpgradeableProxy,
+    ProxyAdmin
+} from "contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol";
 import {L1TokenBridgeRetryableSender} from
     "contracts/tokenbridge/ethereum/L1TokenBridgeRetryableSender.sol";
 import {TestUtil} from "./util/TestUtil.sol";
@@ -19,6 +25,19 @@ import {
     IUpgradeExecutor,
     UpgradeExecutor
 } from "@offchainlabs/upgrade-executor/src/UpgradeExecutor.sol";
+import {Inbox, IInboxBase} from "lib/nitro-contracts/src/bridge/Inbox.sol";
+import {Bridge, IBridge, IOwnable} from "lib/nitro-contracts/src/bridge/Bridge.sol";
+import {
+    RollupProxy,
+    IRollupUser,
+    IOutbox,
+    IRollupEventInbox,
+    IChallengeManager
+} from "lib/nitro-contracts/src/rollup/RollupProxy.sol";
+import {RollupAdminLogic} from "lib/nitro-contracts/src/rollup/RollupAdminLogic.sol";
+import {RollupUserLogic} from "lib/nitro-contracts/src/rollup/RollupUserLogic.sol";
+import {Config, ContractDependencies} from "lib/nitro-contracts/src/rollup/Config.sol";
+import {ISequencerInbox} from "lib/nitro-contracts/src/bridge/ISequencerInbox.sol";
 
 contract L1AtomicTokenBridgeCreatorTest is Test {
     L1AtomicTokenBridgeCreator public l1Creator;
@@ -89,6 +108,172 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
 
         vm.expectRevert("Initializable: contract is already initialized");
         _creator.initialize(L1TokenBridgeRetryableSender(address(100)));
+    }
+
+    function test_createTokenBridge() public {
+        // prepare
+        _setTemplates();
+        (RollupProxy rollup, Inbox inbox, ProxyAdmin pa, UpgradeExecutor upgExecutor) =
+            _createRollup();
+
+        {
+            // mock owner() => upgExecutor
+            vm.mockCall(
+                address(rollup),
+                abi.encodeWithSignature("owner()"),
+                abi.encode(address(upgExecutor))
+            );
+
+            // mock rollupOwner is executor on upgExecutor
+            vm.mockCall(
+                address(upgExecutor),
+                abi.encodeWithSignature(
+                    "hasRole(bytes32,address)", upgExecutor.EXECUTOR_ROLE(), deployer
+                ),
+                abi.encode(true)
+            );
+
+            // mock chain id
+            uint256 mockChainId = 2000;
+            vm.mockCall(
+                address(rollup), abi.encodeWithSignature("chainId()"), abi.encode(mockChainId)
+            );
+        }
+
+        /// do it
+        vm.deal(deployer, 10 ether);
+        uint256 deployerBalanceBefore = deployer.balance;
+        uint256 fundsSentForDeployment = 1 ether;
+        vm.prank(deployer);
+        l1Creator.createTokenBridge{value: fundsSentForDeployment}(
+            address(inbox), deployer, 100, 200
+        );
+
+        /// check state
+        {
+            (
+                address l1Router,
+                address l1StandardGateway,
+                address l1CustomGateway,
+                address l1WethGateway,
+                address l1Weth
+            ) = l1Creator.inboxToL1Deployment(address(inbox));
+            assertTrue(l1Router != address(0), "Wrong l1Router");
+            assertTrue(l1StandardGateway != address(0), "Wrong l1StandardGateway");
+            assertTrue(l1CustomGateway != address(0), "Wrong l1CustomGateway");
+            assertTrue(l1WethGateway != address(0), "Wrong l1WethGateway");
+            assertTrue(l1Weth != address(0), "Wrong l1Weth");
+        }
+
+        {
+            (
+                address l2Router,
+                address l2StandardGateway,
+                address l2CustomGateway,
+                address l2WethGateway,
+                address l2Weth,
+                address l2ProxyAdmin,
+                address l2BeaconProxyFactory,
+                address l2UpgradeExecutor,
+                address l2Multicall
+            ) = l1Creator.inboxToL2Deployment(address(inbox));
+            assertTrue(l2Router != address(0), "Wrong l2Router");
+            assertTrue(l2StandardGateway != address(0), "Wrong l2StandardGateway");
+            assertTrue(l2CustomGateway != address(0), "Wrong l2CustomGateway");
+            assertTrue(l2WethGateway != address(0), "Wrong l2WethGateway");
+            assertTrue(l2Weth != address(0), "Wrong l2Weth");
+            assertTrue(l2ProxyAdmin != address(0), "Wrong l2ProxyAdmin");
+            assertTrue(l2Weth != address(0), "Wrong l2Weth");
+            assertTrue(l2BeaconProxyFactory != address(0), "Wrong l2BeaconProxyFactory");
+            assertTrue(l2Multicall != address(0), "Wrong l2Multicall");
+        }
+
+        uint256 deployerBalanceAfter = deployer.balance;
+        assertGt(
+            deployerBalanceAfter,
+            deployerBalanceBefore - fundsSentForDeployment,
+            "Refund not received"
+        );
+    }
+
+    function test_createTokenBridge_revert_TemplatesNotSet() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                L1AtomicTokenBridgeCreator.L1AtomicTokenBridgeCreator_TemplatesNotSet.selector
+            )
+        );
+        l1Creator.createTokenBridge(address(100), address(101), 100, 200);
+    }
+
+    function test_createTokenBridge_revert_RollupOwnershipMisconfig() public {
+        // prepare
+        _setTemplates();
+        (RollupProxy rollup, Inbox inbox, ProxyAdmin pa, UpgradeExecutor upgExecutor) =
+            _createRollup();
+
+        // mock owner() => upgExecutor
+        vm.mockCall(
+            address(rollup), abi.encodeWithSignature("owner()"), abi.encode(address(upgExecutor))
+        );
+
+        // expect revert when creating bridge
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                L1AtomicTokenBridgeCreator
+                    .L1AtomicTokenBridgeCreator_RollupOwnershipMisconfig
+                    .selector
+            )
+        );
+        l1Creator.createTokenBridge(address(inbox), deployer, 100, 200);
+    }
+
+    function test_createTokenBridge_revert_AlreadyCreated() public {
+        // prepare
+        _setTemplates();
+        (RollupProxy rollup, Inbox inbox, ProxyAdmin pa, UpgradeExecutor upgExecutor) =
+            _createRollup();
+
+        // mocks
+        vm.mockCall(
+            address(rollup), abi.encodeWithSignature("owner()"), abi.encode(address(upgExecutor))
+        );
+        vm.mockCall(
+            address(upgExecutor),
+            abi.encodeWithSignature(
+                "hasRole(bytes32,address)", upgExecutor.EXECUTOR_ROLE(), deployer
+            ),
+            abi.encode(true)
+        );
+        uint256 mockChainId = 2000;
+        vm.mockCall(address(rollup), abi.encodeWithSignature("chainId()"), abi.encode(mockChainId));
+
+        /// do 1st deployment
+        vm.deal(deployer, 10 ether);
+        vm.prank(deployer);
+        l1Creator.createTokenBridge{value: 1 ether}(address(inbox), deployer, 100, 200);
+
+        /// mock again
+        vm.mockCall(
+            address(rollup), abi.encodeWithSignature("owner()"), abi.encode(address(upgExecutor))
+        );
+        vm.mockCall(
+            address(upgExecutor),
+            abi.encodeWithSignature(
+                "hasRole(bytes32,address)", upgExecutor.EXECUTOR_ROLE(), deployer
+            ),
+            abi.encode(true)
+        );
+        vm.mockCall(address(rollup), abi.encodeWithSignature("chainId()"), abi.encode(mockChainId));
+
+        // 2nd deployment reverts
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                L1AtomicTokenBridgeCreator.L1AtomicTokenBridgeCreator_AlreadyCreated.selector
+            )
+        );
+
+        vm.prank(deployer);
+        l1Creator.createTokenBridge{value: 1 ether}(address(inbox), deployer, 100, 200);
     }
 
     function test_setTemplates() public {
@@ -246,6 +431,56 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
             address(0),
             address(0),
             address(0),
+            1000
+        );
+    }
+
+    function _createRollup()
+        internal
+        returns (RollupProxy rollup, Inbox inbox, ProxyAdmin pa, UpgradeExecutor upgExecutor)
+    {
+        pa = new ProxyAdmin();
+        rollup = new RollupProxy();
+        upgExecutor = new UpgradeExecutor();
+
+        Bridge bridge =
+            Bridge(address(new TransparentUpgradeableProxy(address(new Bridge()), address(pa), "")));
+        inbox = Inbox(
+            address(new TransparentUpgradeableProxy(address(new Inbox(104_857)), address(pa), ""))
+        );
+
+        inbox.initialize(IBridge(address(bridge)), ISequencerInbox(makeAddr("sequencerInbox")));
+        bridge.initialize(IOwnable(address(rollup)));
+
+        vm.mockCall(address(rollup), abi.encodeWithSignature("owner()"), abi.encode(address(this)));
+        bridge.setDelayedInbox(address(inbox), true);
+    }
+
+    function _setTemplates() internal {
+        L1AtomicTokenBridgeCreator.L1Templates memory _l1Templates = L1AtomicTokenBridgeCreator
+            .L1Templates(
+            new L1GatewayRouter(),
+            new L1ERC20Gateway(),
+            new L1CustomGateway(),
+            new L1WethGateway(),
+            new L1OrbitGatewayRouter(),
+            new L1OrbitERC20Gateway(),
+            new L1OrbitCustomGateway(),
+            new UpgradeExecutor()
+        );
+
+        vm.prank(deployer);
+        l1Creator.setTemplates(
+            _l1Templates,
+            makeAddr("_l2TokenBridgeFactoryTemplate"),
+            makeAddr("_l2RouterTemplate"),
+            makeAddr("_l2StandardGatewayTemplate"),
+            makeAddr("_l2CustomGatewayTemplate"),
+            makeAddr("_l2WethGatewayTemplate"),
+            makeAddr("_l2WethTemplate"),
+            makeAddr("_l2MulticallTemplate"),
+            makeAddr("_l1Weth"),
+            makeAddr("_l1Multicall"),
             1000
         );
     }
