@@ -92,8 +92,7 @@ contract L2AtomicTokenBridgeFactory {
         address aliasedL1UpgradeExecutor
     ) internal returns (address) {
         // canonical L2 upgrade executor with dummy logic
-        address canonicalUpgradeExecutor =
-            _deploySeedProxy(proxyAdmin, _getL2Salt(OrbitSalts.L2_EXECUTOR));
+        address canonicalUpgradeExecutor = _deploySeedProxy(proxyAdmin, OrbitSalts.L2_EXECUTOR);
 
         // Create UpgradeExecutor logic and upgrade to it.
         address upExecutorLogic = Create2.deploy(
@@ -124,7 +123,7 @@ contract L2AtomicTokenBridgeFactory {
         address proxyAdmin
     ) internal returns (address) {
         // canonical L2 router with dummy logic
-        address canonicalRouter = _deploySeedProxy(proxyAdmin, _getL2Salt(OrbitSalts.L2_ROUTER));
+        address canonicalRouter = _deploySeedProxy(proxyAdmin, OrbitSalts.L2_ROUTER);
 
         // create L2 router logic and upgrade
         address routerLogic = Create2.deploy(
@@ -149,8 +148,7 @@ contract L2AtomicTokenBridgeFactory {
         address upgradeExecutor
     ) internal {
         // canonical L2 standard gateway with dummy logic
-        address canonicalStdGateway =
-            _deploySeedProxy(proxyAdmin, _getL2Salt(OrbitSalts.L2_STANDARD_GATEWAY));
+        address canonicalStdGateway = _deploySeedProxy(proxyAdmin, OrbitSalts.L2_STANDARD_GATEWAY);
 
         // create L2 standard gateway logic and upgrade
         address stdGatewayLogic = Create2.deploy(
@@ -187,8 +185,7 @@ contract L2AtomicTokenBridgeFactory {
         address proxyAdmin
     ) internal {
         // canonical L2 custom gateway with dummy logic
-        address canonicalCustomGateway =
-            _deploySeedProxy(proxyAdmin, _getL2Salt(OrbitSalts.L2_CUSTOM_GATEWAY));
+        address canonicalCustomGateway = _deploySeedProxy(proxyAdmin, OrbitSalts.L2_CUSTOM_GATEWAY);
 
         // create L2 custom gateway logic and upgrade
         address customGatewayLogicAddress = Create2.deploy(
@@ -214,7 +211,7 @@ contract L2AtomicTokenBridgeFactory {
         address proxyAdmin
     ) internal {
         // canonical L2 WETH with dummy logic
-        address canonicalL2Weth = _deploySeedProxy(proxyAdmin, _getL2Salt(OrbitSalts.L2_WETH));
+        address canonicalL2Weth = _deploySeedProxy(proxyAdmin, OrbitSalts.L2_WETH);
 
         // Create L2WETH logic and upgrade
         address l2WethLogic = Create2.deploy(
@@ -223,8 +220,7 @@ contract L2AtomicTokenBridgeFactory {
         ProxyAdmin(proxyAdmin).upgrade(ITransparentUpgradeableProxy(canonicalL2Weth), l2WethLogic);
 
         // canonical L2 WETH gateway with dummy logic
-        address canonicalL2WethGateway =
-            _deploySeedProxy(proxyAdmin, _getL2Salt(OrbitSalts.L2_WETH_GATEWAY));
+        address canonicalL2WethGateway = _deploySeedProxy(proxyAdmin, OrbitSalts.L2_WETH_GATEWAY);
 
         // create L2WETH gateway logic and upgrade
         address l2WethGatewayLogic = Create2.deploy(
@@ -264,10 +260,13 @@ contract L2AtomicTokenBridgeFactory {
 
     /**
      * Deploys a proxy with address(this) as logic in order to get deterministic address
+     * the proxy is salted using a salt derived from the prefix, the chainId and the sender
      */
-    function _deploySeedProxy(address proxyAdmin, bytes32 proxySalt) internal returns (address) {
+    function _deploySeedProxy(address proxyAdmin, bytes memory prefix) internal returns (address) {
         return address(
-            new TransparentUpgradeableProxy{salt: proxySalt}(address(this), proxyAdmin, bytes(""))
+            new TransparentUpgradeableProxy{salt: _getL2Salt(prefix)}(
+                address(this), proxyAdmin, bytes("")
+            )
         );
     }
 }
