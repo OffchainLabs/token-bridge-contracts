@@ -26,7 +26,10 @@ import {
     UpgradeExecutor
 } from "@offchainlabs/upgrade-executor/src/UpgradeExecutor.sol";
 import {Inbox, IInboxBase} from "lib/nitro-contracts/src/bridge/Inbox.sol";
+import {ERC20Inbox} from "lib/nitro-contracts/src/bridge/ERC20Inbox.sol";
+import {IOutbox} from "lib/nitro-contracts/src/bridge/IOutbox.sol";
 import {Bridge, IBridge, IOwnable} from "lib/nitro-contracts/src/bridge/Bridge.sol";
+import {ERC20Bridge} from "lib/nitro-contracts/src/bridge/ERC20Bridge.sol";
 import {
     RollupProxy,
     IRollupUser,
@@ -38,6 +41,9 @@ import {RollupAdminLogic} from "lib/nitro-contracts/src/rollup/RollupAdminLogic.
 import {RollupUserLogic} from "lib/nitro-contracts/src/rollup/RollupUserLogic.sol";
 import {Config, ContractDependencies} from "lib/nitro-contracts/src/rollup/Config.sol";
 import {ISequencerInbox} from "lib/nitro-contracts/src/bridge/ISequencerInbox.sol";
+import {ERC20PresetMinterPauser} from
+    "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetMinterPauser.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract L1AtomicTokenBridgeCreatorTest is Test {
     L1AtomicTokenBridgeCreator public l1Creator;
@@ -194,6 +200,82 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
             deployerBalanceBefore - fundsSentForDeployment,
             "Refund not received"
         );
+    }
+
+    function test_createTokenBridge_ERC20Chain() public {
+        // prepare
+        _setTemplates();
+        (RollupProxy rollup, ERC20Inbox inbox,, UpgradeExecutor upgExecutor, ERC20 nativeToken) =
+            _createERC20Rollup();
+
+        {
+            // mock owner() => upgExecutor
+            vm.mockCall(
+                address(rollup),
+                abi.encodeWithSignature("owner()"),
+                abi.encode(address(upgExecutor))
+            );
+
+            // mock rollupOwner is executor on upgExecutor
+            vm.mockCall(
+                address(upgExecutor),
+                abi.encodeWithSignature(
+                    "hasRole(bytes32,address)", upgExecutor.EXECUTOR_ROLE(), deployer
+                ),
+                abi.encode(true)
+            );
+
+            // mock chain id
+            uint256 mockChainId = 2000;
+            vm.mockCall(
+                address(rollup), abi.encodeWithSignature("chainId()"), abi.encode(mockChainId)
+            );
+        }
+
+        /// do it
+        vm.deal(deployer, 1 ether);
+        vm.startPrank(deployer);
+        nativeToken.approve(address(l1Creator), 10 ether);
+        l1Creator.createTokenBridge(address(inbox), deployer, 100, 200);
+
+        /// check state
+        {
+            (
+                address l1Router,
+                address l1StandardGateway,
+                address l1CustomGateway,
+                address l1WethGateway,
+                address l1Weth
+            ) = l1Creator.inboxToL1Deployment(address(inbox));
+            assertTrue(l1Router != address(0), "Wrong l1Router");
+            assertTrue(l1StandardGateway != address(0), "Wrong l1StandardGateway");
+            assertTrue(l1CustomGateway != address(0), "Wrong l1CustomGateway");
+            assertTrue(l1WethGateway == address(0), "Wrong l1WethGateway");
+            assertTrue(l1Weth == address(0), "Wrong l1Weth");
+        }
+
+        {
+            (
+                address l2Router,
+                address l2StandardGateway,
+                address l2CustomGateway,
+                address l2WethGateway,
+                address l2Weth,
+                address l2ProxyAdmin,
+                address l2BeaconProxyFactory,
+                address l2UpgradeExecutor,
+                address l2Multicall
+            ) = l1Creator.inboxToL2Deployment(address(inbox));
+            assertTrue(l2Router != address(0), "Wrong l2Router");
+            assertTrue(l2StandardGateway != address(0), "Wrong l2StandardGateway");
+            assertTrue(l2CustomGateway != address(0), "Wrong l2CustomGateway");
+            assertTrue(l2WethGateway == address(0), "Wrong l2WethGateway");
+            assertTrue(l2Weth == address(0), "Wrong l2Weth");
+            assertTrue(l2ProxyAdmin != address(0), "Wrong l2ProxyAdmin");
+            assertTrue(l2BeaconProxyFactory != address(0), "Wrong l2BeaconProxyFactory");
+            assertTrue(l2UpgradeExecutor != address(0), "Wrong l2UpgradeExecutor");
+            assertTrue(l2Multicall != address(0), "Wrong l2Multicall");
+        }
     }
 
     function test_createTokenBridge_revert_TemplatesNotSet() public {
@@ -389,7 +471,7 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
             assertEq(l2ProxyAdmin, l2.proxyAdmin, "Wrong l2ProxyAdmin");
             assertEq(l2Weth, l2.weth, "Wrong l2Weth");
             assertEq(l2BeaconProxyFactory, l2.beaconProxyFactory, "Wrong l2BeaconProxyFactory");
-            assertEq(l2UpgradeExecutor, l2.l2UpgradeExecutor, "Wrong l2UpgradeExecutor");
+            assertEq(l2UpgradeExecutor, l2.upgradeExecutor, "Wrong l2UpgradeExecutor");
             assertEq(l2Multicall, l2.multicall, "Wrong l2Multicall");
         }
     }
@@ -605,6 +687,39 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
 
         inbox.initialize(IBridge(address(bridge)), ISequencerInbox(makeAddr("sequencerInbox")));
         bridge.initialize(IOwnable(address(rollup)));
+
+        vm.mockCall(address(rollup), abi.encodeWithSignature("owner()"), abi.encode(address(this)));
+        bridge.setDelayedInbox(address(inbox), true);
+    }
+
+    function _createERC20Rollup()
+        internal
+        returns (
+            RollupProxy rollup,
+            ERC20Inbox inbox,
+            ProxyAdmin pa,
+            UpgradeExecutor upgExecutor,
+            ERC20 nativeToken
+        )
+    {
+        pa = new ProxyAdmin();
+        rollup = new RollupProxy();
+        upgExecutor = new UpgradeExecutor();
+
+        ERC20Bridge bridge = ERC20Bridge(
+            address(new TransparentUpgradeableProxy(address(new ERC20Bridge()), address(pa), ""))
+        );
+        inbox = ERC20Inbox(
+            address(
+                new TransparentUpgradeableProxy(address(new ERC20Inbox(104_857)), address(pa), "")
+            )
+        );
+
+        nativeToken = ERC20(address(new ERC20PresetMinterPauser("X", "Y")));
+        ERC20PresetMinterPauser(address(nativeToken)).mint(deployer, 10 ether);
+
+        bridge.initialize(IOwnable(address(rollup)), address(nativeToken));
+        inbox.initialize(IBridge(address(bridge)), ISequencerInbox(makeAddr("sequencerInbox")));
 
         vm.mockCall(address(rollup), abi.encodeWithSignature("owner()"), abi.encode(address(this)));
         bridge.setDelayedInbox(address(inbox), true);
