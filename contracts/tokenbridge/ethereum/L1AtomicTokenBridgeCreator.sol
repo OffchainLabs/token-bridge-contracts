@@ -212,23 +212,27 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             revert L1AtomicTokenBridgeCreator_AlreadyCreated();
         }
 
-        uint256 rollupChainId = IRollupCore(address(IInbox(inbox).bridge().rollup())).chainId();
+        uint256 chainId = IRollupCore(address(IInbox(inbox).bridge().rollup())).chainId();
         bool isUsingFeeToken = _getFeeToken(inbox) != address(0);
 
         // store L2 addresses before deployments
         L1DeploymentAddresses memory l1Deployment;
         L2DeploymentAddresses memory l2Deployment;
-        l2Deployment.router = _predictL2RouterAddress(rollupChainId);
-        l2Deployment.standardGateway = _predictL2StandardGatewayAddress(rollupChainId);
-        l2Deployment.customGateway = _predictL2CustomGatewayAddress(rollupChainId);
+
+        // store L2 addresses which are proxies
+        l2Deployment.router = _getProxyAddress(OrbitSalts.L2_ROUTER, chainId);
+        l2Deployment.standardGateway = _getProxyAddress(OrbitSalts.L2_STANDARD_GATEWAY, chainId);
+        l2Deployment.customGateway = _getProxyAddress(OrbitSalts.L2_CUSTOM_GATEWAY, chainId);
         if (!isUsingFeeToken) {
-            l2Deployment.wethGateway = _predictL2WethGatewayAddress(rollupChainId);
-            l2Deployment.weth = _predictL2WethAddress(rollupChainId);
+            l2Deployment.wethGateway = _getProxyAddress(OrbitSalts.L2_WETH_GATEWAY, chainId);
+            l2Deployment.weth = _getProxyAddress(OrbitSalts.L2_WETH, chainId);
         }
-        l2Deployment.proxyAdmin = _predictL2ProxyAdminAddress(rollupChainId);
-        l2Deployment.beaconProxyFactory = _predictL2BeaconProxyFactoryAddress(rollupChainId);
-        l2Deployment.upgradeExecutor = _predictL2UpgradeExecutorAddress(rollupChainId);
-        l2Deployment.multicall = _predictL2Multicall(rollupChainId);
+        l2Deployment.upgradeExecutor = _getProxyAddress(OrbitSalts.L2_EXECUTOR, chainId);
+
+        // store L2 addresses which are not proxies
+        l2Deployment.proxyAdmin = _predictL2ProxyAdminAddress(chainId);
+        l2Deployment.beaconProxyFactory = _predictL2BeaconProxyFactoryAddress(chainId);
+        l2Deployment.multicall = _predictL2Multicall(chainId);
 
         // deploy L1 side of token bridge
         // get existing proxy admin and upgrade executor
@@ -424,26 +428,6 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         }
     }
 
-    function _predictL2RouterAddress(uint256 chainId) internal view returns (address) {
-        return _getProxyAddress(_getL2Salt(OrbitSalts.L2_ROUTER, chainId), chainId);
-    }
-
-    function _predictL2StandardGatewayAddress(uint256 chainId) internal view returns (address) {
-        return _getProxyAddress(_getL2Salt(OrbitSalts.L2_STANDARD_GATEWAY, chainId), chainId);
-    }
-
-    function _predictL2CustomGatewayAddress(uint256 chainId) internal view returns (address) {
-        return _getProxyAddress(_getL2Salt(OrbitSalts.L2_CUSTOM_GATEWAY, chainId), chainId);
-    }
-
-    function _predictL2WethGatewayAddress(uint256 chainId) internal view returns (address) {
-        return _getProxyAddress(_getL2Salt(OrbitSalts.L2_WETH_GATEWAY, chainId), chainId);
-    }
-
-    function _predictL2WethAddress(uint256 chainId) internal view returns (address) {
-        return _getProxyAddress(_getL2Salt(OrbitSalts.L2_WETH, chainId), chainId);
-    }
-
     function _predictL2ProxyAdminAddress(uint256 chainId) internal view returns (address) {
         return Create2.computeAddress(
             _getL2Salt(OrbitSalts.L2_PROXY_ADMIN, chainId),
@@ -458,10 +442,6 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             keccak256(type(BeaconProxyFactory).creationCode),
             canonicalL2FactoryAddress
         );
-    }
-
-    function _predictL2UpgradeExecutorAddress(uint256 chainId) internal view returns (address) {
-        return _getProxyAddress(_getL2Salt(OrbitSalts.L2_EXECUTOR, chainId), chainId);
     }
 
     function _predictL2Multicall(uint256 chainId) internal view returns (address) {
@@ -507,11 +487,16 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
 
     /**
      * @notice L2 contracts are deployed as proxy with dummy seed logic contracts using CREATE2. That enables
-     *         us to upfront calculate the expected canonical addresses.
+     *         us to upfront calculate the expected canonical addresses. This proxy should be upgraded to the
+     *         intended logic implementation immediately.
      */
-    function _getProxyAddress(bytes32 proxySalt, uint256 chainId) internal view returns (address) {
+    function _getProxyAddress(bytes memory prefix, uint256 chainId)
+        internal
+        view
+        returns (address)
+    {
         return Create2.computeAddress(
-            proxySalt,
+            _getL2Salt(prefix, chainId),
             keccak256(
                 abi.encodePacked(
                     type(TransparentUpgradeableProxy).creationCode,
