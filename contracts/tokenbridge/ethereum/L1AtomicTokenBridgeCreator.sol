@@ -24,6 +24,7 @@ import {
     L2RuntimeCode,
     ProxyAdmin
 } from "../arbitrum/L2AtomicTokenBridgeFactory.sol";
+import {CreationCodeHelper} from "../libraries/CreationCodeHelper.sol";
 import {BytesLib} from "../libraries/BytesLib.sol";
 import {
     IUpgradeExecutor,
@@ -57,6 +58,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     error L1AtomicTokenBridgeCreator_TemplatesNotSet();
     error L1AtomicTokenBridgeCreator_RollupOwnershipMisconfig();
     error L1AtomicTokenBridgeCreator_ProxyAdminNotFound();
+    error L1AtomicTokenBridgeCreator_L2FactoryCannotBeChanged();
 
     event OrbitTokenBridgeCreated(
         address indexed inbox,
@@ -122,7 +124,8 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
 
     constructor(address _l2MulticallTemplate) {
         l2MulticallTemplate = _l2MulticallTemplate;
-        ARB_MULTICALL_CODE_HASH = keccak256(_creationCodeFor(l2MulticallTemplate.code));
+        ARB_MULTICALL_CODE_HASH =
+            keccak256(CreationCodeHelper.getCreationCodeFor(l2MulticallTemplate.code));
         _disableInitializers();
     }
 
@@ -156,6 +159,12 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     ) external onlyOwner {
         l1Templates = _l1Templates;
 
+        if (
+            l2TokenBridgeFactoryTemplate != address(0)
+                && l2TokenBridgeFactoryTemplate != _l2TokenBridgeFactoryTemplate
+        ) {
+            revert L1AtomicTokenBridgeCreator_L2FactoryCannotBeChanged();
+        }
         l2TokenBridgeFactoryTemplate = _l2TokenBridgeFactoryTemplate;
         l2RouterTemplate = _l2RouterTemplate;
         l2StandardGatewayTemplate = _l2StandardGatewayTemplate;
@@ -413,7 +422,8 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         returns (uint256)
     {
         // encode L2 factory bytecode
-        bytes memory deploymentData = _creationCodeFor(l2TokenBridgeFactoryTemplate.code);
+        bytes memory deploymentData =
+            CreationCodeHelper.getCreationCodeFor(l2TokenBridgeFactoryTemplate.code);
 
         if (isUsingFeeToken) {
             // transfer fee tokens to inbox to pay for 1st retryable
@@ -518,11 +528,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     }
 
     function getCanonicalL1RouterAddress(address inbox) public view returns (address) {
-        address expectedL1ProxyAdminAddress = Create2.computeAddress(
-            _getL1Salt(OrbitSalts.L1_PROXY_ADMIN, inbox),
-            keccak256(type(ProxyAdmin).creationCode),
-            address(this)
-        );
+        address proxyAdminAddress = IInbox_ProxyAdmin(inbox).getProxyAdmin();
 
         bool isUsingFeeToken = _getFeeToken(inbox) != address(0);
         address template = isUsingFeeToken
@@ -534,7 +540,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             keccak256(
                 abi.encodePacked(
                     type(TransparentUpgradeableProxy).creationCode,
-                    abi.encode(template, expectedL1ProxyAdminAddress, bytes(""))
+                    abi.encode(template, proxyAdminAddress, bytes(""))
                 )
             ),
             address(this)
@@ -659,27 +665,6 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             data = abi.encodePacked(bytes1(0xda), bytes1(0x94), origin, bytes1(0x84), uint32(nonce));
         }
         return address(uint160(uint256(keccak256(data))));
-    }
-
-    /**
-     * @notice Generate a creation code that results on a contract with `code` as bytecode.
-     *         Source - https://github.com/0xsequence/sstore2/blob/master/contracts/utils/Bytecode.sol
-     * @param code The returning value of the resulting `creationCode`
-     * @return creationCode (constructor) for new contract
-     */
-    function _creationCodeFor(bytes memory code) internal pure returns (bytes memory) {
-        /*
-            0x00    0x63         0x63XXXXXX  PUSH4 _code.length  size
-            0x01    0x80         0x80        DUP1                size size
-            0x02    0x60         0x600e      PUSH1 14            14 size size
-            0x03    0x60         0x6000      PUSH1 00            0 14 size size
-            0x04    0x39         0x39        CODECOPY            size
-            0x05    0x60         0x6000      PUSH1 00            0 size
-            0x06    0xf3         0xf3        RETURN
-            <CODE>
-        */
-
-        return abi.encodePacked(hex"63", uint32(code.length), hex"80600E6000396000F3", code);
     }
 
     /**

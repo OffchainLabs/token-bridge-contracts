@@ -1,10 +1,14 @@
 import { JsonRpcProvider, Provider, Filter } from '@ethersproject/providers'
 import {
+  AeWETH__factory,
+  ArbMulticall2,
+  ArbMulticall2__factory,
   BeaconProxyFactory__factory,
   IERC20Bridge__factory,
   IInbox__factory,
   IOwnable__factory,
   IRollupCore__factory,
+  L1AtomicTokenBridgeCreator,
   L1AtomicTokenBridgeCreator__factory,
   L1CustomGateway,
   L1CustomGateway__factory,
@@ -85,10 +89,15 @@ describe('tokenBridge', () => {
       l1RetryableSender.toLowerCase()
     )
 
+    const creator = L1AtomicTokenBridgeCreator__factory.connect(
+      l1TokenBridgeCreator,
+      l1Provider
+    )
     await checkL1RouterInitialization(
       L1GatewayRouter__factory.connect(l1.router, l1Provider),
       l1,
-      l2
+      l2,
+      creator
     )
 
     await checkL1StandardGatewayInitialization(
@@ -103,7 +112,7 @@ describe('tokenBridge', () => {
       l2
     )
 
-    const usingFeeToken = await isUsingFeeToken(l1.inbox, l1Provider)
+    const usingFeeToken = await _isUsingFeeToken(l1.inbox, l1Provider)
     if (!usingFeeToken)
       await checkL1WethGatewayInitialization(
         L1WethGateway__factory.connect(l1.wethGateway, l1Provider),
@@ -131,6 +140,10 @@ describe('tokenBridge', () => {
       l2
     )
 
+    await checkL2MulticallInitialization(
+      ArbMulticall2__factory.connect(l2.multicall, l2Provider)
+    )
+
     if (!usingFeeToken) {
       await checkL2WethGatewayInitialization(
         L2WethGateway__factory.connect(l2.wethGateway, l2Provider),
@@ -148,6 +161,7 @@ describe('tokenBridge', () => {
 
     await checkL1Ownership(l1)
     await checkL2Ownership(l2)
+    await checkLogicContracts(usingFeeToken, l2)
   })
 })
 
@@ -156,9 +170,14 @@ describe('tokenBridge', () => {
 async function checkL1RouterInitialization(
   l1Router: L1GatewayRouter,
   l1: L1,
-  l2: L2
+  l2: L2,
+  creator: L1AtomicTokenBridgeCreator
 ) {
   console.log('checkL1RouterInitialization')
+
+  expect(l1.router.toLowerCase()).to.be.eq(
+    (await creator.getCanonicalL1RouterAddress(l1.inbox)).toLowerCase()
+  )
 
   expect((await l1Router.defaultGateway()).toLowerCase()).to.be.eq(
     l1.standardGateway.toLowerCase()
@@ -189,6 +208,9 @@ async function checkL1StandardGatewayInitialization(
   )
   expect((await l1ERC20Gateway.inbox()).toLowerCase()).to.be.eq(
     l1.inbox.toLowerCase()
+  )
+  expect((await l1ERC20Gateway.l2BeaconProxyFactory()).toLowerCase()).to.be.eq(
+    l2.beaconProxyFactory
   )
   expect((await l1ERC20Gateway.l2BeaconProxyFactory()).toLowerCase()).to.be.eq(
     (
@@ -375,10 +397,17 @@ async function checkL2WethGatewayInitialization(
   )
 }
 
+async function checkL2MulticallInitialization(l2Multicall: ArbMulticall2) {
+  // check l2Multicall is deployed
+  const l2MulticallCode = await l2Provider.getCode(l2Multicall.address)
+  expect(l2MulticallCode.length).to.be.gt(0)
+}
+
 async function checkL1Ownership(l1: L1) {
   console.log('checkL1Ownership')
 
   // check proxyAdmins
+
   expect(await _getProxyAdmin(l1.router, l1Provider)).to.be.eq(l1.proxyAdmin)
   expect(await _getProxyAdmin(l1.standardGateway, l1Provider)).to.be.eq(
     l1.proxyAdmin
@@ -411,6 +440,7 @@ async function checkL2Ownership(l2: L2) {
   const l2ProxyAdmin = await _getProxyAdmin(l2.router, l2Provider)
 
   // check proxyAdmins
+  expect(l2ProxyAdmin).to.be.eq(l2.proxyAdmin)
   expect(await _getProxyAdmin(l2.router, l2Provider)).to.be.eq(l2ProxyAdmin)
   expect(await _getProxyAdmin(l2.standardGateway, l2Provider)).to.be.eq(
     l2ProxyAdmin
@@ -432,8 +462,63 @@ async function checkL2Ownership(l2: L2) {
   expect(await _getOwner(l2ProxyAdmin, l2Provider)).to.be.eq(l2.upgradeExecutor)
 }
 
+async function checkLogicContracts(usingFeeToken: boolean, l2: L2) {
+  console.log('checkLogicContracts')
+
+  const upgExecutorLogic = await _getLogicAddress(
+    l2.upgradeExecutor,
+    l2Provider
+  )
+  expect(await _isInitialized(upgExecutorLogic, l2Provider)).to.be.true
+
+  const routerLogic = await _getLogicAddress(l2.router, l2Provider)
+  expect(
+    await L2GatewayRouter__factory.connect(
+      routerLogic,
+      l2Provider
+    ).counterpartGateway()
+  ).to.be.not.eq(ethers.constants.AddressZero)
+
+  const standardGatewayLogic = await _getLogicAddress(
+    l2.standardGateway,
+    l2Provider
+  )
+  expect(
+    await L2ERC20Gateway__factory.connect(
+      standardGatewayLogic,
+      l2Provider
+    ).counterpartGateway()
+  ).to.be.not.eq(ethers.constants.AddressZero)
+
+  const customGatewayLogic = await _getLogicAddress(
+    l2.customGateway,
+    l2Provider
+  )
+  expect(
+    await L2CustomGateway__factory.connect(
+      customGatewayLogic,
+      l2Provider
+    ).counterpartGateway()
+  ).to.be.not.eq(ethers.constants.AddressZero)
+
+  if (!usingFeeToken) {
+    const wethGatewayLogic = await _getLogicAddress(l2.wethGateway, l2Provider)
+    expect(
+      await L2WethGateway__factory.connect(
+        wethGatewayLogic,
+        l2Provider
+      ).counterpartGateway()
+    ).to.be.not.eq(ethers.constants.AddressZero)
+
+    const wethLogic = await _getLogicAddress(l2.weth, l2Provider)
+    expect(
+      await AeWETH__factory.connect(wethLogic, l2Provider).l2Gateway()
+    ).to.be.not.eq(ethers.constants.AddressZero)
+  }
+}
+
 //// utils
-async function isUsingFeeToken(inbox: string, l1Provider: JsonRpcProvider) {
+async function _isUsingFeeToken(inbox: string, l1Provider: JsonRpcProvider) {
   const bridge = await IInbox__factory.connect(inbox, l1Provider).bridge()
 
   try {
@@ -511,7 +596,7 @@ async function _getTokenBridgeAddresses(
     upgradeExecutor: upgradeExecutor.toLowerCase(),
   }
 
-  const usingFeeToken = await isUsingFeeToken(l1.inbox, l1Provider)
+  const usingFeeToken = await _isUsingFeeToken(l1.inbox, l1Provider)
 
   const chainId = await IRollupCore__factory.connect(
     rollupAddress,
@@ -540,6 +625,17 @@ async function _getTokenBridgeAddresses(
     upgradeExecutor: (
       await l1TokenBridgeCreator.getCanonicalL2UpgradeExecutorAddress(chainId)
     ).toLowerCase(),
+    multicall: (
+      await l1TokenBridgeCreator.getCanonicalL2Multicall(chainId)
+    ).toLowerCase(),
+    proxyAdmin: (
+      await l1TokenBridgeCreator.getCanonicalL2ProxyAdminAddress(chainId)
+    ).toLowerCase(),
+    beaconProxyFactory: (
+      await l1TokenBridgeCreator.getCanonicalL2BeaconProxyFactoryAddress(
+        chainId
+      )
+    ).toLowerCase(),
   }
 
   return {
@@ -557,6 +653,19 @@ async function _getProxyAdmin(
       contractAddress,
       provider,
       '0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103'
+    )
+  ).toLowerCase()
+}
+
+async function _getLogicAddress(
+  contractAddress: string,
+  provider: Provider
+): Promise<string> {
+  return (
+    await _getAddressAtStorageSlot(
+      contractAddress,
+      provider,
+      '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc'
     )
   ).toLowerCase()
 }
@@ -592,6 +701,23 @@ async function _getAddressAtStorageSlot(
   return ethers.utils.getAddress(formatAddress)
 }
 
+/**
+ * Return if contracts is initialized or not. Applicable for contracts which use OpenZeppelin Initializable pattern,
+ * so state of initialization is stored as uint8 in storage slot 0, offset 0.
+ */
+async function _isInitialized(
+  contractAddress: string,
+  provider: Provider
+): Promise<boolean> {
+  const storageSlot = 0
+  const storageValue = await provider.getStorageAt(contractAddress, storageSlot)
+  const bigNumberValue = ethers.BigNumber.from(storageValue)
+
+  // Ethereum storage slots are 32 bytes and a uint8 is 1 byte, we mask the lower 8 bits to convert it to uint8.
+  const maskedValue = bigNumberValue.and(255)
+  return maskedValue.toNumber() == 1
+}
+
 interface L1 {
   inbox: string
   rollupOwner: string
@@ -610,4 +736,7 @@ interface L2 {
   wethGateway: string
   weth: string
   upgradeExecutor: string
+  multicall: string
+  proxyAdmin: string
+  beaconProxyFactory: string
 }

@@ -1,6 +1,6 @@
 {
   "name": "@arbitrum/token-bridge-contracts",
-  "version": "1.1.0",
+  "version": "1.1.2",
   "license": "Apache-2.0",
   "scripts": {
     "prepublishOnly": "hardhat clean && hardhat compile",
@@ -24,6 +24,7 @@
     "deploy:token-bridge-creator": "ts-node ./scripts/deployment/deployTokenBridgeCreator.ts",
     "create:token-bridge": "ts-node ./scripts/deployment/createTokenBridge.ts",
     "test:tokenbridge:deployment": "hardhat test test-e2e/tokenBridgeDeploymentTest.ts",
+    "test:creation-code": "hardhat test test-e2e/creationCodeTest.ts",
     "typechain": "hardhat typechain",
     "deploy:tokenbridge": "hardhat run scripts/deploy_token_bridge_l1.ts --network mainnet",
     "gen:uml": "sol2uml ./contracts/tokenbridge/arbitrum,./contracts/tokenbridge/ethereum,./contracts/tokenbridge/libraries -o ./gatewayUML.svg",
