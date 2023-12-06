@@ -1,6 +1,6 @@
 # How to deploy RollupCreator and TokenBridgeCreator?
 
-## RollupCreator
+## Deploy RollupCreator
 RollupCreator is in nitro-contracts repo
 ```
 cd nitro-contracts
@@ -38,7 +38,7 @@ yarn run deploy-factory --network arb1
 Script output will contain all deployed addresses.
 
 
-## TokenBridgeCreator
+## Deploy TokenBridgeCreator
 Checkout target code, install dependencies and build
 ```
 cd token-bridge-contracts
@@ -72,3 +72,30 @@ These contracts will be owned by deployer:
 - RollupCreator (owner can set templates)
 - L1AtomicTokenBridgeCreator (owner can set templates)
 - ProxyAdmin of L1AtomicTokenBridgeCreator and L1TokenBridgeRetryableSender (owner can do upgrades)
+
+
+## Verify token bridge deployment
+There is a verification script which checks that token bridge contracts have been properly deployed and initialized. Here are steps for running it.
+
+Checkout target code, install dependencies and build
+```
+cd token-bridge-contracts
+yarn install
+yarn build
+```
+
+Populate .env
+```
+ROLLUP_ADDRESS
+L1_TOKEN_BRIDGE_CREATOR
+L1_RETRYABLE_SENDER
+BASECHAIN_DEPLOYER_KEY
+ORBIT_RPC
+```
+(`L1_RETRYABLE_SENDER` address can be obtained by calling `retryableSender()` on the L1 token bridge creator)
+
+
+Run the script
+```
+yarn run test:tokenbridge:deployment
+```
