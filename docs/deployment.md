@@ -90,6 +90,7 @@ ROLLUP_ADDRESS
 L1_TOKEN_BRIDGE_CREATOR
 L1_RETRYABLE_SENDER
 BASECHAIN_DEPLOYER_KEY
+BASECHAIN_RPC
 ORBIT_RPC
 ```
 (`L1_RETRYABLE_SENDER` address can be obtained by calling `retryableSender()` on the L1 token bridge creator)
