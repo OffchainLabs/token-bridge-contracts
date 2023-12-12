@@ -88,6 +88,11 @@ contract MockInbox is Test {
         }
         vm.startPrank(AddressAliasHelper.applyL1ToL2Alias(msg.sender));
         if (to == address(0)) {
+            if (mode == 2) {
+                // mode 2: fail the deployment
+                vm.stopPrank();
+                return 0;
+            }
             address addr;
             assembly {
                 addr := create(0, add(data, 0x20), mload(data))
@@ -174,6 +179,27 @@ contract AtomicTokenBridgeCreatorTest is Test {
 
     function testDeploymentFrontrun() public {
         MockInbox inbox = new MockInbox(1);
+        _testDeployment(address(inbox));
+    }
+
+    function testDeploymentFailDeploy() public {
+        // although the deployment must have enough gas to deploy it can still fail due to gas price
+        // it such case the 2 retryable can be executed out-of-order
+        // Mode 2 simulate this case where the deployment fails and the call is executed first
+        MockInbox inbox = new MockInbox(2);
+        factory.createTokenBridge({
+            inbox: address(inbox),
+            rollupOwner: address(this),
+            maxGasForContracts: 0,
+            gasPriceBid: 0
+        });
+
+        // L2 Factory is not deployed in this case
+        address l2factory = factory.canonicalL2FactoryAddress();
+        assertEq(l2factory, 0x20011A455c9eBBeD73CA307539D3e9Baff600fBD);
+        assertEq(l2factory.code.length, 0);
+
+        inbox.setMode(0); // set back to normal mode
         _testDeployment(address(inbox));
     }
 
