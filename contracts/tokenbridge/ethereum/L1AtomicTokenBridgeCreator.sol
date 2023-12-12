@@ -207,11 +207,11 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             revert L1AtomicTokenBridgeCreator_RollupOwnershipMisconfig();
         }
 
-        // we allow token bridge deployment to be retried
+        // we allow resending l2 deployment calls
         // this is useful to recover from expired or out-of-order retryables
-        // in case of retry, we assume L1 contracts already exist and we just need to deploy L2 contracts
-        // deployment mappings should not be updated in case of retry
-        bool isRetry = (inboxToL1Deployment[inbox].router != address(0));
+        // in case of resend, we assume L1 contracts already exist and we just need to deploy L2 contracts
+        // deployment mappings should not be updated in case of resend
+        bool isResend = (inboxToL1Deployment[inbox].router != address(0));
 
         bool isUsingFeeToken = _getFeeToken(inbox) != address(0);
 
@@ -219,8 +219,8 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         L1DeploymentAddresses memory l1Deployment;
         L2DeploymentAddresses memory l2Deployment;
 
-        // if retry, we use the existing l1 deployment
-        if (isRetry) {
+        // if resend, we use the existing l1 deployment
+        if (isResend) {
             l1Deployment = inboxToL1Deployment[inbox];
         }
 
@@ -249,8 +249,8 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             revert L1AtomicTokenBridgeCreator_ProxyAdminNotFound();
         }
 
-        // if retry, we assume L1 contracts already exist
-        if (!isRetry) {
+        // if resend, we assume L1 contracts already exist
+        if (!isResend) {
             // l1 router deployment block
             {
                 address routerTemplate = isUsingFeeToken
@@ -334,7 +334,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         }
 
         // deploy factory and then L2 contracts through L2 factory, using 2 retryables calls
-        // we do not care if it is a retry or not, if the L2 deployment already exists it will simply fail on L2
+        // we do not care if it is a resend or not, if the L2 deployment already exists it will simply fail on L2
         _deployL2Factory(inbox, gasPriceBid, isUsingFeeToken);
         if (isUsingFeeToken) {
             // transfer fee tokens to inbox to pay for 2nd retryable
@@ -377,8 +377,8 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             isUsingFeeToken
         );
 
-        // deployment mappings should not be updated in case of retry
-        if (!isRetry) {
+        // deployment mappings should not be updated in case of resend
+        if (!isResend) {
             emit OrbitTokenBridgeCreated(
                 inbox, rollupOwner, l1Deployment, l2Deployment, proxyAdmin, upgradeExecutor
             );
