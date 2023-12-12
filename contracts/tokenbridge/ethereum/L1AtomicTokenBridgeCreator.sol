@@ -219,7 +219,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         L1DeploymentAddresses memory l1Deployment;
         L2DeploymentAddresses memory l2Deployment;
 
-        // if retry, we assume L1 contracts already exist and we just need to deploy L2 contracts
+        // if retry, we use the existing l1 deployment
         if (isRetry) {
             l1Deployment = inboxToL1Deployment[inbox];
         }
@@ -249,6 +249,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             revert L1AtomicTokenBridgeCreator_ProxyAdminNotFound();
         }
 
+        // if retry, we assume L1 contracts already exist
         if (!isRetry) {
             // l1 router deployment block
             {
@@ -333,6 +334,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         }
 
         // deploy factory and then L2 contracts through L2 factory, using 2 retryables calls
+        // we do not care if it is a retry or not, if the L2 deployment already exists it will simply fail on L2
         _deployL2Factory(inbox, gasPriceBid, isUsingFeeToken);
         if (isUsingFeeToken) {
             // transfer fee tokens to inbox to pay for 2nd retryable
