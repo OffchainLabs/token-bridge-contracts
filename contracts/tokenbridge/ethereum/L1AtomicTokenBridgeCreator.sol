@@ -219,6 +219,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         L1DeploymentAddresses memory l1Deployment;
         L2DeploymentAddresses memory l2Deployment;
 
+        // if retry, we assume L1 contracts already exist and we just need to deploy L2 contracts
         if (isRetry) {
             l1Deployment = inboxToL1Deployment[inbox];
         }
@@ -374,6 +375,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             isUsingFeeToken
         );
 
+        // deployment mappings should not be updated in case of retry
         if (!isRetry) {
             emit OrbitTokenBridgeCreated(
                 inbox, rollupOwner, l1Deployment, l2Deployment, proxyAdmin, upgradeExecutor
