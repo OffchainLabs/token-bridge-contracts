@@ -26,6 +26,8 @@ import {
   L2GatewayRouter__factory,
   L2WethGateway,
   L2WethGateway__factory,
+  StandardArbERC20__factory,
+  UpgradeableBeacon__factory,
 } from '../build/types'
 import { abi as UpgradeExecutorABI } from '@offchainlabs/upgrade-executor/build/contracts/src/UpgradeExecutor.sol/UpgradeExecutor.json'
 import { RollupCore__factory } from '@arbitrum/sdk/dist/lib/abi/factories/RollupCore__factory'
@@ -43,6 +45,9 @@ const config = {
 
 let l1Provider: JsonRpcProvider
 let l2Provider: JsonRpcProvider
+
+// when code at address is empty, ethers.js returns '0x'
+const EMPTY_CODE_LENGTH = 2
 
 describe('tokenBridge', () => {
   it('should have deployed and initialized token bridge contracts', async function () {
@@ -347,7 +352,11 @@ async function checkL2StandardGatewayInitialization(
     l2Deployment.router.toLowerCase()
   )
 
-  expect((await l2ERC20Gateway.beaconProxyFactory()).toLowerCase()).to.be.eq(
+  const beaconProxyFactory = BeaconProxyFactory__factory.connect(
+    await l2ERC20Gateway.beaconProxyFactory(),
+    l2Provider
+  )
+  expect(beaconProxyFactory.address.toLowerCase()).to.be.eq(
     (
       await L1ERC20Gateway__factory.connect(
         await l2ERC20Gateway.counterpartGateway(),
@@ -364,6 +373,18 @@ async function checkL2StandardGatewayInitialization(
       ).cloneableProxyHash()
     ).toLowerCase()
   )
+
+  const beacon = UpgradeableBeacon__factory.connect(
+    await beaconProxyFactory.beacon(),
+    l2Provider
+  )
+  expect(await beacon.owner()).to.be.eq(l2Deployment.upgradeExecutor)
+
+  const standardArbERC20 = StandardArbERC20__factory.connect(
+    await beacon.implementation(),
+    l2Provider
+  )
+  expect(await _isInitialized(standardArbERC20.address, l2Provider)).to.be.true
 }
 
 async function checkL2CustomGatewayInitialization(
@@ -409,7 +430,7 @@ async function checkL2WethGatewayInitialization(
 async function checkL2MulticallInitialization(l2Multicall: ArbMulticall2) {
   // check l2Multicall is deployed
   const l2MulticallCode = await l2Provider.getCode(l2Multicall.address)
-  expect(l2MulticallCode.length).to.be.gt(0)
+  expect(l2MulticallCode.length).to.be.gt(EMPTY_CODE_LENGTH)
 }
 
 async function checkL1Ownership(
