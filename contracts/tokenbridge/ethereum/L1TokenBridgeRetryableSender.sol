@@ -16,7 +16,6 @@ import {TransparentUpgradeableProxy} from
     "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {AddressAliasHelper} from "../libraries/AddressAliasHelper.sol";
 
 /**
  * @title Token Bridge Retryable Ticket Sender
@@ -50,23 +49,13 @@ contract L1TokenBridgeRetryableSender is Initializable, OwnableUpgradeable {
         address aliasedL1UpgradeExecutor,
         bool isUsingFeeToken
     ) external payable onlyOwner {
-        // rollupOwner address is provided to the L2 side so that it can be given the EXECUTOR role on the
-        // L2 UpgradeExecutor, in addition to alias(L1UpgradeExecutor). rollupOwner can be either EOA or a contract.
-        // If it is a contract, address needs to be aliased before sending to L2 in order to be usable.
-        address l2RollupOwner;
-        if (rollupOwner.code.length == 0) {
-            l2RollupOwner = rollupOwner;
-        } else {
-            l2RollupOwner = AddressAliasHelper.applyL1ToL2Alias(rollupOwner);
-        }
-
         if (!isUsingFeeToken) {
             _sendRetryableUsingEth(
                 retryableParams,
                 l2,
                 l1,
                 l2StandardGatewayAddress,
-                l2RollupOwner,
+                rollupOwner,
                 deployer,
                 aliasedL1UpgradeExecutor
             );
@@ -77,7 +66,7 @@ contract L1TokenBridgeRetryableSender is Initializable, OwnableUpgradeable {
                 l2,
                 l1,
                 l2StandardGatewayAddress,
-                l2RollupOwner,
+                rollupOwner,
                 aliasedL1UpgradeExecutor
             );
         }

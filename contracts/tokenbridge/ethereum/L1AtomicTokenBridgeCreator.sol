@@ -181,9 +181,10 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
      *      is called to issue 2nd retryable which deploys and inits the rest of the contracts. L2 chain is determined
      *      by `inbox` parameter.
      *
-     *      Token bridge can be deployed only once for certain inbox. Any further calls to `createTokenBridge` will revert
-     *      because L1 salts are already used at that point and L1 contracts are already deployed at canonical addresses
-     *      for that inbox.
+     *      In addition to deploying token bridge contracts, L2 factory will also deploy UpgradeExector on L2 side.
+     *      L2 UpgradeExecutor will set 2 accounts to have EXECUTOR role - rollupOwner and alias of L1UpgradeExecutor.
+     *      'rollupOwner' can be either EOA or a contract. If it is a contract, address will be aliased before sending to L2
+     *      in order to be usable.
      */
     function createTokenBridge(
         address inbox,
@@ -211,27 +212,29 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             revert L1AtomicTokenBridgeCreator_AlreadyCreated();
         }
 
-        uint256 chainId = IRollupCore(address(IInbox(inbox).bridge().rollup())).chainId();
         bool isUsingFeeToken = _getFeeToken(inbox) != address(0);
 
         // store L2 addresses before deployments
         L1DeploymentAddresses memory l1Deployment;
         L2DeploymentAddresses memory l2Deployment;
 
-        // store L2 addresses which are proxies
-        l2Deployment.router = _getProxyAddress(OrbitSalts.L2_ROUTER, chainId);
-        l2Deployment.standardGateway = _getProxyAddress(OrbitSalts.L2_STANDARD_GATEWAY, chainId);
-        l2Deployment.customGateway = _getProxyAddress(OrbitSalts.L2_CUSTOM_GATEWAY, chainId);
-        if (!isUsingFeeToken) {
-            l2Deployment.wethGateway = _getProxyAddress(OrbitSalts.L2_WETH_GATEWAY, chainId);
-            l2Deployment.weth = _getProxyAddress(OrbitSalts.L2_WETH, chainId);
-        }
-        l2Deployment.upgradeExecutor = _getProxyAddress(OrbitSalts.L2_EXECUTOR, chainId);
+        {
+            // store L2 addresses which are proxies
+            uint256 chainId = IRollupCore(address(IInbox(inbox).bridge().rollup())).chainId();
+            l2Deployment.router = _getProxyAddress(OrbitSalts.L2_ROUTER, chainId);
+            l2Deployment.standardGateway = _getProxyAddress(OrbitSalts.L2_STANDARD_GATEWAY, chainId);
+            l2Deployment.customGateway = _getProxyAddress(OrbitSalts.L2_CUSTOM_GATEWAY, chainId);
+            if (!isUsingFeeToken) {
+                l2Deployment.wethGateway = _getProxyAddress(OrbitSalts.L2_WETH_GATEWAY, chainId);
+                l2Deployment.weth = _getProxyAddress(OrbitSalts.L2_WETH, chainId);
+            }
+            l2Deployment.upgradeExecutor = _getProxyAddress(OrbitSalts.L2_EXECUTOR, chainId);
 
-        // store L2 addresses which are not proxies
-        l2Deployment.proxyAdmin = _predictL2ProxyAdminAddress(chainId);
-        l2Deployment.beaconProxyFactory = _predictL2BeaconProxyFactoryAddress(chainId);
-        l2Deployment.multicall = _predictL2Multicall(chainId);
+            // store L2 addresses which are not proxies
+            l2Deployment.proxyAdmin = _predictL2ProxyAdminAddress(chainId);
+            l2Deployment.beaconProxyFactory = _predictL2BeaconProxyFactoryAddress(chainId);
+            l2Deployment.multicall = _predictL2Multicall(chainId);
+        }
 
         // deploy L1 side of token bridge
         // get existing proxy admin and upgrade executor
@@ -325,6 +328,12 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             uint256 fee = maxGasForContracts * gasPriceBid;
             IERC20(feeToken).safeTransferFrom(msg.sender, inbox, fee);
         }
+
+        // alias rollup owner if it is a contract
+        address l2RollupOwner = rollupOwner.code.length == 0
+            ? rollupOwner
+            : AddressAliasHelper.applyL1ToL2Alias(rollupOwner);
+
         // sweep the balance to send the retryable and refund the difference
         // it is known that any eth previously in this contract can be extracted
         // tho it is not expected that this contract will have any eth
@@ -348,7 +357,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             ),
             l1Deployment,
             l2Deployment.standardGateway,
-            rollupOwner,
+            l2RollupOwner,
             msg.sender,
             AddressAliasHelper.applyL1ToL2Alias(upgradeExecutor),
             isUsingFeeToken
