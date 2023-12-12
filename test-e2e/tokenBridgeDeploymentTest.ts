@@ -26,6 +26,9 @@ import {
   L2GatewayRouter__factory,
   L2WethGateway,
   L2WethGateway__factory,
+  StandardArbERC20__factory,
+  UpgradeableBeacon,
+  UpgradeableBeacon__factory,
 } from '../build/types'
 import { abi as UpgradeExecutorABI } from '@offchainlabs/upgrade-executor/build/contracts/src/UpgradeExecutor.sol/UpgradeExecutor.json'
 import { RollupCore__factory } from '@arbitrum/sdk/dist/lib/abi/factories/RollupCore__factory'
@@ -347,7 +350,11 @@ async function checkL2StandardGatewayInitialization(
     l2Deployment.router.toLowerCase()
   )
 
-  expect((await l2ERC20Gateway.beaconProxyFactory()).toLowerCase()).to.be.eq(
+  const beaconProxyFactory = BeaconProxyFactory__factory.connect(
+    await l2ERC20Gateway.beaconProxyFactory(),
+    l2Provider
+  )
+  expect(beaconProxyFactory.address.toLowerCase()).to.be.eq(
     (
       await L1ERC20Gateway__factory.connect(
         await l2ERC20Gateway.counterpartGateway(),
@@ -364,6 +371,19 @@ async function checkL2StandardGatewayInitialization(
       ).cloneableProxyHash()
     ).toLowerCase()
   )
+
+  const beacon = UpgradeableBeacon__factory.connect(
+    await beaconProxyFactory.beacon(),
+    l2Provider
+  )
+  expect(await beacon.owner()).to.be.eq(l2Deployment.upgradeExecutor)
+
+  const standardArbERC20 = StandardArbERC20__factory.connect(
+    await beacon.implementation(),
+    l2Provider
+  )
+  expect(await _isInitialized(standardArbERC20.address, l2Provider)).to.be.true
+  console.log(await _isInitialized(standardArbERC20.address, l2Provider))
 }
 
 async function checkL2CustomGatewayInitialization(
