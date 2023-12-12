@@ -219,6 +219,88 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
         );
     }
 
+    function test_createTokenBridge_checkL1CustomGateway() public {
+        // prepare
+        _setTemplates();
+        (RollupProxy rollup, Inbox inbox, ProxyAdmin pa, UpgradeExecutor upgExecutor) =
+            _createRollup();
+        _createTokenBridge(rollup, inbox, upgExecutor);
+
+        /// check state
+        (address l1RouterAddress,, address l1CustomGatewayAddress,,) =
+            l1Creator.inboxToL1Deployment(address(inbox));
+
+        (,, L1CustomGateway customGatewayTemplate,,,,,) = l1Creator.l1Templates();
+
+        address expectedL1CustomGatewayAddress = Create2.computeAddress(
+            keccak256(abi.encodePacked(bytes("L1CGW"), address(inbox))),
+            keccak256(
+                abi.encodePacked(
+                    type(TransparentUpgradeableProxy).creationCode,
+                    abi.encode(address(customGatewayTemplate), pa, bytes(""))
+                )
+            ),
+            address(l1Creator)
+        );
+        assertEq(
+            l1CustomGatewayAddress,
+            expectedL1CustomGatewayAddress,
+            "Wrong l1StandardGateway address"
+        );
+        assertTrue(l1CustomGatewayAddress.code.length > 0, "Wrong l1CustomGatewayAddress code");
+
+        L1CustomGateway l1CustomGateway = L1CustomGateway(l1CustomGatewayAddress);
+        (,, address l2CustomGateway,,,,,,) = l1Creator.inboxToL2Deployment(address(inbox));
+        assertEq(
+            l1CustomGateway.counterpartGateway(),
+            l2CustomGateway,
+            "Wrong l1CustomGateway counterpartGateway"
+        );
+        assertEq(l1CustomGateway.router(), l1RouterAddress, "Wrong l1CustomGateway router");
+        assertEq(l1CustomGateway.inbox(), address(inbox), "Wrong l1CustomGateway inbox");
+        assertEq(l1CustomGateway.owner(), address(upgExecutor), "Wrong l1CustomGateway owner");
+    }
+
+    function test_createTokenBridge_checkL1WethGateway() public {
+        // prepare
+        _setTemplates();
+        (RollupProxy rollup, Inbox inbox, ProxyAdmin pa, UpgradeExecutor upgExecutor) =
+            _createRollup();
+        _createTokenBridge(rollup, inbox, upgExecutor);
+
+        /// check state
+        (address l1RouterAddress,,, address l1WethGatewayAddress,) =
+            l1Creator.inboxToL1Deployment(address(inbox));
+
+        (,,, L1WethGateway wethGatewayTemplate,,,,) = l1Creator.l1Templates();
+
+        address expectedL1WethGatewayAddress = Create2.computeAddress(
+            keccak256(abi.encodePacked(bytes("L1WGW"), address(inbox))),
+            keccak256(
+                abi.encodePacked(
+                    type(TransparentUpgradeableProxy).creationCode,
+                    abi.encode(address(wethGatewayTemplate), pa, bytes(""))
+                )
+            ),
+            address(l1Creator)
+        );
+        assertEq(l1WethGatewayAddress, expectedL1WethGatewayAddress, "Wrong l1WethGatewayAddresss");
+        assertTrue(l1WethGatewayAddress.code.length > 0, "Wrong l1WethGatewayAddress code");
+
+        L1WethGateway l1WethGateway = L1WethGateway(payable(l1WethGatewayAddress));
+        (,,, address l2WethGateway, address l2Weth,,,,) =
+            l1Creator.inboxToL2Deployment(address(inbox));
+        assertEq(
+            l1WethGateway.counterpartGateway(),
+            l2WethGateway,
+            "Wrong l1WethGateway counterpartGateway"
+        );
+        assertEq(l1WethGateway.router(), l1RouterAddress, "Wrong l1WethGateway router");
+        assertEq(l1WethGateway.inbox(), address(inbox), "Wrong l1WethGateway inbox");
+        assertEq(l1WethGateway.l1Weth(), l1Creator.l1Weth(), "Wrong l1WethGateway l1Weth");
+        assertEq(l1WethGateway.l2Weth(), l2Weth, "Wrong l1WethGateway l2Weth");
+    }
+
     function test_createTokenBridge_DeployerIsRefunded() public {
         // prepare
         _setTemplates();
