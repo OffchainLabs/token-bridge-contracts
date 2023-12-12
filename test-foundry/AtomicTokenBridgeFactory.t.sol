@@ -184,7 +184,7 @@ contract AtomicTokenBridgeCreatorTest is Test {
 
     function testDeploymentFailDeploy() public {
         // although the deployment must have enough gas to deploy it can still fail due to gas price
-        // it such case the 2 retryable can be executed out-of-order
+        // in such case the 2 retryable can be executed out-of-order
         // Mode 2 simulate this case where the deployment fails and the call is executed first
         MockInbox inbox = new MockInbox(2);
         factory.createTokenBridge({
