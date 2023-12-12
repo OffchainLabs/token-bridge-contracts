@@ -27,7 +27,6 @@ import {
   L2WethGateway,
   L2WethGateway__factory,
   StandardArbERC20__factory,
-  UpgradeableBeacon,
   UpgradeableBeacon__factory,
 } from '../build/types'
 import { abi as UpgradeExecutorABI } from '@offchainlabs/upgrade-executor/build/contracts/src/UpgradeExecutor.sol/UpgradeExecutor.json'
@@ -46,6 +45,9 @@ const config = {
 
 let l1Provider: JsonRpcProvider
 let l2Provider: JsonRpcProvider
+
+// when code at address is empty, ethers.js returns '0x'
+const EMPTY_CODE_LENGTH = 2
 
 describe('tokenBridge', () => {
   it('should have deployed and initialized token bridge contracts', async function () {
@@ -383,7 +385,6 @@ async function checkL2StandardGatewayInitialization(
     l2Provider
   )
   expect(await _isInitialized(standardArbERC20.address, l2Provider)).to.be.true
-  console.log(await _isInitialized(standardArbERC20.address, l2Provider))
 }
 
 async function checkL2CustomGatewayInitialization(
@@ -429,7 +430,7 @@ async function checkL2WethGatewayInitialization(
 async function checkL2MulticallInitialization(l2Multicall: ArbMulticall2) {
   // check l2Multicall is deployed
   const l2MulticallCode = await l2Provider.getCode(l2Multicall.address)
-  expect(l2MulticallCode.length).to.be.gt(0)
+  expect(l2MulticallCode.length).to.be.gt(EMPTY_CODE_LENGTH)
 }
 
 async function checkL1Ownership(

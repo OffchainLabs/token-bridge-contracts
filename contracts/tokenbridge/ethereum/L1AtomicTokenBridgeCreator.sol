@@ -449,7 +449,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     function _predictL2Multicall(uint256 chainId) internal view returns (address) {
         return Create2.computeAddress(
             _getL2Salt(OrbitSalts.L2_MULTICALL, chainId),
-            l2MulticallTemplate.codehash,
+            keccak256(CreationCodeHelper.getCreationCodeFor(l2MulticallTemplate.code)),
             canonicalL2FactoryAddress
         );
     }
