@@ -96,7 +96,9 @@ contract L2AtomicTokenBridgeFactory {
 
         // Create UpgradeExecutor logic and upgrade to it.
         address upExecutorLogic = Create2.deploy(
-            0, OrbitSalts.UNSALTED, CreationCodeHelper.getCreationCodeFor(runtimeCode)
+            0,
+            _getL2Salt(OrbitSalts.L2_EXECUTOR),
+            CreationCodeHelper.getCreationCodeFor(runtimeCode)
         );
 
         ProxyAdmin(proxyAdmin).upgrade(
@@ -127,7 +129,7 @@ contract L2AtomicTokenBridgeFactory {
 
         // create L2 router logic and upgrade
         address routerLogic = Create2.deploy(
-            0, OrbitSalts.UNSALTED, CreationCodeHelper.getCreationCodeFor(runtimeCode)
+            0, _getL2Salt(OrbitSalts.L2_ROUTER), CreationCodeHelper.getCreationCodeFor(runtimeCode)
         );
         ProxyAdmin(proxyAdmin).upgrade(ITransparentUpgradeableProxy(canonicalRouter), routerLogic);
 
@@ -152,7 +154,9 @@ contract L2AtomicTokenBridgeFactory {
 
         // create L2 standard gateway logic and upgrade
         address stdGatewayLogic = Create2.deploy(
-            0, OrbitSalts.UNSALTED, CreationCodeHelper.getCreationCodeFor(runtimeCode)
+            0,
+            _getL2Salt(OrbitSalts.L2_STANDARD_GATEWAY),
+            CreationCodeHelper.getCreationCodeFor(runtimeCode)
         );
         ProxyAdmin(proxyAdmin).upgrade(
             ITransparentUpgradeableProxy(canonicalStdGateway), stdGatewayLogic
@@ -162,9 +166,11 @@ contract L2AtomicTokenBridgeFactory {
         L2ERC20Gateway(stdGatewayLogic).initialize(ADDRESS_DEAD, ADDRESS_DEAD, ADDRESS_DEAD);
 
         // create beacon
-        StandardArbERC20 standardArbERC20 = new StandardArbERC20{salt: OrbitSalts.UNSALTED}();
-        UpgradeableBeacon beacon =
-            new UpgradeableBeacon{salt: OrbitSalts.UNSALTED}(address(standardArbERC20));
+        StandardArbERC20 standardArbERC20 =
+            new StandardArbERC20{salt: _getL2Salt(OrbitSalts.BEACON_PROXY_FACTORY)}();
+        UpgradeableBeacon beacon = new UpgradeableBeacon{
+            salt: _getL2Salt(OrbitSalts.BEACON_PROXY_FACTORY)
+        }(address(standardArbERC20));
         BeaconProxyFactory beaconProxyFactory =
             new BeaconProxyFactory{salt: _getL2Salt(OrbitSalts.BEACON_PROXY_FACTORY)}();
 
@@ -189,7 +195,9 @@ contract L2AtomicTokenBridgeFactory {
 
         // create L2 custom gateway logic and upgrade
         address customGatewayLogicAddress = Create2.deploy(
-            0, OrbitSalts.UNSALTED, CreationCodeHelper.getCreationCodeFor(runtimeCode)
+            0,
+            _getL2Salt(OrbitSalts.L2_CUSTOM_GATEWAY),
+            CreationCodeHelper.getCreationCodeFor(runtimeCode)
         );
         ProxyAdmin(proxyAdmin).upgrade(
             ITransparentUpgradeableProxy(canonicalCustomGateway), customGatewayLogicAddress
@@ -215,7 +223,9 @@ contract L2AtomicTokenBridgeFactory {
 
         // Create L2WETH logic and upgrade
         address l2WethLogic = Create2.deploy(
-            0, OrbitSalts.UNSALTED, CreationCodeHelper.getCreationCodeFor(aeWethRuntimeCode)
+            0,
+            _getL2Salt(OrbitSalts.L2_WETH),
+            CreationCodeHelper.getCreationCodeFor(aeWethRuntimeCode)
         );
         ProxyAdmin(proxyAdmin).upgrade(ITransparentUpgradeableProxy(canonicalL2Weth), l2WethLogic);
 
@@ -224,7 +234,9 @@ contract L2AtomicTokenBridgeFactory {
 
         // create L2WETH gateway logic and upgrade
         address l2WethGatewayLogic = Create2.deploy(
-            0, OrbitSalts.UNSALTED, CreationCodeHelper.getCreationCodeFor(wethGatewayRuntimeCode)
+            0,
+            _getL2Salt(OrbitSalts.L2_WETH_GATEWAY),
+            CreationCodeHelper.getCreationCodeFor(wethGatewayRuntimeCode)
         );
         ProxyAdmin(proxyAdmin).upgrade(
             ITransparentUpgradeableProxy(canonicalL2WethGateway), l2WethGatewayLogic
@@ -286,10 +298,9 @@ struct L2RuntimeCode {
 
 /**
  * Collection of salts used in CREATE2 deployment of L2 token bridge contracts.
+ * Logic contracts are deployed using the same salt as the proxy, it's fine as they have different code
  */
 library OrbitSalts {
-    bytes32 internal constant UNSALTED = bytes32(0);
-
     bytes internal constant L1_ROUTER = bytes("L1R");
     bytes internal constant L1_STANDARD_GATEWAY = bytes("L1SGW");
     bytes internal constant L1_CUSTOM_GATEWAY = bytes("L1CGW");
