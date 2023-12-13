@@ -212,27 +212,29 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             revert L1AtomicTokenBridgeCreator_AlreadyCreated();
         }
 
-        uint256 chainId = IRollupCore(address(IInbox(inbox).bridge().rollup())).chainId();
         bool isUsingFeeToken = _getFeeToken(inbox) != address(0);
 
         // store L2 addresses before deployments
         L1DeploymentAddresses memory l1Deployment;
         L2DeploymentAddresses memory l2Deployment;
 
-        // store L2 addresses which are proxies
-        l2Deployment.router = _getProxyAddress(OrbitSalts.L2_ROUTER, chainId);
-        l2Deployment.standardGateway = _getProxyAddress(OrbitSalts.L2_STANDARD_GATEWAY, chainId);
-        l2Deployment.customGateway = _getProxyAddress(OrbitSalts.L2_CUSTOM_GATEWAY, chainId);
-        if (!isUsingFeeToken) {
-            l2Deployment.wethGateway = _getProxyAddress(OrbitSalts.L2_WETH_GATEWAY, chainId);
-            l2Deployment.weth = _getProxyAddress(OrbitSalts.L2_WETH, chainId);
-        }
-        l2Deployment.upgradeExecutor = _getProxyAddress(OrbitSalts.L2_EXECUTOR, chainId);
+        {
+            // store L2 addresses which are proxies
+            uint256 chainId = IRollupCore(address(IInbox(inbox).bridge().rollup())).chainId();
+            l2Deployment.router = _getProxyAddress(OrbitSalts.L2_ROUTER, chainId);
+            l2Deployment.standardGateway = _getProxyAddress(OrbitSalts.L2_STANDARD_GATEWAY, chainId);
+            l2Deployment.customGateway = _getProxyAddress(OrbitSalts.L2_CUSTOM_GATEWAY, chainId);
+            if (!isUsingFeeToken) {
+                l2Deployment.wethGateway = _getProxyAddress(OrbitSalts.L2_WETH_GATEWAY, chainId);
+                l2Deployment.weth = _getProxyAddress(OrbitSalts.L2_WETH, chainId);
+            }
+            l2Deployment.upgradeExecutor = _getProxyAddress(OrbitSalts.L2_EXECUTOR, chainId);
 
-        // store L2 addresses which are not proxies
-        l2Deployment.proxyAdmin = _predictL2ProxyAdminAddress(chainId);
-        l2Deployment.beaconProxyFactory = _predictL2BeaconProxyFactoryAddress(chainId);
-        l2Deployment.multicall = _predictL2Multicall(chainId);
+            // store L2 addresses which are not proxies
+            l2Deployment.proxyAdmin = _predictL2ProxyAdminAddress(chainId);
+            l2Deployment.beaconProxyFactory = _predictL2BeaconProxyFactoryAddress(chainId);
+            l2Deployment.multicall = _predictL2Multicall(chainId);
+        }
 
         // deploy L1 side of token bridge
         // get existing proxy admin and upgrade executor
