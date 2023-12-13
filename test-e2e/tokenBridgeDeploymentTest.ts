@@ -309,8 +309,16 @@ async function checkL2UpgradeExecutorInitialization(
   const executorRole = await l2Executor.EXECUTOR_ROLE()
 
   expect(await l2Executor.hasRole(adminRole, l2Executor.address)).to.be.true
-  expect(await l2Executor.hasRole(executorRole, rollupAddresses.rollupOwner)).to
-    .be.true
+
+  const isL1RollupOwnerContract =
+    (await l1Provider.getCode(rollupAddresses.rollupOwner)).length >
+    EMPTY_CODE_LENGTH
+
+  const l2RollupOwner = isL1RollupOwnerContract
+    ? applyAlias(rollupAddresses.rollupOwner)
+    : rollupAddresses.rollupOwner
+
+  expect(await l2Executor.hasRole(executorRole, l2RollupOwner)).to.be.true
   const aliasedL1Executor = applyAlias(rollupAddresses.upgradeExecutor)
   expect(await l2Executor.hasRole(executorRole, aliasedL1Executor)).to.be.true
 }
