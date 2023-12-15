@@ -15,13 +15,19 @@ interface Mutant {
   original: string
   sourceroot: string
 }
+interface TestResult {
+  mutant: string
+  status: string
+}
+
+const testResults: TestResult[] = []
 
 runMutationTesting().catch(error => {
   console.error('Error during mutation testing:', error)
 })
 
 async function runMutationTesting() {
-  // Step 1: Generate mutants
+  // generate mutants
   execSync(
     `gambit mutate -n 3 --solc_remappings "@openzeppelin=node_modules/@openzeppelin" "@arbitrum=node_modules/@arbitrum" -f ${contractPath}`
   )
@@ -30,29 +36,32 @@ async function runMutationTesting() {
   const mutants: Mutant[] = JSON.parse(fs.readFileSync(mutantsListFile, 'utf8'))
 
   // test mutants
-  const results = []
   for (const mutant of mutants) {
-    console.log(`Testing mutant: ${mutant.id}`)
-
-    // Replace original file with mutant
-    copyFileSync(path.join(gambitDir, mutant.name), mutant.original)
-
-    // Re-build and test
-    try {
-      execSync('forge build')
-      execSync('forge test')
-      results.push({ mutant: mutant.id, status: 'Survived' })
-    } catch (error) {
-      results.push({ mutant: mutant.id, status: 'Killed' })
-    }
-
-    // Restore original file
-    unlinkSync(contractPath)
+    testMutant(mutant)
   }
 
   // Print summary
   console.log('Mutation Testing Results:')
-  results.forEach(result => {
+  testResults.forEach(result => {
     console.log(`${result.mutant}: ${result.status}`)
   })
+}
+
+function testMutant(mutant: Mutant) {
+  console.log(`Testing mutant: ${mutant.id}`)
+
+  // Replace original file with mutant
+  copyFileSync(path.join(gambitDir, mutant.name), mutant.original)
+
+  // Re-build and test
+  try {
+    execSync('forge build')
+    execSync('forge test')
+    testResults.push({ mutant: mutant.id, status: 'Survived' })
+  } catch (error) {
+    testResults.push({ mutant: mutant.id, status: 'Killed' })
+  }
+
+  // Restore original file
+  unlinkSync(contractPath)
 }
