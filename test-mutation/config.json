@@ -2,7 +2,6 @@
   {
     "filename": "../contracts/tokenbridge/ethereum/gateway/L1ERC20Gateway.sol",
     "sourceroot": "..",
-    "num_mutants": 10,
     "solc_remappings": [
       "@openzeppelin=../node_modules/@openzeppelin",
       "@arbitrum=../node_modules/@arbitrum"
@@ -11,7 +10,14 @@
   {
     "filename": "../contracts/tokenbridge/ethereum/gateway/L1CustomGateway.sol",
     "sourceroot": "..",
-    "num_mutants": 10,
+    "solc_remappings": [
+      "@openzeppelin=../node_modules/@openzeppelin",
+      "@arbitrum=../node_modules/@arbitrum"
+    ]
+  },
+  {
+    "filename": "../contracts/tokenbridge/ethereum/gateway/L1CustomGateway.sol",
+    "sourceroot": "..",
     "solc_remappings": [
       "@openzeppelin=../node_modules/@openzeppelin",
       "@arbitrum=../node_modules/@arbitrum"

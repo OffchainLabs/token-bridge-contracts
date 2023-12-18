@@ -6,8 +6,7 @@ import * as path from 'path'
 import * as fs from 'fs'
 import * as fsExtra from 'fs-extra'
 
-const gambitDir = 'gambit_out/'
-const mutantsListFile = 'gambit_out/gambit_results.json'
+const GAMBIT_OUT = 'gambit_out/'
 const testItems = [
   'contracts',
   'lib',
@@ -45,10 +44,10 @@ runMutationTesting().catch(error => {
 
 async function runMutationTesting() {
   console.log('====== Generating mutants')
-  await _generateMutants()
+  const mutants: Mutant[] = await _generateMutants()
 
   console.log('\n====== Test mutants')
-  const results = await _testAllMutants()
+  const results = await _testAllMutants(mutants)
 
   // Print summary
   console.log('\n====== Results\n')
@@ -58,12 +57,17 @@ async function runMutationTesting() {
   await fsExtra.remove(path.join(__dirname, 'mutant_test_env'))
 }
 
-async function _generateMutants() {
+async function _generateMutants(): Promise<Mutant[]> {
   await execAsync(`gambit mutate --json test-mutation/config.json`)
+  const mutants: Mutant[] = JSON.parse(
+    fs.readFileSync(`${GAMBIT_OUT}/gambit_results.json`, 'utf8')
+  )
+  console.log(`Generated ${mutants.length} mutants in ${GAMBIT_OUT}`)
+
+  return mutants
 }
 
-async function _testAllMutants(): Promise<TestResult[]> {
-  const mutants: Mutant[] = JSON.parse(fs.readFileSync(mutantsListFile, 'utf8'))
+async function _testAllMutants(mutants: Mutant[]): Promise<TestResult[]> {
   const results: TestResult[] = []
   for (let i = 0; i < mutants.length; i += MAX_TASKS) {
     const currentBatch = mutants.slice(i, i + MAX_TASKS)
@@ -93,7 +97,7 @@ async function _testMutant(mutant: Mutant): Promise<TestResult> {
 
   // Replace original file with mutant
   copyFileSync(
-    path.join(gambitDir, mutant.name),
+    path.join(GAMBIT_OUT, mutant.name),
     path.join(testDirectory, mutant.original)
   )
 
@@ -117,10 +121,14 @@ async function _testMutant(mutant: Mutant): Promise<TestResult> {
 
 function _printResults(results: TestResult[]) {
   const separator = '----------------------------------------------'
-  console.log('Mutant ID | File Name             | Status   ')
+  console.log('Mutant ID | File Name            | Status   ')
   console.log(separator)
 
   let lastFileName = ''
+  let killedCount = 0
+  let survivedCount = 0
+
+  /// print table and count stats
   results.forEach(result => {
     if (result.fileName !== lastFileName) {
       console.log(separator)
@@ -131,5 +139,21 @@ function _printResults(results: TestResult[]) {
         result.status
       }`
     )
+
+    if (result.status === MutantStatus.KILLED) {
+      killedCount++
+    } else {
+      survivedCount++
+    }
   })
+
+  // print totals
+  const totalCount = results.length
+  const killedPercentage = ((killedCount / totalCount) * 100).toFixed(2)
+  const survivedPercentage = ((survivedCount / totalCount) * 100).toFixed(2)
+
+  console.log(separator)
+  console.log(`Total Mutants: ${totalCount}`)
+  console.log(`Killed: ${killedCount} (${killedPercentage}%)`)
+  console.log(`Survived: ${survivedCount} (${survivedPercentage}%)`)
 }
