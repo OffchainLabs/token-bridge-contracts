@@ -12,9 +12,11 @@ const testItems = [
   'contracts',
   'lib',
   'foundry.toml',
-  'node_modules',
   'remappings.txt',
   'test-foundry',
+  'node_modules/@openzeppelin',
+  'node_modules/@arbitrum',
+  'node_modules/@offchainlabs',
 ]
 const MAX_TASKS = os.cpus().length
 const execAsync = promisify(exec)
@@ -61,6 +63,9 @@ async function runMutationTesting() {
   results.forEach(result => {
     console.log(`${result.mutant}: ${result.status}`)
   })
+
+  // // Delete test env
+  await fsExtra.remove(path.join(__dirname, 'mutant_test_env'))
 }
 
 async function testMutant(mutant: Mutant): Promise<TestResult> {
