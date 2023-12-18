@@ -6,7 +6,6 @@ import * as path from 'path'
 import * as fs from 'fs'
 import * as fsExtra from 'fs-extra'
 
-const contractPath = 'contracts/tokenbridge/ethereum/gateway/L1ERC20Gateway.sol'
 const gambitDir = 'gambit_out/'
 const mutantsListFile = 'gambit_out/gambit_results.json'
 const testItems = [
@@ -39,9 +38,8 @@ runMutationTesting().catch(error => {
 
 async function runMutationTesting() {
   // generate mutants
-  await execAsync(
-    `gambit mutate --solc_remappings "@openzeppelin=node_modules/@openzeppelin" "@arbitrum=node_modules/@arbitrum" -f ${contractPath}`
-  )
+  console.log('Generating mutants')
+  await execAsync(`gambit mutate --json test-mutation/config.json`)
 
   // test mutants
   const mutants: Mutant[] = JSON.parse(fs.readFileSync(mutantsListFile, 'utf8'))
@@ -66,11 +64,11 @@ async function runMutationTesting() {
 }
 
 async function testMutant(mutant: Mutant): Promise<TestResult> {
-  const testDirectory = path.join(__dirname, `test_mutant`, mutant.id)
+  const testDirectory = path.join(__dirname, `mutant_test_env`, mutant.id)
 
   await fsExtra.ensureDir(testDirectory)
   for (const item of testItems) {
-    const sourcePath = path.join(__dirname, item)
+    const sourcePath = path.join(__dirname, '..', item)
     const destPath = path.join(testDirectory, item)
     await fsExtra.copy(sourcePath, destPath)
   }

@@ -22,4 +22,4 @@ network.json
 
 # Gambit (mutation test) files
 gambit_out/
-test_mutant/
+test-mutation/mutant_test_env/
