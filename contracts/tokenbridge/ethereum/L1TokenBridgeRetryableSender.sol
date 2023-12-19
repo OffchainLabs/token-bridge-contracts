@@ -7,6 +7,7 @@ import {
     L2RuntimeCode,
     ProxyAdmin
 } from "../arbitrum/L2AtomicTokenBridgeFactory.sol";
+import {AddressAliasHelper} from "../libraries/AddressAliasHelper.sol";
 import {
     Initializable,
     OwnableUpgradeable
@@ -46,9 +47,10 @@ contract L1TokenBridgeRetryableSender is Initializable, OwnableUpgradeable {
         address l2StandardGatewayAddress,
         address rollupOwner,
         address deployer,
-        address aliasedL1UpgradeExecutor,
+        address l1UpgradeExecutor,
         bool isUsingFeeToken
     ) external payable onlyOwner {
+        address aliasedL1UpgradeExecutor = AddressAliasHelper.applyL1ToL2Alias(l1UpgradeExecutor);
         if (!isUsingFeeToken) {
             _sendRetryableUsingEth(
                 retryableParams,
