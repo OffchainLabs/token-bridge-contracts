@@ -106,7 +106,7 @@ contract L2AtomicTokenBridgeFactoryTest is Test {
 
         // logic
         address expectedL2RouterLogicAddress = Create2.computeAddress(
-            bytes32(0),
+            keccak256(abi.encodePacked(bytes("L2R"), block.chainid, address(this))),
             keccak256(CreationCodeHelper.getCreationCodeFor(runtimeCode.router)),
             address(l2Factory)
         );
@@ -165,10 +165,12 @@ contract L2AtomicTokenBridgeFactoryTest is Test {
             "Wrong beaconProxyFactory"
         );
         address expectedStandardArbERC20Address = Create2.computeAddress(
-            bytes32(0), keccak256(type(StandardArbERC20).creationCode), address(l2Factory)
+            keccak256(abi.encodePacked(bytes("L2BPF"), block.chainid, address(this))),
+            keccak256(type(StandardArbERC20).creationCode),
+            address(l2Factory)
         );
         address expectedBeaconAddress = Create2.computeAddress(
-            bytes32(0),
+            keccak256(abi.encodePacked(bytes("L2BPF"), block.chainid, address(this))),
             keccak256(
                 abi.encodePacked(
                     type(UpgradeableBeacon).creationCode,
@@ -207,7 +209,7 @@ contract L2AtomicTokenBridgeFactoryTest is Test {
 
         // logic
         address expectedL2StandardGwLogicAddress = Create2.computeAddress(
-            bytes32(0),
+            keccak256(abi.encodePacked(bytes("L2SGW"), block.chainid, address(this))),
             keccak256(CreationCodeHelper.getCreationCodeFor(runtimeCode.standardGateway)),
             address(l2Factory)
         );
@@ -259,7 +261,7 @@ contract L2AtomicTokenBridgeFactoryTest is Test {
 
         // logic
         address expectedL2CustomGwLogicAddress = Create2.computeAddress(
-            bytes32(0),
+            keccak256(abi.encodePacked(bytes("L2CGW"), block.chainid, address(this))),
             keccak256(CreationCodeHelper.getCreationCodeFor(runtimeCode.customGateway)),
             address(l2Factory)
         );
@@ -315,7 +317,7 @@ contract L2AtomicTokenBridgeFactoryTest is Test {
 
         // wethgateway logic
         address expectedL2WethGwLogicAddress = Create2.computeAddress(
-            bytes32(0),
+            keccak256(abi.encodePacked(bytes("L2WGW"), block.chainid, address(this))),
             keccak256(CreationCodeHelper.getCreationCodeFor(runtimeCode.wethGateway)),
             address(l2Factory)
         );
@@ -350,7 +352,7 @@ contract L2AtomicTokenBridgeFactoryTest is Test {
 
         // weth logic
         address expectedL2WethLogicAddress = Create2.computeAddress(
-            bytes32(0),
+            keccak256(abi.encodePacked(bytes("L2W"), block.chainid, address(this))),
             keccak256(CreationCodeHelper.getCreationCodeFor(runtimeCode.aeWeth)),
             address(l2Factory)
         );
@@ -402,7 +404,7 @@ contract L2AtomicTokenBridgeFactoryTest is Test {
 
         // logic
         address expectedL2UpgExecutorLogicAddress = Create2.computeAddress(
-            bytes32(0),
+            keccak256(abi.encodePacked(bytes("L2E"), block.chainid, address(this))),
             keccak256(CreationCodeHelper.getCreationCodeFor(runtimeCode.upgradeExecutor)),
             address(l2Factory)
         );

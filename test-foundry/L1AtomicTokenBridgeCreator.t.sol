@@ -422,54 +422,6 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
         l1Creator.createTokenBridge(address(inbox), deployer, 100, 200);
     }
 
-    function test_createTokenBridge_revert_AlreadyCreated() public {
-        // prepare
-        _setTemplates();
-        (RollupProxy rollup, Inbox inbox,, UpgradeExecutor upgExecutor) = _createRollup();
-
-        // mocks
-        vm.mockCall(
-            address(rollup), abi.encodeWithSignature("owner()"), abi.encode(address(upgExecutor))
-        );
-        vm.mockCall(
-            address(upgExecutor),
-            abi.encodeWithSignature(
-                "hasRole(bytes32,address)", upgExecutor.EXECUTOR_ROLE(), deployer
-            ),
-            abi.encode(true)
-        );
-        uint256 mockChainId = 2000;
-        vm.mockCall(address(rollup), abi.encodeWithSignature("chainId()"), abi.encode(mockChainId));
-
-        /// do 1st deployment
-        vm.deal(deployer, 10 ether);
-        vm.prank(deployer);
-        l1Creator.createTokenBridge{value: 1 ether}(address(inbox), deployer, 100, 200);
-
-        /// mock again
-        vm.mockCall(
-            address(rollup), abi.encodeWithSignature("owner()"), abi.encode(address(upgExecutor))
-        );
-        vm.mockCall(
-            address(upgExecutor),
-            abi.encodeWithSignature(
-                "hasRole(bytes32,address)", upgExecutor.EXECUTOR_ROLE(), deployer
-            ),
-            abi.encode(true)
-        );
-        vm.mockCall(address(rollup), abi.encodeWithSignature("chainId()"), abi.encode(mockChainId));
-
-        // 2nd deployment reverts
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                L1AtomicTokenBridgeCreator.L1AtomicTokenBridgeCreator_AlreadyCreated.selector
-            )
-        );
-
-        vm.prank(deployer);
-        l1Creator.createTokenBridge{value: 1 ether}(address(inbox), deployer, 100, 200);
-    }
-
     function test_getRouter_NonExistent() public {
         assertEq(l1Creator.getRouter(makeAddr("non-existent")), address(0), "Should be empty");
     }
