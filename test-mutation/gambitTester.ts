@@ -14,6 +14,7 @@ const testItems = [
   'test-foundry',
 ]
 const MAX_TASKS = os.cpus().length - 1
+const TASK_TIMEOUT = 2 * 60 * 1000
 const execAsync = promisify(exec)
 const symlink = promisify(fs.symlink)
 
@@ -33,6 +34,7 @@ interface TestResult {
 enum MutantStatus {
   KILLED = 'KILLED',
   SURVIVED = 'SURVIVED',
+  TIMEOUT = 'TIMEOUT',
 }
 
 runMutationTesting().catch(error => {
@@ -112,11 +114,23 @@ async function _testMutant(mutant: Mutant): Promise<TestResult> {
   // Re-build and test
   let mutantStatus: MutantStatus
   try {
-    await execAsync(`forge build --root ${testDirectory}`)
-    await execAsync(`forge test --root ${testDirectory}`)
-    mutantStatus = MutantStatus.SURVIVED
+    await Promise.race([
+      (async () => {
+        await execAsync(`forge build --root ${testDirectory}`)
+        await execAsync(`forge test --root ${testDirectory}`)
+        mutantStatus = MutantStatus.SURVIVED
+      })(),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Timeout')), TASK_TIMEOUT)
+      ),
+    ])
   } catch (error) {
-    mutantStatus = MutantStatus.KILLED
+    if (error instanceof Error) {
+      mutantStatus =
+        error.message === 'Timeout' ? MutantStatus.TIMEOUT : MutantStatus.KILLED
+    } else {
+      mutantStatus = MutantStatus.KILLED
+    }
   }
 
   // delete test folder
@@ -125,7 +139,7 @@ async function _testMutant(mutant: Mutant): Promise<TestResult> {
   return {
     mutantId: mutant.id,
     fileName: path.basename(mutant.name),
-    status: mutantStatus,
+    status: mutantStatus!,
   }
 }
 
@@ -137,6 +151,7 @@ function _printResults(results: TestResult[]) {
   let lastFileName = ''
   let killedCount = 0
   let survivedCount = 0
+  let timeoutCount = 0
 
   /// print table and count stats
   results.forEach(result => {
@@ -152,8 +167,10 @@ function _printResults(results: TestResult[]) {
 
     if (result.status === MutantStatus.KILLED) {
       killedCount++
-    } else {
+    } else if (result.status === MutantStatus.SURVIVED) {
       survivedCount++
+    } else {
+      timeoutCount++
     }
   })
 
