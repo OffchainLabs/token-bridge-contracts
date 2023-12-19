@@ -373,7 +373,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             l2Deployment.standardGateway,
             l2RollupOwner,
             msg.sender,
-            AddressAliasHelper.applyL1ToL2Alias(upgradeExecutor),
+            upgradeExecutor,
             isUsingFeeToken
         );
 
