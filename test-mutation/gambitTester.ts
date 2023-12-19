@@ -7,14 +7,15 @@ import * as fs from 'fs'
 import * as fsExtra from 'fs-extra'
 
 const GAMBIT_OUT = 'gambit_out/'
-const testItems = [
+const TEST_TIMES = [
   'contracts',
   'foundry.toml',
   'remappings.txt',
   'test-foundry',
 ]
 const MAX_TASKS = os.cpus().length - 1
-const TASK_TIMEOUT = 2 * 60 * 1000
+const TASK_TIMEOUT = 3 * 60 * 1000 // 3min
+
 const execAsync = promisify(exec)
 const symlink = promisify(fs.symlink)
 
@@ -42,6 +43,8 @@ runMutationTesting().catch(error => {
 })
 
 async function runMutationTesting() {
+  const startTime = Date.now()
+
   console.log('====== Generating mutants')
   const mutants: Mutant[] = await _generateMutants()
 
@@ -54,6 +57,10 @@ async function runMutationTesting() {
 
   // Delete test env
   await fsExtra.remove(path.join(__dirname, 'mutant_test_env'))
+
+  // Print time testing took
+  const endTime = Date.now()
+  console.log(`\n====== Done in ${(endTime - startTime) / (60 * 1000)} min`)
 }
 
 async function _generateMutants(): Promise<Mutant[]> {
@@ -89,7 +96,7 @@ async function _testMutant(mutant: Mutant): Promise<TestResult> {
   await fsExtra.ensureDir(testDirectory)
 
   // copy necessary files
-  for (const item of testItems) {
+  for (const item of TEST_TIMES) {
     const sourcePath = path.join(__dirname, '..', item)
     const destPath = path.join(testDirectory, item)
     await fsExtra.copy(sourcePath, destPath)
