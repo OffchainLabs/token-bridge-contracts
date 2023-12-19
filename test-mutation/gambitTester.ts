@@ -14,7 +14,6 @@ const TEST_TIMES = [
   'test-foundry',
 ]
 const MAX_TASKS = os.cpus().length - 1
-const TASK_TIMEOUT = 3 * 60 * 1000 // 3min
 
 const execAsync = promisify(exec)
 const symlink = promisify(fs.symlink)
@@ -35,7 +34,6 @@ interface TestResult {
 enum MutantStatus {
   KILLED = 'KILLED',
   SURVIVED = 'SURVIVED',
-  TIMEOUT = 'TIMEOUT',
 }
 
 runMutationTesting().catch(error => {
@@ -60,7 +58,9 @@ async function runMutationTesting() {
 
   // Print time testing took
   const endTime = Date.now()
-  console.log(`\n====== Done in ${(endTime - startTime) / (60 * 1000)} min`)
+  console.log(
+    `\n====== Done in ${((endTime - startTime) / (60 * 1000)).toFixed(2)} min`
+  )
 }
 
 async function _generateMutants(): Promise<Mutant[]> {
@@ -121,23 +121,13 @@ async function _testMutant(mutant: Mutant): Promise<TestResult> {
   // Re-build and test
   let mutantStatus: MutantStatus
   try {
-    await Promise.race([
-      (async () => {
-        await execAsync(`forge build --root ${testDirectory}`)
-        await execAsync(`forge test --root ${testDirectory}`)
-        mutantStatus = MutantStatus.SURVIVED
-      })(),
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Timeout')), TASK_TIMEOUT)
-      ),
-    ])
+    await execAsync(`forge build --root ${testDirectory}`)
+    await execAsync(
+      `forge test --fail-fast --gas-limit 30000000 --root ${testDirectory}`
+    )
+    mutantStatus = MutantStatus.SURVIVED
   } catch (error) {
-    if (error instanceof Error) {
-      mutantStatus =
-        error.message === 'Timeout' ? MutantStatus.TIMEOUT : MutantStatus.KILLED
-    } else {
-      mutantStatus = MutantStatus.KILLED
-    }
+    mutantStatus = MutantStatus.KILLED
   }
 
   // delete test folder
@@ -158,7 +148,6 @@ function _printResults(results: TestResult[]) {
   let lastFileName = ''
   let killedCount = 0
   let survivedCount = 0
-  let timeoutCount = 0
 
   /// print table and count stats
   results.forEach(result => {
@@ -176,8 +165,6 @@ function _printResults(results: TestResult[]) {
       killedCount++
     } else if (result.status === MutantStatus.SURVIVED) {
       survivedCount++
-    } else {
-      timeoutCount++
     }
   })
 
