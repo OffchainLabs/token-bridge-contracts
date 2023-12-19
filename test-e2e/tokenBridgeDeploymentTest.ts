@@ -169,12 +169,19 @@ describe('tokenBridge', () => {
       )
     }
 
-    const upgExecutor = new ethers.Contract(
+    const l1UpgradeExecutor = new ethers.Contract(
+      rollupAddresses.upgradeExecutor,
+      UpgradeExecutorABI,
+      l1Provider
+    )
+    await checkL1UpgradeExecutorInitialization(l1UpgradeExecutor, rollupAddresses);
+
+    const l2UpgradeExecutor = new ethers.Contract(
       l2Deployment.upgradeExecutor,
       UpgradeExecutorABI,
       l2Provider
     )
-    await checkL2UpgradeExecutorInitialization(upgExecutor, rollupAddresses)
+    await checkL2UpgradeExecutorInitialization(l2UpgradeExecutor, rollupAddresses)
 
     await checkL1Ownership(l1Deployment, rollupAddresses)
     await checkL2Ownership(l2Deployment, usingFeeToken)
@@ -296,6 +303,20 @@ async function checkL1WethGatewayInitialization(
   expect((await l1WethGateway.l2Weth()).toLowerCase()).to.not.be.eq(
     ethers.constants.AddressZero
   )
+}
+
+async function checkL1UpgradeExecutorInitialization(
+  l1Executor: Contract,
+  rollupAddresses: RollupAddresses
+) {
+  console.log('checkL1UpgradeExecutorInitialization')
+
+  //// check assigned/revoked roles are correctly set
+  const adminRole = await l1Executor.ADMIN_ROLE()
+  const executorRole = await l1Executor.EXECUTOR_ROLE()
+
+  expect(await l1Executor.hasRole(adminRole, l1Executor.address)).to.be.true
+  expect(await l1Executor.hasRole(executorRole, rollupAddresses.rollupOwner)).to.be.true
 }
 
 async function checkL2UpgradeExecutorInitialization(
