@@ -31,7 +31,6 @@ import {
 } from "@offchainlabs/upgrade-executor/src/UpgradeExecutor.sol";
 import {AddressAliasHelper} from "../libraries/AddressAliasHelper.sol";
 import {IInbox, IBridge, IOwnable} from "@arbitrum/nitro-contracts/src/bridge/IInbox.sol";
-import {AddressAliasHelper} from "../libraries/AddressAliasHelper.sol";
 import {ArbMulticall2} from "../../rpc-utils/MulticallV2.sol";
 import {BeaconProxyFactory, ClonableBeaconProxy} from "../libraries/ClonableBeaconProxy.sol";
 import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
@@ -57,7 +56,6 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     error L1AtomicTokenBridgeCreator_RollupOwnershipMisconfig();
     error L1AtomicTokenBridgeCreator_ProxyAdminNotFound();
     error L1AtomicTokenBridgeCreator_L2FactoryCannotBeChanged();
-    error L1AtomicTokenBridgeCreator_AlreadyCreated();
 
     event OrbitTokenBridgeCreated(
         address indexed inbox,
@@ -182,9 +180,10 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
      *      is called to issue 2nd retryable which deploys and inits the rest of the contracts. L2 chain is determined
      *      by `inbox` parameter.
      *
-     *      Token bridge can be deployed only once for certain inbox. Any further calls to `createTokenBridge` will revert
-     *      because L1 salts are already used at that point and L1 contracts are already deployed at canonical addresses
-     *      for that inbox.
+     *      In addition to deploying token bridge contracts, L2 factory will also deploy UpgradeExector on L2 side.
+     *      L2 UpgradeExecutor will set 2 accounts to have EXECUTOR role - rollupOwner and alias of L1UpgradeExecutor.
+     *      'rollupOwner' can be either EOA or a contract. If it is a contract, address will be aliased before sending to L2
+     *      in order to be usable.
      */
     function createTokenBridge(
         address inbox,
@@ -208,31 +207,40 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             revert L1AtomicTokenBridgeCreator_RollupOwnershipMisconfig();
         }
 
-        if (inboxToL1Deployment[inbox].router != address(0)) {
-            revert L1AtomicTokenBridgeCreator_AlreadyCreated();
-        }
+        // we allow resending l2 deployment calls
+        // this is useful to recover from expired or out-of-order retryables
+        // in case of resend, we assume L1 contracts already exist and we just need to deploy L2 contracts
+        // deployment mappings should not be updated in case of resend
+        bool isResend = (inboxToL1Deployment[inbox].router != address(0));
 
-        uint256 chainId = IRollupCore(address(IInbox(inbox).bridge().rollup())).chainId();
         bool isUsingFeeToken = _getFeeToken(inbox) != address(0);
 
         // store L2 addresses before deployments
         L1DeploymentAddresses memory l1Deployment;
         L2DeploymentAddresses memory l2Deployment;
 
-        // store L2 addresses which are proxies
-        l2Deployment.router = _getProxyAddress(OrbitSalts.L2_ROUTER, chainId);
-        l2Deployment.standardGateway = _getProxyAddress(OrbitSalts.L2_STANDARD_GATEWAY, chainId);
-        l2Deployment.customGateway = _getProxyAddress(OrbitSalts.L2_CUSTOM_GATEWAY, chainId);
-        if (!isUsingFeeToken) {
-            l2Deployment.wethGateway = _getProxyAddress(OrbitSalts.L2_WETH_GATEWAY, chainId);
-            l2Deployment.weth = _getProxyAddress(OrbitSalts.L2_WETH, chainId);
+        // if resend, we use the existing l1 deployment
+        if (isResend) {
+            l1Deployment = inboxToL1Deployment[inbox];
         }
-        l2Deployment.upgradeExecutor = _getProxyAddress(OrbitSalts.L2_EXECUTOR, chainId);
 
-        // store L2 addresses which are not proxies
-        l2Deployment.proxyAdmin = _predictL2ProxyAdminAddress(chainId);
-        l2Deployment.beaconProxyFactory = _predictL2BeaconProxyFactoryAddress(chainId);
-        l2Deployment.multicall = _predictL2Multicall(chainId);
+        {
+            // store L2 addresses which are proxies
+            uint256 chainId = IRollupCore(address(IInbox(inbox).bridge().rollup())).chainId();
+            l2Deployment.router = _getProxyAddress(OrbitSalts.L2_ROUTER, chainId);
+            l2Deployment.standardGateway = _getProxyAddress(OrbitSalts.L2_STANDARD_GATEWAY, chainId);
+            l2Deployment.customGateway = _getProxyAddress(OrbitSalts.L2_CUSTOM_GATEWAY, chainId);
+            if (!isUsingFeeToken) {
+                l2Deployment.wethGateway = _getProxyAddress(OrbitSalts.L2_WETH_GATEWAY, chainId);
+                l2Deployment.weth = _getProxyAddress(OrbitSalts.L2_WETH, chainId);
+            }
+            l2Deployment.upgradeExecutor = _getProxyAddress(OrbitSalts.L2_EXECUTOR, chainId);
+
+            // store L2 addresses which are not proxies
+            l2Deployment.proxyAdmin = _predictL2ProxyAdminAddress(chainId);
+            l2Deployment.beaconProxyFactory = _predictL2BeaconProxyFactoryAddress(chainId);
+            l2Deployment.multicall = _predictL2Multicall(chainId);
+        }
 
         // deploy L1 side of token bridge
         // get existing proxy admin and upgrade executor
@@ -241,84 +249,92 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             revert L1AtomicTokenBridgeCreator_ProxyAdminNotFound();
         }
 
-        // l1 router deployment block
-        {
-            address routerTemplate = isUsingFeeToken
-                ? address(l1Templates.feeTokenBasedRouterTemplate)
-                : address(l1Templates.routerTemplate);
-            l1Deployment.router = _deployProxyWithSalt(
-                _getL1Salt(OrbitSalts.L1_ROUTER, inbox), routerTemplate, proxyAdmin
-            );
-        }
+        // if resend, we assume L1 contracts already exist
+        if (!isResend) {
+            // l1 router deployment block
+            {
+                address routerTemplate = isUsingFeeToken
+                    ? address(l1Templates.feeTokenBasedRouterTemplate)
+                    : address(l1Templates.routerTemplate);
+                l1Deployment.router = _deployProxyWithSalt(
+                    _getL1Salt(OrbitSalts.L1_ROUTER, inbox), routerTemplate, proxyAdmin
+                );
+            }
 
-        // l1 standard gateway deployment block
-        {
-            address template = isUsingFeeToken
-                ? address(l1Templates.feeTokenBasedStandardGatewayTemplate)
-                : address(l1Templates.standardGatewayTemplate);
+            // l1 standard gateway deployment block
+            {
+                address template = isUsingFeeToken
+                    ? address(l1Templates.feeTokenBasedStandardGatewayTemplate)
+                    : address(l1Templates.standardGatewayTemplate);
 
-            L1ERC20Gateway standardGateway = L1ERC20Gateway(
-                _deployProxyWithSalt(
-                    _getL1Salt(OrbitSalts.L1_STANDARD_GATEWAY, inbox), template, proxyAdmin
-                )
-            );
-
-            standardGateway.initialize(
-                l2Deployment.standardGateway,
-                l1Deployment.router,
-                inbox,
-                keccak256(type(ClonableBeaconProxy).creationCode),
-                l2Deployment.beaconProxyFactory
-            );
-
-            l1Deployment.standardGateway = address(standardGateway);
-        }
-
-        // l1 custom gateway deployment block
-        {
-            address template = isUsingFeeToken
-                ? address(l1Templates.feeTokenBasedCustomGatewayTemplate)
-                : address(l1Templates.customGatewayTemplate);
-
-            L1CustomGateway customGateway = L1CustomGateway(
-                _deployProxyWithSalt(
-                    _getL1Salt(OrbitSalts.L1_CUSTOM_GATEWAY, inbox), template, proxyAdmin
-                )
-            );
-
-            customGateway.initialize(
-                l2Deployment.customGateway, l1Deployment.router, inbox, upgradeExecutor
-            );
-
-            l1Deployment.customGateway = address(customGateway);
-        }
-
-        // l1 weth gateway deployment block
-        if (!isUsingFeeToken) {
-            L1WethGateway wethGateway = L1WethGateway(
-                payable(
+                L1ERC20Gateway standardGateway = L1ERC20Gateway(
                     _deployProxyWithSalt(
-                        _getL1Salt(OrbitSalts.L1_WETH_GATEWAY, inbox),
-                        address(l1Templates.wethGatewayTemplate),
-                        proxyAdmin
+                        _getL1Salt(OrbitSalts.L1_STANDARD_GATEWAY, inbox), template, proxyAdmin
                     )
-                )
-            );
+                );
 
-            wethGateway.initialize(
-                l2Deployment.wethGateway, l1Deployment.router, inbox, l1Weth, l2Deployment.weth
-            );
+                standardGateway.initialize(
+                    l2Deployment.standardGateway,
+                    l1Deployment.router,
+                    inbox,
+                    keccak256(type(ClonableBeaconProxy).creationCode),
+                    l2Deployment.beaconProxyFactory
+                );
 
-            l1Deployment.wethGateway = address(wethGateway);
-            l1Deployment.weth = l1Weth;
+                l1Deployment.standardGateway = address(standardGateway);
+            }
+
+            // l1 custom gateway deployment block
+            {
+                address template = isUsingFeeToken
+                    ? address(l1Templates.feeTokenBasedCustomGatewayTemplate)
+                    : address(l1Templates.customGatewayTemplate);
+
+                L1CustomGateway customGateway = L1CustomGateway(
+                    _deployProxyWithSalt(
+                        _getL1Salt(OrbitSalts.L1_CUSTOM_GATEWAY, inbox), template, proxyAdmin
+                    )
+                );
+
+                customGateway.initialize(
+                    l2Deployment.customGateway, l1Deployment.router, inbox, upgradeExecutor
+                );
+
+                l1Deployment.customGateway = address(customGateway);
+            }
+
+            // l1 weth gateway deployment block
+            if (!isUsingFeeToken) {
+                L1WethGateway wethGateway = L1WethGateway(
+                    payable(
+                        _deployProxyWithSalt(
+                            _getL1Salt(OrbitSalts.L1_WETH_GATEWAY, inbox),
+                            address(l1Templates.wethGatewayTemplate),
+                            proxyAdmin
+                        )
+                    )
+                );
+
+                wethGateway.initialize(
+                    l2Deployment.wethGateway, l1Deployment.router, inbox, l1Weth, l2Deployment.weth
+                );
+
+                l1Deployment.wethGateway = address(wethGateway);
+                l1Deployment.weth = l1Weth;
+            }
+
+            // init router
+            L1GatewayRouter(l1Deployment.router).initialize(
+                upgradeExecutor,
+                l1Deployment.standardGateway,
+                address(0),
+                l2Deployment.router,
+                inbox
+            );
         }
-
-        // init router
-        L1GatewayRouter(l1Deployment.router).initialize(
-            upgradeExecutor, l1Deployment.standardGateway, address(0), l2Deployment.router, inbox
-        );
 
         // deploy factory and then L2 contracts through L2 factory, using 2 retryables calls
+        // we do not care if it is a resend or not, if the L2 deployment already exists it will simply fail on L2
         _deployL2Factory(inbox, gasPriceBid, isUsingFeeToken);
         if (isUsingFeeToken) {
             // transfer fee tokens to inbox to pay for 2nd retryable
@@ -326,6 +342,12 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             uint256 fee = maxGasForContracts * gasPriceBid;
             IERC20(feeToken).safeTransferFrom(msg.sender, inbox, fee);
         }
+
+        // alias rollup owner if it is a contract
+        address l2RollupOwner = rollupOwner.code.length == 0
+            ? rollupOwner
+            : AddressAliasHelper.applyL1ToL2Alias(rollupOwner);
+
         // sweep the balance to send the retryable and refund the difference
         // it is known that any eth previously in this contract can be extracted
         // tho it is not expected that this contract will have any eth
@@ -349,17 +371,20 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             ),
             l1Deployment,
             l2Deployment.standardGateway,
-            rollupOwner,
+            l2RollupOwner,
             msg.sender,
             AddressAliasHelper.applyL1ToL2Alias(upgradeExecutor),
             isUsingFeeToken
         );
 
-        emit OrbitTokenBridgeCreated(
-            inbox, rollupOwner, l1Deployment, l2Deployment, proxyAdmin, upgradeExecutor
-        );
-        inboxToL1Deployment[inbox] = l1Deployment;
-        inboxToL2Deployment[inbox] = l2Deployment;
+        // deployment mappings should not be updated in case of resend
+        if (!isResend) {
+            emit OrbitTokenBridgeCreated(
+                inbox, rollupOwner, l1Deployment, l2Deployment, proxyAdmin, upgradeExecutor
+            );
+            inboxToL1Deployment[inbox] = l1Deployment;
+            inboxToL2Deployment[inbox] = l2Deployment;
+        }
     }
 
     /**
@@ -447,7 +472,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     function _predictL2Multicall(uint256 chainId) internal view returns (address) {
         return Create2.computeAddress(
             _getL2Salt(OrbitSalts.L2_MULTICALL, chainId),
-            l2MulticallTemplate.codehash,
+            keccak256(CreationCodeHelper.getCreationCodeFor(l2MulticallTemplate.code)),
             canonicalL2FactoryAddress
         );
     }
