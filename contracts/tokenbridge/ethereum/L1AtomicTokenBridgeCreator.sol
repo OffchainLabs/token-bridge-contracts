@@ -225,8 +225,8 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         }
 
         {
-            uint256 chainId = IRollupCore(address(IInbox(inbox).bridge().rollup())).chainId();
             // store L2 addresses which are proxies
+            uint256 chainId = IRollupCore(address(IInbox(inbox).bridge().rollup())).chainId();
             l2Deployment.router = _getProxyAddress(OrbitSalts.L2_ROUTER, chainId);
             l2Deployment.standardGateway = _getProxyAddress(OrbitSalts.L2_STANDARD_GATEWAY, chainId);
             l2Deployment.customGateway = _getProxyAddress(OrbitSalts.L2_CUSTOM_GATEWAY, chainId);
