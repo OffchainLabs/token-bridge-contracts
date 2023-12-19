@@ -9,16 +9,13 @@ import * as fsExtra from 'fs-extra'
 const GAMBIT_OUT = 'gambit_out/'
 const testItems = [
   'contracts',
-  'lib',
   'foundry.toml',
   'remappings.txt',
   'test-foundry',
-  'node_modules/@openzeppelin',
-  'node_modules/@arbitrum',
-  'node_modules/@offchainlabs',
 ]
-const MAX_TASKS = os.cpus().length
+const MAX_TASKS = os.cpus().length - 1
 const execAsync = promisify(exec)
+const symlink = promisify(fs.symlink)
 
 interface Mutant {
   description: string
@@ -87,13 +84,24 @@ async function _testAllMutants(mutants: Mutant[]): Promise<TestResult[]> {
 
 async function _testMutant(mutant: Mutant): Promise<TestResult> {
   const testDirectory = path.join(__dirname, `mutant_test_env`, mutant.id)
-
   await fsExtra.ensureDir(testDirectory)
+
+  // copy necessary files
   for (const item of testItems) {
     const sourcePath = path.join(__dirname, '..', item)
     const destPath = path.join(testDirectory, item)
     await fsExtra.copy(sourcePath, destPath)
   }
+
+  // link lib and node_modules
+  await symlink(
+    path.join(__dirname, '..', 'lib'),
+    path.join(testDirectory, 'lib')
+  )
+  await symlink(
+    path.join(__dirname, '..', 'node_modules'),
+    path.join(testDirectory, 'node_modules')
+  )
 
   // Replace original file with mutant
   copyFileSync(
@@ -102,20 +110,22 @@ async function _testMutant(mutant: Mutant): Promise<TestResult> {
   )
 
   // Re-build and test
+  let mutantStatus: MutantStatus
   try {
     await execAsync(`forge build --root ${testDirectory}`)
     await execAsync(`forge test --root ${testDirectory}`)
-    return {
-      mutantId: mutant.id,
-      fileName: path.basename(mutant.name),
-      status: MutantStatus.SURVIVED,
-    }
+    mutantStatus = MutantStatus.SURVIVED
   } catch (error) {
-    return {
-      mutantId: mutant.id,
-      fileName: path.basename(mutant.name),
-      status: MutantStatus.KILLED,
-    }
+    mutantStatus = MutantStatus.KILLED
+  }
+
+  // delete test folder
+  await fsExtra.remove(path.join(testDirectory))
+
+  return {
+    mutantId: mutant.id,
+    fileName: path.basename(mutant.name),
+    status: mutantStatus,
   }
 }
 
