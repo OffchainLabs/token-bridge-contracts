@@ -45,8 +45,8 @@ import {IAccessControlUpgradeable} from
 
 /**
  * @title Layer1 token bridge creator
- * @notice This contract is used to deploy token bridge on custom L2 chains.
- * @dev Throughout the contract terms L1 and L2 are used, but those can be considered as base (N) chain and child (N+1) chain
+ * @notice This contract is used to deploy token bridge on custom Orbit chains.
+ * @dev Throughout the contract terms L1 and L2 are used, but those can be considered as parent (N) chain and child (N+1) chain.
  */
 contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     using SafeERC20 for IERC20;
@@ -184,6 +184,9 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
      *      L2 UpgradeExecutor will set 2 accounts to have EXECUTOR role - rollupOwner and alias of L1UpgradeExecutor.
      *      'rollupOwner' can be either EOA or a contract. If it is a contract, address will be aliased before sending to L2
      *      in order to be usable.
+     *
+     *      Warning: Due to asynchronous communication between parent and child chain, always check child chain contracts are
+     *      fully deployed and initialized before sending tokens to the bridge. Otherwise tokens might be permanently lost.
      */
     function createTokenBridge(
         address inbox,

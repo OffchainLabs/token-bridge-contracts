@@ -455,7 +455,8 @@ export const deployL1TokenBridgeCreator = async (
     )
     await l1Verifier.verifyWithAddress(
       'l1TokenBridgeCreatorLogic',
-      l1TokenBridgeCreatorLogic.address
+      l1TokenBridgeCreatorLogic.address,
+      abi.encode(['address'], [l2MulticallAddressOnL1.address])
     )
     await l1Verifier.verifyWithAddress(
       'l1TokenBridgeCreatorProxy',
