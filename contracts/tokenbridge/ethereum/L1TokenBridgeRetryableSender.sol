@@ -7,6 +7,7 @@ import {
     L2RuntimeCode,
     ProxyAdmin
 } from "../arbitrum/L2AtomicTokenBridgeFactory.sol";
+import {AddressAliasHelper} from "../libraries/AddressAliasHelper.sol";
 import {
     Initializable,
     OwnableUpgradeable
@@ -28,6 +29,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
  */
 contract L1TokenBridgeRetryableSender is Initializable, OwnableUpgradeable {
     error L1TokenBridgeRetryableSender_RefundFailed();
+    error L1TokenBridgeRetryableSender_EthReceivedForFeeToken();
 
     function initialize() public initializer {
         __Ownable_init();
@@ -36,9 +38,43 @@ contract L1TokenBridgeRetryableSender is Initializable, OwnableUpgradeable {
     /**
      * @notice Creates retryable which deploys L2 side of the token bridge.
      * @dev Function will build retryable data, calculate submission cost and retryable value, create retryable
-     *      and then refund the remaining funds to original delpoyer.
+     *      and then refund the remaining funds to original delpoyer if excess eth was sent.
      */
-    function sendRetryableUsingEth(
+    function sendRetryable(
+        RetryableParams calldata retryableParams,
+        L2TemplateAddresses calldata l2,
+        L1DeploymentAddresses calldata l1,
+        address l2StandardGatewayAddress,
+        address rollupOwner,
+        address deployer,
+        address l1UpgradeExecutor,
+        bool isUsingFeeToken
+    ) external payable onlyOwner {
+        address aliasedL1UpgradeExecutor = AddressAliasHelper.applyL1ToL2Alias(l1UpgradeExecutor);
+        if (!isUsingFeeToken) {
+            _sendRetryableUsingEth(
+                retryableParams,
+                l2,
+                l1,
+                l2StandardGatewayAddress,
+                rollupOwner,
+                deployer,
+                aliasedL1UpgradeExecutor
+            );
+        } else {
+            if (msg.value > 0) revert L1TokenBridgeRetryableSender_EthReceivedForFeeToken();
+            _sendRetryableUsingFeeToken(
+                retryableParams,
+                l2,
+                l1,
+                l2StandardGatewayAddress,
+                rollupOwner,
+                aliasedL1UpgradeExecutor
+            );
+        }
+    }
+
+    function _sendRetryableUsingEth(
         RetryableParams calldata retryableParams,
         L2TemplateAddresses calldata l2,
         L1DeploymentAddresses calldata l1,
@@ -46,7 +82,7 @@ contract L1TokenBridgeRetryableSender is Initializable, OwnableUpgradeable {
         address rollupOwner,
         address deployer,
         address aliasedL1UpgradeExecutor
-    ) external payable onlyOwner {
+    ) internal {
         bytes memory data = abi.encodeCall(
             L2AtomicTokenBridgeFactory.deployL2Contracts,
             (
@@ -77,24 +113,20 @@ contract L1TokenBridgeRetryableSender is Initializable, OwnableUpgradeable {
         _createRetryableUsingEth(retryableParams, maxSubmissionCost, retryableValue, data);
 
         // refund excess value to the deployer
-        uint256 refund = msg.value - retryableValue;
-        (bool success,) = deployer.call{value: refund}("");
+        // it is known that any eth previously in this contract can be extracted
+        // tho it is not expected that this contract will have any eth
+        (bool success,) = deployer.call{value: address(this).balance}("");
         if (!success) revert L1TokenBridgeRetryableSender_RefundFailed();
     }
 
-    /**
-     * @notice Creates retryable which deploys L2 side of the token bridge.
-     * @dev Function will build retryable data, calculate submission cost and retryable value, create retryable
-     *      and then refund the remaining funds to original delpoyer.
-     */
-    function sendRetryableUsingFeeToken(
+    function _sendRetryableUsingFeeToken(
         RetryableParams calldata retryableParams,
         L2TemplateAddresses calldata l2,
         L1DeploymentAddresses calldata l1,
         address l2StandardGatewayAddress,
         address rollupOwner,
         address aliasedL1UpgradeExecutor
-    ) external payable onlyOwner {
+    ) internal {
         bytes memory data = abi.encodeCall(
             L2AtomicTokenBridgeFactory.deployL2Contracts,
             (
@@ -194,6 +226,18 @@ struct L1DeploymentAddresses {
     address customGateway;
     address wethGateway;
     address weth;
+}
+
+struct L2DeploymentAddresses {
+    address router;
+    address standardGateway;
+    address customGateway;
+    address wethGateway;
+    address weth;
+    address proxyAdmin;
+    address beaconProxyFactory;
+    address upgradeExecutor;
+    address multicall;
 }
 
 interface IERC20Inbox {
