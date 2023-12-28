@@ -9,7 +9,7 @@
   "upgradeExecutor": "",
   "l1Multicall": "",
   "l2Multicall": "",
-  "l2GatewayRouter": "",
+  "l2Router": "",
   "l2StandardGateway": "",
   "l2CustomGateway": "",
   "l2WethGateway": "",
