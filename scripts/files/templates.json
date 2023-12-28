@@ -1,0 +1,17 @@
+{
+  "router": "",
+  "standardGateway": "",
+  "customGateway": "",
+  "wethGateway": "",
+  "feeTokenBasedRouter": "",
+  "feeTokenBasedStandardGateway": "",
+  "feeTokenBasedCustomGateway": "",
+  "upgradeExecutor": "",
+  "l1Multicall": "",
+  "l2Multicall": "",
+  "l2GatewayRouter": "",
+  "l2StandardGateway": "",
+  "l2CustomGateway": "",
+  "l2WethGateway": "",
+  "l2Weth": ""
+}

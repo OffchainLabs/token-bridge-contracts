@@ -22,10 +22,21 @@ import {
   IERC20Bridge__factory,
   IERC20__factory,
   ArbMulticall2__factory,
-  IRollupCore__factory,
-  IBridge__factory,
   Multicall2__factory,
   IInboxProxyAdmin__factory,
+  L1GatewayRouter,
+  L1ERC20Gateway,
+  L1CustomGateway,
+  L1WethGateway,
+  L1OrbitGatewayRouter,
+  L1OrbitERC20Gateway,
+  L1OrbitCustomGateway,
+  L2GatewayRouter,
+  L2ERC20Gateway,
+  L2CustomGateway,
+  L2WethGateway,
+  AeWETH,
+  Multicall2,
 } from '../build/types'
 import {
   abi as UpgradeExecutorABI,
@@ -41,11 +52,17 @@ import { exit } from 'process'
 import { getBaseFee } from '@arbitrum/sdk/dist/lib/utils/lib'
 import { RollupAdminLogic__factory } from '@arbitrum/sdk/dist/lib/abi/factories/RollupAdminLogic__factory'
 import { ContractVerifier } from './contractVerifier'
+import * as fs from 'fs'
 
 /**
  * Dummy non-zero address which is provided to logic contracts initializers
  */
 const ADDRESS_DEAD = '0x000000000000000000000000000000000000dEaD'
+
+/**
+ * Predeployed templates can be re-used for multiple deployments
+ */
+const predeployedTemplatesFilePath = './scripts/files/templates.json'
 
 /**
  * Use already deployed L1TokenBridgeCreator to create and init token bridge contracts.
@@ -205,11 +222,25 @@ export const deployL1TokenBridgeCreator = async (
   gasLimitForL2FactoryDeployment: BigNumber,
   verifyContracts: boolean = false
 ) => {
+  const predeployedTemplates = JSON.parse(
+    fs.readFileSync(predeployedTemplatesFilePath, 'utf8')
+  )
+
   /// deploy creator behind proxy
-  const l2MulticallAddressOnL1Fac = await new ArbMulticall2__factory(
-    l1Deployer
-  ).deploy()
-  const l2MulticallAddressOnL1 = await l2MulticallAddressOnL1Fac.deployed()
+  let l2Multicall
+  if (!predeployedTemplates.l2Multicall) {
+    const l2MulticallFac = await new ArbMulticall2__factory(l1Deployer).deploy()
+    l2Multicall = await l2MulticallFac.deployed()
+  } else {
+    console.log(
+      'Using predeployed l2Multicall',
+      predeployedTemplates.l2Multicall
+    )
+    l2Multicall = ArbMulticall2__factory.connect(
+      predeployedTemplates.l2Multicall,
+      l1Deployer
+    )
+  }
 
   const l1TokenBridgeCreatorProxyAdmin = await new ProxyAdmin__factory(
     l1Deployer
@@ -260,104 +291,196 @@ export const deployL1TokenBridgeCreator = async (
   await (await l1TokenBridgeCreator.initialize(retryableSender.address)).wait()
 
   /// deploy L1 logic contracts. Initialize them with dummy data
-  const routerTemplate = await new L1GatewayRouter__factory(l1Deployer).deploy()
-  await routerTemplate.deployed()
-  await (
-    await routerTemplate.initialize(
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD
+  let routerTemplate: L1GatewayRouter
+  if (!predeployedTemplates.router) {
+    routerTemplate = await new L1GatewayRouter__factory(l1Deployer).deploy()
+    await routerTemplate.deployed()
+    await (
+      await routerTemplate.initialize(
+        ADDRESS_DEAD,
+        ADDRESS_DEAD,
+        ADDRESS_DEAD,
+        ADDRESS_DEAD,
+        ADDRESS_DEAD
+      )
+    ).wait()
+  } else {
+    console.log('Using predeployed router', predeployedTemplates.router)
+    routerTemplate = L1GatewayRouter__factory.connect(
+      predeployedTemplates.router,
+      l1Deployer
     )
-  ).wait()
+  }
 
-  const standardGatewayTemplate = await new L1ERC20Gateway__factory(
-    l1Deployer
-  ).deploy()
-  await standardGatewayTemplate.deployed()
-  await (
-    await standardGatewayTemplate.initialize(
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ethers.utils.hexZeroPad('0x01', 32),
-      ADDRESS_DEAD
+  let standardGatewayTemplate: L1ERC20Gateway
+  if (!predeployedTemplates.standardGateway) {
+    standardGatewayTemplate = await new L1ERC20Gateway__factory(
+      l1Deployer
+    ).deploy()
+    await standardGatewayTemplate.deployed()
+    await (
+      await standardGatewayTemplate.initialize(
+        ADDRESS_DEAD,
+        ADDRESS_DEAD,
+        ADDRESS_DEAD,
+        ethers.utils.hexZeroPad('0x01', 32),
+        ADDRESS_DEAD
+      )
+    ).wait()
+  } else {
+    console.log(
+      'Using predeployed standardGateway',
+      predeployedTemplates.standardGateway
     )
-  ).wait()
-
-  const customGatewayTemplate = await new L1CustomGateway__factory(
-    l1Deployer
-  ).deploy()
-  await customGatewayTemplate.deployed()
-  await (
-    await customGatewayTemplate.initialize(
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD
+    standardGatewayTemplate = L1ERC20Gateway__factory.connect(
+      predeployedTemplates.standardGateway,
+      l1Deployer
     )
-  ).wait()
+  }
 
-  const wethGatewayTemplate = await new L1WethGateway__factory(
-    l1Deployer
-  ).deploy()
-  await wethGatewayTemplate.deployed()
-  await (
-    await wethGatewayTemplate.initialize(
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD
+  let customGatewayTemplate: L1CustomGateway
+  if (!predeployedTemplates.customGateway) {
+    customGatewayTemplate = await new L1CustomGateway__factory(
+      l1Deployer
+    ).deploy()
+    await customGatewayTemplate.deployed()
+    await (
+      await customGatewayTemplate.initialize(
+        ADDRESS_DEAD,
+        ADDRESS_DEAD,
+        ADDRESS_DEAD,
+        ADDRESS_DEAD
+      )
+    ).wait()
+  } else {
+    console.log(
+      'Using predeployed customGateway',
+      predeployedTemplates.customGateway
     )
-  ).wait()
-
-  const feeTokenBasedRouterTemplate = await new L1OrbitGatewayRouter__factory(
-    l1Deployer
-  ).deploy()
-  await feeTokenBasedRouterTemplate.deployed()
-  await (
-    await feeTokenBasedRouterTemplate.initialize(
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD
+    customGatewayTemplate = L1CustomGateway__factory.connect(
+      predeployedTemplates.customGateway,
+      l1Deployer
     )
-  ).wait()
+  }
 
-  const feeTokenBasedStandardGatewayTemplate =
-    await new L1OrbitERC20Gateway__factory(l1Deployer).deploy()
-  await feeTokenBasedStandardGatewayTemplate.deployed()
-  await (
-    await feeTokenBasedStandardGatewayTemplate.initialize(
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ethers.utils.hexZeroPad('0x01', 32),
-      ADDRESS_DEAD
+  let wethGatewayTemplate: L1WethGateway
+  if (!predeployedTemplates.wethGateway) {
+    wethGatewayTemplate = await new L1WethGateway__factory(l1Deployer).deploy()
+    await wethGatewayTemplate.deployed()
+    await (
+      await wethGatewayTemplate.initialize(
+        ADDRESS_DEAD,
+        ADDRESS_DEAD,
+        ADDRESS_DEAD,
+        ADDRESS_DEAD,
+        ADDRESS_DEAD
+      )
+    ).wait()
+  } else {
+    console.log(
+      'Using predeployed wethGateway',
+      predeployedTemplates.wethGateway
     )
-  ).wait()
-
-  const feeTokenBasedCustomGatewayTemplate =
-    await new L1OrbitCustomGateway__factory(l1Deployer).deploy()
-  await feeTokenBasedCustomGatewayTemplate.deployed()
-  await (
-    await feeTokenBasedCustomGatewayTemplate.initialize(
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD
+    wethGatewayTemplate = L1WethGateway__factory.connect(
+      predeployedTemplates.wethGateway,
+      l1Deployer
     )
-  ).wait()
+  }
 
-  const upgradeExecutorFactory = new ethers.ContractFactory(
-    UpgradeExecutorABI,
-    UpgradeExecutorBytecode,
-    l1Deployer
-  )
-  const upgradeExecutor = await upgradeExecutorFactory.deploy()
+  let feeTokenBasedRouterTemplate: L1OrbitGatewayRouter
+  if (!predeployedTemplates.feeTokenBasedRouter) {
+    feeTokenBasedRouterTemplate = await new L1OrbitGatewayRouter__factory(
+      l1Deployer
+    ).deploy()
+    await feeTokenBasedRouterTemplate.deployed()
+    await (
+      await feeTokenBasedRouterTemplate.initialize(
+        ADDRESS_DEAD,
+        ADDRESS_DEAD,
+        ADDRESS_DEAD,
+        ADDRESS_DEAD,
+        ADDRESS_DEAD
+      )
+    ).wait()
+  } else {
+    console.log(
+      'Using predeployed feeTokenBasedRouter',
+      predeployedTemplates.feeTokenBasedRouter
+    )
+    feeTokenBasedRouterTemplate = L1OrbitGatewayRouter__factory.connect(
+      predeployedTemplates.feeTokenBasedRouter,
+      l1Deployer
+    )
+  }
+
+  let feeTokenBasedStandardGatewayTemplate: L1OrbitERC20Gateway
+  if (!predeployedTemplates.feeTokenBasedStandardGateway) {
+    feeTokenBasedStandardGatewayTemplate =
+      await new L1OrbitERC20Gateway__factory(l1Deployer).deploy()
+    await feeTokenBasedStandardGatewayTemplate.deployed()
+    await (
+      await feeTokenBasedStandardGatewayTemplate.initialize(
+        ADDRESS_DEAD,
+        ADDRESS_DEAD,
+        ADDRESS_DEAD,
+        ethers.utils.hexZeroPad('0x01', 32),
+        ADDRESS_DEAD
+      )
+    ).wait()
+  } else {
+    console.log(
+      'Using predeployed feeTokenBasedStandardGateway',
+      predeployedTemplates.feeTokenBasedStandardGateway
+    )
+    feeTokenBasedStandardGatewayTemplate = L1OrbitERC20Gateway__factory.connect(
+      predeployedTemplates.feeTokenBasedStandardGateway,
+      l1Deployer
+    )
+  }
+
+  let feeTokenBasedCustomGatewayTemplate: L1OrbitCustomGateway
+  if (!predeployedTemplates.feeTokenBasedCustomGateway) {
+    feeTokenBasedCustomGatewayTemplate =
+      await new L1OrbitCustomGateway__factory(l1Deployer).deploy()
+    await feeTokenBasedCustomGatewayTemplate.deployed()
+    await (
+      await feeTokenBasedCustomGatewayTemplate.initialize(
+        ADDRESS_DEAD,
+        ADDRESS_DEAD,
+        ADDRESS_DEAD,
+        ADDRESS_DEAD
+      )
+    ).wait()
+  } else {
+    console.log(
+      'Using predeployed feeTokenBasedCustomGateway',
+      predeployedTemplates.feeTokenBasedCustomGateway
+    )
+    feeTokenBasedCustomGatewayTemplate = L1OrbitCustomGateway__factory.connect(
+      predeployedTemplates.feeTokenBasedCustomGateway,
+      l1Deployer
+    )
+  }
+
+  let upgradeExecutor: ethers.Contract
+  if (!predeployedTemplates.upgradeExecutor) {
+    const upgradeExecutorFactory = new ethers.ContractFactory(
+      UpgradeExecutorABI,
+      UpgradeExecutorBytecode,
+      l1Deployer
+    )
+    upgradeExecutor = await upgradeExecutorFactory.deploy()
+  } else {
+    console.log(
+      'Using predeployed upgradeExecutor',
+      predeployedTemplates.upgradeExecutor
+    )
+    upgradeExecutor = new ethers.Contract(
+      predeployedTemplates.upgradeExecutor,
+      UpgradeExecutorABI,
+      l1Deployer
+    )
+  }
 
   const l1Templates = {
     routerTemplate: routerTemplate.address,
@@ -377,63 +500,127 @@ export const deployL1TokenBridgeCreator = async (
     await new L2AtomicTokenBridgeFactory__factory(l1Deployer).deploy()
   await l2TokenBridgeFactoryOnL1.deployed()
 
-  const l2GatewayRouterOnL1 = await new L2GatewayRouter__factory(
-    l1Deployer
-  ).deploy()
-  await l2GatewayRouterOnL1.deployed()
-  await (
-    await l2GatewayRouterOnL1.initialize(ADDRESS_DEAD, ADDRESS_DEAD)
-  ).wait()
-
-  const l2StandardGatewayAddressOnL1 = await new L2ERC20Gateway__factory(
-    l1Deployer
-  ).deploy()
-  await l2StandardGatewayAddressOnL1.deployed()
-  await (
-    await l2StandardGatewayAddressOnL1.initialize(
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD
+  let l2GatewayRouterOnL1: L2GatewayRouter
+  if (!predeployedTemplates.l2Router) {
+    l2GatewayRouterOnL1 = await new L2GatewayRouter__factory(
+      l1Deployer
+    ).deploy()
+    await l2GatewayRouterOnL1.deployed()
+    await (
+      await l2GatewayRouterOnL1.initialize(ADDRESS_DEAD, ADDRESS_DEAD)
+    ).wait()
+  } else {
+    console.log('Using predeployed l2Router', predeployedTemplates.l2Router)
+    l2GatewayRouterOnL1 = L2GatewayRouter__factory.connect(
+      predeployedTemplates.l2Router,
+      l1Deployer
     )
-  ).wait()
+  }
 
-  const l2CustomGatewayAddressOnL1 = await new L2CustomGateway__factory(
-    l1Deployer
-  ).deploy()
-  await l2CustomGatewayAddressOnL1.deployed()
-  await (
-    await l2CustomGatewayAddressOnL1.initialize(ADDRESS_DEAD, ADDRESS_DEAD)
-  ).wait()
-
-  const l2WethGatewayAddressOnL1 = await new L2WethGateway__factory(
-    l1Deployer
-  ).deploy()
-  await l2WethGatewayAddressOnL1.deployed()
-  await (
-    await l2WethGatewayAddressOnL1.initialize(
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD
+  let l2StandardGatewayOnL1: L2ERC20Gateway
+  if (!predeployedTemplates.l2StandardGateway) {
+    l2StandardGatewayOnL1 = await new L2ERC20Gateway__factory(
+      l1Deployer
+    ).deploy()
+    await l2StandardGatewayOnL1.deployed()
+    await (
+      await l2StandardGatewayOnL1.initialize(
+        ADDRESS_DEAD,
+        ADDRESS_DEAD,
+        ADDRESS_DEAD
+      )
+    ).wait()
+  } else {
+    console.log(
+      'Using predeployed l2StandardGateway',
+      predeployedTemplates.l2StandardGateway
     )
-  ).wait()
+    l2StandardGatewayOnL1 = L2ERC20Gateway__factory.connect(
+      predeployedTemplates.l2StandardGateway,
+      l1Deployer
+    )
+  }
 
-  const l2WethAddressOnL1 = await new AeWETH__factory(l1Deployer).deploy()
-  await l2WethAddressOnL1.deployed()
+  let l2CustomGatewayOnL1: L2CustomGateway
+  if (!predeployedTemplates.l2CustomGateway) {
+    l2CustomGatewayOnL1 = await new L2CustomGateway__factory(
+      l1Deployer
+    ).deploy()
+    await l2CustomGatewayOnL1.deployed()
+    await (
+      await l2CustomGatewayOnL1.initialize(ADDRESS_DEAD, ADDRESS_DEAD)
+    ).wait()
+  } else {
+    console.log(
+      'Using predeployed l2CustomGateway',
+      predeployedTemplates.l2CustomGateway
+    )
+    l2CustomGatewayOnL1 = L2CustomGateway__factory.connect(
+      predeployedTemplates.l2CustomGateway,
+      l1Deployer
+    )
+  }
 
-  const l1Multicall = await new Multicall2__factory(l1Deployer).deploy()
-  await l1Multicall.deployed()
+  let l2WethGatewayOnL1: L2WethGateway
+  if (!predeployedTemplates.l2WethGateway) {
+    l2WethGatewayOnL1 = await new L2WethGateway__factory(l1Deployer).deploy()
+    await l2WethGatewayOnL1.deployed()
+    await (
+      await l2WethGatewayOnL1.initialize(
+        ADDRESS_DEAD,
+        ADDRESS_DEAD,
+        ADDRESS_DEAD,
+        ADDRESS_DEAD
+      )
+    ).wait()
+  } else {
+    console.log(
+      'Using predeployed l2WethGateway',
+      predeployedTemplates.l2WethGateway
+    )
+    l2WethGatewayOnL1 = L2WethGateway__factory.connect(
+      predeployedTemplates.l2WethGateway,
+      l1Deployer
+    )
+  }
+
+  let l2WethOnL1: AeWETH
+  if (!predeployedTemplates.l2Weth) {
+    l2WethOnL1 = await new AeWETH__factory(l1Deployer).deploy()
+    await l2WethOnL1.deployed()
+  } else {
+    console.log('Using predeployed l2Weth', predeployedTemplates.l2Weth)
+    l2WethOnL1 = AeWETH__factory.connect(
+      predeployedTemplates.l2Weth,
+      l1Deployer
+    )
+  }
+
+  let l1Multicall: Multicall2
+  if (!predeployedTemplates.l1Multicall) {
+    l1Multicall = await new Multicall2__factory(l1Deployer).deploy()
+    await l1Multicall.deployed()
+  } else {
+    console.log(
+      'Using predeployed l1Multicall',
+      predeployedTemplates.l1Multicall
+    )
+    l1Multicall = Multicall2__factory.connect(
+      predeployedTemplates.l1Multicall,
+      l1Deployer
+    )
+  }
 
   await (
     await l1TokenBridgeCreator.setTemplates(
       l1Templates,
       l2TokenBridgeFactoryOnL1.address,
       l2GatewayRouterOnL1.address,
-      l2StandardGatewayAddressOnL1.address,
-      l2CustomGatewayAddressOnL1.address,
-      l2WethGatewayAddressOnL1.address,
-      l2WethAddressOnL1.address,
-      l2MulticallAddressOnL1.address,
+      l2StandardGatewayOnL1.address,
+      l2CustomGatewayOnL1.address,
+      l2WethGatewayOnL1.address,
+      l2WethOnL1.address,
+      l2Multicall.address,
       l1WethAddress,
       l1Multicall.address,
       gasLimitForL2FactoryDeployment
@@ -456,7 +643,7 @@ export const deployL1TokenBridgeCreator = async (
     await l1Verifier.verifyWithAddress(
       'l1TokenBridgeCreatorLogic',
       l1TokenBridgeCreatorLogic.address,
-      abi.encode(['address'], [l2MulticallAddressOnL1.address])
+      abi.encode(['address'], [l2Multicall.address])
     )
     await l1Verifier.verifyWithAddress(
       'l1TokenBridgeCreatorProxy',
@@ -527,23 +714,20 @@ export const deployL1TokenBridgeCreator = async (
     )
     await l1Verifier.verifyWithAddress(
       'l2StandardGatewayAddressOnL1',
-      l2StandardGatewayAddressOnL1.address
+      l2StandardGatewayOnL1.address
     )
     await l1Verifier.verifyWithAddress(
       'l2CustomGatewayAddressOnL1',
-      l2CustomGatewayAddressOnL1.address
+      l2CustomGatewayOnL1.address
     )
     await l1Verifier.verifyWithAddress(
       'l2WethGatewayAddressOnL1',
-      l2WethGatewayAddressOnL1.address
+      l2WethGatewayOnL1.address
     )
-    await l1Verifier.verifyWithAddress(
-      'l2WethAddressOnL1',
-      l2WethAddressOnL1.address
-    )
+    await l1Verifier.verifyWithAddress('l2WethAddressOnL1', l2WethOnL1.address)
     await l1Verifier.verifyWithAddress(
       'l2MulticallAddressOnL1',
-      l2MulticallAddressOnL1.address
+      l2Multicall.address
     )
 
     await l1Verifier.verifyWithAddress('l1Multicall', l1Multicall.address)
