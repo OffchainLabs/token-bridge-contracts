@@ -3,9 +3,11 @@ import { L1Network, L2Network, addCustomNetwork } from '@arbitrum/sdk'
 import { RollupAdminLogic__factory } from '@arbitrum/sdk/dist/lib/abi/factories/RollupAdminLogic__factory'
 import {
   deployL1TokenBridgeCreator,
+  getEstimateForDeployingFactory,
   getSigner,
 } from '../atomicTokenBridgeDeployer'
 import dotenv from 'dotenv'
+import { BigNumber } from 'ethers'
 
 dotenv.config()
 
@@ -13,9 +15,11 @@ export const envVars = {
   baseChainRpc: process.env['BASECHAIN_RPC'] as string,
   baseChainDeployerKey: process.env['BASECHAIN_DEPLOYER_KEY'] as string,
   childChainRpc: process.env['ORBIT_RPC'] as string,
+  baseChainWeth: process.env['BASECHAIN_WETH'] as string,
+  rollupAddress: process.env['ROLLUP_ADDRESS'] as string,
+  gasLimitForL2FactoryDeployment:
+    process.env['GAS_LIMIT_FOR_L2_FACTORY_DEPLOYMENT'],
 }
-
-const ARB_GOERLI_WETH = '0xEe01c0CD76354C383B8c7B4e65EA88D00B06f36f'
 
 /**
  * Steps:
@@ -30,28 +34,58 @@ const ARB_GOERLI_WETH = '0xEe01c0CD76354C383B8c7B4e65EA88D00B06f36f'
  * @param l2Url
  * @returns
  */
-export const deployTokenBridgeCreator = async (rollupAddress: string) => {
-  if (envVars.baseChainRpc == undefined)
+export const deployTokenBridgeCreator = async () => {
+  if (!envVars.baseChainRpc) {
     throw new Error('Missing BASECHAIN_RPC in env vars')
-  if (envVars.baseChainDeployerKey == undefined)
+  }
+  if (!envVars.baseChainDeployerKey) {
     throw new Error('Missing BASECHAIN_DEPLOYER_KEY in env vars')
-  if (envVars.childChainRpc == undefined)
-    throw new Error('Missing ORBIT_RPC in env vars')
+  }
+  if (!envVars.baseChainWeth) {
+    throw new Error('Missing BASECHAIN_WETH in env vars')
+  }
+  if (
+    !(envVars.rollupAddress && envVars.childChainRpc) &&
+    !envVars.gasLimitForL2FactoryDeployment
+  ) {
+    throw new Error(
+      'Either GAS_LIMIT_FOR_L2_FACTORY_DEPLOYMENT or (ROLLUP_ADDRESS and ORBIT_RPC) must be set in env vars'
+    )
+  }
 
   const l1Provider = new JsonRpcProvider(envVars.baseChainRpc)
   const l1Deployer = getSigner(l1Provider, envVars.baseChainDeployerKey)
-  const l2Provider = new JsonRpcProvider(envVars.childChainRpc)
 
-  await registerGoerliNetworks(l1Provider, l2Provider, rollupAddress)
+  // get gas limit for L2 factory deployment from env var or do retryable estimate
+  let gasLimitForL2FactoryDeployment: BigNumber
+  if (envVars.gasLimitForL2FactoryDeployment) {
+    gasLimitForL2FactoryDeployment = BigNumber.from(
+      envVars.gasLimitForL2FactoryDeployment
+    )
+  } else {
+    const l2Provider = new JsonRpcProvider(envVars.childChainRpc)
+    await registerNetworks(l1Provider, l2Provider, envVars.rollupAddress)
+    //// run retryable estimate for deploying L2 factory
+    const deployFactoryGasParams = await getEstimateForDeployingFactory(
+      l1Deployer,
+      l2Provider
+    )
+    gasLimitForL2FactoryDeployment = deployFactoryGasParams.gasLimit
+  }
 
   // deploy L1 creator and set templates
   const { l1TokenBridgeCreator, retryableSender } =
-    await deployL1TokenBridgeCreator(l1Deployer, l2Provider, ARB_GOERLI_WETH, true)
+    await deployL1TokenBridgeCreator(
+      l1Deployer,
+      envVars.baseChainWeth,
+      gasLimitForL2FactoryDeployment,
+      true
+    )
 
   return { l1TokenBridgeCreator, retryableSender }
 }
 
-const registerGoerliNetworks = async (
+const registerNetworks = async (
   l1Provider: JsonRpcProvider,
   l2Provider: JsonRpcProvider,
   rollupAddress: string
@@ -123,10 +157,9 @@ const registerGoerliNetworks = async (
 }
 
 async function main() {
-  // this is just random Orbit rollup that will be used to estimate gas needed to deploy L2 token bridge factory via retryable
-  const rollupAddress = '0x8223bd899C6643483872ed2A7b105b2aC9C8aBEc'
+  console.log('Deploying token bridge creator...')
   const { l1TokenBridgeCreator, retryableSender } =
-    await deployTokenBridgeCreator(rollupAddress)
+    await deployTokenBridgeCreator()
 
   console.log('Token bridge creator deployed!')
   console.log('L1TokenBridgeCreator:', l1TokenBridgeCreator.address)

@@ -50,7 +50,7 @@ contract IntegrationTest is Test {
             1_000_000 ether,
             address(this)
         );
-        inbox = ERC20Inbox(TestUtil.deployProxy(address(new ERC20Inbox())));
+        inbox = ERC20Inbox(TestUtil.deployProxy(address(new ERC20Inbox(104857))));
         bridge = ERC20Bridge(TestUtil.deployProxy(address(new ERC20Bridge())));
 
         // init bridge and inbox

@@ -94,3 +94,76 @@ jobs:
 
       - name: Test Storage Layouts
         run: yarn run test:storage
+
+  test-e2e:
+    name: Test e2e
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - uses: OffchainLabs/actions/run-nitro-test-node@main
+        with:
+          nitro-testnode-ref: bump-nitro
+          l3-node: true 
+          no-token-bridge: true
+
+      - name: Setup node/yarn
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16
+          cache: 'yarn'
+          cache-dependency-path: '**/yarn.lock'
+
+      - name: Install packages
+        run: yarn
+
+      - name: Compile contracts
+        run: yarn build
+
+      - name: Deploy creator and create token bridge
+        run: yarn deploy:local:token-bridge
+
+      - name: Verify deployed token bridge
+        run: yarn test:tokenbridge:deployment
+
+      - name: Verify creation code generation
+        run: yarn test:creation-code
+
+  test-e2e-custom-fee-token:
+    name: Test e2e on custom fee token chain
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - uses: OffchainLabs/actions/run-nitro-test-node@main
+        with:
+          nitro-testnode-ref: bump-nitro
+          l3-node: true
+          args: --l3-fee-token
+          no-token-bridge: true
+
+      - name: Setup node/yarn
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16
+          cache: 'yarn'
+          cache-dependency-path: '**/yarn.lock'
+
+      - name: Install packages
+        run: yarn
+
+      - name: Compile contracts
+        run: yarn build
+
+      - name: Deploy creator and create token bridge
+        run: yarn deploy:local:token-bridge
+
+      - name: Verify deployed token bridge
+        run: yarn test:tokenbridge:deployment
+
+      - name: Verify creation code generation
+        run: yarn test:creation-code
