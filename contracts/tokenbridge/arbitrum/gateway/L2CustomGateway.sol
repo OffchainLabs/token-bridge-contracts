@@ -26,7 +26,7 @@ contract L2CustomGateway is L2ArbitrumGateway, ICustomGateway {
     // stores addresses of L2 tokens to be used
     mapping(address => address) public override l1ToL2Token;
 
-    function initialize(address _l1Counterpart, address _router) public {
+    function initialize(address _l1Counterpart, address _router) public virtual {
         L2ArbitrumGateway._initialize(_l1Counterpart, _router);
     }
 
@@ -35,9 +35,9 @@ contract L2CustomGateway is L2ArbitrumGateway, ICustomGateway {
      */
     function handleNoContract(
         address _l1Token,
-        address, /* expectedL2Address */
+        address /* expectedL2Address */,
         address _from,
-        address, /* _to */
+        address /* _to */,
         uint256 _amount,
         bytes memory /* gatewayData */
     ) internal override returns (bool shouldHalt) {
@@ -60,10 +60,10 @@ contract L2CustomGateway is L2ArbitrumGateway, ICustomGateway {
         return l1ToL2Token[l1ERC20];
     }
 
-    function registerTokenFromL1(address[] calldata l1Address, address[] calldata l2Address)
-        external
-        onlyCounterpartGateway
-    {
+    function registerTokenFromL1(
+        address[] calldata l1Address,
+        address[] calldata l2Address
+    ) external onlyCounterpartGateway {
         // we assume both arrays are the same length, safe since its encoded by the L1
         for (uint256 i = 0; i < l1Address.length; i++) {
             // here we don't check if l2Address is a contract and instead deal with that behaviour

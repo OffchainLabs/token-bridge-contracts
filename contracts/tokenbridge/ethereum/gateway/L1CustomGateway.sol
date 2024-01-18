@@ -97,7 +97,7 @@ contract L1CustomGateway is L1ArbitrumExtendedGateway, ICustomGateway {
         address _l1Router,
         address _inbox,
         address _owner
-    ) public {
+    ) public virtual {
         L1ArbitrumGateway._initialize(_l1Counterpart, _l1Router, _inbox);
         owner = _owner;
         // disable whitelist by default
@@ -113,12 +113,9 @@ contract L1CustomGateway is L1ArbitrumExtendedGateway, ICustomGateway {
      * @param l1ERC20 address of L1 token
      * @return L2 address of a bridged ERC20 token
      */
-    function calculateL2TokenAddress(address l1ERC20)
-        public
-        view
-        override(ITokenGateway, TokenGateway)
-        returns (address)
-    {
+    function calculateL2TokenAddress(
+        address l1ERC20
+    ) public view override(ITokenGateway, TokenGateway) returns (address) {
         return l1ToL2Token[l1ERC20];
     }
 
