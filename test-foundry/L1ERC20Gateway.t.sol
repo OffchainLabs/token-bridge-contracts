@@ -31,6 +31,10 @@ contract L1ERC20GatewayTest is L1ArbitrumExtendedGatewayTest {
         vm.prank(user);
         TestERC20(address(token)).mint();
         vm.deal(router, 100 ether);
+
+        // move some funds to gateway
+        vm.prank(user);
+        token.transfer(address(l1Gateway), 100);
     }
 
     /* solhint-disable func-name-mixedcase */
