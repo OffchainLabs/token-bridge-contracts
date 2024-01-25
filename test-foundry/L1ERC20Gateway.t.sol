@@ -2,7 +2,9 @@
 
 pragma solidity ^0.8.0;
 
-import { L1ArbitrumExtendedGatewayTest, InboxMock, TestERC20 } from "./L1ArbitrumExtendedGateway.t.sol";
+import {
+    L1ArbitrumExtendedGatewayTest, InboxMock, TestERC20
+} from "./L1ArbitrumExtendedGateway.t.sol";
 import "contracts/tokenbridge/ethereum/gateway/L1ERC20Gateway.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
@@ -17,11 +19,7 @@ contract L1ERC20GatewayTest is L1ArbitrumExtendedGatewayTest {
 
         l1Gateway = new L1ERC20Gateway();
         L1ERC20Gateway(address(l1Gateway)).initialize(
-            l2Gateway,
-            router,
-            inbox,
-            cloneableProxyHash,
-            l2BeaconProxyFactory
+            l2Gateway, router, inbox, cloneableProxyHash, l2BeaconProxyFactory
         );
 
         token = IERC20(address(new TestERC20()));
@@ -45,6 +43,22 @@ contract L1ERC20GatewayTest is L1ArbitrumExtendedGatewayTest {
         assertEq(gateway.inbox(), inbox, "Invalid inbox");
         assertEq(gateway.l2BeaconProxyFactory(), l2BeaconProxyFactory, "Invalid beacon");
         assertEq(gateway.whitelist(), address(0), "Invalid whitelist");
+    }
+
+    function test_initialize_revert_BadInbox() public {
+        L1ERC20Gateway gateway = new L1ERC20Gateway();
+        address badInbox = address(0);
+
+        vm.expectRevert("BAD_INBOX");
+        gateway.initialize(l2Gateway, router, badInbox, cloneableProxyHash, l2BeaconProxyFactory);
+    }
+
+    function test_initialize_revert_BadRouter() public {
+        L1ERC20Gateway gateway = new L1ERC20Gateway();
+        address badRouter = address(0);
+
+        vm.expectRevert("BAD_ROUTER");
+        gateway.initialize(l2Gateway, badRouter, inbox, cloneableProxyHash, l2BeaconProxyFactory);
     }
 
     function test_initialize_revert_InvalidProxyHash() public {
@@ -98,13 +112,8 @@ contract L1ERC20GatewayTest is L1ArbitrumExtendedGatewayTest {
 
         // trigger deposit
         vm.prank(router);
-        l1Gateway.outboundTransfer{ value: retryableCost }(
-            address(token),
-            user,
-            depositAmount,
-            maxGas,
-            gasPriceBid,
-            routerEncodedData
+        l1Gateway.outboundTransfer{value: retryableCost}(
+            address(token), user, depositAmount, maxGas, gasPriceBid, routerEncodedData
         );
 
         // check tokens are escrowed
@@ -155,14 +164,8 @@ contract L1ERC20GatewayTest is L1ArbitrumExtendedGatewayTest {
 
         // trigger deposit
         vm.prank(router);
-        l1Gateway.outboundTransferCustomRefund{ value: retryableCost }(
-            address(token),
-            refundTo,
-            user,
-            depositAmount,
-            maxGas,
-            gasPriceBid,
-            routerEncodedData
+        l1Gateway.outboundTransferCustomRefund{value: retryableCost}(
+            address(token), refundTo, user, depositAmount, maxGas, gasPriceBid, routerEncodedData
         );
 
         // check tokens are escrowed
