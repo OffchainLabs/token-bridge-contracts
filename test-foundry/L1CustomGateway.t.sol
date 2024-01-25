@@ -331,6 +331,31 @@ contract L1CustomGatewayTest is L1ArbitrumExtendedGatewayTest {
         );
     }
 
+    function test_outboundTransferCustomRefund_revert_NoL2TokenSet() public virtual {
+        uint256 tooManyTokens = 500 ether;
+
+        // register token to gateway
+        vm.mockCall(
+            address(token), abi.encodeWithSignature("isArbitrumEnabled()"), abi.encode(uint8(0xb1))
+        );
+        vm.prank(address(token));
+        L1CustomGateway(address(l1Gateway)).registerTokenToL2{value: retryableCost}(
+            address(0), maxGas, gasPriceBid, maxSubmissionCost, makeAddr("creditBackAddress")
+        );
+
+        vm.prank(router);
+        vm.expectRevert("NO_L2_TOKEN_SET");
+        l1Gateway.outboundTransferCustomRefund{value: 1 ether}(
+            address(token),
+            user,
+            user,
+            tooManyTokens,
+            0.1 ether,
+            0.01 ether,
+            buildRouterEncodedData("")
+        );
+    }
+
     function test_registerTokenToL2(address l1Token, address l2Token) public virtual {
         vm.assume(l1Token != FOUNDRY_CHEATCODE_ADDRESS && l2Token != FOUNDRY_CHEATCODE_ADDRESS);
         vm.deal(l1Token, 100 ether);
