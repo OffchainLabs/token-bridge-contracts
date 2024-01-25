@@ -79,6 +79,19 @@ abstract contract L1ArbitrumGatewayTest is Test {
         l1Gateway.finalizeInboundTransfer(address(token), user, user, 100, "");
     }
 
+    function test_getExternalCall() public {
+        L1ArbitrumGatewayMock mockGateway = new L1ArbitrumGatewayMock();
+
+        uint256 exitNum = 7;
+        address initialDestination = makeAddr("initialDestination");
+        bytes memory initialData = bytes("1234");
+        (address target, bytes memory data) =
+            mockGateway.getExternalCall(exitNum, initialDestination, initialData);
+
+        assertEq(target, initialDestination, "Wrong target");
+        assertEq(data, initialData, "Wrong data");
+    }
+
     function test_outboundTransferCustomRefund_revert_ExtraDataDisabled() public {
         bytes memory callHookData = abi.encodeWithSignature("doSomething()");
         bytes memory routerEncodedData = buildRouterEncodedData(callHookData);
@@ -164,5 +177,16 @@ abstract contract L1ArbitrumGatewayTest is Test {
         bytes memory routerEncodedData = abi.encode(user, userEncodedData);
 
         return routerEncodedData;
+    }
+}
+
+contract L1ArbitrumGatewayMock is L1ArbitrumGateway {
+    function calculateL2TokenAddress(address x)
+        public
+        view
+        override(ITokenGateway, TokenGateway)
+        returns (address)
+    {
+        return x;
     }
 }
