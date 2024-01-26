@@ -19,7 +19,7 @@ abstract contract L1ArbitrumGatewayTest is Test {
     // retryable params
     uint256 public maxSubmissionCost;
     uint256 public maxGas = 1_000_000_000;
-    uint256 public gasPriceBid = 3;
+    uint256 public gasPriceBid = 100000000;
     uint256 public retryableCost;
     address public creditBackAddress = makeAddr("creditBackAddress");
 

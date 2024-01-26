@@ -442,6 +442,131 @@ contract L1OrbitCustomGatewayTest is L1CustomGatewayTest {
         );
     }
 
+    function test_registerTokenToL2_InboxPrefunded(address l1Token, address l2Token) public {
+        vm.assume(
+            l1Token != FOUNDRY_CHEATCODE_ADDRESS && l2Token != FOUNDRY_CHEATCODE_ADDRESS
+                && l1Token != address(0)
+        );
+        vm.deal(l1Token, 100 ether);
+
+        // pre-fund inbox
+        address inbox = address(l1Gateway.inbox());
+        ERC20PresetMinterPauser(address(nativeToken)).mint(inbox, nativeTokenTotalFee);
+
+        // event checkers
+        vm.expectEmit(true, true, true, true);
+        emit TokenSet(l1Token, l2Token);
+
+        vm.expectEmit(true, true, true, true);
+        emit TicketData(maxSubmissionCost);
+
+        vm.expectEmit(true, true, true, true);
+        emit RefundAddresses(l1Token, l1Token);
+
+        address[] memory l1Tokens = new address[](1);
+        l1Tokens[0] = address(l1Token);
+        address[] memory l2Tokens = new address[](1);
+        l2Tokens[0] = address(l2Token);
+        vm.expectEmit(true, true, true, true);
+        emit ERC20InboxRetryableTicket(
+            address(l1Gateway),
+            l2Gateway,
+            0,
+            maxGas,
+            gasPriceBid,
+            nativeTokenTotalFee,
+            abi.encodeWithSelector(L2CustomGateway.registerTokenFromL1.selector, l1Tokens, l2Tokens)
+        );
+
+        // register token to gateway
+        vm.mockCall(
+            address(l1Token),
+            abi.encodeWithSignature("isArbitrumEnabled()"),
+            abi.encode(uint8(0xb1))
+        );
+        vm.prank(address(l1Token));
+        L1OrbitCustomGateway(address(l1Gateway)).registerTokenToL2(
+            l2Token, maxGas, gasPriceBid, maxSubmissionCost, nativeTokenTotalFee
+        );
+
+        assertEq(
+            L1OrbitCustomGateway(address(l1Gateway)).l1ToL2Token(l1Token),
+            l2Token,
+            "Invalid L2 token"
+        );
+    }
+
+    function test_registerTokenToL2_InboxPartiallyPrefunded(address l1Token, address l2Token)
+        public
+    {
+        vm.assume(
+            l1Token != FOUNDRY_CHEATCODE_ADDRESS && l2Token != FOUNDRY_CHEATCODE_ADDRESS
+                && l1Token != address(0)
+        );
+        vm.deal(l1Token, 100 ether);
+
+        // pre-fund inbox
+        uint256 prefundAmount = nativeTokenTotalFee - 100;
+        address inbox = address(l1Gateway.inbox());
+        ERC20PresetMinterPauser(address(nativeToken)).mint(inbox, prefundAmount);
+
+        // approve fees
+        ERC20PresetMinterPauser(address(nativeToken)).mint(address(l1Token), nativeTokenTotalFee);
+        vm.prank(address(l1Token));
+        nativeToken.approve(address(l1Gateway), nativeTokenTotalFee);
+
+        // snapshot
+        uint256 balanceBefore = nativeToken.balanceOf(address(l1Token));
+
+        // event checkers
+        vm.expectEmit(true, true, true, true);
+        emit TokenSet(l1Token, l2Token);
+
+        vm.expectEmit(true, true, true, true);
+        emit TicketData(maxSubmissionCost);
+
+        vm.expectEmit(true, true, true, true);
+        emit RefundAddresses(l1Token, l1Token);
+
+        address[] memory l1Tokens = new address[](1);
+        l1Tokens[0] = address(l1Token);
+        address[] memory l2Tokens = new address[](1);
+        l2Tokens[0] = address(l2Token);
+        vm.expectEmit(true, true, true, true);
+        emit ERC20InboxRetryableTicket(
+            address(l1Gateway),
+            l2Gateway,
+            0,
+            maxGas,
+            gasPriceBid,
+            nativeTokenTotalFee,
+            abi.encodeWithSelector(L2CustomGateway.registerTokenFromL1.selector, l1Tokens, l2Tokens)
+        );
+
+        // register token to gateway
+        vm.mockCall(
+            address(l1Token),
+            abi.encodeWithSignature("isArbitrumEnabled()"),
+            abi.encode(uint8(0xb1))
+        );
+        vm.prank(address(l1Token));
+        L1OrbitCustomGateway(address(l1Gateway)).registerTokenToL2(
+            l2Token, maxGas, gasPriceBid, maxSubmissionCost, nativeTokenTotalFee
+        );
+
+        assertEq(
+            L1OrbitCustomGateway(address(l1Gateway)).l1ToL2Token(l1Token),
+            l2Token,
+            "Invalid L2 token"
+        );
+
+        // snapshot after
+        uint256 balanceAfter = nativeToken.balanceOf(address(l1Token));
+        assertEq(
+            balanceBefore - balanceAfter, nativeTokenTotalFee - prefundAmount, "Wrong user balance"
+        );
+    }
+
     function test_registerTokenToL2_CustomRefund(address l1Token, address l2Token)
         public
         override
