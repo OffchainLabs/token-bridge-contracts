@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.0;
 
-import {L1ArbitrumExtendedGatewayTest} from "./L1ArbitrumExtendedGateway.t.sol";
+import "./L1ArbitrumExtendedGateway.t.sol";
 import {
     L1CustomGateway,
     IInbox,
@@ -591,22 +591,4 @@ contract L1CustomGatewayTest is L1ArbitrumExtendedGatewayTest {
     event TicketData(uint256 maxSubmissionCost);
     event RefundAddresses(address excessFeeRefundAddress, address callValueRefundAddress);
     event InboxRetryableTicket(address from, address to, uint256 value, uint256 maxGas, bytes data);
-}
-
-contract MockReentrantInbox {
-    function createRetryableTicket(
-        address,
-        uint256,
-        uint256,
-        address,
-        address,
-        uint256,
-        uint256,
-        bytes memory
-    ) external payable returns (uint256) {
-        // re-enter
-        L1CustomGateway(msg.sender).outboundTransferCustomRefund{value: msg.value}(
-            address(100), address(100), address(100), 2, 2, 2, bytes("")
-        );
-    }
 }

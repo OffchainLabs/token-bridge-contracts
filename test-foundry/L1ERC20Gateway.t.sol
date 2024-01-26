@@ -2,9 +2,7 @@
 
 pragma solidity ^0.8.0;
 
-import {
-    L1ArbitrumExtendedGatewayTest, InboxMock, TestERC20
-} from "./L1ArbitrumExtendedGateway.t.sol";
+import "./L1ArbitrumExtendedGateway.t.sol";
 import "contracts/tokenbridge/ethereum/gateway/L1ERC20Gateway.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
@@ -196,6 +194,29 @@ contract L1ERC20GatewayTest is L1ArbitrumExtendedGatewayTest {
             tooManyTokens,
             0.1 ether,
             0.01 ether,
+            buildRouterEncodedData("")
+        );
+    }
+
+    function test_outboundTransferCustomRefund_revert_Reentrancy() public virtual {
+        // approve token
+        uint256 depositAmount = 3;
+        vm.prank(user);
+        token.approve(address(l1Gateway), depositAmount);
+
+        // trigger re-entrancy
+        MockReentrantInbox mockReentrantInbox = new MockReentrantInbox();
+        vm.etch(l1Gateway.inbox(), address(mockReentrantInbox).code);
+
+        vm.expectRevert("ReentrancyGuard: reentrant call");
+        vm.prank(router);
+        l1Gateway.outboundTransferCustomRefund{value: retryableCost}(
+            address(token),
+            makeAddr("refundTo"),
+            user,
+            depositAmount,
+            maxGas,
+            gasPriceBid,
             buildRouterEncodedData("")
         );
     }

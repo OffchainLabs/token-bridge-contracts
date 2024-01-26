@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.0;
 
-import {L1CustomGatewayTest, IERC20, L2CustomGateway} from "./L1CustomGateway.t.sol";
+import "./L1CustomGateway.t.sol";
 import {L1OrbitCustomGateway} from "contracts/tokenbridge/ethereum/gateway/L1OrbitCustomGateway.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {ERC20PresetMinterPauser} from
@@ -641,21 +641,4 @@ contract L1OrbitCustomGatewayTest is L1CustomGatewayTest {
         uint256 tokenTotalFeeAmount,
         bytes data
     );
-}
-
-contract MockReentrantERC20 {
-    function balanceOf(address) external returns (uint256) {
-        // re-enter
-        L1OrbitCustomGateway(msg.sender).outboundTransferCustomRefund(
-            address(100), address(100), address(100), 2, 2, 3, bytes("")
-        );
-        return 5;
-    }
-
-    function bridgeBurn(address, uint256) external {
-        // re-enter
-        L1OrbitCustomGateway(msg.sender).outboundTransferCustomRefund(
-            address(100), address(100), address(100), 2, 2, 3, bytes("")
-        );
-    }
 }

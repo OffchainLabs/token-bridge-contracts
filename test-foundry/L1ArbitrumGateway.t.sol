@@ -190,3 +190,38 @@ contract L1ArbitrumGatewayMock is L1ArbitrumGateway {
         return x;
     }
 }
+
+contract MockReentrantInbox {
+    function createRetryableTicket(
+        address,
+        uint256,
+        uint256,
+        address,
+        address,
+        uint256,
+        uint256,
+        bytes memory
+    ) external payable returns (uint256) {
+        // re-enter
+        L1ArbitrumGateway(msg.sender).outboundTransferCustomRefund{value: msg.value}(
+            address(100), address(100), address(100), 2, 2, 2, bytes("")
+        );
+    }
+}
+
+contract MockReentrantERC20 {
+    function balanceOf(address) external returns (uint256) {
+        // re-enter
+        L1ArbitrumGateway(msg.sender).outboundTransferCustomRefund(
+            address(100), address(100), address(100), 2, 2, 3, bytes("")
+        );
+        return 5;
+    }
+
+    function bridgeBurn(address, uint256) external {
+        // re-enter
+        L1ArbitrumGateway(msg.sender).outboundTransferCustomRefund(
+            address(100), address(100), address(100), 2, 2, 3, bytes("")
+        );
+    }
+}
