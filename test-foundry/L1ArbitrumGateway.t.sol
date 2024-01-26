@@ -19,7 +19,7 @@ abstract contract L1ArbitrumGatewayTest is Test {
     // retryable params
     uint256 public maxSubmissionCost;
     uint256 public maxGas = 1_000_000_000;
-    uint256 public gasPriceBid = 100000000;
+    uint256 public gasPriceBid = 100_000_000;
     uint256 public retryableCost;
     address public creditBackAddress = makeAddr("creditBackAddress");
 
@@ -76,6 +76,15 @@ abstract contract L1ArbitrumGatewayTest is Test {
         // trigger withdrawal
         vm.prank(address(IInbox(l1Gateway.inbox()).bridge()));
         vm.expectRevert("ONLY_COUNTERPART_GATEWAY");
+        l1Gateway.finalizeInboundTransfer(address(token), user, user, 100, "");
+    }
+
+    function test_finalizeInboundTransfer_revert_NoSender() public {
+        InboxMock(address(inbox)).setL2ToL1Sender(address(0));
+
+        // trigger withdrawal
+        vm.prank(address(IInbox(l1Gateway.inbox()).bridge()));
+        vm.expectRevert("NO_SENDER");
         l1Gateway.finalizeInboundTransfer(address(token), user, user, 100, "");
     }
 
