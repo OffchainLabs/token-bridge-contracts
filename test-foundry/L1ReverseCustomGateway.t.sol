@@ -2,9 +2,15 @@
 
 pragma solidity ^0.8.0;
 
-import { L1CustomGatewayTest, InboxMock, IERC20, IInbox, TestERC20 } from "./L1CustomGateway.t.sol";
-import { L1ReverseCustomGateway } from "contracts/tokenbridge/ethereum/gateway/L1ReverseCustomGateway.sol";
-import { MintableTestCustomTokenL1, ReverseTestCustomTokenL1 } from "contracts/tokenbridge/test/TestCustomTokenL1.sol";
+import {L1CustomGatewayTest, InboxMock, IERC20, IInbox, TestERC20} from "./L1CustomGateway.t.sol";
+import {L1ReverseCustomGateway} from
+    "contracts/tokenbridge/ethereum/gateway/L1ReverseCustomGateway.sol";
+import {
+    MintableTestCustomTokenL1,
+    ReverseTestCustomTokenL1
+} from "contracts/tokenbridge/test/TestCustomTokenL1.sol";
+import {ERC20PresetMinterPauser} from
+    "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetMinterPauser.sol";
 
 contract L1ReverseCustomGatewayTest is L1CustomGatewayTest {
     function setUp() public virtual override {
@@ -29,10 +35,8 @@ contract L1ReverseCustomGatewayTest is L1CustomGatewayTest {
     /* solhint-disable func-name-mixedcase */
     function test_finalizeInboundTransfer() public override {
         // fund gateway with bridged tokens
-        MintableTestCustomTokenL1 bridgedToken = new MintableTestCustomTokenL1(
-            address(l1Gateway),
-            router
-        );
+        MintableTestCustomTokenL1 bridgedToken =
+            new MintableTestCustomTokenL1(address(l1Gateway), router);
         vm.prank(address(l1Gateway));
         bridgedToken.mint();
 
@@ -59,10 +63,8 @@ contract L1ReverseCustomGatewayTest is L1CustomGatewayTest {
 
     function test_outboundTransfer() public override {
         // fund user with tokens
-        MintableTestCustomTokenL1 bridgedToken = new ReverseTestCustomTokenL1(
-            address(l1Gateway),
-            router
-        );
+        MintableTestCustomTokenL1 bridgedToken =
+            new ReverseTestCustomTokenL1(address(l1Gateway), router);
         vm.prank(address(user));
         bridgedToken.mint();
 
@@ -110,13 +112,8 @@ contract L1ReverseCustomGatewayTest is L1CustomGatewayTest {
 
         // trigger transfer
         vm.prank(router);
-        bytes memory seqNum1 = l1Gateway.outboundTransfer{ value: retryableCost }(
-            address(bridgedToken),
-            user,
-            amount,
-            maxGas,
-            gasPriceBid,
-            routerEncodedData
+        bytes memory seqNum1 = l1Gateway.outboundTransfer{value: retryableCost}(
+            address(bridgedToken), user, amount, maxGas, gasPriceBid, routerEncodedData
         );
 
         // check tokens are burned
@@ -129,10 +126,8 @@ contract L1ReverseCustomGatewayTest is L1CustomGatewayTest {
 
     function test_outboundTransferCustomRefund() public override {
         // fund user with tokens
-        MintableTestCustomTokenL1 bridgedToken = new ReverseTestCustomTokenL1(
-            address(l1Gateway),
-            router
-        );
+        MintableTestCustomTokenL1 bridgedToken =
+            new ReverseTestCustomTokenL1(address(l1Gateway), router);
         vm.prank(address(user));
         bridgedToken.mint();
 
@@ -180,7 +175,7 @@ contract L1ReverseCustomGatewayTest is L1CustomGatewayTest {
 
         // trigger deposit
         vm.prank(router);
-        bytes memory seqNum1 = l1Gateway.outboundTransferCustomRefund{ value: retryableCost }(
+        bytes memory seqNum1 = l1Gateway.outboundTransferCustomRefund{value: retryableCost}(
             address(bridgedToken),
             creditBackAddress,
             user,
@@ -200,10 +195,8 @@ contract L1ReverseCustomGatewayTest is L1CustomGatewayTest {
 
     function test_outboundTransferCustomRefund_revert_InsufficientAllowance() public override {
         // fund user with tokens
-        MintableTestCustomTokenL1 bridgedToken = new ReverseTestCustomTokenL1(
-            address(l1Gateway),
-            router
-        );
+        MintableTestCustomTokenL1 bridgedToken =
+            new ReverseTestCustomTokenL1(address(l1Gateway), router);
         vm.prank(address(user));
         bridgedToken.mint();
 
@@ -217,7 +210,7 @@ contract L1ReverseCustomGatewayTest is L1CustomGatewayTest {
         );
         vm.deal(address(bridgedToken), 100 ether);
         vm.prank(address(bridgedToken));
-        L1ReverseCustomGateway(address(l1Gateway)).registerTokenToL2{ value: retryableCost }(
+        L1ReverseCustomGateway(address(l1Gateway)).registerTokenToL2{value: retryableCost}(
             makeAddr("tokenL2Address"),
             maxGas,
             gasPriceBid,
@@ -227,7 +220,7 @@ contract L1ReverseCustomGatewayTest is L1CustomGatewayTest {
 
         vm.prank(router);
         vm.expectRevert("ERC20: burn amount exceeds balance");
-        l1Gateway.outboundTransferCustomRefund{ value: 1 ether }(
+        l1Gateway.outboundTransferCustomRefund{value: 1 ether}(
             address(bridgedToken),
             user,
             user,
@@ -235,6 +228,56 @@ contract L1ReverseCustomGatewayTest is L1CustomGatewayTest {
             0.1 ether,
             0.01 ether,
             buildRouterEncodedData("")
+        );
+    }
+
+    function test_outboundTransferCustomRefund_revert_Reentrancy() public virtual override {
+        // fund user with tokens
+        MintableTestCustomTokenL1 bridgedToken =
+            new ReverseTestCustomTokenL1(address(l1Gateway), router);
+        vm.prank(address(user));
+        bridgedToken.mint();
+
+        // register token to gateway
+        vm.mockCall(
+            address(bridgedToken),
+            abi.encodeWithSignature("isArbitrumEnabled()"),
+            abi.encode(uint8(0xb1))
+        );
+        vm.deal(address(bridgedToken), 100 ether);
+        vm.prank(address(bridgedToken));
+        L1ReverseCustomGateway(address(l1Gateway)).registerTokenToL2{value: retryableCost}(
+            makeAddr("tokenL2Address"), maxGas, gasPriceBid, maxSubmissionCost, creditBackAddress
+        );
+
+        // approve token
+        uint256 amount = 450;
+        vm.prank(user);
+        bridgedToken.approve(address(l1Gateway), amount);
+
+        // trigger re-entrancy
+        MockReentrantERC20 mockReentrantERC20 = new MockReentrantERC20();
+        vm.etch(address(bridgedToken), address(mockReentrantERC20).code);
+
+        vm.expectRevert("ReentrancyGuard: reentrant call");
+        vm.prank(router);
+        l1Gateway.outboundTransferCustomRefund{value: retryableCost}(
+            address(bridgedToken),
+            creditBackAddress,
+            user,
+            amount,
+            maxGas,
+            gasPriceBid,
+            buildRouterEncodedData("")
+        );
+    }
+}
+
+contract MockReentrantERC20 {
+    function bridgeBurn(address, uint256) external {
+        // re-enter
+        L1ReverseCustomGateway(msg.sender).outboundTransferCustomRefund(
+            address(100), address(100), address(100), 2, 2, 3, bytes("")
         );
     }
 }

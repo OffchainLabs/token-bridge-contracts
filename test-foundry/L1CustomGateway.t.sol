@@ -356,6 +356,38 @@ contract L1CustomGatewayTest is L1ArbitrumExtendedGatewayTest {
         );
     }
 
+    function test_outboundTransferCustomRefund_revert_Reentrancy() public virtual {
+        // register token to gateway
+        vm.mockCall(
+            address(token), abi.encodeWithSignature("isArbitrumEnabled()"), abi.encode(uint8(0xb1))
+        );
+        vm.prank(address(token));
+        L1CustomGateway(address(l1Gateway)).registerTokenToL2{value: retryableCost}(
+            makeAddr("tokenL2Address"), maxGas, gasPriceBid, maxSubmissionCost, creditBackAddress
+        );
+
+        // approve token
+        uint256 depositAmount = 3;
+        vm.prank(user);
+        token.approve(address(l1Gateway), depositAmount);
+
+        // trigger re-entrancy
+        MockReentrantInbox mockReentrantInbox = new MockReentrantInbox();
+        vm.etch(l1Gateway.inbox(), address(mockReentrantInbox).code);
+
+        vm.prank(router);
+        vm.expectRevert("ReentrancyGuard: reentrant call");
+        l1Gateway.outboundTransferCustomRefund{value: retryableCost}(
+            address(token),
+            creditBackAddress,
+            user,
+            depositAmount,
+            maxGas,
+            gasPriceBid,
+            buildRouterEncodedData("")
+        );
+    }
+
     function test_registerTokenToL2(address l1Token, address l2Token) public virtual {
         vm.assume(l1Token != FOUNDRY_CHEATCODE_ADDRESS && l2Token != FOUNDRY_CHEATCODE_ADDRESS);
         vm.deal(l1Token, 100 ether);
@@ -520,4 +552,22 @@ contract L1CustomGatewayTest is L1ArbitrumExtendedGatewayTest {
     event TicketData(uint256 maxSubmissionCost);
     event RefundAddresses(address excessFeeRefundAddress, address callValueRefundAddress);
     event InboxRetryableTicket(address from, address to, uint256 value, uint256 maxGas, bytes data);
+}
+
+contract MockReentrantInbox {
+    function createRetryableTicket(
+        address,
+        uint256,
+        uint256,
+        address,
+        address,
+        uint256,
+        uint256,
+        bytes memory
+    ) external payable returns (uint256) {
+        // re-enter
+        L1CustomGateway(msg.sender).outboundTransferCustomRefund{value: msg.value}(
+            address(100), address(100), address(100), 2, 2, 2, bytes("")
+        );
+    }
 }

@@ -8,7 +8,7 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {ERC20PresetMinterPauser} from
     "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetMinterPauser.sol";
 import {TestERC20} from "contracts/tokenbridge/test/TestERC20.sol";
-import {ERC20InboxMock} from "contracts/tokenbridge/test/InboxMock.sol";
+import {ERC20InboxMock, IBridge} from "contracts/tokenbridge/test/InboxMock.sol";
 
 contract L1OrbitCustomGatewayTest is L1CustomGatewayTest {
     ERC20 public nativeToken;
@@ -346,6 +346,47 @@ contract L1OrbitCustomGatewayTest is L1CustomGatewayTest {
         /// not supported
     }
 
+    function test_outboundTransferCustomRefund_revert_Reentrancy() public virtual override {
+        // register token to gateway
+        ERC20PresetMinterPauser(address(nativeToken)).mint(address(token), nativeTokenTotalFee);
+        vm.prank(address(token));
+        nativeToken.approve(address(l1Gateway), nativeTokenTotalFee);
+
+        vm.mockCall(
+            address(token), abi.encodeWithSignature("isArbitrumEnabled()"), abi.encode(uint8(0xb1))
+        );
+        vm.prank(address(token));
+        L1OrbitCustomGateway(address(l1Gateway)).registerTokenToL2(
+            makeAddr("tokenL2Address"),
+            maxGas,
+            gasPriceBid,
+            maxSubmissionCost,
+            creditBackAddress,
+            nativeTokenTotalFee
+        );
+
+        // approve token
+        uint256 depositAmount = 5;
+        vm.prank(user);
+        token.approve(address(l1Gateway), depositAmount);
+
+        // trigger re-entrancy
+        MockReentrantERC20 mockReentrantERC20 = new MockReentrantERC20();
+        vm.etch(address(token), address(mockReentrantERC20).code);
+
+        vm.expectRevert("ReentrancyGuard: reentrant call");
+        vm.prank(router);
+        l1Gateway.outboundTransferCustomRefund(
+            address(token),
+            creditBackAddress,
+            user,
+            depositAmount,
+            maxGas,
+            gasPriceBid,
+            buildRouterEncodedData("")
+        );
+    }
+
     function test_registerTokenToL2(address l1Token, address l2Token) public override {
         vm.assume(
             l1Token != FOUNDRY_CHEATCODE_ADDRESS && l2Token != FOUNDRY_CHEATCODE_ADDRESS
@@ -548,4 +589,21 @@ contract L1OrbitCustomGatewayTest is L1CustomGatewayTest {
         uint256 tokenTotalFeeAmount,
         bytes data
     );
+}
+
+contract MockReentrantERC20 {
+    function balanceOf(address) external returns (uint256) {
+        // re-enter
+        L1OrbitCustomGateway(msg.sender).outboundTransferCustomRefund(
+            address(100), address(100), address(100), 2, 2, 3, bytes("")
+        );
+        return 5;
+    }
+
+    function bridgeBurn(address, uint256) external {
+        // re-enter
+        L1OrbitCustomGateway(msg.sender).outboundTransferCustomRefund(
+            address(100), address(100), address(100), 2, 2, 3, bytes("")
+        );
+    }
 }
