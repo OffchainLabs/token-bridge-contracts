@@ -500,6 +500,58 @@ contract L1OrbitCustomGatewayTest is L1CustomGatewayTest {
         );
     }
 
+    function test_registerTokenToL2_UpdateToSameAddress(address l1Token, address l2Token)
+        public
+        virtual
+        override
+    {
+        vm.assume(
+            l1Token != FOUNDRY_CHEATCODE_ADDRESS && l2Token != FOUNDRY_CHEATCODE_ADDRESS
+                && l1Token != address(0)
+        );
+        vm.deal(l1Token, 100 ether);
+
+        // approve fees
+        ERC20PresetMinterPauser(address(nativeToken)).mint(
+            address(l1Token), nativeTokenTotalFee * 4
+        );
+        vm.prank(address(l1Token));
+        nativeToken.approve(address(l1Gateway), nativeTokenTotalFee * 4);
+
+        address[] memory l1Tokens = new address[](1);
+        l1Tokens[0] = address(l1Token);
+        address[] memory l2Tokens = new address[](1);
+        l2Tokens[0] = address(l2Token);
+
+        // register token to gateway
+        vm.mockCall(
+            address(l1Token),
+            abi.encodeWithSignature("isArbitrumEnabled()"),
+            abi.encode(uint8(0xb1))
+        );
+        vm.prank(address(l1Token));
+        L1OrbitCustomGateway(address(l1Gateway)).registerTokenToL2(
+            l2Token, maxGas, gasPriceBid, maxSubmissionCost, nativeTokenTotalFee
+        );
+
+        // re-register
+        vm.mockCall(
+            address(l1Token),
+            abi.encodeWithSignature("isArbitrumEnabled()"),
+            abi.encode(uint8(0xb1))
+        );
+        vm.prank(address(l1Token));
+        L1OrbitCustomGateway(address(l1Gateway)).registerTokenToL2(
+            l2Token, maxGas, gasPriceBid, maxSubmissionCost, nativeTokenTotalFee
+        );
+
+        assertEq(
+            L1OrbitCustomGateway(address(l1Gateway)).l1ToL2Token(l1Token),
+            l2Token,
+            "Invalid L2 token"
+        );
+    }
+
     function test_registerTokenToL2_revert_NotArbEnabled() public override {
         // wrong answer
         vm.mockCall(

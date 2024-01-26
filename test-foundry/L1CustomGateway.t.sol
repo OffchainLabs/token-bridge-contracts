@@ -474,6 +474,45 @@ contract L1CustomGatewayTest is L1ArbitrumExtendedGatewayTest {
         );
     }
 
+    function test_registerTokenToL2_UpdateToSameAddress(address l1Token, address l2Token)
+        public
+        virtual
+    {
+        vm.assume(l1Token != FOUNDRY_CHEATCODE_ADDRESS && l2Token != FOUNDRY_CHEATCODE_ADDRESS);
+        vm.deal(l1Token, 100 ether);
+
+        address[] memory l1Tokens = new address[](1);
+        l1Tokens[0] = address(l1Token);
+        address[] memory l2Tokens = new address[](1);
+        l2Tokens[0] = address(l2Token);
+
+        // register token to gateway
+        vm.mockCall(
+            address(l1Token),
+            abi.encodeWithSignature("isArbitrumEnabled()"),
+            abi.encode(uint8(0xb1))
+        );
+        vm.prank(address(l1Token));
+        L1CustomGateway(address(l1Gateway)).registerTokenToL2{value: retryableCost}(
+            l2Token, maxGas, gasPriceBid, maxSubmissionCost
+        );
+
+        // re-register
+        vm.mockCall(
+            address(l1Token),
+            abi.encodeWithSignature("isArbitrumEnabled()"),
+            abi.encode(uint8(0xb1))
+        );
+        vm.prank(address(l1Token));
+        L1CustomGateway(address(l1Gateway)).registerTokenToL2{value: retryableCost}(
+            l2Token, maxGas, gasPriceBid, maxSubmissionCost
+        );
+
+        assertEq(
+            L1CustomGateway(address(l1Gateway)).l1ToL2Token(l1Token), l2Token, "Invalid L2 token"
+        );
+    }
+
     function test_registerTokenToL2_revert_NotArbEnabled() public virtual {
         // wrong answer
         vm.mockCall(
