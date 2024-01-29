@@ -33,6 +33,8 @@ contract L1WethGatewayTest is L1ArbitrumExtendedGatewayTest {
 
         maxSubmissionCost = 20;
         retryableCost = maxSubmissionCost + gasPriceBid * maxGas;
+
+        vm.deal(router, 100 ether);
     }
 
     /* solhint-disable func-name-mixedcase */
@@ -135,23 +137,14 @@ contract L1WethGatewayTest is L1ArbitrumExtendedGatewayTest {
         // N/A
     }
 
-    // function test_calculateL2TokenAddress(address l1Token, address l2Token) public virtual {
-    //     vm.assume(l1Token != FOUNDRY_CHEATCODE_ADDRESS && l2Token != FOUNDRY_CHEATCODE_ADDRESS);
-    //     vm.deal(l1Token, 100 ether);
+    function test_calculateL2TokenAddress() public virtual {
+        assertEq(l1Gateway.calculateL2TokenAddress(L1_WETH), L2_WETH, "Invalid L2 token address");
+    }
 
-    //     // register token to gateway
-    //     vm.mockCall(
-    //         address(l1Token),
-    //         abi.encodeWithSignature("isArbitrumEnabled()"),
-    //         abi.encode(uint8(0xb1))
-    //     );
-    //     vm.prank(address(l1Token));
-    //     L1WethGateway(address(l1Gateway)).registerTokenToL2{value: retryableCost}(
-    //         l2Token, maxGas, gasPriceBid, maxSubmissionCost, makeAddr("creditBackAddress")
-    //     );
-
-    //     assertEq(l1Gateway.calculateL2TokenAddress(l1Token), l2Token, "Invalid L2 token address");
-    // }
+    function test_calculateL2TokenAddress(address l1Token) public virtual {
+        vm.assume(l1Token != L1_WETH);
+        assertEq(l1Gateway.calculateL2TokenAddress(l1Token), address(0), "Invalid L2 token address");
+    }
 
     // function test_forceRegisterTokenToL2() public virtual {
     //     address[] memory l1Tokens = new address[](2);
@@ -241,32 +234,97 @@ contract L1WethGatewayTest is L1ArbitrumExtendedGatewayTest {
     //     assertEq(outboundCalldata, expectedCalldata, "Invalid outboundCalldata");
     // }
 
-    // function test_initialize() public virtual {
-    //     L1WethGateway gateway = new L1WethGateway();
-    //     gateway.initialize(l2Gateway, router, inbox, owner);
+    function test_initialize() public {
+        L1WethGateway gateway = new L1WethGateway();
+        gateway.initialize(l2Gateway, router, inbox, L1_WETH, L2_WETH);
 
-    //     assertEq(gateway.counterpartGateway(), l2Gateway, "Invalid counterpartGateway");
-    //     assertEq(gateway.router(), router, "Invalid router");
-    //     assertEq(gateway.inbox(), inbox, "Invalid inbox");
-    //     assertEq(gateway.owner(), owner, "Invalid owner");
-    //     assertEq(gateway.whitelist(), address(0), "Invalid whitelist");
-    // }
+        assertEq(gateway.counterpartGateway(), l2Gateway, "Invalid counterpartGateway");
+        assertEq(gateway.router(), router, "Invalid router");
+        assertEq(gateway.inbox(), inbox, "Invalid inbox");
+        assertEq(gateway.l1Weth(), L1_WETH, "Invalid L1_WETH");
+        assertEq(gateway.l2Weth(), L2_WETH, "Invalid L2_WETH");
+    }
 
-    // function test_initialize_revert_BadInbox() public {
-    //     L1WethGateway gateway = new L1WethGateway();
-    //     address badInbox = address(0);
+    function test_initialize_revert_InvalidL1Weth() public {
+        L1WethGateway gateway = new L1WethGateway();
+        vm.expectRevert("INVALID_L1WETH");
+        gateway.initialize(l2Gateway, router, inbox, address(0), L2_WETH);
+    }
 
-    //     vm.expectRevert("BAD_INBOX");
-    //     gateway.initialize(l2Gateway, router, badInbox, owner);
-    // }
+    function test_initialize_revert_InvalidL2Weth() public {
+        L1WethGateway gateway = new L1WethGateway();
+        vm.expectRevert("INVALID_L2WETH");
+        gateway.initialize(l2Gateway, router, inbox, L1_WETH, address(0));
+    }
 
-    // function test_initialize_revert_BadRouter() public {
-    //     L1WethGateway gateway = new L1WethGateway();
-    //     address badRouter = address(0);
+    function test_outboundTransferCustomRefund() public virtual {
+        uint256 depositAmountInToken = 2 ether;
+        uint256 depositAmountInEth = 4 ether;
+        uint256 depositAmount = depositAmountInToken + depositAmountInEth;
 
-    //     vm.expectRevert("BAD_ROUTER");
-    //     gateway.initialize(l2Gateway, badRouter, inbox, owner);
-    // }
+        // snapshot state before
+        vm.deal(user, depositAmount * 2);
+        vm.prank(user);
+        TestWETH9(L1_WETH).deposit{value: depositAmountInToken}();
+        uint256 userBalanceBefore = user.balance;
+        uint256 userWethBalanceBefore = ERC20(L1_WETH).balanceOf(user);
+        uint256 bridgeBalanceBefore = address(IInbox(l1Gateway.inbox()).bridge()).balance;
+
+        {
+            // approve token
+            vm.prank(user);
+            ERC20(L1_WETH).approve(address(l1Gateway), depositAmountInToken);
+
+            // event checkers
+            vm.expectEmit(true, true, true, true);
+            emit TicketData(maxSubmissionCost);
+
+            vm.expectEmit(true, true, true, true);
+            emit RefundAddresses(creditBackAddress, user);
+        }
+
+        vm.expectEmit(true, true, true, true);
+        emit InboxRetryableTicket(
+            address(l1Gateway),
+            l2Gateway,
+            depositAmountInToken,
+            maxGas,
+            l1Gateway.getOutboundCalldata(address(L1_WETH), user, user, depositAmountInToken, "")
+        );
+
+        vm.expectEmit(true, true, true, true);
+        emit DepositInitiated(address(L1_WETH), user, user, 0, depositAmountInToken);
+
+        // trigger deposit
+        vm.prank(router);
+        bytes memory seqNum0 = l1Gateway.outboundTransferCustomRefund{
+            value: retryableCost + depositAmountInEth
+        }(
+            L1_WETH,
+            creditBackAddress,
+            user,
+            depositAmountInToken,
+            maxGas,
+            gasPriceBid,
+            buildRouterEncodedData("")
+        );
+
+        // check tokens are escrowed
+        uint256 userBalanceAfter = user.balance;
+        assertLe(userBalanceBefore - userBalanceAfter, depositAmountInEth, "Wrong user ETH balance");
+
+        uint256 userWethBalanceAfter = ERC20(L1_WETH).balanceOf(user);
+        assertEq(
+            userWethBalanceBefore - userWethBalanceAfter,
+            depositAmountInToken,
+            "Wrong user WETH balance"
+        );
+
+        uint256 bridgeBalanceAfter = address(IInbox(l1Gateway.inbox()).bridge()).balance;
+        assertGe(bridgeBalanceAfter - bridgeBalanceBefore, depositAmount, "Wrong bridge balance");
+
+        assertEq(seqNum0, abi.encode(0), "Invalid seqNum0");
+    }
 
     // function test_outboundTransfer() public virtual {
     //     // snapshot state before
