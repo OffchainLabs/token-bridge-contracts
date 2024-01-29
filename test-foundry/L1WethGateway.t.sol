@@ -14,12 +14,13 @@ import {
 import {L2CustomGateway} from "contracts/tokenbridge/arbitrum/gateway/L2CustomGateway.sol";
 import {TestERC20} from "contracts/tokenbridge/test/TestERC20.sol";
 import {InboxMock} from "contracts/tokenbridge/test/InboxMock.sol";
+import {TestWETH9} from "contracts/tokenbridge/test/TestWETH9.sol";
 
 contract L1WethGatewayTest is L1ArbitrumExtendedGatewayTest {
     // gateway params
     address public owner = makeAddr("owner");
 
-    address public L1_WETH = makeAddr("L1_WETH");
+    address public L1_WETH = address(new TestWETH9("weth", "weth"));
     address public L2_WETH = makeAddr("L2_WETH");
 
     function setUp() public virtual {
@@ -35,6 +36,39 @@ contract L1WethGatewayTest is L1ArbitrumExtendedGatewayTest {
     }
 
     /* solhint-disable func-name-mixedcase */
+
+    function test_finalizeInboundTransfer() public override {
+        // fund gateway with tokens being withdrawn
+        uint256 withdrawalAmount = 25 ether;
+        vm.deal(address(l1Gateway), withdrawalAmount);
+
+        // snapshot state before
+        uint256 userBalanceBefore = ERC20(L1_WETH).balanceOf(user);
+        uint256 l1GatewayBalanceBefore = address(l1Gateway).balance;
+
+        // withdrawal params
+        address from = address(3000);
+        uint256 exitNum = 7;
+        bytes memory callHookData = "";
+        bytes memory data = abi.encode(exitNum, callHookData);
+
+        InboxMock(address(inbox)).setL2ToL1Sender(l2Gateway);
+
+        // trigger withdrawal
+        vm.prank(address(IInbox(l1Gateway.inbox()).bridge()));
+        l1Gateway.finalizeInboundTransfer(L1_WETH, from, user, withdrawalAmount, data);
+
+        // check tokens are properly released
+        uint256 userBalanceAfter = ERC20(L1_WETH).balanceOf(user);
+        assertEq(userBalanceAfter - userBalanceBefore, withdrawalAmount, "Wrong user balance");
+
+        uint256 l1GatewayBalanceAfter = address(l1Gateway).balance;
+        assertEq(
+            l1GatewayBalanceBefore - l1GatewayBalanceAfter,
+            withdrawalAmount,
+            "Wrong l1 gateway balance"
+        );
+    }
 
     function test_getExternalCall_Redirected(uint256 exitNum, address initialDest, address newDest)
         public
@@ -90,17 +124,14 @@ contract L1WethGatewayTest is L1ArbitrumExtendedGatewayTest {
         );
     }
 
-    function test_transferExitAndCall_revert_TransferHookFail(
-        uint256 ,
-        address
-    ) public override {
+    function test_transferExitAndCall_revert_TransferHookFail(uint256, address) public override {
         // N/A
     }
 
-    function test_transferExitAndCall_revert_TransferHookFail_Redirected(
-        uint256 ,
-        address 
-    ) public override {
+    function test_transferExitAndCall_revert_TransferHookFail_Redirected(uint256, address)
+        public
+        override
+    {
         // N/A
     }
 
