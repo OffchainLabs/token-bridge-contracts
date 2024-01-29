@@ -181,11 +181,11 @@ export const setupTokenBridgeInLocalEnv = async () => {
           ethers.utils.parseEther('.01')
         ]
       )
-    upExec.executeCall(
+    await (await upExec.executeCall(
       l1Deployment.router,
       routerCalldata,
       { value: '20000000000000000' }
-    )
+    )).wait()
   }
 
   const l2Network: L2Network = {
