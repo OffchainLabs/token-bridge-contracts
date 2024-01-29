@@ -32,6 +32,7 @@ abstract contract L1ArbitrumExtendedGatewayTest is L1ArbitrumGatewayTest {
 
     function test_getExternalCall_Redirected(uint256 exitNum, address initialDest, address newDest)
         public
+        virtual
     {
         // redirect
         vm.prank(initialDest);
@@ -54,11 +55,11 @@ abstract contract L1ArbitrumExtendedGatewayTest is L1ArbitrumGatewayTest {
         assertEq(newData.length, 0, "Invalid _newData");
     }
 
-    function test_transferExitAndCall_EmptyData_NotRedirected(
+    function test_transferExitAndCall(
         uint256 exitNum,
         address initialDestination,
         address newDestination
-    ) public {
+    ) public virtual {
         bytes memory newData;
         bytes memory data;
 
@@ -84,7 +85,7 @@ abstract contract L1ArbitrumExtendedGatewayTest is L1ArbitrumGatewayTest {
     function test_transferExitAndCall_EmptyData_Redirected(
         uint256 exitNum,
         address initialDestination
-    ) public {
+    ) public virtual {
         bytes memory data;
         address intermediateDestination = address(new TestExitReceiver());
 
@@ -111,6 +112,7 @@ abstract contract L1ArbitrumExtendedGatewayTest is L1ArbitrumGatewayTest {
 
     function test_transferExitAndCall_NonEmptyData(uint256 exitNum, address initialDestination)
         public
+        virtual
     {
         bytes memory newData;
         bytes memory data = abi.encode("fun()");
@@ -141,7 +143,7 @@ abstract contract L1ArbitrumExtendedGatewayTest is L1ArbitrumGatewayTest {
     function test_transferExitAndCall_NonEmptyData_Redirected(
         uint256 exitNum,
         address initialDestination
-    ) public {
+    ) public virtual {
         bytes memory data = abi.encode("run()");
         address intermediateDestination = address(new TestExitReceiver());
 
@@ -183,7 +185,10 @@ abstract contract L1ArbitrumExtendedGatewayTest is L1ArbitrumGatewayTest {
         );
     }
 
-    function test_transferExitAndCall_revert_ToNotContract(address initialDestination) public {
+    function test_transferExitAndCall_revert_ToNotContract(address initialDestination)
+        public
+        virtual
+    {
         bytes memory data = abi.encode("execute()");
         address nonContractNewDestination = address(15);
 
@@ -197,7 +202,7 @@ abstract contract L1ArbitrumExtendedGatewayTest is L1ArbitrumGatewayTest {
     function test_transferExitAndCall_revert_TransferHookFail(
         uint256 exitNum,
         address initialDestination
-    ) public {
+    ) public virtual {
         bytes memory data = abi.encode("failIt");
         address newDestination = address(new TestExitReceiver());
 
@@ -211,7 +216,7 @@ abstract contract L1ArbitrumExtendedGatewayTest is L1ArbitrumGatewayTest {
     function test_transferExitAndCall_revert_TransferHookFail_Redirected(
         uint256 exitNum,
         address initialDestination
-    ) public {
+    ) public virtual {
         bytes memory data = abi.encode("abc");
         address intermediateDestination = address(new TestExitReceiver());
 
