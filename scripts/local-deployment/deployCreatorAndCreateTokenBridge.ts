@@ -11,6 +11,7 @@ import {
   getEstimateForDeployingFactory,
 } from '../atomicTokenBridgeDeployer'
 import { l2Networks } from '@arbitrum/sdk/dist/lib/dataEntities/networks'
+import { TestWETH9__factory } from '../../build/types'
 
 const LOCALHOST_L2_RPC = 'http://localhost:8547'
 const LOCALHOST_L3_RPC = 'http://localhost:3347'
@@ -105,8 +106,13 @@ export const setupTokenBridgeInLocalEnv = async () => {
 
   // prerequisite - deploy L1 creator and set templates
   console.log('Deploying L1TokenBridgeCreator')
+
+  const l1WethContract = await new TestWETH9__factory(parentDeployer).deploy("WETH", "WETH")
+  await l1WethContract.deployed()
+
+
   // a random address for l1Weth
-  const l1Weth = '0x05EcEffc7CBA4e43a410340E849052AD43815aCA'
+  const l1Weth = l1WethContract.address
 
   //// run retryable estimate for deploying L2 factory
   const deployFactoryGasParams = await getEstimateForDeployingFactory(
