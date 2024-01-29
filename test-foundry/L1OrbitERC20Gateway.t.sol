@@ -174,6 +174,15 @@ contract L1OrbitERC20GatewayTest is L1ERC20GatewayTest {
         );
     }
 
+    function test_outboundTransferCustomRefund_revert_NoValue() public {
+        // trigger deposit
+        vm.prank(router);
+        vm.expectRevert("NO_VALUE");
+        l1Gateway.outboundTransferCustomRefund{value: 1 ether}(
+            address(token), creditBackAddress, user, 100, maxGas, gasPriceBid, ""
+        );
+    }
+
     function test_outboundTransferCustomRefund_revert_NotAllowedToBridgeFeeToken() public {
         // trigger deposit
         vm.prank(router);
