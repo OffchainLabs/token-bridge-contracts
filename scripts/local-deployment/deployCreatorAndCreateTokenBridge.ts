@@ -1,4 +1,4 @@
-import { ethers } from 'ethers'
+import { Wallet, ethers } from 'ethers'
 import { JsonRpcProvider } from '@ethersproject/providers'
 import { L1Network, L2Network, addCustomNetwork } from '@arbitrum/sdk'
 import { Bridge__factory } from '@arbitrum/sdk/dist/lib/abi/factories/Bridge__factory'
@@ -11,7 +11,13 @@ import {
   getEstimateForDeployingFactory,
 } from '../atomicTokenBridgeDeployer'
 import { l2Networks } from '@arbitrum/sdk/dist/lib/dataEntities/networks'
-import { TestWETH9__factory } from '../../build/types'
+import {
+  IERC20Bridge__factory,
+  IOwnable__factory,
+  L1GatewayRouter__factory,
+  TestWETH9__factory,
+  UpgradeExecutor__factory,
+} from '../../build/types'
 
 const LOCALHOST_L2_RPC = 'http://localhost:8547'
 const LOCALHOST_L3_RPC = 'http://localhost:3347'
@@ -107,9 +113,11 @@ export const setupTokenBridgeInLocalEnv = async () => {
   // prerequisite - deploy L1 creator and set templates
   console.log('Deploying L1TokenBridgeCreator')
 
-  const l1WethContract = await new TestWETH9__factory(parentDeployer).deploy("WETH", "WETH")
+  const l1WethContract = await new TestWETH9__factory(parentDeployer).deploy(
+    'WETH',
+    'WETH'
+  )
   await l1WethContract.deployed()
-
 
   // a random address for l1Weth
   const l1Weth = l1WethContract.address
@@ -144,6 +152,42 @@ export const setupTokenBridgeInLocalEnv = async () => {
       rollupOwner
     )
 
+  // register weth gateway if not using custom fee token
+  if (
+    (await getNativeToken(
+      coreL2Network.ethBridge.bridge,
+      parentDeployer.provider!
+    )) !== ethers.constants.AddressZero
+  ) {
+    const executorKey =
+      '0xcb5790da63720727af975f42c79f69918580209889225fa7128c92402a6d3a65' // todo: get from env
+
+    const upExecAddress = await IOwnable__factory.connect(
+      coreL2Network.ethBridge.rollup,
+      parentDeployer
+    ).owner()
+    const upExec = UpgradeExecutor__factory.connect(
+      upExecAddress,
+      new Wallet(executorKey, parentDeployer.provider!)
+    )
+    const routerCalldata =
+      L1GatewayRouter__factory.createInterface().encodeFunctionData(
+        'setGateways',
+        [
+          [l1Deployment.wethGateway], 
+          [l2Deployment.wethGateway], 
+          10_000_000, 
+          ethers.utils.parseUnits('1', 'gwei'), 
+          ethers.utils.parseEther('.01')
+        ]
+      )
+    upExec.executeCall(
+      l1Deployment.router,
+      routerCalldata,
+      { value: '20000000000000000' }
+    )
+  }
+
   const l2Network: L2Network = {
     ...coreL2Network,
     tokenBridge: {
@@ -176,6 +220,18 @@ export const setupTokenBridgeInLocalEnv = async () => {
   }
 }
 
+async function getNativeToken(
+  bridge: string,
+  parentProvider: ethers.providers.Provider
+) {
+  try {
+    const bridgeContract = IERC20Bridge__factory.connect(bridge, parentProvider)
+    return await bridgeContract.nativeToken()
+  } catch (e) {
+    return ethers.constants.AddressZero
+  }
+}
+
 export const getLocalNetworks = async (
   l1Url: string,
   l2Url: string,
@@ -196,7 +252,7 @@ export const getLocalNetworks = async (
   }
 
   if (rollupAddress === undefined) {
-    let sequencerContainer = execSync(
+    const sequencerContainer = execSync(
       'docker ps --filter "name=l3node" --format "{{.Names}}"'
     )
       .toString()
