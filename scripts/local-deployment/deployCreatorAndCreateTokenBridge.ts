@@ -9,19 +9,16 @@ import {
   createTokenBridge,
   deployL1TokenBridgeCreator,
   getEstimateForDeployingFactory,
+  registerGateway,
 } from '../atomicTokenBridgeDeployer'
 import { l2Networks } from '@arbitrum/sdk/dist/lib/dataEntities/networks'
 import {
-  IERC20Bridge__factory,
-  IOwnable__factory,
-  L1GatewayRouter__factory,
-  TestWETH9__factory,
-  UpgradeExecutor__factory,
+  IOwnable__factory, TestWETH9__factory
 } from '../../build/types'
 
 const LOCALHOST_L2_RPC = 'http://localhost:8547'
 const LOCALHOST_L3_RPC = 'http://localhost:3347'
-const LOCALHOST_L3_OWNER = '0x863c904166E801527125D8672442D736194A3362'
+const LOCALHOST_L3_OWNER_KEY = '0xecdf21cb41c65afb51f91df408b7656e2c8739a5877f2814add0afd780cc210e'
 
 /**
  * Steps:
@@ -58,10 +55,11 @@ export const setupTokenBridgeInLocalEnv = async () => {
   }
 
   // set rollup owner either from env vars or use defaults
-  let rollupOwner = process.env['ROLLUP_OWNER'] as string
-  if (rollupOwner === undefined) {
-    rollupOwner = LOCALHOST_L3_OWNER
+  let rollupOwnerKey = process.env['ROLLUP_OWNER_KEY'] as string
+  if (rollupOwnerKey === undefined) {
+    rollupOwnerKey = LOCALHOST_L3_OWNER_KEY
   }
+  const rollupOwnerAddress = ethers.utils.computeAddress(rollupOwnerKey)
 
   // if no ROLLUP_ADDRESS is defined, it will be pulled from local container
   const rollupAddress = process.env['ROLLUP_ADDRESS'] as string
@@ -113,14 +111,16 @@ export const setupTokenBridgeInLocalEnv = async () => {
   // prerequisite - deploy L1 creator and set templates
   console.log('Deploying L1TokenBridgeCreator')
 
-  const l1WethContract = await new TestWETH9__factory(parentDeployer).deploy(
-    'WETH',
-    'WETH'
-  )
-  await l1WethContract.deployed()
-
-  // a random address for l1Weth
-  const l1Weth = l1WethContract.address
+  let l1Weth = process.env['PARENT_WETH_OVERRIDE']
+  if (l1Weth === undefined || l1Weth === '') {
+    const l1WethContract = await new TestWETH9__factory(parentDeployer).deploy(
+      'WETH',
+      'WETH'
+    )
+    await l1WethContract.deployed()
+    
+    l1Weth = l1WethContract.address
+  }
 
   //// run retryable estimate for deploying L2 factory
   const deployFactoryGasParams = await getEstimateForDeployingFactory(
@@ -149,42 +149,25 @@ export const setupTokenBridgeInLocalEnv = async () => {
       childDeployer.provider!,
       l1TokenBridgeCreator,
       coreL2Network.ethBridge.rollup,
-      rollupOwner
+      rollupOwnerAddress
     )
 
-  // register weth gateway if not using custom fee token
+  // register weth gateway if it exists
   if (
-    (await getNativeToken(
-      coreL2Network.ethBridge.bridge,
-      parentDeployer.provider!
-    )) !== ethers.constants.AddressZero
+    l1Deployment.wethGateway !== ethers.constants.AddressZero
   ) {
-    const executorKey =
-      '0xcb5790da63720727af975f42c79f69918580209889225fa7128c92402a6d3a65' // todo: get from env
-
     const upExecAddress = await IOwnable__factory.connect(
       coreL2Network.ethBridge.rollup,
       parentDeployer
     ).owner()
-    const upExec = UpgradeExecutor__factory.connect(
+
+    await registerGateway(
+      new Wallet(rollupOwnerKey, parentDeployer.provider!),
+      childDeployer.provider!,
       upExecAddress,
-      new Wallet(executorKey, parentDeployer.provider!)
-    )
-    const routerCalldata =
-      L1GatewayRouter__factory.createInterface().encodeFunctionData(
-        'setGateways',
-        [
-          [l1Deployment.wethGateway], 
-          [l2Deployment.wethGateway], 
-          10_000_000, 
-          ethers.utils.parseUnits('1', 'gwei'), 
-          ethers.utils.parseEther('.01')
-        ]
-      )
-    upExec.executeCall(
       l1Deployment.router,
-      routerCalldata,
-      { value: '20000000000000000' }
+      [l1Weth],
+      [l1Deployment.wethGateway],
     )
   }
 
@@ -217,18 +200,6 @@ export const setupTokenBridgeInLocalEnv = async () => {
     l2Network,
     l1TokenBridgeCreatorAddress,
     retryableSenderAddress,
-  }
-}
-
-async function getNativeToken(
-  bridge: string,
-  parentProvider: ethers.providers.Provider
-) {
-  try {
-    const bridgeContract = IERC20Bridge__factory.connect(bridge, parentProvider)
-    return await bridgeContract.nativeToken()
-  } catch (e) {
-    return ethers.constants.AddressZero
   }
 }
 
