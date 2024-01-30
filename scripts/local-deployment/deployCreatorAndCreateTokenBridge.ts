@@ -37,7 +37,6 @@ const LOCALHOST_L3_OWNER = '0x863c904166E801527125D8672442D736194A3362'
  * @returns
  */
 export const setupTokenBridgeInLocalEnv = async () => {
-  throw new Error('Not implemented')
   // set RPCs either from env vars or use defaults
   let parentRpc = process.env['PARENT_RPC'] as string
   let childRpc = process.env['CHILD_RPC'] as string
@@ -156,7 +155,7 @@ export const setupTokenBridgeInLocalEnv = async () => {
 
   // register weth gateway if not using custom fee token
   if (
-    true || l1Deployment.wethGateway !== ethers.constants.AddressZero
+    l1Deployment.wethGateway !== ethers.constants.AddressZero
   ) {
     const executorKey =
       '0xcb5790da63720727af975f42c79f69918580209889225fa7128c92402a6d3a65' // todo: get from env
