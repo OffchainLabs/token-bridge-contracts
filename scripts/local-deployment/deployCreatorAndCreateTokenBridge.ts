@@ -9,6 +9,7 @@ import {
   createTokenBridge,
   deployL1TokenBridgeCreator,
   getEstimateForDeployingFactory,
+  registerGateway,
 } from '../atomicTokenBridgeDeployer'
 import { l2Networks } from '@arbitrum/sdk/dist/lib/dataEntities/networks'
 import {
@@ -153,7 +154,7 @@ export const setupTokenBridgeInLocalEnv = async () => {
       rollupOwner
     )
 
-  // register weth gateway if not using custom fee token
+  // register weth gateway if it exists
   if (
     l1Deployment.wethGateway !== ethers.constants.AddressZero
   ) {
@@ -164,29 +165,15 @@ export const setupTokenBridgeInLocalEnv = async () => {
       coreL2Network.ethBridge.rollup,
       parentDeployer
     ).owner()
-    const upExec = UpgradeExecutor__factory.connect(
+
+    await registerGateway(
+      new Wallet(executorKey, parentDeployer.provider!),
+      childDeployer.provider!,
       upExecAddress,
-      new Wallet(executorKey, parentDeployer.provider!)
-    )
-    const routerCalldata =
-      L1GatewayRouter__factory.createInterface().encodeFunctionData(
-        'setGateways',
-        [
-          [l1Weth], 
-          [l1Deployment.wethGateway], 
-          10_000_000, 
-          ethers.utils.parseUnits('1', 'gwei'), 
-          ethers.utils.parseEther('.01')
-        ]
-      )
-    const rec = await (await upExec.executeCall(
       l1Deployment.router,
-      routerCalldata,
-      { value: '20000000000000000' }
-    )).wait()
-    
-    console.log(rec.from, rec.to)
-    console.log(routerCalldata)
+      [l1Weth],
+      [l1Deployment.wethGateway],
+    )
   }
 
   const l2Network: L2Network = {
