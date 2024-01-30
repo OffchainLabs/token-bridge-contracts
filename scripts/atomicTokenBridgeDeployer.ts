@@ -25,6 +25,7 @@ import {
   IRollupCore__factory,
   IBridge__factory,
   Multicall2__factory,
+  IInboxProxyAdmin__factory,
 } from '../build/types'
 import {
   abi as UpgradeExecutorABI,
@@ -177,73 +178,18 @@ export const createTokenBridge = async (
     )
   console.log('L2AtomicTokenBridgeFactory', l2AtomicTokenBridgeFactory.address)
 
-  /// pick up L1 contracts from events
-  const {
-    router: l1Router,
-    standardGateway: l1StandardGateway,
-    customGateway: l1CustomGateway,
-    wethGateway: l1WethGateway,
-    proxyAdmin: l1ProxyAdmin,
-  } = getParsedLogs(
-    receipt.logs,
-    l1TokenBridgeCreator.interface,
-    'OrbitTokenBridgeCreated'
-  )[0].args
+  /// fetch deployment addresses from registry
+  const l1Deployment = await l1TokenBridgeCreator.inboxToL1Deployment(inbox)
+  const l2Deployment = await l1TokenBridgeCreator.inboxToL2Deployment(inbox)
 
-  const rollup = await IBridge__factory.connect(
-    await IInbox__factory.connect(inbox, l1Signer).bridge(),
-    l1Signer
-  ).rollup()
-  const chainId = await IRollupCore__factory.connect(rollup, l1Signer).chainId()
+  /// fetch l1 multicall and l1 proxy admin from creator
+  const l1MultiCall = await l1TokenBridgeCreator.l1Multicall()
+  const l1ProxyAdmin = await IInboxProxyAdmin__factory.connect(
+    inbox,
+    l1Signer.provider!
+  ).getProxyAdmin()
 
-  /// pick up L2 contracts
-  const l2Router = await l1TokenBridgeCreator.getCanonicalL2RouterAddress(
-    chainId
-  )
-  const l2StandardGateway = L2ERC20Gateway__factory.connect(
-    await l1TokenBridgeCreator.getCanonicalL2StandardGatewayAddress(chainId),
-    l2Provider
-  )
-  const beaconProxyFactory = await l2StandardGateway.beaconProxyFactory()
-  const l2CustomGateway =
-    await l1TokenBridgeCreator.getCanonicalL2CustomGatewayAddress(chainId)
-
-  const isUsingFeeToken = feeToken != ethers.constants.AddressZero
-  const l2WethGateway = isUsingFeeToken
-    ? ethers.constants.AddressZero
-    : L2WethGateway__factory.connect(
-        await l1TokenBridgeCreator.getCanonicalL2WethGatewayAddress(chainId),
-        l2Provider
-      ).address
-  const l1Weth = await l1TokenBridgeCreator.l1Weth()
-  const l2Weth = isUsingFeeToken
-    ? ethers.constants.AddressZero
-    : await l1TokenBridgeCreator.getCanonicalL2WethAddress(chainId)
-  const l2ProxyAdmin =
-    await l1TokenBridgeCreator.getCanonicalL2ProxyAdminAddress(chainId)
-
-  const l1Multicall = await l1TokenBridgeCreator.l1Multicall()
-  const l2Multicall = await l1TokenBridgeCreator.getCanonicalL2Multicall(
-    chainId
-  )
-
-  return {
-    l1Router,
-    l1StandardGateway,
-    l1CustomGateway,
-    l1WethGateway,
-    l1ProxyAdmin,
-    l1Multicall,
-    l2Router,
-    l2StandardGateway: l2StandardGateway.address,
-    l2CustomGateway,
-    l2WethGateway,
-    l1Weth,
-    l2Weth,
-    beaconProxyFactory,
-    l2ProxyAdmin,
-    l2Multicall,
-  }
+  return { l1Deployment, l2Deployment, l1MultiCall, l1ProxyAdmin }
 }
 
 /**
@@ -271,9 +217,7 @@ export const deployL1TokenBridgeCreator = async (
   await l1TokenBridgeCreatorProxyAdmin.deployed()
 
   const l1TokenBridgeCreatorLogic =
-    await new L1AtomicTokenBridgeCreator__factory(l1Deployer).deploy(
-      l2MulticallAddressOnL1.address
-    )
+    await new L1AtomicTokenBridgeCreator__factory(l1Deployer).deploy()
   await l1TokenBridgeCreatorLogic.deployed()
 
   const l1TokenBridgeCreatorProxy =
@@ -489,6 +433,7 @@ export const deployL1TokenBridgeCreator = async (
       l2CustomGatewayAddressOnL1.address,
       l2WethGatewayAddressOnL1.address,
       l2WethAddressOnL1.address,
+      l2MulticallAddressOnL1.address,
       l1WethAddress,
       l1Multicall.address,
       gasLimitForL2FactoryDeployment

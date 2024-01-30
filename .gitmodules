@@ -4,4 +4,4 @@
 [submodule "lib/nitro-contracts"]
 	path = lib/nitro-contracts
 	url = git@github.com:OffchainLabs/nitro-contracts.git
-	branch = feature-orbit-bridge
+	branch = v1.1.0

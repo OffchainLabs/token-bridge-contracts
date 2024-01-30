@@ -63,32 +63,33 @@ export const createTokenBridgeOnTargetChain = async () => {
   )
 
   // create token bridge
-  const deployedContracts = await createTokenBridge(
-    l1Deployer,
-    l2Provider,
-    l1TokenBridgeCreator,
-    envVars.rollupAddress,
-    envVars.rollupOwner
-  )
+  const { l1Deployment, l2Deployment, l1MultiCall, l1ProxyAdmin } =
+    await createTokenBridge(
+      l1Deployer,
+      l2Provider,
+      l1TokenBridgeCreator,
+      envVars.rollupAddress,
+      envVars.rollupOwner
+    )
 
   const l2Network = {
     ...corel2Network,
     tokenBridge: {
-      l1CustomGateway: deployedContracts.l1CustomGateway,
-      l1ERC20Gateway: deployedContracts.l1StandardGateway,
-      l1GatewayRouter: deployedContracts.l1Router,
-      l1MultiCall: deployedContracts.l1Multicall,
-      l1ProxyAdmin: deployedContracts.l1ProxyAdmin,
-      l1Weth: deployedContracts.l1Weth,
-      l1WethGateway: deployedContracts.l1WethGateway,
+      l1CustomGateway: l1Deployment.customGateway,
+      l1ERC20Gateway: l1Deployment.standardGateway,
+      l1GatewayRouter: l1Deployment.router,
+      l1MultiCall: l1MultiCall,
+      l1ProxyAdmin: l1ProxyAdmin,
+      l1Weth: l1Deployment.weth,
+      l1WethGateway: l1Deployment.wethGateway,
 
-      l2CustomGateway: deployedContracts.l2CustomGateway,
-      l2ERC20Gateway: deployedContracts.l2StandardGateway,
-      l2GatewayRouter: deployedContracts.l2Router,
-      l2Multicall: deployedContracts.l2Multicall,
-      l2ProxyAdmin: deployedContracts.l2ProxyAdmin,
-      l2Weth: deployedContracts.l2Weth,
-      l2WethGateway: deployedContracts.l2WethGateway,
+      l2CustomGateway: l2Deployment.customGateway,
+      l2ERC20Gateway: l2Deployment.standardGateway,
+      l2GatewayRouter: l2Deployment.router,
+      l2Multicall: l2Deployment.multicall,
+      l2ProxyAdmin: l2Deployment.proxyAdmin,
+      l2Weth: l2Deployment.weth,
+      l2WethGateway: l2Deployment.wethGateway,
     },
   }
 
