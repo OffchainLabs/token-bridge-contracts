@@ -114,7 +114,6 @@ export const setupTokenBridgeInLocalEnv = async () => {
 
   // prerequisite - deploy L1 creator and set templates
   console.log('Deploying L1TokenBridgeCreator')
-  console.log('----')
 
   const l1WethContract = await new TestWETH9__factory(parentDeployer).deploy(
     'WETH',
