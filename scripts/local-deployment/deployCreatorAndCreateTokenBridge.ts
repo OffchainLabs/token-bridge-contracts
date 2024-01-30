@@ -172,8 +172,8 @@ export const setupTokenBridgeInLocalEnv = async () => {
       L1GatewayRouter__factory.createInterface().encodeFunctionData(
         'setGateways',
         [
+          [l1Weth], 
           [l1Deployment.wethGateway], 
-          [l2Deployment.wethGateway], 
           10_000_000, 
           ethers.utils.parseUnits('1', 'gwei'), 
           ethers.utils.parseEther('.01')
