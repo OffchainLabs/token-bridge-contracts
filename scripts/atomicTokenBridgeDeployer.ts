@@ -599,7 +599,11 @@ export const registerGateway = async (
     l1Executor.provider!
   )
   
-  const receipt = new L1ContractCallTransactionReceipt(await (await l1Executor.sendTransaction(txRequest)).wait())
+  const receipt = new L1ContractCallTransactionReceipt(await (await l1Executor.sendTransaction({
+    to: txRequest.to,
+    data: txRequest.data,
+    value: txRequest.value,
+  })).wait())
 
   // wait for execution of ticket
   const message = (await receipt.getL1ToL2Messages(l2Provider))[0]
