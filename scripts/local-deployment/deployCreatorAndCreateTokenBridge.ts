@@ -154,7 +154,7 @@ export const setupTokenBridgeInLocalEnv = async () => {
 
   // register weth gateway if not using custom fee token
   if (
-    l1Deployment.wethGateway !== ethers.constants.AddressZero
+    true || l1Deployment.wethGateway !== ethers.constants.AddressZero
   ) {
     const executorKey =
       '0xcb5790da63720727af975f42c79f69918580209889225fa7128c92402a6d3a65' // todo: get from env
@@ -178,11 +178,14 @@ export const setupTokenBridgeInLocalEnv = async () => {
           ethers.utils.parseEther('.01')
         ]
       )
-    await (await upExec.executeCall(
+    const rec = await (await upExec.executeCall(
       l1Deployment.router,
       routerCalldata,
       { value: '20000000000000000' }
     )).wait()
+    
+    console.log(rec.from, rec.to)
+    console.log(routerCalldata)
   }
 
   const l2Network: L2Network = {
