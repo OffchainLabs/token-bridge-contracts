@@ -13,11 +13,7 @@ import {
 } from '../atomicTokenBridgeDeployer'
 import { l2Networks } from '@arbitrum/sdk/dist/lib/dataEntities/networks'
 import {
-  IERC20Bridge__factory,
-  IOwnable__factory,
-  L1GatewayRouter__factory,
-  TestWETH9__factory,
-  UpgradeExecutor__factory,
+  IOwnable__factory, TestWETH9__factory
 } from '../../build/types'
 
 const LOCALHOST_L2_RPC = 'http://localhost:8547'
