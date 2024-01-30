@@ -115,11 +115,8 @@ export const setupTokenBridgeInLocalEnv = async () => {
   // prerequisite - deploy L1 creator and set templates
   console.log('Deploying L1TokenBridgeCreator')
 
-  let l1Weth = ''
-  if (process.env['PARENT_WETH_OVERRIDE'] !== undefined && process.env['PARENT_WETH_OVERRIDE'] !== '') {
-    l1Weth = process.env['PARENT_WETH_OVERRIDE'] as string
-  }
-  else {
+  let l1Weth = process.env['PARENT_WETH_OVERRIDE']
+  if (l1Weth === undefined || l1Weth === '') {
     const l1WethContract = await new TestWETH9__factory(parentDeployer).deploy(
       'WETH',
       'WETH'
