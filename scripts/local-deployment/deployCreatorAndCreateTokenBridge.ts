@@ -22,7 +22,7 @@ import {
 
 const LOCALHOST_L2_RPC = 'http://localhost:8547'
 const LOCALHOST_L3_RPC = 'http://localhost:3347'
-const LOCALHOST_L3_OWNER = '0x863c904166E801527125D8672442D736194A3362'
+const LOCALHOST_L3_OWNER_KEY = '0xecdf21cb41c65afb51f91df408b7656e2c8739a5877f2814add0afd780cc210e'
 
 /**
  * Steps:
@@ -59,10 +59,11 @@ export const setupTokenBridgeInLocalEnv = async () => {
   }
 
   // set rollup owner either from env vars or use defaults
-  let rollupOwner = process.env['ROLLUP_OWNER'] as string
-  if (rollupOwner === undefined) {
-    rollupOwner = LOCALHOST_L3_OWNER
+  let rollupOwnerKey = process.env['ROLLUP_OWNER_KEY'] as string
+  if (rollupOwnerKey === undefined) {
+    rollupOwnerKey = LOCALHOST_L3_OWNER_KEY
   }
+  const rollupOwnerAddress = ethers.utils.computeAddress(rollupOwnerKey)
 
   // if no ROLLUP_ADDRESS is defined, it will be pulled from local container
   const rollupAddress = process.env['ROLLUP_ADDRESS'] as string
@@ -151,23 +152,20 @@ export const setupTokenBridgeInLocalEnv = async () => {
       childDeployer.provider!,
       l1TokenBridgeCreator,
       coreL2Network.ethBridge.rollup,
-      rollupOwner
+      rollupOwnerAddress
     )
 
   // register weth gateway if it exists
   if (
     l1Deployment.wethGateway !== ethers.constants.AddressZero
   ) {
-    const executorKey =
-      '0xcb5790da63720727af975f42c79f69918580209889225fa7128c92402a6d3a65' // todo: get from env
-
     const upExecAddress = await IOwnable__factory.connect(
       coreL2Network.ethBridge.rollup,
       parentDeployer
     ).owner()
 
     await registerGateway(
-      new Wallet(executorKey, parentDeployer.provider!),
+      new Wallet(rollupOwnerKey, parentDeployer.provider!),
       childDeployer.provider!,
       upExecAddress,
       l1Deployment.router,
