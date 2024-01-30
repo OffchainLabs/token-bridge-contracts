@@ -37,6 +37,7 @@ const LOCALHOST_L3_OWNER = '0x863c904166E801527125D8672442D736194A3362'
  * @returns
  */
 export const setupTokenBridgeInLocalEnv = async () => {
+  throw new Error('Not implemented')
   // set RPCs either from env vars or use defaults
   let parentRpc = process.env['PARENT_RPC'] as string
   let childRpc = process.env['CHILD_RPC'] as string
