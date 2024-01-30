@@ -115,14 +115,19 @@ export const setupTokenBridgeInLocalEnv = async () => {
   // prerequisite - deploy L1 creator and set templates
   console.log('Deploying L1TokenBridgeCreator')
 
-  const l1WethContract = await new TestWETH9__factory(parentDeployer).deploy(
-    'WETH',
-    'WETH'
-  )
-  await l1WethContract.deployed()
-
-  // a random address for l1Weth
-  const l1Weth = l1WethContract.address
+  let l1Weth = ''
+  if (process.env['L1_WETH_OVERRIDE'] !== undefined) {
+    l1Weth = process.env['L1_WETH_OVERRIDE'] as string
+  }
+  else {
+    const l1WethContract = await new TestWETH9__factory(parentDeployer).deploy(
+      'WETH',
+      'WETH'
+    )
+    await l1WethContract.deployed()
+    
+    l1Weth = l1WethContract.address
+  }
 
   //// run retryable estimate for deploying L2 factory
   const deployFactoryGasParams = await getEstimateForDeployingFactory(
