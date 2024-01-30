@@ -217,18 +217,6 @@ export const setupTokenBridgeInLocalEnv = async () => {
   }
 }
 
-async function getNativeToken(
-  bridge: string,
-  parentProvider: ethers.providers.Provider
-) {
-  try {
-    const bridgeContract = IERC20Bridge__factory.connect(bridge, parentProvider)
-    return await bridgeContract.nativeToken()
-  } catch (e) {
-    return ethers.constants.AddressZero
-  }
-}
-
 export const getLocalNetworks = async (
   l1Url: string,
   l2Url: string,
