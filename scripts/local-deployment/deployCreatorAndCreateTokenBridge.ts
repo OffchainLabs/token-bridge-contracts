@@ -12,13 +12,12 @@ import {
   registerGateway,
 } from '../atomicTokenBridgeDeployer'
 import { l2Networks } from '@arbitrum/sdk/dist/lib/dataEntities/networks'
-import {
-  IOwnable__factory, TestWETH9__factory
-} from '../../build/types'
+import { IOwnable__factory, TestWETH9__factory } from '../../build/types'
 
 const LOCALHOST_L2_RPC = 'http://localhost:8547'
 const LOCALHOST_L3_RPC = 'http://localhost:3347'
-const LOCALHOST_L3_OWNER_KEY = '0xecdf21cb41c65afb51f91df408b7656e2c8739a5877f2814add0afd780cc210e'
+const LOCALHOST_L3_OWNER_KEY =
+  '0xecdf21cb41c65afb51f91df408b7656e2c8739a5877f2814add0afd780cc210e'
 
 /**
  * Steps:
@@ -118,7 +117,7 @@ export const setupTokenBridgeInLocalEnv = async () => {
       'WETH'
     )
     await l1WethContract.deployed()
-    
+
     l1Weth = l1WethContract.address
   }
 
@@ -153,9 +152,7 @@ export const setupTokenBridgeInLocalEnv = async () => {
     )
 
   // register weth gateway if it exists
-  if (
-    l1Deployment.wethGateway !== ethers.constants.AddressZero
-  ) {
+  if (l1Deployment.wethGateway !== ethers.constants.AddressZero) {
     const upExecAddress = await IOwnable__factory.connect(
       coreL2Network.ethBridge.rollup,
       parentDeployer
@@ -167,7 +164,7 @@ export const setupTokenBridgeInLocalEnv = async () => {
       upExecAddress,
       l1Deployment.router,
       [l1Weth],
-      [l1Deployment.wethGateway],
+      [l1Deployment.wethGateway]
     )
   }
 

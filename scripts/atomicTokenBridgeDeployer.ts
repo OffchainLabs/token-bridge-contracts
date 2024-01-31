@@ -162,11 +162,13 @@ export const createTokenBridge = async (
     messageResults[1].status !== L1ToL2MessageStatus.REDEEMED
   ) {
     console.log(
-      `Retryable ticket (ID ${messages[0].retryableCreationId}) status: ${L1ToL2MessageStatus[messageResults[0].status]
+      `Retryable ticket (ID ${messages[0].retryableCreationId}) status: ${
+        L1ToL2MessageStatus[messageResults[0].status]
       }`
     )
     console.log(
-      `Retryable ticket (ID ${messages[1].retryableCreationId}) status: ${L1ToL2MessageStatus[messageResults[1].status]
+      `Retryable ticket (ID ${messages[1].retryableCreationId}) status: ${
+        L1ToL2MessageStatus[messageResults[1].status]
       }`
     )
     exit()
@@ -205,7 +207,7 @@ export const deployL1TokenBridgeCreator = async (
   l1Deployer: Signer,
   l1WethAddress: string,
   gasLimitForL2FactoryDeployment: BigNumber,
-  verifyContracts: boolean = false
+  verifyContracts = false
 ) => {
   /// deploy creator behind proxy
   const l2MulticallAddressOnL1Fac = await new ArbMulticall2__factory(
@@ -563,28 +565,27 @@ export const registerGateway = async (
   upgradeExecutor: string,
   gatewayRouter: string,
   tokens: string[],
-  gateways: string[],
+  gateways: string[]
 ) => {
   const executorAddress = await l1Executor.getAddress()
 
-  const buildCall = (
-    params: OmitTyped<L1ToL2MessageGasParams, 'deposit'>
-  ) => {
-    const routerCalldata = L1GatewayRouter__factory.createInterface().encodeFunctionData(
-      'setGateways',
-      [
-        tokens,
-        gateways,
-        params.gasLimit,
-        params.maxFeePerGas,
-        params.maxSubmissionCost
-      ]
-    )
+  const buildCall = (params: OmitTyped<L1ToL2MessageGasParams, 'deposit'>) => {
+    const routerCalldata =
+      L1GatewayRouter__factory.createInterface().encodeFunctionData(
+        'setGateways',
+        [
+          tokens,
+          gateways,
+          params.gasLimit,
+          params.maxFeePerGas,
+          params.maxSubmissionCost,
+        ]
+      )
     return {
-      data: UpgradeExecutor__factory.createInterface().encodeFunctionData("executeCall", [
-        gatewayRouter,
-        routerCalldata,
-      ]),
+      data: UpgradeExecutor__factory.createInterface().encodeFunctionData(
+        'executeCall',
+        [gatewayRouter, routerCalldata]
+      ),
       from: executorAddress,
       value: params.gasLimit
         .mul(params.maxFeePerGas)
@@ -598,19 +599,24 @@ export const registerGateway = async (
     buildCall,
     l1Executor.provider!
   )
-  
-  const receipt = new L1ContractCallTransactionReceipt(await (await l1Executor.sendTransaction({
-    to: txRequest.to,
-    data: txRequest.data,
-    value: txRequest.value,
-  })).wait())
+
+  const receipt = new L1ContractCallTransactionReceipt(
+    await (
+      await l1Executor.sendTransaction({
+        to: txRequest.to,
+        data: txRequest.data,
+        value: txRequest.value,
+      })
+    ).wait()
+  )
 
   // wait for execution of ticket
   const message = (await receipt.getL1ToL2Messages(l2Provider))[0]
   const messageResult = await message.waitForStatus()
   if (messageResult.status !== L1ToL2MessageStatus.REDEEMED) {
     console.log(
-      `Retryable ticket (ID ${message.retryableCreationId}) status: ${L1ToL2MessageStatus[messageResult.status]
+      `Retryable ticket (ID ${message.retryableCreationId}) status: ${
+        L1ToL2MessageStatus[messageResult.status]
       }`
     )
     exit()
