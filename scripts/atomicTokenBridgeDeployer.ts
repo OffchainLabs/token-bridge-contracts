@@ -674,7 +674,9 @@ const _getFeeToken = async (
       bridge,
       l1Provider
     ).nativeToken()
-  } catch { }
+  } catch {
+    // ignore
+  }
 
   return feeToken
 }
