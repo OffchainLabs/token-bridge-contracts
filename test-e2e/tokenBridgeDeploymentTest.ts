@@ -126,6 +126,7 @@ describe('tokenBridge', () => {
     if (!usingFeeToken) {
       await checkL1WethGatewayInitialization(
         L1WethGateway__factory.connect(l1Deployment.wethGateway, l1Provider),
+        L1GatewayRouter__factory.connect(l1Deployment.router, l1Provider),
         l1Deployment,
         l2Deployment,
         rollupAddresses
@@ -164,6 +165,7 @@ describe('tokenBridge', () => {
     if (!usingFeeToken) {
       await checkL2WethGatewayInitialization(
         L2WethGateway__factory.connect(l2Deployment.wethGateway, l2Provider),
+        L2GatewayRouter__factory.connect(l2Deployment.router, l2Provider),
         l1Deployment,
         l2Deployment
       )
@@ -174,14 +176,20 @@ describe('tokenBridge', () => {
       UpgradeExecutorABI,
       l1Provider
     )
-    await checkL1UpgradeExecutorInitialization(l1UpgradeExecutor, rollupAddresses);
+    await checkL1UpgradeExecutorInitialization(
+      l1UpgradeExecutor,
+      rollupAddresses
+    )
 
     const l2UpgradeExecutor = new ethers.Contract(
       l2Deployment.upgradeExecutor,
       UpgradeExecutorABI,
       l2Provider
     )
-    await checkL2UpgradeExecutorInitialization(l2UpgradeExecutor, rollupAddresses)
+    await checkL2UpgradeExecutorInitialization(
+      l2UpgradeExecutor,
+      rollupAddresses
+    )
 
     await checkL1Ownership(l1Deployment, rollupAddresses)
     await checkL2Ownership(l2Deployment, usingFeeToken)
@@ -278,6 +286,7 @@ async function checkL1CustomGatewayInitialization(
 
 async function checkL1WethGatewayInitialization(
   l1WethGateway: L1WethGateway,
+  l1Router: L1GatewayRouter,
   l1Deployment: L1DeploymentAddresses,
   l2Deployment: L2DeploymentAddresses,
   rollupAddresses: RollupAddresses
@@ -296,12 +305,19 @@ async function checkL1WethGatewayInitialization(
     rollupAddresses.inbox.toLowerCase()
   )
 
-  expect((await l1WethGateway.l1Weth()).toLowerCase()).to.not.be.eq(
-    ethers.constants.AddressZero
-  )
+  const l1WethAddress = await l1WethGateway.l1Weth()
+  expect(l1WethAddress.toLowerCase()).to.not.be.eq(ethers.constants.AddressZero)
 
   expect((await l1WethGateway.l2Weth()).toLowerCase()).to.not.be.eq(
     ethers.constants.AddressZero
+  )
+
+  expect(await l1Router.l1TokenToGateway(l1WethAddress)).to.be.eq(
+    l1WethGateway.address
+  )
+
+  expect(await l1Router.getGateway(l1WethAddress)).to.be.eq(
+    l1WethGateway.address
   )
 }
 
@@ -316,7 +332,8 @@ async function checkL1UpgradeExecutorInitialization(
   const executorRole = await l1Executor.EXECUTOR_ROLE()
 
   expect(await l1Executor.hasRole(adminRole, l1Executor.address)).to.be.true
-  expect(await l1Executor.hasRole(executorRole, rollupAddresses.rollupOwner)).to.be.true
+  expect(await l1Executor.hasRole(executorRole, rollupAddresses.rollupOwner)).to
+    .be.true
 }
 
 async function checkL2UpgradeExecutorInitialization(
@@ -434,6 +451,7 @@ async function checkL2CustomGatewayInitialization(
 
 async function checkL2WethGatewayInitialization(
   l2WethGateway: L2WethGateway,
+  l2Router: L2GatewayRouter,
   l1Deployment: L1DeploymentAddresses,
   l2Deployment: L2DeploymentAddresses
 ) {
@@ -447,12 +465,19 @@ async function checkL2WethGatewayInitialization(
     l2Deployment.router.toLowerCase()
   )
 
-  expect((await l2WethGateway.l1Weth()).toLowerCase()).to.not.be.eq(
-    ethers.constants.AddressZero
-  )
+  const l1WethAddress = await l2WethGateway.l1Weth()
+  expect(l1WethAddress.toLowerCase()).to.not.be.eq(ethers.constants.AddressZero)
 
   expect((await l2WethGateway.l2Weth()).toLowerCase()).to.not.be.eq(
     ethers.constants.AddressZero
+  )
+
+  expect(await l2Router.l1TokenToGateway(l1WethAddress)).to.be.eq(
+    l2WethGateway.address
+  )
+
+  expect(await l2Router.getGateway(l1WethAddress)).to.be.eq(
+    l2WethGateway.address
   )
 }
 
