@@ -105,7 +105,7 @@ jobs:
 
       - uses: OffchainLabs/actions/run-nitro-test-node@main
         with:
-          nitro-testnode-ref: bump-nitro
+          nitro-testnode-ref: master
           l3-node: true 
           no-token-bridge: true
 
@@ -141,7 +141,7 @@ jobs:
 
       - uses: OffchainLabs/actions/run-nitro-test-node@main
         with:
-          nitro-testnode-ref: bump-nitro
+          nitro-testnode-ref: master
           l3-node: true
           args: --l3-fee-token
           no-token-bridge: true
@@ -167,3 +167,6 @@ jobs:
 
       - name: Verify creation code generation
         run: yarn test:creation-code
+
+      - name: Test e2e orbit token bridge actions
+        run: yarn hardhat test test-e2e/orbitTokenBridge.ts
