@@ -293,7 +293,7 @@ describe('orbitTokenBridge', () => {
     )
   })
 
-  it.only('can deposit token via custom gateway', async function () {
+  it('can deposit token via custom gateway', async function () {
     // fund user to be able to pay retryable fees
     nativeToken = ERC20__factory.connect(
       await getFeeToken(_l2Network.ethBridge.inbox, userL1Wallet),
