@@ -79,7 +79,7 @@ contract L1ERC20GatewayTest is L1ArbitrumExtendedGatewayTest {
         gateway.initialize(l2Gateway, router, inbox, cloneableProxyHash, invalidBeaconProxyFactory);
     }
 
-    function test_outboundTransfer() public virtual {
+    function test_outboundTransfer() public virtual override {
         // snapshot state before
         uint256 userBalanceBefore = token.balanceOf(user);
         uint256 l1GatewayBalanceBefore = token.balanceOf(address(l1Gateway));
@@ -221,7 +221,7 @@ contract L1ERC20GatewayTest is L1ArbitrumExtendedGatewayTest {
         );
     }
 
-    function test_getOutboundCalldata() public {
+    function test_getOutboundCalldata() public override {
         bytes memory outboundCalldata = l1Gateway.getOutboundCalldata({
             _token: address(token),
             _from: user,

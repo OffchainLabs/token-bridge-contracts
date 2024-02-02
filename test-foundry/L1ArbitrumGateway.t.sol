@@ -101,6 +101,29 @@ abstract contract L1ArbitrumGatewayTest is Test {
         assertEq(data, initialData, "Wrong data");
     }
 
+    function test_getOutboundCalldata() public virtual {
+        bytes memory outboundCalldata = l1Gateway.getOutboundCalldata({
+            _token: address(token),
+            _from: user,
+            _to: address(800),
+            _amount: 355,
+            _data: abi.encode("doStuff()")
+        });
+
+        bytes memory expectedCalldata = abi.encodeWithSelector(
+            ITokenGateway.finalizeInboundTransfer.selector,
+            address(token),
+            user,
+            address(800),
+            355,
+            abi.encode("", abi.encode("doStuff()"))
+        );
+
+        assertEq(outboundCalldata, expectedCalldata, "Invalid outboundCalldata");
+    }
+
+    function test_outboundTransfer() public virtual {}
+
     function test_outboundTransferCustomRefund_revert_ExtraDataDisabled() public {
         bytes memory callHookData = abi.encodeWithSignature("doSomething()");
         bytes memory routerEncodedData = buildRouterEncodedData(callHookData);

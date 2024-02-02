@@ -124,27 +124,6 @@ contract L1CustomGatewayTest is L1ArbitrumExtendedGatewayTest {
         );
     }
 
-    function test_getOutboundCalldata() public {
-        bytes memory outboundCalldata = l1Gateway.getOutboundCalldata({
-            _token: address(token),
-            _from: user,
-            _to: address(800),
-            _amount: 355,
-            _data: abi.encode("doStuff()")
-        });
-
-        bytes memory expectedCalldata = abi.encodeWithSelector(
-            ITokenGateway.finalizeInboundTransfer.selector,
-            address(token),
-            user,
-            address(800),
-            355,
-            abi.encode("", abi.encode("doStuff()"))
-        );
-
-        assertEq(outboundCalldata, expectedCalldata, "Invalid outboundCalldata");
-    }
-
     function test_initialize() public virtual {
         L1CustomGateway gateway = new L1CustomGateway();
         gateway.initialize(l2Gateway, router, inbox, owner);
@@ -172,7 +151,7 @@ contract L1CustomGatewayTest is L1ArbitrumExtendedGatewayTest {
         gateway.initialize(l2Gateway, badRouter, inbox, owner);
     }
 
-    function test_outboundTransfer() public virtual {
+    function test_outboundTransfer() public virtual override {
         // snapshot state before
         uint256 userBalanceBefore = token.balanceOf(user);
         uint256 l1GatewayBalanceBefore = token.balanceOf(address(l1Gateway));
