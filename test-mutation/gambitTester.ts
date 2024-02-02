@@ -13,7 +13,7 @@ const TEST_TIMES = [
   'remappings.txt',
   'test-foundry',
 ]
-const MAX_TASKS = os.cpus().length - 1
+const MAX_TASKS = Math.max(1, os.cpus().length / 2)
 
 const execAsync = promisify(exec)
 const symlink = promisify(fs.symlink)
