@@ -85,7 +85,6 @@
     "typescript": "^4.2.2"
   },
   "optionalDependencies": {
-    "@openzeppelin/upgrades-core": "^1.24.1",
-    "sol2uml": "^2.5.4"
+    "@openzeppelin/upgrades-core": "^1.24.1"
   }
 }
