@@ -567,6 +567,15 @@ export const registerGateway = async (
   tokens: string[],
   gateways: string[]
 ) => {
+  const l2GatewayRouter = await L1GatewayRouter__factory.connect(gatewayRouter, l1Executor).counterpartGateway()
+  if (await l2Provider.getCode(l2GatewayRouter) == '0x') {
+    throw new Error('L2GatewayRouter not yet deployed')
+  }
+  const l1GatewayRouter = await L2GatewayRouter__factory.connect(l2GatewayRouter, l2Provider).counterpartGateway()
+  if (l1GatewayRouter != gatewayRouter) {
+    throw new Error('L2GatewayRouter not properly initialized')
+  }
+  
   const executorAddress = await l1Executor.getAddress()
 
   const buildCall = (params: OmitTyped<L1ToL2MessageGasParams, 'deposit'>) => {
