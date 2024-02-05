@@ -19,3 +19,7 @@ test/storage/*-old
 
 # local deployment files
 network.json
+
+# Gambit (mutation test) files
+gambit_out/
+test-mutation/mutant_test_env/
