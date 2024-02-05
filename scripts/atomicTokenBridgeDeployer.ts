@@ -571,7 +571,7 @@ export const registerGateway = async (
     gatewayRouter,
     l1Executor
   ).counterpartGateway()
-  if ((await l2Provider.getCode(l2GatewayRouter)) == '0x') {
+  if ((await l2Provider.getCode(l2GatewayRouter)) === '0x') {
     throw new Error('L2GatewayRouter not yet deployed')
   }
   const l1GatewayRouter = await L2GatewayRouter__factory.connect(
