@@ -496,13 +496,11 @@ contract L1OrbitCustomGatewayTest is L1CustomGatewayTest {
         );
     }
 
-    function test_registerTokenToL2_InboxPartiallyPrefunded(address l1Token, address l2Token)
+    function test_registerTokenToL2_InboxPartiallyPrefunded()
         public
     {
-        vm.assume(
-            l1Token != FOUNDRY_CHEATCODE_ADDRESS && l2Token != FOUNDRY_CHEATCODE_ADDRESS
-                && l1Token != address(0)
-        );
+        address l1Token = makeAddr("l1Token");
+        address l2Token = makeAddr("l2Token");
         vm.deal(l1Token, 100 ether);
 
         // pre-fund inbox
