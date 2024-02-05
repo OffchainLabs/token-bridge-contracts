@@ -224,7 +224,7 @@ abstract contract L1ArbitrumGateway is
      *      - a contract in construction
      *      - an address where a contract will be created
      *      - an address where a contract lived, but was destroyed
-     *    The msg.sender that calls this methid, or its L2 alias if it has code in L1, will be set to the callValueRefundAddress;
+     *    The msg.sender that calls this method, or its L2 alias if it has code in L1, will be set to the callValueRefundAddress;
      *    this means it can cancel the retryable ticket if its auto-redeem fails, and also that it receives the l2 callvalue refund 
      *    (although note that for this method there is no l2 callvalue).
      * @param _l1Token L1 address of ERC20
