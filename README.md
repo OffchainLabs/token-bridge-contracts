@@ -14,6 +14,9 @@ See security audit reports [here](./audits).
 
 This repository is offered under the Apache 2.0 license. See LICENSE for details.
 
+## Deployment
+Check [this doc](./docs/deployment.md) for instructions on deployment and verification of token bridge.
+
 ## Contact
 
 Discord - [Arbitrum](https://discord.com/invite/5KE54JwyTs)

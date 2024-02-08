@@ -7,6 +7,7 @@ import {L2CustomGateway} from "./gateway/L2CustomGateway.sol";
 import {L2WethGateway} from "./gateway/L2WethGateway.sol";
 import {StandardArbERC20} from "./StandardArbERC20.sol";
 import {IUpgradeExecutor} from "@offchainlabs/upgrade-executor/src/IUpgradeExecutor.sol";
+import {CreationCodeHelper} from "../libraries/CreationCodeHelper.sol";
 import {BeaconProxyFactory} from "../libraries/ClonableBeaconProxy.sol";
 import {aeWETH} from "../libraries/aeWETH.sol";
 import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
@@ -24,6 +25,12 @@ import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
  */
 contract L2AtomicTokenBridgeFactory {
     error L2AtomicTokenBridgeFactory_AlreadyExists();
+
+    // In order to avoid having uninitialized logic contracts, `initialize` function will be called
+    // on all logic contracts which don't have initializers disabled. This dummy non-zero address
+    // will be provided to those initializers, as values written to the logic contract's storage
+    // are not used.
+    address private constant ADDRESS_DEAD = address(0x000000000000000000000000000000000000dEaD);
 
     function deployL2Contracts(
         L2RuntimeCode calldata l2Code,
@@ -47,8 +54,7 @@ contract L2AtomicTokenBridgeFactory {
                 revert L2AtomicTokenBridgeFactory_AlreadyExists();
             }
         }
-        address proxyAdmin =
-            address(new ProxyAdmin{ salt: _getL2Salt(OrbitSalts.L2_PROXY_ADMIN) }());
+        address proxyAdmin = address(new ProxyAdmin{salt: _getL2Salt(OrbitSalts.L2_PROXY_ADMIN)}());
 
         // deploy router/gateways/executor
         address upgradeExecutor = _deployUpgradeExecutor(
@@ -69,7 +75,11 @@ contract L2AtomicTokenBridgeFactory {
         }
 
         // deploy multicall
-        Create2.deploy(0, _getL2Salt(OrbitSalts.L2_MULTICALL), _creationCodeFor(l2Code.multicall));
+        Create2.deploy(
+            0,
+            _getL2Salt(OrbitSalts.L2_MULTICALL),
+            CreationCodeHelper.getCreationCodeFor(l2Code.multicall)
+        );
 
         // transfer ownership to L2 upgradeExecutor
         ProxyAdmin(proxyAdmin).transferOwnership(upgradeExecutor);
@@ -82,17 +92,22 @@ contract L2AtomicTokenBridgeFactory {
         address aliasedL1UpgradeExecutor
     ) internal returns (address) {
         // canonical L2 upgrade executor with dummy logic
-        address canonicalUpgradeExecutor = _deploySeedProxy(
-            proxyAdmin, _getL2Salt(OrbitSalts.L2_EXECUTOR), _getL2Salt(OrbitSalts.L2_EXECUTOR_LOGIC)
+        address canonicalUpgradeExecutor = _deploySeedProxy(proxyAdmin, OrbitSalts.L2_EXECUTOR);
+
+        // Create UpgradeExecutor logic and upgrade to it.
+        address upExecutorLogic = Create2.deploy(
+            0,
+            _getL2Salt(OrbitSalts.L2_EXECUTOR),
+            CreationCodeHelper.getCreationCodeFor(runtimeCode)
         );
 
-        // create UpgradeExecutor logic and upgrade to it
-        address upExecutorLogic = Create2.deploy(
-            0, _getL2Salt(OrbitSalts.L2_EXECUTOR_LOGIC), _creationCodeFor(runtimeCode)
-        );
         ProxyAdmin(proxyAdmin).upgrade(
             ITransparentUpgradeableProxy(canonicalUpgradeExecutor), upExecutorLogic
         );
+
+        // init logic contract with dummy values
+        address[] memory empty = new address[](0);
+        IUpgradeExecutor(upExecutorLogic).initialize(ADDRESS_DEAD, empty);
 
         // init upgrade executor
         address[] memory executors = new address[](2);
@@ -110,14 +125,16 @@ contract L2AtomicTokenBridgeFactory {
         address proxyAdmin
     ) internal returns (address) {
         // canonical L2 router with dummy logic
-        address canonicalRouter = _deploySeedProxy(
-            proxyAdmin, _getL2Salt(OrbitSalts.L2_ROUTER), _getL2Salt(OrbitSalts.L2_ROUTER_LOGIC)
-        );
+        address canonicalRouter = _deploySeedProxy(proxyAdmin, OrbitSalts.L2_ROUTER);
 
         // create L2 router logic and upgrade
-        address routerLogic =
-            Create2.deploy(0, _getL2Salt(OrbitSalts.L2_ROUTER_LOGIC), _creationCodeFor(runtimeCode));
+        address routerLogic = Create2.deploy(
+            0, _getL2Salt(OrbitSalts.L2_ROUTER), CreationCodeHelper.getCreationCodeFor(runtimeCode)
+        );
         ProxyAdmin(proxyAdmin).upgrade(ITransparentUpgradeableProxy(canonicalRouter), routerLogic);
+
+        // init logic contract with dummy values.
+        L2GatewayRouter(routerLogic).initialize(ADDRESS_DEAD, ADDRESS_DEAD);
 
         // init
         L2GatewayRouter(canonicalRouter).initialize(l1Router, l2StandardGatewayCanonicalAddress);
@@ -133,30 +150,29 @@ contract L2AtomicTokenBridgeFactory {
         address upgradeExecutor
     ) internal {
         // canonical L2 standard gateway with dummy logic
-        address canonicalStdGateway = _deploySeedProxy(
-            proxyAdmin,
-            _getL2Salt(OrbitSalts.L2_STANDARD_GATEWAY),
-            _getL2Salt(OrbitSalts.L2_STANDARD_GATEWAY_LOGIC)
-        );
+        address canonicalStdGateway = _deploySeedProxy(proxyAdmin, OrbitSalts.L2_STANDARD_GATEWAY);
 
         // create L2 standard gateway logic and upgrade
         address stdGatewayLogic = Create2.deploy(
-            0, _getL2Salt(OrbitSalts.L2_STANDARD_GATEWAY_LOGIC), _creationCodeFor(runtimeCode)
+            0,
+            _getL2Salt(OrbitSalts.L2_STANDARD_GATEWAY),
+            CreationCodeHelper.getCreationCodeFor(runtimeCode)
         );
         ProxyAdmin(proxyAdmin).upgrade(
             ITransparentUpgradeableProxy(canonicalStdGateway), stdGatewayLogic
         );
 
+        // init logic contract with dummy values
+        L2ERC20Gateway(stdGatewayLogic).initialize(ADDRESS_DEAD, ADDRESS_DEAD, ADDRESS_DEAD);
+
         // create beacon
-        StandardArbERC20 standardArbERC20 = new StandardArbERC20{
-            salt: _getL2Salt(OrbitSalts.L2_STANDARD_ERC20)
-        }();
+        StandardArbERC20 standardArbERC20 =
+            new StandardArbERC20{salt: _getL2Salt(OrbitSalts.BEACON_PROXY_FACTORY)}();
         UpgradeableBeacon beacon = new UpgradeableBeacon{
-            salt: _getL2Salt(OrbitSalts.UPGRADEABLE_BEACON)
-        }(address(standardArbERC20));
-        BeaconProxyFactory beaconProxyFactory = new BeaconProxyFactory{
             salt: _getL2Salt(OrbitSalts.BEACON_PROXY_FACTORY)
-        }();
+        }(address(standardArbERC20));
+        BeaconProxyFactory beaconProxyFactory =
+            new BeaconProxyFactory{salt: _getL2Salt(OrbitSalts.BEACON_PROXY_FACTORY)}();
 
         // init contracts
         beaconProxyFactory.initialize(address(beacon));
@@ -175,22 +191,23 @@ contract L2AtomicTokenBridgeFactory {
         address proxyAdmin
     ) internal {
         // canonical L2 custom gateway with dummy logic
-        address canonicalCustomGateway = _deploySeedProxy(
-            proxyAdmin,
-            _getL2Salt(OrbitSalts.L2_CUSTOM_GATEWAY),
-            _getL2Salt(OrbitSalts.L2_CUSTOM_GATEWAY_LOGIC)
-        );
+        address canonicalCustomGateway = _deploySeedProxy(proxyAdmin, OrbitSalts.L2_CUSTOM_GATEWAY);
 
         // create L2 custom gateway logic and upgrade
         address customGatewayLogicAddress = Create2.deploy(
-            0, _getL2Salt(OrbitSalts.L2_CUSTOM_GATEWAY_LOGIC), _creationCodeFor(runtimeCode)
+            0,
+            _getL2Salt(OrbitSalts.L2_CUSTOM_GATEWAY),
+            CreationCodeHelper.getCreationCodeFor(runtimeCode)
         );
         ProxyAdmin(proxyAdmin).upgrade(
             ITransparentUpgradeableProxy(canonicalCustomGateway), customGatewayLogicAddress
         );
 
+        // init logic contract with dummy values
+        L2CustomGateway(customGatewayLogicAddress).initialize(ADDRESS_DEAD, ADDRESS_DEAD);
+
         // init
-        L2GatewayRouter(canonicalCustomGateway).initialize(l1CustomGateway, router);
+        L2CustomGateway(canonicalCustomGateway).initialize(l1CustomGateway, router);
     }
 
     function _deployWethGateway(
@@ -202,37 +219,41 @@ contract L2AtomicTokenBridgeFactory {
         address proxyAdmin
     ) internal {
         // canonical L2 WETH with dummy logic
-        address canonicalL2Weth = _deploySeedProxy(
-            proxyAdmin, _getL2Salt(OrbitSalts.L2_WETH), _getL2Salt(OrbitSalts.L2_WETH_LOGIC)
-        );
+        address canonicalL2Weth = _deploySeedProxy(proxyAdmin, OrbitSalts.L2_WETH);
 
-        // create L2WETH logic and upgrade
+        // Create L2WETH logic and upgrade
         address l2WethLogic = Create2.deploy(
-            0, _getL2Salt(OrbitSalts.L2_WETH_LOGIC), _creationCodeFor(aeWethRuntimeCode)
+            0,
+            _getL2Salt(OrbitSalts.L2_WETH),
+            CreationCodeHelper.getCreationCodeFor(aeWethRuntimeCode)
         );
         ProxyAdmin(proxyAdmin).upgrade(ITransparentUpgradeableProxy(canonicalL2Weth), l2WethLogic);
 
         // canonical L2 WETH gateway with dummy logic
-        address canonicalL2WethGateway = _deploySeedProxy(
-            proxyAdmin,
-            _getL2Salt(OrbitSalts.L2_WETH_GATEWAY),
-            _getL2Salt(OrbitSalts.L2_WETH_GATEWAY_LOGIC)
-        );
+        address canonicalL2WethGateway = _deploySeedProxy(proxyAdmin, OrbitSalts.L2_WETH_GATEWAY);
 
         // create L2WETH gateway logic and upgrade
         address l2WethGatewayLogic = Create2.deploy(
             0,
-            _getL2Salt(OrbitSalts.L2_WETH_GATEWAY_LOGIC),
-            _creationCodeFor(wethGatewayRuntimeCode)
+            _getL2Salt(OrbitSalts.L2_WETH_GATEWAY),
+            CreationCodeHelper.getCreationCodeFor(wethGatewayRuntimeCode)
         );
         ProxyAdmin(proxyAdmin).upgrade(
             ITransparentUpgradeableProxy(canonicalL2WethGateway), l2WethGatewayLogic
+        );
+
+        // init logic contract with dummy values
+        L2WethGateway(payable(l2WethGatewayLogic)).initialize(
+            ADDRESS_DEAD, ADDRESS_DEAD, ADDRESS_DEAD, ADDRESS_DEAD
         );
 
         // init gateway
         L2WethGateway(payable(canonicalL2WethGateway)).initialize(
             l1WethGateway, router, l1Weth, address(canonicalL2Weth)
         );
+
+        // init logic contract with dummy values
+        aeWETH(payable(l2WethLogic)).initialize("", "", 0, ADDRESS_DEAD, ADDRESS_DEAD);
 
         // init L2Weth
         aeWETH(payable(canonicalL2Weth)).initialize(
@@ -250,47 +271,17 @@ contract L2AtomicTokenBridgeFactory {
     }
 
     /**
-     * Deploys a proxy with empty logic contract in order to get deterministic address which does not depend on actual logic contract.
+     * Deploys a proxy with address(this) as logic in order to get deterministic address
+     * the proxy is salted using a salt derived from the prefix, the chainId and the sender
      */
-    function _deploySeedProxy(address proxyAdmin, bytes32 proxySalt, bytes32 logicSalt)
-        internal
-        returns (address)
-    {
+    function _deploySeedProxy(address proxyAdmin, bytes memory prefix) internal returns (address) {
         return address(
-            new TransparentUpgradeableProxy{ salt: proxySalt }(
-                address(new CanonicalAddressSeed{ salt: logicSalt}()),
-                proxyAdmin,
-                bytes("")
+            new TransparentUpgradeableProxy{salt: _getL2Salt(prefix)}(
+                address(this), proxyAdmin, bytes("")
             )
         );
     }
-
-    /**
-     * @notice Generate a creation code that results on a contract with `code` as bytecode.
-     *         Source - https://github.com/0xsequence/sstore2/blob/master/contracts/utils/Bytecode.sol
-     * @param code The returning value of the resulting `creationCode`
-     * @return creationCode (constructor) for new contract
-     */
-    function _creationCodeFor(bytes memory code) internal pure returns (bytes memory) {
-        /*
-            0x00    0x63         0x63XXXXXX  PUSH4 _code.length  size
-            0x01    0x80         0x80        DUP1                size size
-            0x02    0x60         0x600e      PUSH1 14            14 size size
-            0x03    0x60         0x6000      PUSH1 00            0 14 size size
-            0x04    0x39         0x39        CODECOPY            size
-            0x05    0x60         0x6000      PUSH1 00            0 size
-            0x06    0xf3         0xf3        RETURN
-            <CODE>
-        */
-
-        return abi.encodePacked(hex"63", uint32(code.length), hex"80600E6000396000F3", code);
-    }
 }
-
-/**
- * Dummy contract used as initial logic contract for proxies, in order to get canonical (CREATE2 based) address. Then we can upgrade to any logic without having canonical addresses impacted.
- */
-contract CanonicalAddressSeed {}
 
 /**
  * Placeholder for bytecode of token bridge contracts which is sent from L1 to L2 through retryable ticket.
@@ -307,29 +298,21 @@ struct L2RuntimeCode {
 
 /**
  * Collection of salts used in CREATE2 deployment of L2 token bridge contracts.
+ * Logic contracts are deployed using the same salt as the proxy, it's fine as they have different code
  */
 library OrbitSalts {
-    bytes public constant L1_PROXY_ADMIN = bytes("OrbitL1ProxyAdmin");
-    bytes public constant L1_ROUTER = bytes("OrbitL1GatewayRouterProxy");
-    bytes public constant L1_STANDARD_GATEWAY = bytes("OrbitL1StandardGatewayProxy");
-    bytes public constant L1_CUSTOM_GATEWAY = bytes("OrbitL1CustomGatewayProxy");
-    bytes public constant L1_WETH_GATEWAY = bytes("OrbitL1WethGatewayProxy");
+    bytes internal constant L1_ROUTER = bytes("L1R");
+    bytes internal constant L1_STANDARD_GATEWAY = bytes("L1SGW");
+    bytes internal constant L1_CUSTOM_GATEWAY = bytes("L1CGW");
+    bytes internal constant L1_WETH_GATEWAY = bytes("L1WGW");
 
-    bytes public constant L2_PROXY_ADMIN = bytes("OrbitL2ProxyAdmin");
-    bytes public constant L2_ROUTER_LOGIC = bytes("OrbitL2GatewayRouterLogic");
-    bytes public constant L2_ROUTER = bytes("OrbitL2GatewayRouterProxy");
-    bytes public constant L2_STANDARD_GATEWAY_LOGIC = bytes("OrbitL2StandardGatewayLogic");
-    bytes public constant L2_STANDARD_GATEWAY = bytes("OrbitL2StandardGatewayProxy");
-    bytes public constant L2_CUSTOM_GATEWAY_LOGIC = bytes("OrbitL2CustomGatewayLogic");
-    bytes public constant L2_CUSTOM_GATEWAY = bytes("OrbitL2CustomGatewayProxy");
-    bytes public constant L2_WETH_GATEWAY_LOGIC = bytes("OrbitL2WethGatewayLogic");
-    bytes public constant L2_WETH_GATEWAY = bytes("OrbitL2WethGatewayProxy");
-    bytes public constant L2_WETH_LOGIC = bytes("OrbitL2WETH");
-    bytes public constant L2_WETH = bytes("OrbitL2WETHProxy");
-    bytes public constant L2_STANDARD_ERC20 = bytes("OrbitStandardArbERC20");
-    bytes public constant UPGRADEABLE_BEACON = bytes("OrbitUpgradeableBeacon");
-    bytes public constant BEACON_PROXY_FACTORY = bytes("OrbitBeaconProxyFactory");
-    bytes public constant L2_EXECUTOR_LOGIC = bytes("OrbitL2UpgradeExecutorLogic");
-    bytes public constant L2_EXECUTOR = bytes("OrbitL2UpgradeExecutorProxy");
-    bytes public constant L2_MULTICALL = bytes("OrbitL2Multicall");
+    bytes internal constant L2_PROXY_ADMIN = bytes("L2PA");
+    bytes internal constant L2_ROUTER = bytes("L2R");
+    bytes internal constant L2_STANDARD_GATEWAY = bytes("L2SGW");
+    bytes internal constant L2_CUSTOM_GATEWAY = bytes("L2CGW");
+    bytes internal constant L2_WETH_GATEWAY = bytes("L2WGW");
+    bytes internal constant L2_WETH = bytes("L2W");
+    bytes internal constant BEACON_PROXY_FACTORY = bytes("L2BPF");
+    bytes internal constant L2_EXECUTOR = bytes("L2E");
+    bytes internal constant L2_MULTICALL = bytes("L2MC");
 }

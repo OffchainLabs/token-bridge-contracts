@@ -1,6 +1,6 @@
 {
   "name": "@arbitrum/token-bridge-contracts",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "license": "Apache-2.0",
   "scripts": {
     "prepublishOnly": "hardhat clean && hardhat compile",
@@ -20,10 +20,12 @@
     "test:unit": "forge test",
     "test:e2e:local-env": "yarn hardhat test test-e2e/*",
     "test:storage": "./scripts/storage_layout_test.bash",
+    "test:mutation": "ts-node test-mutation/gambitTester.ts",
     "deploy:local:token-bridge": "ts-node ./scripts/local-deployment/deployCreatorAndCreateTokenBridge.ts",
-    "deploy:goerli:token-bridge-creator": "ts-node ./scripts/goerli-deployment/deployTokenBridgeCreator.ts",
-    "create:goerli:token-bridge": "ts-node ./scripts/goerli-deployment/createTokenBridge.ts",
+    "deploy:token-bridge-creator": "ts-node ./scripts/deployment/deployTokenBridgeCreator.ts",
+    "create:token-bridge": "ts-node ./scripts/deployment/createTokenBridge.ts",
     "test:tokenbridge:deployment": "hardhat test test-e2e/tokenBridgeDeploymentTest.ts",
+    "test:creation-code": "hardhat test test-e2e/creationCodeTest.ts",
     "typechain": "hardhat typechain",
     "deploy:tokenbridge": "hardhat run scripts/deploy_token_bridge_l1.ts --network mainnet",
     "gen:uml": "sol2uml ./contracts/tokenbridge/arbitrum,./contracts/tokenbridge/ethereum,./contracts/tokenbridge/libraries -o ./gatewayUML.svg",
@@ -37,7 +39,7 @@
     "build/contracts/contracts"
   ],
   "dependencies": {
-    "@arbitrum/nitro-contracts": "^1.0.0-beta.8",
+    "@arbitrum/nitro-contracts": "1.1.1",
     "@offchainlabs/upgrade-executor": "1.1.0-beta.0",
     "@openzeppelin/contracts": "4.8.3",
     "@openzeppelin/contracts-upgradeable": "4.8.3"
@@ -50,6 +52,7 @@
     "@typechain/ethers-v5": "^7.0.1",
     "@typechain/hardhat": "^2.3.0",
     "@types/chai": "^4.2.15",
+    "@types/fs-extra": "^11.0.4",
     "@types/mocha": "^9.0.0",
     "@types/node": "^14.14.28",
     "@types/prompts": "^2.0.14",
@@ -65,6 +68,7 @@
     "eslint-plugin-prettier": "^4.0.0",
     "ethereum-waffle": "^3.2.0",
     "ethers": "^5.4.5",
+    "fs-extra": "^11.2.0",
     "hardhat": "2.17.3",
     "hardhat-contract-sizer": "^2.10.0",
     "hardhat-deploy": "^0.9.1",
@@ -72,7 +76,6 @@
     "prettier": "^2.3.2",
     "prettier-plugin-solidity": "^1.0.0-beta.17",
     "prompts": "^2.4.1",
-    "sol2uml": "^2.5.4",
     "solhint": "^3.2.0",
     "solhint-plugin-prettier": "^0.0.5",
     "solidity-coverage": "v0.7.17",
