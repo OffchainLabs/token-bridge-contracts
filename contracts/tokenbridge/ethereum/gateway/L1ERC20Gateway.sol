@@ -51,8 +51,8 @@ contract L1ERC20Gateway is L1ArbitrumExtendedGateway {
         assembly {
             _reentrancyStatus := tload(REENTRANCY_STATUS_TSLOT)
         }
-
         require(_reentrancyStatus != _ENTERED, "ReentrancyGuard: reentrant call");
+        
         // Any calls to nonReentrant after this point will fail
         assembly {
             tstore(REENTRANCY_STATUS_TSLOT, _ENTERED)
