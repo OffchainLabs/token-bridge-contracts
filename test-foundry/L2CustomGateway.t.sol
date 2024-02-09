@@ -13,8 +13,6 @@ import {TransparentUpgradeableProxy} from
 
 contract L2CustomGatewayTest is L2ArbitrumGatewayTest {
     L2CustomGateway public l2CustomGateway;
-    address public l2BeaconProxyFactory;
-
     address public l1CustomToken = makeAddr("l1CustomToken");
 
     function setUp() public virtual {
@@ -44,7 +42,7 @@ contract L2CustomGatewayTest is L2ArbitrumGatewayTest {
         );
     }
 
-    function test_finalizeInboundTransfer() public override {
+    function test_finalizeInboundTransfer() public virtual override {
         /// deposit params
         bytes memory gatewayData = new bytes(0);
         bytes memory callHookData = new bytes(0);
@@ -154,7 +152,7 @@ contract L2CustomGatewayTest is L2ArbitrumGatewayTest {
         );
     }
 
-    function test_finalizeInboundTransfer_WithCallHook() public override {
+    function test_finalizeInboundTransfer_WithCallHook() public virtual override {
         /// deposit params
         bytes memory gatewayData = abi.encode(
             abi.encode(bytes("Name")), abi.encode(bytes("Symbol")), abi.encode(uint256(18))
@@ -316,7 +314,7 @@ contract L2CustomGatewayTest is L2ArbitrumGatewayTest {
     ////
     // Internal helper functions
     ////
-    function _registerToken() internal returns (address) {
+    function _registerToken() internal virtual returns (address) {
         address[] memory l1Tokens = new address[](1);
         l1Tokens[0] = l1CustomToken;
 
