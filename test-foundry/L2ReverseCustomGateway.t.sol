@@ -104,6 +104,92 @@ contract L2ReverseCustomGatewayTest is L2CustomGatewayTest {
         );
     }
 
+    function test_outboundTransfer() public override {
+        // fund sender
+        vm.startPrank(sender);
+        l2MintedToken.mint();
+        l2MintedToken.approve(address(l2CustomGateway), amount);
+        vm.stopPrank();
+
+        // create and init custom l2Token
+        address l1CustomToken = _registerToken();
+
+        vm.mockCall(
+            address(l2MintedToken),
+            abi.encodeWithSignature("l1Address()"),
+            abi.encode(l1CustomToken)
+        );
+
+        // withdrawal params
+        bytes memory data = new bytes(0);
+
+        // events
+        uint256 expectedId = 0;
+        bytes memory expectedData =
+            l2CustomGateway.getOutboundCalldata(l1CustomToken, sender, receiver, amount, data);
+        vm.expectEmit(true, true, true, true);
+        emit TxToL1(sender, l1Counterpart, expectedId, expectedData);
+
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawalInitiated(l1CustomToken, sender, receiver, expectedId, 0, amount);
+
+        // withdraw
+        vm.etch(0x0000000000000000000000000000000000000064, address(arbSysMock).code);
+        vm.prank(sender);
+        l2CustomGateway.outboundTransfer(l1CustomToken, receiver, amount, 0, 0, data);
+    }
+
+    function test_outboundTransfer_4Args() public override {
+        // fund sender
+        vm.startPrank(sender);
+        l2MintedToken.mint();
+        l2MintedToken.approve(address(l2CustomGateway), amount);
+        vm.stopPrank();
+
+        // create and init custom l2Token
+        address l1CustomToken = _registerToken();
+
+        vm.mockCall(
+            address(l2MintedToken),
+            abi.encodeWithSignature("l1Address()"),
+            abi.encode(l1CustomToken)
+        );
+
+        // withdrawal params
+        bytes memory data = new bytes(0);
+
+        // events
+        uint256 expectedId = 0;
+        bytes memory expectedData =
+            l2CustomGateway.getOutboundCalldata(l1CustomToken, sender, receiver, amount, data);
+        vm.expectEmit(true, true, true, true);
+        emit TxToL1(sender, l1Counterpart, expectedId, expectedData);
+
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawalInitiated(l1CustomToken, sender, receiver, expectedId, 0, amount);
+
+        // withdraw
+        vm.etch(0x0000000000000000000000000000000000000064, address(arbSysMock).code);
+        vm.prank(sender);
+        l2CustomGateway.outboundTransfer(l1CustomToken, receiver, amount, data);
+    }
+
+    function test_outboundTransfer_revert_NotExpectedL1Token() public override {
+        // create and init custom l2Token
+        address l1CustomToken = _registerToken();
+
+        // mock invalid L1 token ref
+        address notOriginalL1Token = makeAddr("notOriginalL1Token");
+        vm.mockCall(
+            address(l2MintedToken),
+            abi.encodeWithSignature("l1Address()"),
+            abi.encode(notOriginalL1Token)
+        );
+
+        vm.expectRevert("NOT_EXPECTED_L1_TOKEN");
+        l2Gateway.outboundTransfer(l1CustomToken, address(101), 200, 0, 0, new bytes(0));
+    }
+
     ////
     // Internal helper functions
     ////

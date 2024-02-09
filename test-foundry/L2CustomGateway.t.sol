@@ -203,7 +203,7 @@ contract L2CustomGatewayTest is L2ArbitrumGatewayTest {
         L2CustomGateway(gateway).initialize(l1Counterpart, router);
     }
 
-    function test_outboundTransfer() public override {
+    function test_outboundTransfer() public virtual override {
         // create and init custom l2Token
         address l2CustomToken = _registerToken();
 
@@ -229,7 +229,7 @@ contract L2CustomGatewayTest is L2ArbitrumGatewayTest {
         l2CustomGateway.outboundTransfer(l1CustomToken, receiver, amount, 0, 0, data);
     }
 
-    function test_outboundTransfer_4Args() public override {
+    function test_outboundTransfer_4Args() public virtual override {
         // create and init custom l2Token
         address l2CustomToken = _registerToken();
 
@@ -255,7 +255,7 @@ contract L2CustomGatewayTest is L2ArbitrumGatewayTest {
         l2CustomGateway.outboundTransfer(l1CustomToken, receiver, amount, data);
     }
 
-    function test_outboundTransfer_revert_NotExpectedL1Token() public override {
+    function test_outboundTransfer_revert_NotExpectedL1Token() public virtual override {
         // create and init custom l2Token
         address l2CustomToken = _registerToken();
 
