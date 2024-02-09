@@ -13,7 +13,7 @@ const TEST_TIMES = [
   'remappings.txt',
   'test-foundry',
 ]
-const MAX_TASKS = os.cpus().length - 1
+const MAX_TASKS = Math.max(1, os.cpus().length - 1)
 
 const execAsync = promisify(exec)
 const symlink = promisify(fs.symlink)
@@ -123,7 +123,7 @@ async function _testMutant(mutant: Mutant): Promise<TestResult> {
   try {
     await execAsync(`forge build --root ${testDirectory}`)
     await execAsync(
-      `forge test --fail-fast --gas-limit 30000000 --root ${testDirectory}`
+      `forge test --fail-fast --no-match-contract AtomicTokenBridgeCreatorTest --root ${testDirectory}`
     )
     mutantStatus = MutantStatus.SURVIVED
   } catch (error) {

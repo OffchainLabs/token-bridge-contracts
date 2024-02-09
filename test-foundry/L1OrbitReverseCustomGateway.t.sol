@@ -2,10 +2,21 @@
 
 pragma solidity ^0.8.0;
 
-import { L1OrbitCustomGatewayTest, ERC20InboxMock, TestERC20, IERC20, ERC20, ERC20PresetMinterPauser } from "./L1OrbitCustomGateway.t.sol";
-import { L1OrbitReverseCustomGateway } from "contracts/tokenbridge/ethereum/gateway/L1OrbitReverseCustomGateway.sol";
-import { MintableTestCustomTokenL1, ReverseTestCustomTokenL1 } from "contracts/tokenbridge/test/TestCustomTokenL1.sol";
-import { IInbox } from "contracts/tokenbridge/ethereum/L1ArbitrumMessenger.sol";
+import {
+    L1OrbitCustomGatewayTest,
+    ERC20InboxMock,
+    TestERC20,
+    IERC20,
+    ERC20,
+    ERC20PresetMinterPauser
+} from "./L1OrbitCustomGateway.t.sol";
+import {L1OrbitReverseCustomGateway} from
+    "contracts/tokenbridge/ethereum/gateway/L1OrbitReverseCustomGateway.sol";
+import {
+    MintableTestCustomTokenL1,
+    ReverseTestCustomTokenL1
+} from "contracts/tokenbridge/test/TestCustomTokenL1.sol";
+import {IInbox} from "contracts/tokenbridge/ethereum/L1ArbitrumMessenger.sol";
 
 contract L1OrbitReverseCustomGatewayTest is L1OrbitCustomGatewayTest {
     function setUp() public override {
@@ -34,10 +45,8 @@ contract L1OrbitReverseCustomGatewayTest is L1OrbitCustomGatewayTest {
     /* solhint-disable func-name-mixedcase */
     function test_finalizeInboundTransfer() public override {
         // fund gateway with bridged tokens
-        MintableTestCustomTokenL1 bridgedToken = new MintableTestCustomTokenL1(
-            address(l1Gateway),
-            router
-        );
+        MintableTestCustomTokenL1 bridgedToken =
+            new MintableTestCustomTokenL1(address(l1Gateway), router);
         vm.prank(address(l1Gateway));
         bridgedToken.mint();
 
@@ -56,11 +65,7 @@ contract L1OrbitReverseCustomGatewayTest is L1OrbitCustomGatewayTest {
         // trigger deposit
         vm.prank(address(IInbox(l1Gateway.inbox()).bridge()));
         L1OrbitReverseCustomGateway(address(l1Gateway)).finalizeInboundTransfer(
-            address(bridgedToken),
-            from,
-            user,
-            amount,
-            data
+            address(bridgedToken), from, user, amount, data
         );
 
         // check tokens are minted
@@ -70,10 +75,8 @@ contract L1OrbitReverseCustomGatewayTest is L1OrbitCustomGatewayTest {
 
     function test_outboundTransfer() public override {
         // fund user with tokens
-        MintableTestCustomTokenL1 bridgedToken = new ReverseTestCustomTokenL1(
-            address(l1Gateway),
-            router
-        );
+        MintableTestCustomTokenL1 bridgedToken =
+            new ReverseTestCustomTokenL1(address(l1Gateway), router);
         vm.prank(address(user));
         bridgedToken.mint();
 
@@ -86,8 +89,7 @@ contract L1OrbitReverseCustomGatewayTest is L1OrbitCustomGatewayTest {
 
         // approve fees
         ERC20PresetMinterPauser(address(nativeToken)).mint(
-            address(bridgedToken),
-            nativeTokenTotalFee
+            address(bridgedToken), nativeTokenTotalFee
         );
         vm.prank(address(bridgedToken));
         nativeToken.approve(address(l1Gateway), nativeTokenTotalFee);
@@ -141,12 +143,7 @@ contract L1OrbitReverseCustomGatewayTest is L1OrbitCustomGatewayTest {
         // trigger transfer
         vm.prank(router);
         bytes memory seqNum1 = L1OrbitReverseCustomGateway(address(l1Gateway)).outboundTransfer(
-            address(bridgedToken),
-            user,
-            amount,
-            maxGas,
-            gasPriceBid,
-            routerEncodedData
+            address(bridgedToken), user, amount, maxGas, gasPriceBid, routerEncodedData
         );
 
         // check tokens are burned
@@ -159,10 +156,8 @@ contract L1OrbitReverseCustomGatewayTest is L1OrbitCustomGatewayTest {
 
     function test_outboundTransferCustomRefund() public override {
         // fund user with tokens
-        MintableTestCustomTokenL1 bridgedToken = new ReverseTestCustomTokenL1(
-            address(l1Gateway),
-            router
-        );
+        MintableTestCustomTokenL1 bridgedToken =
+            new ReverseTestCustomTokenL1(address(l1Gateway), router);
         vm.prank(address(user));
         bridgedToken.mint();
 
@@ -175,8 +170,7 @@ contract L1OrbitReverseCustomGatewayTest is L1OrbitCustomGatewayTest {
 
         // approve fees
         ERC20PresetMinterPauser(address(nativeToken)).mint(
-            address(bridgedToken),
-            nativeTokenTotalFee
+            address(bridgedToken), nativeTokenTotalFee
         );
         vm.prank(address(bridgedToken));
         nativeToken.approve(address(l1Gateway), nativeTokenTotalFee);
@@ -231,14 +225,14 @@ contract L1OrbitReverseCustomGatewayTest is L1OrbitCustomGatewayTest {
         vm.prank(router);
         bytes memory seqNum1 = L1OrbitReverseCustomGateway(address(l1Gateway))
             .outboundTransferCustomRefund(
-                address(bridgedToken),
-                creditBackAddress,
-                user,
-                amount,
-                maxGas,
-                gasPriceBid,
-                routerEncodedData
-            );
+            address(bridgedToken),
+            creditBackAddress,
+            user,
+            amount,
+            maxGas,
+            gasPriceBid,
+            routerEncodedData
+        );
 
         // check tokens are escrowed
         uint256 userBalanceAfter = bridgedToken.balanceOf(user);
@@ -250,10 +244,8 @@ contract L1OrbitReverseCustomGatewayTest is L1OrbitCustomGatewayTest {
 
     function test_outboundTransferCustomRefund_revert_InsufficientAllowance() public override {
         // fund user with tokens
-        MintableTestCustomTokenL1 bridgedToken = new ReverseTestCustomTokenL1(
-            address(l1Gateway),
-            router
-        );
+        MintableTestCustomTokenL1 bridgedToken =
+            new ReverseTestCustomTokenL1(address(l1Gateway), router);
         vm.prank(address(user));
         bridgedToken.mint();
 
@@ -261,8 +253,7 @@ contract L1OrbitReverseCustomGatewayTest is L1OrbitCustomGatewayTest {
 
         // approve fees
         ERC20PresetMinterPauser(address(nativeToken)).mint(
-            address(bridgedToken),
-            nativeTokenTotalFee
+            address(bridgedToken), nativeTokenTotalFee
         );
         vm.prank(address(bridgedToken));
         nativeToken.approve(address(l1Gateway), nativeTokenTotalFee);
