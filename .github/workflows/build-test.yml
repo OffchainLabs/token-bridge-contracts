@@ -105,7 +105,7 @@ jobs:
 
       - uses: OffchainLabs/actions/run-nitro-test-node@main
         with:
-          l3-node: true 
+          l3-node: true
           no-token-bridge: true
           no-l3-token-bridge: true
 
@@ -167,3 +167,29 @@ jobs:
 
       - name: Verify creation code generation
         run: yarn test:creation-code
+
+  test-gas:
+    name: Test gas
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Setup node/yarn
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          cache: 'yarn'
+          cache-dependency-path: '**/yarn.lock'
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+
+      - name: Install packages
+        run: yarn
+
+      - name: Check gas snapshot
+        run: yarn run gas:check
