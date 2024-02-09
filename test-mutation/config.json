@@ -1,6 +1,6 @@
 [
   {
-    "filename": "../contracts/tokenbridge/ethereum/L1ArbitrumMessenger.sol",
+    "filename": "../contracts/tokenbridge/arbitrum/gateway/L2ArbitrumGateway.sol",
     "sourceroot": "..",
     "solc_remappings": [
       "@openzeppelin=../node_modules/@openzeppelin",
@@ -8,7 +8,7 @@
     ]
   },
   {
-    "filename": "../contracts/tokenbridge/ethereum/gateway/L1ArbitrumExtendedGateway.sol",
+    "filename": "../contracts/tokenbridge/arbitrum/gateway/L2CustomGateway.sol",
     "sourceroot": "..",
     "solc_remappings": [
       "@openzeppelin=../node_modules/@openzeppelin",
@@ -16,7 +16,7 @@
     ]
   },
   {
-    "filename": "../contracts/tokenbridge/ethereum/gateway/L1ArbitrumGateway.sol",
+    "filename": "../contracts/tokenbridge/arbitrum/gateway/L2ERC20Gateway.sol",
     "sourceroot": "..",
     "solc_remappings": [
       "@openzeppelin=../node_modules/@openzeppelin",
@@ -24,7 +24,7 @@
     ]
   },
   {
-    "filename": "../contracts/tokenbridge/ethereum/gateway/L1CustomGateway.sol",
+    "filename": "../contracts/tokenbridge/arbitrum/gateway/L2GatewayRouter.sol",
     "sourceroot": "..",
     "solc_remappings": [
       "@openzeppelin=../node_modules/@openzeppelin",
@@ -32,7 +32,7 @@
     ]
   },
   {
-    "filename": "../contracts/tokenbridge/ethereum/gateway/L1ERC20Gateway.sol",
+    "filename": "../contracts/tokenbridge/arbitrum/gateway/L2ReverseCustomGateway.sol",
     "sourceroot": "..",
     "solc_remappings": [
       "@openzeppelin=../node_modules/@openzeppelin",
@@ -40,7 +40,7 @@
     ]
   },
   {
-    "filename": "../contracts/tokenbridge/ethereum/gateway/L1ForceOnlyReverseCustomGateway.sol",
+    "filename": "../contracts/tokenbridge/arbitrum/gateway/L2WethGateway.sol",
     "sourceroot": "..",
     "solc_remappings": [
       "@openzeppelin=../node_modules/@openzeppelin",
@@ -48,7 +48,7 @@
     ]
   },
   {
-    "filename": "../contracts/tokenbridge/ethereum/gateway/L1GatewayRouter.sol",
+    "filename": "../contracts/tokenbridge/arbitrum/L2ArbitrumMessenger.sol",
     "sourceroot": "..",
     "solc_remappings": [
       "@openzeppelin=../node_modules/@openzeppelin",
@@ -56,7 +56,7 @@
     ]
   },
   {
-    "filename": "../contracts/tokenbridge/ethereum/gateway/L1OrbitCustomGateway.sol",
+    "filename": "../contracts/tokenbridge/arbitrum/L2AtomicTokenBridgeFactory.sol",
     "sourceroot": "..",
     "solc_remappings": [
       "@openzeppelin=../node_modules/@openzeppelin",
@@ -64,7 +64,7 @@
     ]
   },
   {
-    "filename": "../contracts/tokenbridge/ethereum/gateway/L1OrbitERC20Gateway.sol",
+    "filename": "../contracts/tokenbridge/arbitrum/ReverseArbToken.sol",
     "sourceroot": "..",
     "solc_remappings": [
       "@openzeppelin=../node_modules/@openzeppelin",
@@ -72,31 +72,7 @@
     ]
   },
   {
-    "filename": "../contracts/tokenbridge/ethereum/gateway/L1OrbitGatewayRouter.sol",
-    "sourceroot": "..",
-    "solc_remappings": [
-      "@openzeppelin=../node_modules/@openzeppelin",
-      "@arbitrum=../node_modules/@arbitrum"
-    ]
-  },
-  {
-    "filename": "../contracts/tokenbridge/ethereum/gateway/L1OrbitReverseCustomGateway.sol",
-    "sourceroot": "..",
-    "solc_remappings": [
-      "@openzeppelin=../node_modules/@openzeppelin",
-      "@arbitrum=../node_modules/@arbitrum"
-    ]
-  },
-  {
-    "filename": "../contracts/tokenbridge/ethereum/gateway/L1ReverseCustomGateway.sol",
-    "sourceroot": "..",
-    "solc_remappings": [
-      "@openzeppelin=../node_modules/@openzeppelin",
-      "@arbitrum=../node_modules/@arbitrum"
-    ]
-  },
-  {
-    "filename": "../contracts/tokenbridge/ethereum/gateway/L1WethGateway.sol",
+    "filename": "../contracts/tokenbridge/arbitrum/StandardArbERC20.sol",
     "sourceroot": "..",
     "solc_remappings": [
       "@openzeppelin=../node_modules/@openzeppelin",
