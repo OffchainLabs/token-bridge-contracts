@@ -32,7 +32,11 @@
     "gen:uml:test": "sol2uml ./contracts/tokenbridge/arbitrum,./contracts/tokenbridge/test -o ./gatewayTestUML.svg",
     "pre:slither": "yarn run post:slither && ln -s ../../node_modules/arb-bridge-eth && ln -s ../../node_modules/arbos-precompiles",
     "slither": "yarn run pre:slither && slither --hardhat-artifacts-directory build/contracts .  --filter-paths 'node_modules|arb-bridge-eth|arbos-precompiles' && yarn run post:slither",
-    "post:slither": "rm -f arb-bridge-eth && rm -f arbos-precompiles"
+    "post:slither": "rm -f arb-bridge-eth && rm -f arbos-precompiles",
+    "gas:snapshot": "forge snapshot",
+    "gas:check": "forge snapshot --check",
+    "gas:report:all": "forge test --gas-report",
+    "gas:report:checker": "ts-node test/gas-reporter/gasReportChecker.ts"
   },
   "files": [
     "contracts",
