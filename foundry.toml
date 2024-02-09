@@ -9,6 +9,9 @@ optimizer_runs = 100
 via_ir = false
 solc_version = '0.8.24'
 evm_version = 'cancun'
+gas_reports = ["L1ERC20Gateway", "L1CustomGateway", "L1GatewayRouter", "L1OrbitERC20Gateway", "L1OrbitCustomGateway",
+                "L1OrbitGatwayRouter", "L1WethGateway", "L1AtomicTokenBridgeCreator", "L1TokenBridgeRetryableSender",
+                "L2ERC20Gateway", "L2CustomGateway", "L2GatewayRouter", "L2WethGateway", "L2AtomicTokenBridgeFactory"]
 
 [profile.gasreporter]
 test = 'test-gas-reporter'
