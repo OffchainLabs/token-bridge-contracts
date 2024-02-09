@@ -3,7 +3,7 @@ import dotenv from 'dotenv'
 
 dotenv.config()
 
-const FORK_BLOCK_NUMBER = 19163009
+const FORK_BLOCK_NUMBER = 19177025
 
 function main() {
   const infuraKey = process.env['INFURA_KEY'] as string
@@ -12,44 +12,25 @@ function main() {
   }
   const mainnetRpc = `https://mainnet.infura.io/v3/${infuraKey}`
 
-  const referentGasReport = getReferentGasReport(mainnetRpc, true)
-  const currentImplementationGasReport = getReferentGasReport(mainnetRpc, false)
+  const referentGasReport = getGasReport(mainnetRpc, true)
+  const currentImplementationGasReport = getGasReport(mainnetRpc, false)
 
   _printGasReportDiff(referentGasReport, currentImplementationGasReport)
 }
 
-function getReferentGasReport(
-  rpc: string,
-  referent: boolean
-): Record<string, number> {
+function getGasReport(rpc: string, referent: boolean): Record<string, number> {
   const gasReportCmd = `FOUNDRY_PROFILE=gasreporter forge test --fork-url ${rpc} --fork-block-number ${FORK_BLOCK_NUMBER} --gas-report`
   const testFile = referent ? 'ReferentGasReportTest' : 'CurrentGasReportTest'
 
-  let outputEth = execSync(
-    gasReportCmd +
-      ` --match-contract ${testFile} --mt "test_depositEth|test_withdrawEth"`
+  let output = execSync(
+    gasReportCmd + ` --match-contract ${testFile}`
   ).toString()
-  outputEth = outputEth.replace(
-    'executeTransaction',
-    'withdrawEth_executeTransaction'
-  )
-  const recordEth = _parseGasConsumption(outputEth)
 
-  let outputToken = execSync(
-    gasReportCmd + ` --match-contract ${testFile} --mt "test_withdrawToken"`
-  ).toString()
-  outputToken = outputToken.replace(
-    'executeTransaction',
-    'withdrawToken_executeTransaction'
-  )
-  const recordToken = _parseGasConsumption(outputToken)
-
-  return { ...recordEth, ...recordToken }
+  return _parseGasConsumption(output)
 }
 
 function _parseGasConsumption(report: string): Record<string, number> {
-  const gasUsagePattern =
-    /(depositEth|withdrawEth_executeTransaction|withdrawToken_executeTransaction)\s+\|\s+(\d+)/g
+  const gasUsagePattern = /(outboundTransfer)\s+\|\s+(\d+)/g
   const gasConsumption: Record<string, number> = {}
   let match
 
