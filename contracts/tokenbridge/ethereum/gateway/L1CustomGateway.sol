@@ -40,19 +40,27 @@ contract L1CustomGateway is L1ArbitrumExtendedGateway, ICustomGateway {
     // whitelist not used anymore
     address public whitelist;
 
-    // start of inline reentrancy guard
-    // https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v3.4.2/contracts/utils/ReentrancyGuard.sol
-    uint256 private constant _NOT_ENTERED = 1;
-    uint256 private constant _ENTERED = 2;
-    uint256 private _status;
+    // @dev Transient storage slot for reentrancy status ref. Assembly doesn't allow non-direct constants.
+    //  keccak256("REENTRANCY_STATUS_TSLOT")
+    bytes32 private constant REENTRANCY_STATUS_TSLOT = 0x301494a33a9e94181807fc06ed813cfd2e1eb2aa04bf3f5e77d6d67670ff39cc;
+    uint256 private constant _NOT_ENTERED = 0;
+    uint256 private constant _ENTERED = 1;
 
     modifier nonReentrant() {
-        // On the first call to nonReentrant, _notEntered will be true
-        require(_status != _ENTERED, "ReentrancyGuard: reentrant call");
+        uint256 _reentrancyStatus;
+        assembly {
+            _reentrancyStatus := tload(REENTRANCY_STATUS_TSLOT)
+        }
+        require(_reentrancyStatus != _ENTERED, "ReentrancyGuard: reentrant call");
+
         // Any calls to nonReentrant after this point will fail
-        _status = _ENTERED;
+        assembly {
+            tstore(REENTRANCY_STATUS_TSLOT, _ENTERED)
+        }
         _;
-        _status = _NOT_ENTERED;
+        assembly {
+            tstore(REENTRANCY_STATUS_TSLOT, _NOT_ENTERED)
+        }
     }
 
     modifier onlyOwner() {
@@ -102,8 +110,6 @@ contract L1CustomGateway is L1ArbitrumExtendedGateway, ICustomGateway {
         owner = _owner;
         // disable whitelist by default
         whitelist = address(0);
-        // reentrancy guard
-        _status = _NOT_ENTERED;
     }
 
     /**
