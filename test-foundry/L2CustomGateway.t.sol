@@ -33,7 +33,7 @@ contract L2CustomGatewayTest is L2ArbitrumGatewayTest {
         );
     }
 
-    function test_calculateL2TokenAddress_Registered() public {
+    function test_calculateL2TokenAddress_Registered() public virtual {
         address l2CustomToken = _registerToken();
         assertEq(
             l2CustomGateway.calculateL2TokenAddress(l1CustomToken),

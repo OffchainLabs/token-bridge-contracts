@@ -25,6 +25,15 @@ contract L2ReverseCustomGatewayTest is L2CustomGatewayTest {
     }
 
     /* solhint-disable func-name-mixedcase */
+    function test_calculateL2TokenAddress_Registered() public override {
+        address l1CustomToken = _registerToken();
+        assertEq(
+            l2CustomGateway.calculateL2TokenAddress(l1CustomToken),
+            address(l2MintedToken),
+            "Invalid L2 token"
+        );
+    }
+
     function test_finalizeInboundTransfer() public override {
         // fund gateway with tokens being withdrawn
         vm.prank(address(l2ReverseCustomGateway));
