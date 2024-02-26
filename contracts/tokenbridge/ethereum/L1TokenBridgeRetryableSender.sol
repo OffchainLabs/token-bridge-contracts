@@ -17,6 +17,7 @@ import {TransparentUpgradeableProxy} from
     "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC20Inbox} from "./L1ArbitrumMessenger.sol";
 
 /**
  * @title Token Bridge Retryable Ticket Sender
@@ -238,18 +239,4 @@ struct L2DeploymentAddresses {
     address beaconProxyFactory;
     address upgradeExecutor;
     address multicall;
-}
-
-interface IERC20Inbox {
-    function createRetryableTicket(
-        address to,
-        uint256 l2CallValue,
-        uint256 maxSubmissionCost,
-        address excessFeeRefundAddress,
-        address callValueRefundAddress,
-        uint256 gasLimit,
-        uint256 maxFeePerGas,
-        uint256 tokenTotalFeeAmount,
-        bytes calldata data
-    ) external returns (uint256);
 }
