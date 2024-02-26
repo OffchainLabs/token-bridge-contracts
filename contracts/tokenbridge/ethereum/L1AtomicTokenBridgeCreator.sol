@@ -42,6 +42,7 @@ import {TransparentUpgradeableProxy} from
     "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {IAccessControlUpgradeable} from
     "@openzeppelin/contracts-upgradeable/access/IAccessControlUpgradeable.sol";
+import {IERC20Bridge} from "../libraries/IERC20Bridge.sol";
 
 /**
  * @title Layer1 token bridge creator
@@ -569,10 +570,6 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     {
         return address(new TransparentUpgradeableProxy{salt: salt}(logic, admin, bytes("")));
     }
-}
-
-interface IERC20Bridge {
-    function nativeToken() external view returns (address);
 }
 
 interface IInboxProxyAdmin {
