@@ -1,0 +1,14 @@
+{
+  "calculateL2TokenAddress(address)": "a7e28d48",
+  "counterpartGateway()": "2db09c1c",
+  "exitNum()": "015234ab",
+  "finalizeInboundTransfer(address,address,address,uint256,bytes)": "2e567b36",
+  "getOutboundCalldata(address,address,address,uint256,bytes)": "a0c76a96",
+  "initialize(address,address,address,address)": "f8c8765e",
+  "l1Weth()": "146bf4b1",
+  "l2Weth()": "247b2768",
+  "outboundTransfer(address,address,uint256,bytes)": "7b3a3c8b",
+  "outboundTransfer(address,address,uint256,uint256,uint256,bytes)": "d2ce7d65",
+  "postUpgradeInit()": "95fcea78",
+  "router()": "f887ea40"
+}
