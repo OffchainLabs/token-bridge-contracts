@@ -1,6 +1,6 @@
 {
   "name": "@arbitrum/token-bridge-contracts",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "license": "Apache-2.0",
   "scripts": {
     "prepublishOnly": "hardhat clean && hardhat compile",
@@ -20,6 +20,7 @@
     "test:unit": "forge test",
     "test:e2e:local-env": "yarn hardhat test test-e2e/*",
     "test:storage": "./scripts/storage_layout_test.bash",
+    "test:signatures": "./scripts/signatures_test.bash",
     "test:mutation": "ts-node test-mutation/gambitTester.ts",
     "deploy:local:token-bridge": "ts-node ./scripts/local-deployment/deployCreatorAndCreateTokenBridge.ts",
     "deploy:token-bridge-creator": "ts-node ./scripts/deployment/deployTokenBridgeCreator.ts",

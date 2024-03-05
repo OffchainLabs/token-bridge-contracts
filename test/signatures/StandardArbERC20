@@ -1,0 +1,23 @@
+{
+  "DOMAIN_SEPARATOR()": "3644e515",
+  "allowance(address,address)": "dd62ed3e",
+  "approve(address,uint256)": "095ea7b3",
+  "balanceOf(address)": "70a08231",
+  "bridgeBurn(address,uint256)": "74f4f547",
+  "bridgeInit(address,bytes)": "189db7d2",
+  "bridgeMint(address,uint256)": "8c2a993e",
+  "decimals()": "313ce567",
+  "decreaseAllowance(address,uint256)": "a457c2d7",
+  "increaseAllowance(address,uint256)": "39509351",
+  "isMaster()": "6f791d29",
+  "l1Address()": "c2eeeebd",
+  "l2Gateway()": "8fa74a0e",
+  "name()": "06fdde03",
+  "nonces(address)": "7ecebe00",
+  "permit(address,address,uint256,uint256,uint8,bytes32,bytes32)": "d505accf",
+  "symbol()": "95d89b41",
+  "totalSupply()": "18160ddd",
+  "transfer(address,uint256)": "a9059cbb",
+  "transferAndCall(address,uint256,bytes)": "4000aea0",
+  "transferFrom(address,address,uint256)": "23b872dd"
+}
