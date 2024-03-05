@@ -3,5 +3,5 @@
 	url = https://github.com/foundry-rs/forge-std
 [submodule "lib/nitro-contracts"]
 	path = lib/nitro-contracts
-	url = git@github.com:OffchainLabs/nitro-contracts.git
-	branch = v1.1.0
+	url = https://github.com/OffchainLabs/nitro-contracts.git
+	branch = v1.2.1
