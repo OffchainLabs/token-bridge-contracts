@@ -8,6 +8,9 @@ optimizer = true
 optimizer_runs = 100
 via_ir = false
 
+[profile.gasreporter]
+test = 'test-gas-reporter'
+
 [fmt]
 number_underscore = 'thousands'
 line_length = 100
