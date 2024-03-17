@@ -30,7 +30,7 @@ import "./IL1GatewayRouter.sol";
 import "./IL1ArbitrumGateway.sol";
 
 /**
- * @title Handles deposits from Ethereum into Arbitrum. Tokens are routered to their appropriate L1 gateway (Router itself also conforms to the Gateway interface).
+ * @title Handles deposits from Ethereum into Arbitrum. Tokens are routed to their appropriate L1 gateway (Router itself also conforms to the Gateway interface).
  * @notice Router also serves as an L1-L2 token address oracle.
  */
 contract L1GatewayRouter is
@@ -249,7 +249,7 @@ contract L1GatewayRouter is
      * @param _token L1 address of ERC20
      * @param _refundTo Account, or its L2 alias if it have code in L1, to be credited with excess gas refund in L2
      * @param _to Account to be credited with the tokens in the L2 (can be the user's L2 account or a contract), not subject to L2 aliasing
-                  This account, or its L2 alias if it have code in L1, will also be able to cancel the retryable ticket and receive callvalue refund
+                  This account, or its L2 alias if it has code in L1, will also be able to cancel the retryable ticket and receive callvalue refund
      * @param _amount Token Amount
      * @param _maxGas Max gas deducted from user's L2 balance to cover L2 execution
      * @param _gasPriceBid Gas price for L2 execution
@@ -291,7 +291,7 @@ contract L1GatewayRouter is
      * @notice Safe from reentrancy as there are no calls in the function into the caller's address
      * @param _token L1 address of ERC20
      * @param _to Account to be credited with the tokens in the L2 (can be the user's L2 account or a contract), not subject to L2 aliasing
-                  This account, or its L2 alias if it have code in L1, will also be able to cancel the retryable ticket and receive callvalue refund
+                  This account, or its L2 alias if it has code in L1, will also be able to cancel the retryable ticket and receive callvalue refund
      * @param _amount Token Amount
      * @param _maxGas Max gas deducted from user's L2 balance to cover L2 execution
      * @param _gasPriceBid Gas price for L2 execution
@@ -325,7 +325,7 @@ contract L1GatewayRouter is
      * @notice Safe from reentrancy as there are no calls in the function into the caller's address
      * @param _token L1 address of ERC20
      * @param _to Account to be credited with the tokens in the L2 (can be the user's L2 account or a contract), not subject to L2 aliasing
-                  This account, or its L2 alias if it have code in L1, will also be able to cancel the retryable ticket and receive callvalue refund
+                  This account, or its L2 alias if it has code in L1, will also be able to cancel the retryable ticket and receive callvalue refund
      * @param _amount Token Amount
      * @param _maxGas Max gas deducted from user's L2 balance to cover L2 execution
      * @param _gasPriceBid Gas price for L2 execution
@@ -362,7 +362,7 @@ contract L1GatewayRouter is
      * @param _token L1 address of ERC20
      * @param _refundTo Account, or its L2 alias if it have code in L1, to be credited with excess gas refund in L2
      * @param _to Account to be credited with the tokens in the L2 (can be the user's L2 account or a contract), not subject to L2 aliasing
-                  This account, or its L2 alias if it have code in L1, will also be able to cancel the retryable ticket and receive callvalue refund
+                  This account, or its L2 alias if it has code in L1, will also be able to cancel the retryable ticket and receive callvalue refund
      * @param _amount Token Amount
      * @param _maxGas Max gas deducted from user's L2 balance to cover L2 execution
      * @param _gasPriceBid Gas price for L2 execution
@@ -407,7 +407,7 @@ contract L1GatewayRouter is
      * @param _token L1 address of ERC20
      * @param _refundTo Account, or its L2 alias if it have code in L1, to be credited with excess gas refund in L2
      * @param _to Account to be credited with the tokens in the L2 (can be the user's L2 account or a contract), not subject to L2 aliasing
-                  This account, or its L2 alias if it have code in L1, will also be able to cancel the retryable ticket and receive callvalue refund
+                  This account, or its L2 alias if it has code in L1, will also be able to cancel the retryable ticket and receive callvalue refund
      * @param _amount Token Amount
      * @param _maxGas Max gas deducted from user's L2 balance to cover L2 execution
      * @param _gasPriceBid Gas price for L2 execution
@@ -450,7 +450,7 @@ contract L1GatewayRouter is
     }
 
     modifier onlyCounterpartGateway() override {
-        // don't expect messages from L2 router
+        // Don't expect messages from the L2 router
         revert("ONLY_COUNTERPART_GATEWAY");
         _;
     }
@@ -461,7 +461,7 @@ contract L1GatewayRouter is
         override(ERC165, IERC165)
         returns (bool)
     {
-        // registering interfaces that is added after arb-bridge-peripherals >1.0.11
+        // registering interfaces that are added after arb-bridge-peripherals >1.0.11
         // using function selector instead of single function interfaces to reduce bloat
         return
             interfaceId == this.outboundTransferCustomRefund.selector ||
