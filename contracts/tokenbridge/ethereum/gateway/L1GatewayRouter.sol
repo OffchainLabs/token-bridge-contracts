@@ -30,7 +30,7 @@ import "./IL1GatewayRouter.sol";
 import "./IL1ArbitrumGateway.sol";
 
 /**
- * @title Handles deposits from Erhereum into Arbitrum. Tokens are routed to their appropriate L1 gateway (Router itself also conforms to the Gateway interface).
+ * @title Handles deposits from Ethereum into Arbitrum. Tokens are routered to their appropriate L1 gateway (Router itself also conforms to the Gateway interface).
  * @notice Router also serves as an L1-L2 token address oracle.
  */
 contract L1GatewayRouter is

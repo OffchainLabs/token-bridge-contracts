@@ -23,7 +23,7 @@ import "../../libraries/gateway/ITokenGateway.sol";
 import "../../libraries/IERC165.sol";
 
 /**
- * @title Handles deposits from Erhereum into Arbitrum. Tokens are routered to their appropriate L1 gateway (Router itself also conforms to the Gateway itnerface).
+ * @title Handles deposits from Ethereum into Arbitrum. Tokens are routered to their appropriate L1 gateway (Router itself also conforms to the Gateway interface).
  * @notice Router also serves as an L1-L2 token address oracle.
  */
 interface IL1GatewayRouter is ITokenGateway, IERC165 {
