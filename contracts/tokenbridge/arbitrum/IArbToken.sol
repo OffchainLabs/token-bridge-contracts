@@ -19,6 +19,8 @@
 /**
  * @title Minimum expected interface for L2 token that interacts with the L2 token bridge (this is the interface necessary
  * for a custom token that interacts with the bridge, see TestArbCustomToken.sol for an example implementation).
+ * @dev For the token to be compatible out of the box with the tooling available (e.g., the Arbitrum bridge), it is
+ * recommended to keep the implementation of this interface as close as possible to the `TestArbCustomToken` example.
  */
 
 // solhint-disable-next-line compiler-version
