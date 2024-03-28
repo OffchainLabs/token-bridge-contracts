@@ -106,11 +106,13 @@ jobs:
         with:
           submodules: recursive
 
-      - uses: OffchainLabs/actions/run-nitro-test-node@main
+      - uses: OffchainLabs/actions/run-nitro-test-node@customize-branches
         with:
+          nitro-testnode-ref: decouple-contracts
           l3-node: true 
           no-token-bridge: true
           no-l3-token-bridge: true
+          nitro-contracts-branch: testnode-deploy
 
       - name: Setup node/yarn
         uses: actions/setup-node@v3
