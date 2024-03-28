@@ -113,6 +113,7 @@ jobs:
           no-token-bridge: true
           no-l3-token-bridge: true
           nitro-contracts-branch: testnode-deploy
+          token-bridge-branch: develop
 
       - name: Setup node/yarn
         uses: actions/setup-node@v3
@@ -152,6 +153,7 @@ jobs:
           no-token-bridge: true
           no-l3-token-bridge: true
           nitro-contracts-branch: testnode-deploy
+          token-bridge-branch: develop
 
       - name: Setup node/yarn
         uses: actions/setup-node@v3
