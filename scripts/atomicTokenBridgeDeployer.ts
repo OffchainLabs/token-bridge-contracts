@@ -362,6 +362,7 @@ export const deployL1TokenBridgeCreator = async (
     l1Deployer
   )
   const upgradeExecutor = await upgradeExecutorFactory.deploy()
+  await upgradeExecutor.deployed()
 
   const l1Templates = {
     routerTemplate: routerTemplate.address,
