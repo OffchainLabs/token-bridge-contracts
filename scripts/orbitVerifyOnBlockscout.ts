@@ -1,6 +1,10 @@
 import { ethers } from 'hardhat'
 import { run } from 'hardhat'
-import { L1AtomicTokenBridgeCreator__factory } from '../build/types'
+import {
+  BeaconProxyFactory__factory,
+  L1AtomicTokenBridgeCreator__factory,
+  UpgradeableBeacon__factory,
+} from '../build/types'
 import { Provider } from '@ethersproject/providers'
 
 main().then(() => console.log('Done.'))
@@ -21,6 +25,7 @@ async function main() {
   const parentProvider = new ethers.providers.JsonRpcProvider(parentRpcUrl)
   const orbitProvider = ethers.provider
 
+  /// collect addresses
   const tokenBridgeCreator = L1AtomicTokenBridgeCreator__factory.connect(
     tokenBridgeCreatorAddress,
     parentProvider
@@ -29,12 +34,22 @@ async function main() {
   const l2Deployment = await tokenBridgeCreator.inboxToL2Deployment(
     inboxAddress
   )
+  const beaconProxyFactory = BeaconProxyFactory__factory.connect(
+    l2Deployment.beaconProxyFactory,
+    orbitProvider
+  )
+  const upgradeableBeacon = UpgradeableBeacon__factory.connect(
+    await beaconProxyFactory.beacon(),
+    orbitProvider
+  )
+  const standardArbERC20 = await upgradeableBeacon.implementation()
 
   console.log(
     'Start verification of token bridge contracts deployed to chain',
     (await orbitProvider.getNetwork()).chainId
   )
 
+  // verify L2 factory
   await _verifyContract('L2AtomicTokenBridgeFactory', l2Factory, [])
 
   // verify single TUP, others TUPs will be verified by bytecode match
@@ -43,6 +58,8 @@ async function main() {
     l2Deployment.proxyAdmin,
     '0x',
   ])
+
+  // verify orbit contracts
   await _verifyContract(
     'L2GatewayRouter',
     await _getLogicAddress(l2Deployment.router, orbitProvider),
@@ -63,6 +80,11 @@ async function main() {
     await _getLogicAddress(l2Deployment.wethGateway, orbitProvider),
     []
   )
+  await _verifyContract('BeaconProxyFactory', beaconProxyFactory.address, [])
+  await _verifyContract('UpgradeableBeacon', upgradeableBeacon.address, [
+    standardArbERC20,
+  ])
+  await _verifyContract('StandardArbERC20', standardArbERC20, [])
   await _verifyContract('ArbMulticall2', l2Deployment.multicall, [])
   await _verifyContract('ProxyAdmin', l2Deployment.proxyAdmin, [])
 
