@@ -11,13 +11,16 @@ async function main() {
     'TOKEN_BRIDGE_CREATOR'
   ] as string
   const inboxAddress = process.env['INBOX_ADDRESS'] as string
+
   if (!parentRpcUrl || !tokenBridgeCreatorAddress || !inboxAddress) {
     throw new Error(
-      'Missing required environment variables PARENT_RPC, L1_TOKEN_BRIDGE_CREATOR and INBOX_ADDRESS'
+      'Missing required environment variables PARENT_RPC, TOKEN_BRIDGE_CREATOR and INBOX_ADDRESS'
     )
   }
 
   const parentProvider = new ethers.providers.JsonRpcProvider(parentRpcUrl)
+  const orbitProvider = ethers.provider
+
   const tokenBridgeCreator = L1AtomicTokenBridgeCreator__factory.connect(
     tokenBridgeCreatorAddress,
     parentProvider
@@ -29,29 +32,48 @@ async function main() {
 
   console.log(
     'Start verification of token bridge contracts deployed to chain',
-    (await parentProvider.getNetwork()).chainId
+    (await orbitProvider.getNetwork()).chainId
   )
 
-  await verifyContract('L2AtomicTokenBridgeFactory', l2Factory, [])
+  await _verifyContract('L2AtomicTokenBridgeFactory', l2Factory, [])
 
-  await verifyContract(
-    'L2ERC20Gateway',
-    await _getLogicAddress(l2Deployment.standardGateway, parentProvider),
-    []
-  )
-  await verifyContract(
-    'L2CustomGateway',
-    await _getLogicAddress(l2Deployment.customGateway, parentProvider),
-    []
-  )
-  await verifyContract(
+  // verify single TUP, others TUPs will be verified by bytecode match
+  await _verifyContract('TransparentUpgradeableProxy', l2Deployment.router, [
+    l2Factory,
+    l2Deployment.proxyAdmin,
+    '0x',
+  ])
+  await _verifyContract(
     'L2GatewayRouter',
-    await _getLogicAddress(l2Deployment.router, parentProvider),
+    await _getLogicAddress(l2Deployment.router, orbitProvider),
     []
   )
+  await _verifyContract(
+    'L2ERC20Gateway',
+    await _getLogicAddress(l2Deployment.standardGateway, orbitProvider),
+    []
+  )
+  await _verifyContract(
+    'L2CustomGateway',
+    await _getLogicAddress(l2Deployment.customGateway, orbitProvider),
+    []
+  )
+  await _verifyContract(
+    'L2WethGateway',
+    await _getLogicAddress(l2Deployment.wethGateway, orbitProvider),
+    []
+  )
+  await _verifyContract('ArbMulticall2', l2Deployment.multicall, [])
+  await _verifyContract('ProxyAdmin', l2Deployment.proxyAdmin, [])
+
+  //   await _verifyContract(
+  //     'aeWETH',
+  //     await _getLogicAddress(l2Deployment.weth, orbitProvider),
+  //     []
+  //   )
 }
 
-async function verifyContract(
+async function _verifyContract(
   contractName: string,
   contractAddress: string,
   constructorArguments: any[] = [],
