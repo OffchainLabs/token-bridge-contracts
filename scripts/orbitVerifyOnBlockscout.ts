@@ -1,6 +1,7 @@
 import { ethers } from 'hardhat'
 import { run } from 'hardhat'
 import {
+  AeWETH__factory,
   BeaconProxyFactory__factory,
   L1AtomicTokenBridgeCreator__factory,
   UpgradeableBeacon__factory,
@@ -15,15 +16,22 @@ async function main() {
     'TOKEN_BRIDGE_CREATOR'
   ] as string
   const inboxAddress = process.env['INBOX_ADDRESS'] as string
+  const deployerKey = process.env['DEPLOYER_KEY'] as string
 
-  if (!parentRpcUrl || !tokenBridgeCreatorAddress || !inboxAddress) {
+  if (
+    !parentRpcUrl ||
+    !tokenBridgeCreatorAddress ||
+    !inboxAddress ||
+    !deployerKey
+  ) {
     throw new Error(
-      'Missing required environment variables PARENT_RPC, TOKEN_BRIDGE_CREATOR and INBOX_ADDRESS'
+      'Required env vars: PARENT_RPC, TOKEN_BRIDGE_CREATOR, INBOX_ADDRESS and DEPLOYER_KEY'
     )
   }
 
   const parentProvider = new ethers.providers.JsonRpcProvider(parentRpcUrl)
   const orbitProvider = ethers.provider
+  const deployerOnOrbit = new ethers.Wallet(deployerKey, orbitProvider)
 
   /// collect addresses
   const tokenBridgeCreator = L1AtomicTokenBridgeCreator__factory.connect(
@@ -88,11 +96,10 @@ async function main() {
   await _verifyContract('ArbMulticall2', l2Deployment.multicall, [])
   await _verifyContract('ProxyAdmin', l2Deployment.proxyAdmin, [])
 
-  //   await _verifyContract(
-  //     'aeWETH',
-  //     await _getLogicAddress(l2Deployment.weth, orbitProvider),
-  //     []
-  //   )
+  /// special cases - aeWETH and UpgradeExecutor
+  const dummyAeWethFac = await new AeWETH__factory(deployerOnOrbit).deploy()
+  const dummyAeWeth = await dummyAeWethFac.deployed()
+  await _verifyContract('aeWETH', dummyAeWeth.address, [])
 }
 
 async function _verifyContract(
