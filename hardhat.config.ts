@@ -45,7 +45,17 @@ const config = {
         },
       },
     ],
-    overrides: {},
+    overrides: {
+      'contracts/tokenbridge/test/UpgradeExecutorForVerification.sol': {
+        version: '0.8.16',
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 20000,
+          },
+        },
+      },
+    },
   },
   networks: {
     hardhat: {

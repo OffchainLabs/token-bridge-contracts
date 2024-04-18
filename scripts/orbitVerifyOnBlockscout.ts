@@ -7,6 +7,10 @@ import {
   UpgradeableBeacon__factory,
 } from '../build/types'
 import { Provider } from '@ethersproject/providers'
+import {
+  abi as UpgradeExecutorABI,
+  bytecode as UpgradeExecutorBytecode,
+} from '@offchainlabs/upgrade-executor/build/contracts/src/UpgradeExecutor.sol/UpgradeExecutor.json'
 
 main().then(() => console.log('Done.'))
 
@@ -18,14 +22,15 @@ async function main() {
   const inboxAddress = process.env['INBOX_ADDRESS'] as string
   const deployerKey = process.env['DEPLOYER_KEY'] as string
 
-  if (
-    !parentRpcUrl ||
-    !tokenBridgeCreatorAddress ||
-    !inboxAddress ||
-    !deployerKey
-  ) {
+  if (!parentRpcUrl || !tokenBridgeCreatorAddress || !inboxAddress) {
     throw new Error(
-      'Required env vars: PARENT_RPC, TOKEN_BRIDGE_CREATOR, INBOX_ADDRESS and DEPLOYER_KEY'
+      'Required env vars: PARENT_RPC, TOKEN_BRIDGE_CREATOR, INBOX_ADDRESS'
+    )
+  }
+
+  if (!deployerKey) {
+    console.log(
+      'DEPLOYER_KEY is missing. Deployer key is required if you want to have aeWETH and UpgradeExecutor verified.'
     )
   }
 
@@ -97,9 +102,23 @@ async function main() {
   await _verifyContract('ProxyAdmin', l2Deployment.proxyAdmin, [])
 
   /// special cases - aeWETH and UpgradeExecutor
-  const dummyAeWethFac = await new AeWETH__factory(deployerOnOrbit).deploy()
-  const dummyAeWeth = await dummyAeWethFac.deployed()
-  await _verifyContract('aeWETH', dummyAeWeth.address, [])
+
+  if (deployerKey) {
+    // deploy dummy aeWETH and verify it. Its deployed bytecode will match the actual aeWETH bytecode
+    const dummyAeWethFac = await new AeWETH__factory(deployerOnOrbit).deploy()
+    const dummyAeWeth = await dummyAeWethFac.deployed()
+    await _verifyContract('aeWETH', dummyAeWeth.address, [])
+
+    // deploy dummy UpgradeExecutor and verify it. Its deployed bytecode will match the actual UpgradeExecutor bytecode
+    const dummyUpgradeExecutorFac = new ethers.ContractFactory(
+      UpgradeExecutorABI,
+      UpgradeExecutorBytecode,
+      deployerOnOrbit
+    )
+    const dummyUpgradeExecutor = await dummyUpgradeExecutorFac.deploy()
+    await dummyUpgradeExecutor.deployed()
+    await _verifyContract('UpgradeExecutor', dummyUpgradeExecutor.address, [])
+  }
 }
 
 async function _verifyContract(
