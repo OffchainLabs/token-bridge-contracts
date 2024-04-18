@@ -123,7 +123,7 @@ describe('creationCodeTest', () => {
   })
 
   it('UpgradeExecutor constructor has expected size', async function () {
-    const constructorBytecode = await _getConstructorBytecode('UpgradeExecutor')
+    const constructorBytecode = await _getConstructorBytecode('@offchainlabs/upgrade-executor/src/UpgradeExecutor.sol:UpgradeExecutor')
     const constructorBytecodeLength = _lengthInBytes(constructorBytecode)
 
     expect(constructorBytecodeLength).to.be.eq(
