@@ -26,6 +26,7 @@ import {
   IBridge__factory,
   Multicall2__factory,
   IInboxProxyAdmin__factory,
+  ERC20__factory,
 } from '../build/types'
 import {
   abi as UpgradeExecutorABI,
@@ -123,10 +124,17 @@ export const createTokenBridge = async (
   // if fee token is used approve the fee
   const feeToken = await _getFeeToken(inbox, l1Signer.provider!)
   if (feeToken != ethers.constants.AddressZero) {
+    // scale the retryable fee to the fee token decimals denomination
+    const scaledRetryableFee = await _getScaledAmount(
+      feeToken,
+      retryableFee,
+      l1Signer.provider!
+    )
+
     await (
       await IERC20__factory.connect(feeToken, l1Signer).approve(
         l1TokenBridgeCreator.address,
-        retryableFee
+        scaledRetryableFee
       )
     ).wait()
     retryableFee = BigNumber.from(0)
@@ -615,6 +623,29 @@ const _getFeeToken = async (
   } catch {}
 
   return feeToken
+}
+
+/**
+ * Scale the amount from 18-denomination to the fee token decimals denomination
+ */
+async function _getScaledAmount(
+  feeToken: string,
+  amount: BigNumber,
+  provider: ethers.providers.Provider
+): Promise<BigNumber> {
+  const decimals = await ERC20__factory.connect(feeToken, provider).decimals()
+  if (decimals == 18) {
+    return amount
+  } else if (decimals < 18) {
+    let scaledAmount = amount.div(BigNumber.from(10).pow(18 - decimals))
+    // round up if necessary
+    if (scaledAmount.mul(BigNumber.from(10).pow(18 - decimals)).lt(amount)) {
+      scaledAmount = scaledAmount.add(1)
+    }
+    return scaledAmount
+  } else {
+    return amount.mul(BigNumber.from(10).pow(decimals - 18))
+  }
 }
 
 export function sleep(ms: number) {
