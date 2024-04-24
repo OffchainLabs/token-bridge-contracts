@@ -9,6 +9,7 @@ import {
     L2TemplateAddresses,
     IERC20Inbox,
     IERC20,
+    ERC20,
     SafeERC20
 } from "./L1TokenBridgeRetryableSender.sol";
 import {L1GatewayRouter} from "./gateway/L1GatewayRouter.sol";
@@ -343,7 +344,8 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             // transfer fee tokens to inbox to pay for 2nd retryable
             address feeToken = _getFeeToken(inbox);
             uint256 fee = maxGasForContracts * gasPriceBid;
-            IERC20(feeToken).safeTransferFrom(msg.sender, inbox, fee);
+            uint256 scaledFee = _getScaledAmount(feeToken, fee);
+            IERC20(feeToken).safeTransferFrom(msg.sender, inbox, scaledFee);
         }
 
         // alias rollup owner if it is a contract
@@ -425,7 +427,8 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             // transfer fee tokens to inbox to pay for 1st retryable
             address feeToken = _getFeeToken(inbox);
             uint256 retryableFee = gasLimitForL2FactoryDeployment * gasPriceBid;
-            IERC20(feeToken).safeTransferFrom(msg.sender, inbox, retryableFee);
+            uint256 scaledRetryableFee = _getScaledAmount(feeToken, retryableFee);
+            IERC20(feeToken).safeTransferFrom(msg.sender, inbox, scaledRetryableFee);
 
             IERC20Inbox(inbox).createRetryableTicket(
                 address(0),
@@ -568,6 +571,22 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         returns (address)
     {
         return address(new TransparentUpgradeableProxy{salt: salt}(logic, admin, bytes("")));
+    }
+
+    function _getScaledAmount(address feeToken, uint256 amount) internal view returns (uint256) {
+        uint8 decimals = ERC20(feeToken).decimals();
+        if (decimals == 18) {
+            return amount;
+        } else if (decimals < 18) {
+            uint256 scaledAmount = amount / (10 ** (18 - decimals));
+            // round up if necessary
+            if (scaledAmount * (10 ** (18 - decimals)) < amount) {
+                scaledAmount++;
+            }
+            return scaledAmount;
+        } else {
+            return amount * (10 ** (decimals - 18));
+        }
     }
 }
 
