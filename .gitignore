@@ -16,6 +16,11 @@ forge-cache/
 #Storage layout test files
 test/storage/*-old.dot
 test/storage/*-old
+test/signatures/*-old
 
 # local deployment files
 network.json
+
+# Gambit (mutation test) files
+gambit_out/
+test-mutation/mutant_test_env/

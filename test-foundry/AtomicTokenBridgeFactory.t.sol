@@ -259,7 +259,7 @@ contract AtomicTokenBridgeCreatorTest is Test {
             assertTrue(l2bpf.code.length > 0, "l2bpf code");
             assertEq(l2ue, 0xC85c71251E9354Cd6a8992BC02d968B04F4b55e6, "l2ue");
             assertTrue(l2ue.code.length > 0, "l2ue code");
-            assertEq(l2mc, 0x4572E7101b8A6d889680dA7CC35D6076e651e9fC, "l2mc");
+            assertEq(l2mc, 0x6466F88A4E3B536892e706258c1079D0a880d7Cb, "l2mc");
             assertTrue(l2mc.code.length > 0, "l2mc code");
         }
     }

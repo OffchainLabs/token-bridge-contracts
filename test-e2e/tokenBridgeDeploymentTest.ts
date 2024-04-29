@@ -174,18 +174,35 @@ describe('tokenBridge', () => {
       UpgradeExecutorABI,
       l1Provider
     )
-    await checkL1UpgradeExecutorInitialization(l1UpgradeExecutor, rollupAddresses);
+    await checkL1UpgradeExecutorInitialization(
+      l1UpgradeExecutor,
+      rollupAddresses
+    )
 
     const l2UpgradeExecutor = new ethers.Contract(
       l2Deployment.upgradeExecutor,
       UpgradeExecutorABI,
       l2Provider
     )
-    await checkL2UpgradeExecutorInitialization(l2UpgradeExecutor, rollupAddresses)
+    await checkL2UpgradeExecutorInitialization(
+      l2UpgradeExecutor,
+      rollupAddresses
+    )
 
     await checkL1Ownership(l1Deployment, rollupAddresses)
     await checkL2Ownership(l2Deployment, usingFeeToken)
     await checkLogicContracts(usingFeeToken, l2Deployment)
+
+    // This should always be the last check, because WETH gateway registration is a
+    // separate step that should be done after token bridge is atomically deployed
+    if (!usingFeeToken && !isLocalDeployment(l1Provider, l2Provider)) {
+      await checkWethGatewayIsRegistered(
+        L1WethGateway__factory.connect(l1Deployment.wethGateway, l1Provider),
+        L1GatewayRouter__factory.connect(l1Deployment.router, l1Provider),
+        L2WethGateway__factory.connect(l2Deployment.wethGateway, l2Provider),
+        L2GatewayRouter__factory.connect(l2Deployment.router, l2Provider)
+      )
+    }
   })
 })
 
@@ -296,9 +313,8 @@ async function checkL1WethGatewayInitialization(
     rollupAddresses.inbox.toLowerCase()
   )
 
-  expect((await l1WethGateway.l1Weth()).toLowerCase()).to.not.be.eq(
-    ethers.constants.AddressZero
-  )
+  const l1WethAddress = await l1WethGateway.l1Weth()
+  expect(l1WethAddress.toLowerCase()).to.not.be.eq(ethers.constants.AddressZero)
 
   expect((await l1WethGateway.l2Weth()).toLowerCase()).to.not.be.eq(
     ethers.constants.AddressZero
@@ -316,7 +332,8 @@ async function checkL1UpgradeExecutorInitialization(
   const executorRole = await l1Executor.EXECUTOR_ROLE()
 
   expect(await l1Executor.hasRole(adminRole, l1Executor.address)).to.be.true
-  expect(await l1Executor.hasRole(executorRole, rollupAddresses.rollupOwner)).to.be.true
+  expect(await l1Executor.hasRole(executorRole, rollupAddresses.rollupOwner)).to
+    .be.true
 }
 
 async function checkL2UpgradeExecutorInitialization(
@@ -447,9 +464,8 @@ async function checkL2WethGatewayInitialization(
     l2Deployment.router.toLowerCase()
   )
 
-  expect((await l2WethGateway.l1Weth()).toLowerCase()).to.not.be.eq(
-    ethers.constants.AddressZero
-  )
+  const l1WethAddress = await l2WethGateway.l1Weth()
+  expect(l1WethAddress.toLowerCase()).to.not.be.eq(ethers.constants.AddressZero)
 
   expect((await l2WethGateway.l2Weth()).toLowerCase()).to.not.be.eq(
     ethers.constants.AddressZero
@@ -593,6 +609,39 @@ async function checkLogicContracts(
       await AeWETH__factory.connect(wethLogic, l2Provider).l2Gateway()
     ).to.be.not.eq(ethers.constants.AddressZero)
   }
+}
+
+async function checkWethGatewayIsRegistered(
+  l1WethGateway: L1WethGateway,
+  l1Router: L1GatewayRouter,
+  l2WethGateway: L2WethGateway,
+  l2Router: L2GatewayRouter
+) {
+  console.log('checkWethGatewayIsRegistered')
+
+  const MSG =
+    'WETH gateway is not registered in the router. After token bridge is successfully deployed, use setGateways function to register the WETH gateway in the router, then re-run this test.'
+
+  // check parent chain
+  const l1WethAddress = await l1WethGateway.l1Weth()
+  expect(await l1Router.l1TokenToGateway(l1WethAddress)).to.be.eq(
+    l1WethGateway.address,
+    MSG
+  )
+  expect(await l1Router.getGateway(l1WethAddress)).to.be.eq(
+    l1WethGateway.address,
+    MSG
+  )
+
+  // check child chain
+  expect(await l2Router.l1TokenToGateway(l1WethAddress)).to.be.eq(
+    l2WethGateway.address,
+    MSG
+  )
+  expect(await l2Router.getGateway(l1WethAddress)).to.be.eq(
+    l2WethGateway.address,
+    MSG
+  )
 }
 
 //// utils
@@ -785,4 +834,14 @@ interface L2DeploymentAddresses {
   beaconProxyFactory: string
   upgradeExecutor: string
   multicall: string
+}
+
+function isLocalDeployment(
+  l1Provider: JsonRpcProvider,
+  l2Provider: JsonRpcProvider
+) {
+  return (
+    l1Provider.network.chainId === 412346 ||
+    l2Provider.network.chainId === 333333
+  )
 }
