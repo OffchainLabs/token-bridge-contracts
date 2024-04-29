@@ -2,12 +2,13 @@
 
 pragma solidity ^0.8.0;
 
-import { L1ERC20GatewayTest } from "./L1ERC20Gateway.t.sol";
+import "./L1ERC20Gateway.t.sol";
 import "contracts/tokenbridge/ethereum/gateway/L1OrbitERC20Gateway.sol";
-import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import { ERC20PresetMinterPauser } from "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetMinterPauser.sol";
-import { TestERC20 } from "contracts/tokenbridge/test/TestERC20.sol";
-import { ERC20InboxMock } from "contracts/tokenbridge/test/InboxMock.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {ERC20PresetMinterPauser} from
+    "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetMinterPauser.sol";
+import {TestERC20} from "contracts/tokenbridge/test/TestERC20.sol";
+import {ERC20InboxMock} from "contracts/tokenbridge/test/InboxMock.sol";
 
 contract L1OrbitERC20GatewayTest is L1ERC20GatewayTest {
     ERC20 public nativeToken;
@@ -21,11 +22,7 @@ contract L1OrbitERC20GatewayTest is L1ERC20GatewayTest {
 
         l1Gateway = new L1OrbitERC20Gateway();
         L1OrbitERC20Gateway(address(l1Gateway)).initialize(
-            l2Gateway,
-            router,
-            inbox,
-            cloneableProxyHash,
-            l2BeaconProxyFactory
+            l2Gateway, router, inbox, cloneableProxyHash, l2BeaconProxyFactory
         );
 
         token = IERC20(address(new TestERC20()));
@@ -92,12 +89,7 @@ contract L1OrbitERC20GatewayTest is L1ERC20GatewayTest {
         // trigger deposit
         vm.prank(router);
         l1Gateway.outboundTransfer(
-            address(token),
-            user,
-            depositAmount,
-            maxGas,
-            gasPriceBid,
-            routerEncodedData
+            address(token), user, depositAmount, maxGas, gasPriceBid, routerEncodedData
         );
 
         // check tokens are escrowed
@@ -182,18 +174,197 @@ contract L1OrbitERC20GatewayTest is L1ERC20GatewayTest {
         );
     }
 
+    function test_outboundTransferCustomRefund_InboxPrefunded() public {
+        // retryable params
+        uint256 depositAmount = 700;
+        bytes memory callHookData = "";
+        bytes memory routerEncodedData = buildRouterEncodedData(callHookData);
+
+        // pre-fund inbox
+        address inbox = address(l1Gateway.inbox());
+        vm.prank(user);
+        nativeToken.transfer(inbox, nativeTokenTotalFee * 2);
+
+        // snapshot state before
+        uint256 userBalanceBefore = token.balanceOf(user);
+        uint256 userNativeTokenBalanceBefore = nativeToken.balanceOf(user);
+        uint256 l1GatewayBalanceBefore = token.balanceOf(address(l1Gateway));
+
+        // approve token
+        vm.prank(user);
+        token.approve(address(l1Gateway), depositAmount);
+
+        // expect events
+        vm.expectEmit(true, true, true, true);
+        emit TicketData(maxSubmissionCost);
+
+        vm.expectEmit(true, true, true, true);
+        emit RefundAddresses(creditBackAddress, user);
+
+        vm.expectEmit(true, true, true, true);
+        emit ERC20InboxRetryableTicket(
+            address(l1Gateway),
+            l2Gateway,
+            0,
+            maxGas,
+            gasPriceBid,
+            nativeTokenTotalFee,
+            l1Gateway.getOutboundCalldata(address(token), user, user, 700, "")
+        );
+
+        vm.expectEmit(true, true, true, true);
+        emit DepositInitiated(address(token), user, user, 0, depositAmount);
+
+        // trigger deposit
+        vm.prank(router);
+        l1Gateway.outboundTransferCustomRefund(
+            address(token),
+            creditBackAddress,
+            user,
+            depositAmount,
+            maxGas,
+            gasPriceBid,
+            routerEncodedData
+        );
+
+        // check tokens are escrowed
+        uint256 userBalanceAfter = token.balanceOf(user);
+        assertEq(userBalanceBefore - userBalanceAfter, depositAmount, "Wrong user balance");
+
+        uint256 userNativeTokenBalanceAfter = nativeToken.balanceOf(user);
+        assertEq(
+            userNativeTokenBalanceAfter,
+            userNativeTokenBalanceBefore,
+            "Wrong user native token balance"
+        );
+
+        uint256 l1GatewayBalanceAfter = token.balanceOf(address(l1Gateway));
+        assertEq(
+            l1GatewayBalanceAfter - l1GatewayBalanceBefore,
+            depositAmount,
+            "Wrong l1 gateway balance"
+        );
+    }
+
+    function test_outboundTransferCustomRefund_InboxPartiallyPrefunded() public {
+        // retryable params
+        uint256 depositAmount = 700;
+        bytes memory callHookData = "";
+        bytes memory routerEncodedData = buildRouterEncodedData(callHookData);
+
+        // partially pre-fund inbox
+        uint256 prefundAmount = nativeTokenTotalFee / 3;
+        address inbox = address(l1Gateway.inbox());
+        vm.prank(user);
+        nativeToken.transfer(inbox, prefundAmount);
+
+        // snapshot state before
+        uint256 userBalanceBefore = token.balanceOf(user);
+        uint256 userNativeTokenBalanceBefore = nativeToken.balanceOf(user);
+        uint256 l1GatewayBalanceBefore = token.balanceOf(address(l1Gateway));
+
+        // approve fee token
+        vm.prank(user);
+        nativeToken.approve(address(l1Gateway), nativeTokenTotalFee - prefundAmount);
+
+        // approve token
+        vm.prank(user);
+        token.approve(address(l1Gateway), depositAmount);
+
+        // expect events
+        vm.expectEmit(true, true, true, true);
+        emit TicketData(maxSubmissionCost);
+
+        vm.expectEmit(true, true, true, true);
+        emit RefundAddresses(creditBackAddress, user);
+
+        vm.expectEmit(true, true, true, true);
+        emit ERC20InboxRetryableTicket(
+            address(l1Gateway),
+            l2Gateway,
+            0,
+            maxGas,
+            gasPriceBid,
+            nativeTokenTotalFee,
+            l1Gateway.getOutboundCalldata(address(token), user, user, 700, "")
+        );
+
+        vm.expectEmit(true, true, true, true);
+        emit DepositInitiated(address(token), user, user, 0, depositAmount);
+
+        // trigger deposit
+        vm.prank(router);
+        l1Gateway.outboundTransferCustomRefund(
+            address(token),
+            creditBackAddress,
+            user,
+            depositAmount,
+            maxGas,
+            gasPriceBid,
+            routerEncodedData
+        );
+
+        // check tokens are escrowed
+        uint256 userBalanceAfter = token.balanceOf(user);
+        assertEq(userBalanceBefore - userBalanceAfter, depositAmount, "Wrong user balance");
+
+        uint256 userNativeTokenBalanceAfter = nativeToken.balanceOf(user);
+        assertEq(
+            userNativeTokenBalanceBefore - userNativeTokenBalanceAfter,
+            nativeTokenTotalFee - prefundAmount,
+            "Wrong user native token balance"
+        );
+
+        uint256 l1GatewayBalanceAfter = token.balanceOf(address(l1Gateway));
+        assertEq(
+            l1GatewayBalanceAfter - l1GatewayBalanceBefore,
+            depositAmount,
+            "Wrong l1 gateway balance"
+        );
+    }
+
+    function test_outboundTransferCustomRefund_revert_NoValue() public {
+        // trigger deposit
+        vm.prank(router);
+        vm.expectRevert("NO_VALUE");
+        l1Gateway.outboundTransferCustomRefund{value: 1 ether}(
+            address(token), creditBackAddress, user, 100, maxGas, gasPriceBid, ""
+        );
+    }
+
     function test_outboundTransferCustomRefund_revert_NotAllowedToBridgeFeeToken() public {
         // trigger deposit
         vm.prank(router);
         vm.expectRevert("NOT_ALLOWED_TO_BRIDGE_FEE_TOKEN");
         l1Gateway.outboundTransferCustomRefund(
-            address(nativeToken),
+            address(nativeToken), creditBackAddress, user, 100, maxGas, gasPriceBid, ""
+        );
+    }
+
+    function test_outboundTransferCustomRefund_revert_Reentrancy() public override {
+        // approve fees
+        vm.prank(user);
+        nativeToken.approve(address(l1Gateway), nativeTokenTotalFee);
+
+        // approve token
+        uint256 depositAmount = 3;
+        vm.prank(user);
+        token.approve(address(l1Gateway), depositAmount);
+
+        // trigger re-entrancy
+        MockReentrantERC20 mockReentrantERC20 = new MockReentrantERC20();
+        vm.etch(address(token), address(mockReentrantERC20).code);
+
+        vm.expectRevert("ReentrancyGuard: reentrant call");
+        vm.prank(router);
+        l1Gateway.outboundTransferCustomRefund(
+            address(token),
             creditBackAddress,
             user,
-            100,
+            depositAmount,
             maxGas,
             gasPriceBid,
-            ""
+            buildRouterEncodedData("")
         );
     }
 
@@ -206,11 +377,8 @@ contract L1OrbitERC20GatewayTest is L1ERC20GatewayTest {
         override
         returns (bytes memory)
     {
-        bytes memory userEncodedData = abi.encode(
-            maxSubmissionCost,
-            callHookData,
-            nativeTokenTotalFee
-        );
+        bytes memory userEncodedData =
+            abi.encode(maxSubmissionCost, callHookData, nativeTokenTotalFee);
         bytes memory routerEncodedData = abi.encode(user, userEncodedData);
 
         return routerEncodedData;
