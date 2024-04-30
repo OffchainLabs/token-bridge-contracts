@@ -43,7 +43,6 @@ import {TransparentUpgradeableProxy} from
     "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {IAccessControlUpgradeable} from
     "@openzeppelin/contracts-upgradeable/access/IAccessControlUpgradeable.sol";
-import "forge-std/console.sol";
 
 /**
  * @title Layer1 token bridge creator
@@ -338,8 +337,6 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             );
         }
 
-        /// L2 side deployment
-
         // deploy factory and then L2 contracts through L2 factory, using 2 retryables calls
         // we do not care if it is a resend or not, if the L2 deployment already exists it will simply fail on L2
         _deployL2Factory(inbox, gasPriceBid, isUsingFeeToken);
@@ -438,10 +435,6 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             address feeToken = _getFeeToken(inbox);
             uint256 retryableFee = gasLimitForL2FactoryDeployment * gasPriceBid;
             uint256 scaledRetryableFee = _getScaledAmount(feeToken, retryableFee);
-            // console.log("scaledFee factory");
-            // console.log(retryableFee);
-            // console.log(scaledRetryableFee);
-            // console.log(msg.sender);
             IERC20(feeToken).safeTransferFrom(msg.sender, inbox, scaledRetryableFee);
 
             IERC20Inbox(inbox).createRetryableTicket(
