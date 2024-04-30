@@ -351,16 +351,6 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             0
         );
 
-        L2TemplateAddresses memory l2TemplatesAddresses = L2TemplateAddresses(
-            l2RouterTemplate,
-            l2StandardGatewayTemplate,
-            l2CustomGatewayTemplate,
-            isUsingFeeToken ? address(0) : l2WethGatewayTemplate,
-            isUsingFeeToken ? address(0) : l2WethTemplate,
-            address(l1Templates.upgradeExecutor),
-            l2MulticallTemplate
-        );
-
         if (isUsingFeeToken) {
             // transfer fee tokens to inbox to pay for 2nd retryable
             address feeToken = _getFeeToken(inbox);
@@ -381,7 +371,15 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         // tho it is not expected that this contract will have any eth
         retryableSender.sendRetryable{value: isUsingFeeToken ? 0 : address(this).balance}(
             retryableParams,
-            l2TemplatesAddresses,
+            L2TemplateAddresses(
+                l2RouterTemplate,
+                l2StandardGatewayTemplate,
+                l2CustomGatewayTemplate,
+                isUsingFeeToken ? address(0) : l2WethGatewayTemplate,
+                isUsingFeeToken ? address(0) : l2WethTemplate,
+                address(l1Templates.upgradeExecutor),
+                l2MulticallTemplate
+            ),
             l1Deployment,
             l2Deployment.standardGateway,
             l2RollupOwner,
