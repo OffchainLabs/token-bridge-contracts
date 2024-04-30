@@ -361,6 +361,16 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             );
         }
 
+        L2TemplateAddresses memory l2TemplateAddress = L2TemplateAddresses(
+            l2RouterTemplate,
+            l2StandardGatewayTemplate,
+            l2CustomGatewayTemplate,
+            isUsingFeeToken ? address(0) : l2WethGatewayTemplate,
+            isUsingFeeToken ? address(0) : l2WethTemplate,
+            address(l1Templates.upgradeExecutor),
+            l2MulticallTemplate
+        );
+
         // alias rollup owner if it is a contract
         address l2RollupOwner = rollupOwner.code.length == 0
             ? rollupOwner
@@ -369,21 +379,13 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         // sweep the balance to send the retryable and refund the difference
         // it is known that any eth previously in this contract can be extracted
         // tho it is not expected that this contract will have any eth
-        retryableSender.sendRetryable{value: isUsingFeeToken ? 0 : address(this).balance}(
+        _sendRetryableToCreateContracts(
+            isUsingFeeToken,
             retryableParams,
-            L2TemplateAddresses(
-                l2RouterTemplate,
-                l2StandardGatewayTemplate,
-                l2CustomGatewayTemplate,
-                isUsingFeeToken ? address(0) : l2WethGatewayTemplate,
-                isUsingFeeToken ? address(0) : l2WethTemplate,
-                address(l1Templates.upgradeExecutor),
-                l2MulticallTemplate
-            ),
+            l2TemplateAddress,
             l1Deployment,
-            l2Deployment.standardGateway,
+            l2Deployment,
             l2RollupOwner,
-            msg.sender,
             upgradeExecutor
         );
 
@@ -395,6 +397,26 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             inboxToL1Deployment[inbox] = l1Deployment;
             inboxToL2Deployment[inbox] = l2Deployment;
         }
+    }
+
+    function _sendRetryableToCreateContracts(
+        bool isUsingFeeToken,
+        RetryableParams memory retryableParams,
+        L2TemplateAddresses memory l2TemplateAddress,
+        L1DeploymentAddresses memory l1Deployment,
+        L2DeploymentAddresses memory l2Deployment,
+        address l2RollupOwner,
+        address upgradeExecutor
+    ) internal {
+        retryableSender.sendRetryable{value: isUsingFeeToken ? 0 : address(this).balance}(
+            retryableParams,
+            l2TemplateAddress,
+            l1Deployment,
+            l2Deployment.standardGateway,
+            l2RollupOwner,
+            msg.sender,
+            upgradeExecutor
+        );
     }
 
     /**
