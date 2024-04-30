@@ -43,6 +43,7 @@ import {TransparentUpgradeableProxy} from
     "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {IAccessControlUpgradeable} from
     "@openzeppelin/contracts-upgradeable/access/IAccessControlUpgradeable.sol";
+import "forge-std/console.sol";
 
 /**
  * @title Layer1 token bridge creator
@@ -337,15 +338,40 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             );
         }
 
+        /// L2 side deployment
+
         // deploy factory and then L2 contracts through L2 factory, using 2 retryables calls
         // we do not care if it is a resend or not, if the L2 deployment already exists it will simply fail on L2
         _deployL2Factory(inbox, gasPriceBid, isUsingFeeToken);
+
+        RetryableParams memory retryableParams = RetryableParams(
+            inbox,
+            canonicalL2FactoryAddress,
+            msg.sender,
+            msg.sender,
+            maxGasForContracts,
+            gasPriceBid,
+            0
+        );
+
+        L2TemplateAddresses memory l2TemplatesAddresses = L2TemplateAddresses(
+            l2RouterTemplate,
+            l2StandardGatewayTemplate,
+            l2CustomGatewayTemplate,
+            isUsingFeeToken ? address(0) : l2WethGatewayTemplate,
+            isUsingFeeToken ? address(0) : l2WethTemplate,
+            address(l1Templates.upgradeExecutor),
+            l2MulticallTemplate
+        );
+
         if (isUsingFeeToken) {
             // transfer fee tokens to inbox to pay for 2nd retryable
             address feeToken = _getFeeToken(inbox);
-            uint256 fee = maxGasForContracts * gasPriceBid;
-            uint256 scaledFee = _getScaledAmount(feeToken, fee);
-            IERC20(feeToken).safeTransferFrom(msg.sender, inbox, scaledFee);
+            retryableParams.feeTokenTotalFeeAmount =
+                _getScaledAmount(feeToken, maxGasForContracts * gasPriceBid);
+            IERC20(feeToken).safeTransferFrom(
+                msg.sender, inbox, retryableParams.feeTokenTotalFeeAmount
+            );
         }
 
         // alias rollup owner if it is a contract
@@ -357,29 +383,13 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         // it is known that any eth previously in this contract can be extracted
         // tho it is not expected that this contract will have any eth
         retryableSender.sendRetryable{value: isUsingFeeToken ? 0 : address(this).balance}(
-            RetryableParams(
-                inbox,
-                canonicalL2FactoryAddress,
-                msg.sender,
-                msg.sender,
-                maxGasForContracts,
-                gasPriceBid
-            ),
-            L2TemplateAddresses(
-                l2RouterTemplate,
-                l2StandardGatewayTemplate,
-                l2CustomGatewayTemplate,
-                isUsingFeeToken ? address(0) : l2WethGatewayTemplate,
-                isUsingFeeToken ? address(0) : l2WethTemplate,
-                address(l1Templates.upgradeExecutor),
-                l2MulticallTemplate
-            ),
+            retryableParams,
+            l2TemplatesAddresses,
             l1Deployment,
             l2Deployment.standardGateway,
             l2RollupOwner,
             msg.sender,
-            upgradeExecutor,
-            isUsingFeeToken
+            upgradeExecutor
         );
 
         // deployment mappings should not be updated in case of resend
@@ -428,6 +438,10 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             address feeToken = _getFeeToken(inbox);
             uint256 retryableFee = gasLimitForL2FactoryDeployment * gasPriceBid;
             uint256 scaledRetryableFee = _getScaledAmount(feeToken, retryableFee);
+            // console.log("scaledFee factory");
+            // console.log(retryableFee);
+            // console.log(scaledRetryableFee);
+            // console.log(msg.sender);
             IERC20(feeToken).safeTransferFrom(msg.sender, inbox, scaledRetryableFee);
 
             IERC20Inbox(inbox).createRetryableTicket(
@@ -438,7 +452,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                 msg.sender,
                 gasLimitForL2FactoryDeployment,
                 gasPriceBid,
-                retryableFee,
+                scaledRetryableFee,
                 deploymentData
             );
         } else {
