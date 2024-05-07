@@ -44,6 +44,7 @@ import { ContractVerifier } from './contractVerifier'
 import { OmitTyped } from '@arbitrum/sdk/dist/lib/utils/types'
 import { L1ToL2MessageGasParams } from '@arbitrum/sdk/dist/lib/message/L1ToL2MessageCreator'
 import { L1ContractCallTransactionReceipt } from '@arbitrum/sdk/dist/lib/message/L1Transaction'
+import { _getScaledAmount } from './local-deployment/localDeploymentLib'
 
 /**
  * Dummy non-zero address which is provided to logic contracts initializers
@@ -112,10 +113,12 @@ export const createTokenBridge = async (
   const maxSubmissionCostForContracts =
     deployFactoryGasParams.maxSubmissionCost.mul(2)
 
-  let retryableFee = maxSubmissionCostForFactory
-    .add(maxSubmissionCostForContracts)
-    .add(maxGasForFactory.mul(gasPrice))
-    .add(maxGasForContracts.mul(gasPrice))
+  let retryableFeeForFactory = maxSubmissionCostForFactory.add(
+    maxGasForFactory.mul(gasPrice)
+  )
+  let retryableFeeForContracts = maxSubmissionCostForContracts.add(
+    maxGasForContracts.mul(gasPrice)
+  )
 
   // get inbox from rollup contract
   const inbox = await RollupAdminLogic__factory.connect(
@@ -126,20 +129,24 @@ export const createTokenBridge = async (
   // if fee token is used approve the fee
   const feeToken = await _getFeeToken(inbox, l1Signer.provider!)
   if (feeToken != ethers.constants.AddressZero) {
-    // scale the retryable fee to the fee token decimals denomination
-    const scaledRetryableFee = await _getScaledAmount(
+    // scale the retryable fees to the fee token decimals denomination
+    let scaledRetryableFeeForFactory = await _getScaledAmount(
       feeToken,
-      retryableFee,
+      retryableFeeForFactory,
+      l1Signer.provider!
+    )
+    let scaledRetryableFeeForContracts = await _getScaledAmount(
+      feeToken,
+      retryableFeeForContracts,
       l1Signer.provider!
     )
 
     await (
       await IERC20__factory.connect(feeToken, l1Signer).approve(
         l1TokenBridgeCreator.address,
-        scaledRetryableFee
+        scaledRetryableFeeForFactory.add(scaledRetryableFeeForContracts)
       )
     ).wait()
-    retryableFee = BigNumber.from(0)
   }
 
   /// do it - create token bridge
@@ -149,7 +156,12 @@ export const createTokenBridge = async (
       rollupOwnerAddress,
       maxGasForContracts,
       gasPrice,
-      { value: retryableFee }
+      {
+        value:
+          feeToken == ethers.constants.AddressZero
+            ? retryableFeeForFactory.add(retryableFeeForContracts)
+            : BigNumber.from(0),
+      }
     )
   ).wait()
 
@@ -706,29 +718,6 @@ const _getFeeToken = async (
   }
 
   return feeToken
-}
-
-/**
- * Scale the amount from 18-denomination to the fee token decimals denomination
- */
-async function _getScaledAmount(
-  feeToken: string,
-  amount: BigNumber,
-  provider: ethers.providers.Provider
-): Promise<BigNumber> {
-  const decimals = await ERC20__factory.connect(feeToken, provider).decimals()
-  if (decimals == 18) {
-    return amount
-  } else if (decimals < 18) {
-    let scaledAmount = amount.div(BigNumber.from(10).pow(18 - decimals))
-    // round up if necessary
-    if (scaledAmount.mul(BigNumber.from(10).pow(18 - decimals)).lt(amount)) {
-      scaledAmount = scaledAmount.add(1)
-    }
-    return scaledAmount
-  } else {
-    return amount.mul(BigNumber.from(10).pow(decimals - 18))
-  }
 }
 
 export function sleep(ms: number) {
