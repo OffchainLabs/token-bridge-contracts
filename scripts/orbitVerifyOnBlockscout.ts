@@ -15,16 +15,16 @@ import {
 main().then(() => console.log('Done.'))
 
 async function main() {
-  const parentRpcUrl = process.env['PARENT_RPC'] as string
+  const parentRpcUrl = process.env['BASECHAIN_RPC'] as string
   const tokenBridgeCreatorAddress = process.env[
-    'TOKEN_BRIDGE_CREATOR'
+    'L1_TOKEN_BRIDGE_CREATOR'
   ] as string
   const inboxAddress = process.env['INBOX_ADDRESS'] as string
   const deployerKey = process.env['DEPLOYER_KEY'] as string
 
   if (!parentRpcUrl || !tokenBridgeCreatorAddress || !inboxAddress) {
     throw new Error(
-      'Required env vars: PARENT_RPC, TOKEN_BRIDGE_CREATOR, INBOX_ADDRESS'
+      'Required env vars: BASECHAIN_RPC, L1_TOKEN_BRIDGE_CREATOR, INBOX_ADDRESS'
     )
   }
 
