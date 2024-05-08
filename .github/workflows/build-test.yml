@@ -98,39 +98,39 @@ jobs:
       - name: Test function signatures
         run: yarn run test:signatures
 
-debug-testnode:
-  name: Debug
-  runs-on: ubuntu-latest
-  steps:
-    - uses: actions/checkout@v3
-      with:
-        submodules: recursive
+  debug-testnode:
+    name: Debug
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
 
-    - uses: OffchainLabs/actions/run-nitro-test-node@main
-      with:
-        no-token-bridge: true
+      - uses: OffchainLabs/actions/run-nitro-test-node@main
+        with:
+          no-token-bridge: true
 
-    - name: Setup node/yarn
-      uses: actions/setup-node@v3
-      with:
-        node-version: 16
-        cache: 'yarn'
-        cache-dependency-path: '**/yarn.lock'
+      - name: Setup node/yarn
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16
+          cache: 'yarn'
+          cache-dependency-path: '**/yarn.lock'
 
-    - name: Install packages
-      run: yarn
+      - name: Install packages
+        run: yarn
 
-    - name: Compile contracts
-      run: yarn build
+      - name: Compile contracts
+        run: yarn build
 
-    - name: Deploy creator and create token bridge
-      run: yarn deploy:local:token-bridge
+      - name: Deploy creator and create token bridge
+        run: yarn deploy:local:token-bridge
 
-    - name: Verify deployed token bridge
-      run: yarn test:tokenbridge:deployment
+      - name: Verify deployed token bridge
+        run: yarn test:tokenbridge:deployment
 
-    - name: Verify creation code generation
-      run: yarn test:creation-code
+      - name: Verify creation code generation
+        run: yarn test:creation-code
 
   debug-testnode-2:
     name: Debug
@@ -142,7 +142,7 @@ debug-testnode:
 
       - uses: OffchainLabs/actions/run-nitro-test-node@main
         with:
-          nitro-testnode-ref: debug-testnode-ci
+          nitro-testnode-ref:
           no-token-bridge: true
 
       - name: Setup node/yarn
