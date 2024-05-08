@@ -112,7 +112,6 @@ jobs:
           no-token-bridge: true
           no-l3-token-bridge: true
           token-bridge-branch: '${{ github.head_ref }}'
-          nitro-testnode-ref: 'bump-nitro-contracts'
 
       - name: Setup node/yarn
         uses: actions/setup-node@v3
@@ -151,7 +150,48 @@ jobs:
           no-token-bridge: true
           no-l3-token-bridge: true
           token-bridge-branch: '${{ github.head_ref }}'
-          nitro-testnode-ref: 'bump-nitro-contracts'
+
+      - name: Setup node/yarn
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16
+          cache: 'yarn'
+          cache-dependency-path: '**/yarn.lock'
+
+      - name: Install packages
+        run: yarn
+
+      - name: Compile contracts
+        run: yarn build
+
+      - name: Deploy creator and create token bridge
+        run: yarn deploy:local:token-bridge
+
+      - name: Verify deployed token bridge
+        run: yarn test:tokenbridge:deployment
+
+      - name: Verify creation code generation
+        run: yarn test:creation-code
+
+      - name: Test e2e orbit token bridge actions
+        run: yarn hardhat test test-e2e/orbitTokenBridge.ts
+
+  test-e2e-6-decimals-fee-token:
+    name: Test e2e on 6-decimals custom fee token chain
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - uses: OffchainLabs/actions/run-nitro-test-node@main
+        with:
+          l3-node: true
+          args: --l3-fee-token --l3-fee-token-decimals 6
+          no-token-bridge: true
+          no-l3-token-bridge: true
+          token-bridge-branch: '${{ github.head_ref }}'
+          nitro-testnode-ref: 'e2e-decimals'
 
       - name: Setup node/yarn
         uses: actions/setup-node@v3
