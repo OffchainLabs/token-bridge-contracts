@@ -112,6 +112,7 @@ jobs:
           no-token-bridge: true
           no-l3-token-bridge: true
           token-bridge-branch: '${{ github.head_ref }}'
+          nitro-testnode-ref: 'bump-nitro-contracts'
 
       - name: Setup node/yarn
         uses: actions/setup-node@v3
@@ -150,6 +151,7 @@ jobs:
           no-token-bridge: true
           no-l3-token-bridge: true
           token-bridge-branch: '${{ github.head_ref }}'
+          nitro-testnode-ref: 'bump-nitro-contracts'
 
       - name: Setup node/yarn
         uses: actions/setup-node@v3
