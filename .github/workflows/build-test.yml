@@ -140,7 +140,7 @@ jobs:
         with:
           submodules: recursive
 
-      - uses: OffchainLabs/actions/run-nitro-test-node@main
+      - uses: OffchainLabs/actions/run-nitro-test-node@testnode-debug
         with:
           nitro-testnode-ref: debug-testnode-ci
           no-token-bridge: true
