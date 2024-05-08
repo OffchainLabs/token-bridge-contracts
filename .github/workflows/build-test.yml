@@ -109,6 +109,7 @@ jobs:
       - uses: OffchainLabs/actions/run-nitro-test-node@main
         with:
           no-token-bridge: true
+          nitro-contracts-branch: "a00d2faac01e050339ff7b0ac5bc91df06e8dbff"
 
       - name: Setup node/yarn
         uses: actions/setup-node@v3
@@ -140,11 +141,11 @@ jobs:
         with:
           submodules: recursive
 
-      - uses: OffchainLabs/actions/run-nitro-test-node@testnode-debug
+      - uses: OffchainLabs/actions/run-nitro-test-node@main
         with:
           nitro-testnode-ref: debug-testnode-ci
           no-token-bridge: true
-          no-simple: false
+          nitro-contracts-branch: "a00d2faac01e050339ff7b0ac5bc91df06e8dbff"
 
       - name: Setup node/yarn
         uses: actions/setup-node@v3
