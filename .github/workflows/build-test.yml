@@ -111,6 +111,7 @@ jobs:
           l3-node: true
           no-token-bridge: true
           no-l3-token-bridge: true
+          token-bridge-branch: '${{ github.head_ref }}'
 
       - name: Setup node/yarn
         uses: actions/setup-node@v3
@@ -148,6 +149,7 @@ jobs:
           args: --l3-fee-token
           no-token-bridge: true
           no-l3-token-bridge: true
+          token-bridge-branch: '${{ github.head_ref }}'
 
       - name: Setup node/yarn
         uses: actions/setup-node@v3
