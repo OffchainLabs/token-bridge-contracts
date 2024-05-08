@@ -598,20 +598,23 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         return address(new TransparentUpgradeableProxy{salt: salt}(logic, admin, bytes("")));
     }
 
+    /**
+     * @notice Scale amount to the fee token's decimals. Ie. amount of 1e18 will be scaled to 1e6 if fee token has 6 decimals like USDC.
+     */
     function _getScaledAmount(address feeToken, uint256 amount) internal view returns (uint256) {
         uint8 decimals = ERC20(feeToken).decimals();
         if (decimals == 18) {
             return amount;
-        } else if (decimals < 18) {
+        }
+        if (decimals < 18) {
             uint256 scaledAmount = amount / (10 ** (18 - decimals));
             // round up if necessary
             if (scaledAmount * (10 ** (18 - decimals)) < amount) {
                 scaledAmount++;
             }
             return scaledAmount;
-        } else {
-            return amount * (10 ** (decimals - 18));
         }
+        return amount * (10 ** (decimals - 18));
     }
 }
 
