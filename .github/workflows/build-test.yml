@@ -144,6 +144,7 @@ jobs:
         with:
           nitro-testnode-ref: debug-testnode-ci
           no-token-bridge: true
+          no-simple: false
 
       - name: Setup node/yarn
         uses: actions/setup-node@v3
