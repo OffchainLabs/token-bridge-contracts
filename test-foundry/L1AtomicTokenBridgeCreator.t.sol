@@ -413,7 +413,15 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
         }
     }
 
-    function test_createTokenBridge_ERC20Chain_6decimals() public {
+    function test_createTokenBridge_ERC20Chain_CustomDecimals(
+        uint8 decimals,
+        uint256 gasPriceBid,
+        uint256 gasLimitForContracts
+    ) public {
+        vm.assume(decimals <= 36);
+        vm.assume(gasPriceBid > 1 && gasPriceBid < 1_000_000_000_000);
+        vm.assume(gasLimitForContracts > 1 && gasLimitForContracts < type(uint64).max);
+
         // prepare
         _setTemplates();
 
@@ -421,7 +429,7 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
         ERC20 _nativeToken;
         {
             (RollupProxy rollup, ERC20Inbox inbox,, UpgradeExecutor upgExecutor, ERC20 nativeToken)
-            = _createERC20Rollup(6);
+            = _createERC20Rollup(decimals);
 
             // mock owner() => upgExecutor
             vm.mockCall(
@@ -451,11 +459,39 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
 
         /// track fee amounts
 
-        // gasPriceBid = 1 gwei
-        // gas limit for L2Factory deployment = 1_000_000
-        // scale it down to 6 decimals
-        uint256 expectedFeeAmount = (1_000_000 * 1_000_000_000) / (10 ** 12)
-            + (l1Creator.gasLimitForL2FactoryDeployment() * 1_000_000_000) / (10 ** 12);
+        // scale it
+        uint256 expectedFeeAmount;
+        if (decimals < 18) {
+            uint256 expectedFeeForContracts =
+                (gasLimitForContracts * gasPriceBid) / (10 ** (18 - decimals));
+            if (
+                expectedFeeForContracts * (10 ** (18 - decimals))
+                    < (gasLimitForContracts * gasPriceBid)
+            ) {
+                expectedFeeForContracts++;
+            }
+
+            uint256 expectedFeeForL2Factory =
+                (l1Creator.gasLimitForL2FactoryDeployment() * gasPriceBid) / (10 ** (18 - decimals));
+            if (
+                expectedFeeForL2Factory * (10 ** (18 - decimals))
+                    < (l1Creator.gasLimitForL2FactoryDeployment() * gasPriceBid)
+            ) {
+                expectedFeeForL2Factory++;
+            }
+            expectedFeeAmount = expectedFeeForContracts + expectedFeeForL2Factory;
+        }
+        if (decimals > 18) {
+            uint256 expectedFeeForContracts =
+                (gasLimitForContracts * gasPriceBid) * (10 ** (decimals - 18));
+            uint256 expectedFeeForL2Factory =
+                (l1Creator.gasLimitForL2FactoryDeployment() * gasPriceBid) * (10 ** (decimals - 18));
+            expectedFeeAmount = expectedFeeForContracts + expectedFeeForL2Factory;
+        }
+        if (decimals == 18) {
+            expectedFeeAmount = gasLimitForContracts * gasPriceBid
+                + l1Creator.gasLimitForL2FactoryDeployment() * gasPriceBid;
+        }
 
         uint256 deployerBalanceBefore = _nativeToken.balanceOf(deployer);
 
@@ -463,103 +499,8 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
         vm.deal(deployer, 1 ether);
         vm.startPrank(deployer);
         _nativeToken.approve(address(l1Creator), expectedFeeAmount);
-        l1Creator.createTokenBridge(address(_inbox), deployer, 1_000_000, 1_000_000_000);
 
-        /// check state
-
-        assertTrue(
-            deployerBalanceBefore - _nativeToken.balanceOf(deployer) == expectedFeeAmount,
-            "Incorrect fee paid"
-        );
-
-        {
-            (
-                address l1Router,
-                address l1StandardGateway,
-                address l1CustomGateway,
-                address l1WethGateway,
-                address l1Weth
-            ) = l1Creator.inboxToL1Deployment(address(_inbox));
-            assertTrue(l1Router != address(0), "Wrong l1Router");
-            assertTrue(l1StandardGateway != address(0), "Wrong l1StandardGateway");
-            assertTrue(l1CustomGateway != address(0), "Wrong l1CustomGateway");
-            assertTrue(l1WethGateway == address(0), "Wrong l1WethGateway");
-            assertTrue(l1Weth == address(0), "Wrong l1Weth");
-        }
-
-        {
-            (
-                address l2Router,
-                address l2StandardGateway,
-                address l2CustomGateway,
-                address l2WethGateway,
-                address l2Weth,
-                address l2ProxyAdmin,
-                address l2BeaconProxyFactory,
-                address l2UpgradeExecutor,
-                address l2Multicall
-            ) = l1Creator.inboxToL2Deployment(address(_inbox));
-            assertTrue(l2Router != address(0), "Wrong l2Router");
-            assertTrue(l2StandardGateway != address(0), "Wrong l2StandardGateway");
-            assertTrue(l2CustomGateway != address(0), "Wrong l2CustomGateway");
-            assertTrue(l2WethGateway == address(0), "Wrong l2WethGateway");
-            assertTrue(l2Weth == address(0), "Wrong l2Weth");
-            assertTrue(l2ProxyAdmin != address(0), "Wrong l2ProxyAdmin");
-            assertTrue(l2BeaconProxyFactory != address(0), "Wrong l2BeaconProxyFactory");
-            assertTrue(l2UpgradeExecutor != address(0), "Wrong l2UpgradeExecutor");
-            assertTrue(l2Multicall != address(0), "Wrong l2Multicall");
-        }
-    }
-
-    function test_createTokenBridge_ERC20Chain_6decimals_roundUp() public {
-        // prepare
-        _setTemplates();
-
-        ERC20Inbox _inbox;
-        ERC20 _nativeToken;
-        {
-            (RollupProxy rollup, ERC20Inbox inbox,, UpgradeExecutor upgExecutor, ERC20 nativeToken)
-            = _createERC20Rollup(6);
-
-            // mock owner() => upgExecutor
-            vm.mockCall(
-                address(rollup),
-                abi.encodeWithSignature("owner()"),
-                abi.encode(address(upgExecutor))
-            );
-
-            // mock rollupOwner is executor on upgExecutor
-            vm.mockCall(
-                address(upgExecutor),
-                abi.encodeWithSignature(
-                    "hasRole(bytes32,address)", upgExecutor.EXECUTOR_ROLE(), deployer
-                ),
-                abi.encode(true)
-            );
-
-            // mock chain id
-            uint256 mockChainId = 2000;
-            vm.mockCall(
-                address(rollup), abi.encodeWithSignature("chainId()"), abi.encode(mockChainId)
-            );
-
-            _inbox = inbox;
-            _nativeToken = nativeToken;
-        }
-
-        /// track fee amounts
-
-        // gasPriceBid = 0.0004 gwei
-        // gas limit for L2Factory deployment = 1_000
-        // scale down will return 0, so actual fee is rounded up to 1 wei for contracts and 1 wei for factory
-        uint256 expectedFeeAmount = 2;
-        uint256 deployerBalanceBefore = _nativeToken.balanceOf(deployer);
-
-        /// do it
-        vm.deal(deployer, 1 ether);
-        vm.startPrank(deployer);
-        _nativeToken.approve(address(l1Creator), expectedFeeAmount);
-        l1Creator.createTokenBridge(address(_inbox), deployer, 1000, 400_000);
+        l1Creator.createTokenBridge(address(_inbox), deployer, gasLimitForContracts, gasPriceBid);
 
         /// check state
 
@@ -1001,7 +942,7 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
         } else {
             nativeToken = ERC20(address(new USDC_Mock(decimals)));
         }
-        ERC20PresetMinterPauser(address(nativeToken)).mint(deployer, 10 ether);
+        ERC20PresetMinterPauser(address(nativeToken)).mint(deployer, type(uint128).max);
 
         bridge.initialize(IOwnable(address(rollup)), address(nativeToken));
         inbox.initialize(IBridge(address(bridge)), ISequencerInbox(makeAddr("sequencerInbox")));
