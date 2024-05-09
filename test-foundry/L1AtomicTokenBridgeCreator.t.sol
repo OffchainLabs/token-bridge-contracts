@@ -319,10 +319,13 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
     function test_createTokenBridge_ERC20Chain() public {
         // prepare
         _setTemplates();
-        (RollupProxy rollup, ERC20Inbox inbox,, UpgradeExecutor upgExecutor, ERC20 nativeToken) =
-            _createERC20Rollup();
 
+        ERC20Inbox _inbox;
+        ERC20 _nativeToken;
         {
+            (RollupProxy rollup, ERC20Inbox inbox,, UpgradeExecutor upgExecutor, ERC20 nativeToken)
+            = _createERC20Rollup(18);
+
             // mock owner() => upgExecutor
             vm.mockCall(
                 address(rollup),
@@ -344,15 +347,33 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
             vm.mockCall(
                 address(rollup), abi.encodeWithSignature("chainId()"), abi.encode(mockChainId)
             );
+
+            _inbox = inbox;
+            _nativeToken = nativeToken;
         }
+
+        /// track fee amounts
+
+        // gasPriceBid = 1 gwei
+        // gas limit for L2Factory deployment = 1_000_000
+        uint256 expectedFeeAmount =
+            1_000_000 * 1_000_000_000 + l1Creator.gasLimitForL2FactoryDeployment() * 1_000_000_000;
+
+        uint256 deployerBalanceBefore = _nativeToken.balanceOf(deployer);
 
         /// do it
         vm.deal(deployer, 1 ether);
         vm.startPrank(deployer);
-        nativeToken.approve(address(l1Creator), 10 ether);
-        l1Creator.createTokenBridge(address(inbox), deployer, 100, 200);
+        _nativeToken.approve(address(l1Creator), expectedFeeAmount);
+        l1Creator.createTokenBridge(address(_inbox), deployer, 1_000_000, 1_000_000_000);
 
         /// check state
+
+        assertTrue(
+            deployerBalanceBefore - _nativeToken.balanceOf(deployer) == expectedFeeAmount,
+            "Incorrect fee paid"
+        );
+
         {
             (
                 address l1Router,
@@ -360,7 +381,7 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
                 address l1CustomGateway,
                 address l1WethGateway,
                 address l1Weth
-            ) = l1Creator.inboxToL1Deployment(address(inbox));
+            ) = l1Creator.inboxToL1Deployment(address(_inbox));
             assertTrue(l1Router != address(0), "Wrong l1Router");
             assertTrue(l1StandardGateway != address(0), "Wrong l1StandardGateway");
             assertTrue(l1CustomGateway != address(0), "Wrong l1CustomGateway");
@@ -379,7 +400,201 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
                 address l2BeaconProxyFactory,
                 address l2UpgradeExecutor,
                 address l2Multicall
-            ) = l1Creator.inboxToL2Deployment(address(inbox));
+            ) = l1Creator.inboxToL2Deployment(address(_inbox));
+            assertTrue(l2Router != address(0), "Wrong l2Router");
+            assertTrue(l2StandardGateway != address(0), "Wrong l2StandardGateway");
+            assertTrue(l2CustomGateway != address(0), "Wrong l2CustomGateway");
+            assertTrue(l2WethGateway == address(0), "Wrong l2WethGateway");
+            assertTrue(l2Weth == address(0), "Wrong l2Weth");
+            assertTrue(l2ProxyAdmin != address(0), "Wrong l2ProxyAdmin");
+            assertTrue(l2BeaconProxyFactory != address(0), "Wrong l2BeaconProxyFactory");
+            assertTrue(l2UpgradeExecutor != address(0), "Wrong l2UpgradeExecutor");
+            assertTrue(l2Multicall != address(0), "Wrong l2Multicall");
+        }
+    }
+
+    function test_createTokenBridge_ERC20Chain_6decimals() public {
+        // prepare
+        _setTemplates();
+
+        ERC20Inbox _inbox;
+        ERC20 _nativeToken;
+        {
+            (RollupProxy rollup, ERC20Inbox inbox,, UpgradeExecutor upgExecutor, ERC20 nativeToken)
+            = _createERC20Rollup(6);
+
+            // mock owner() => upgExecutor
+            vm.mockCall(
+                address(rollup),
+                abi.encodeWithSignature("owner()"),
+                abi.encode(address(upgExecutor))
+            );
+
+            // mock rollupOwner is executor on upgExecutor
+            vm.mockCall(
+                address(upgExecutor),
+                abi.encodeWithSignature(
+                    "hasRole(bytes32,address)", upgExecutor.EXECUTOR_ROLE(), deployer
+                ),
+                abi.encode(true)
+            );
+
+            // mock chain id
+            uint256 mockChainId = 2000;
+            vm.mockCall(
+                address(rollup), abi.encodeWithSignature("chainId()"), abi.encode(mockChainId)
+            );
+
+            _inbox = inbox;
+            _nativeToken = nativeToken;
+        }
+
+        /// track fee amounts
+
+        // gasPriceBid = 1 gwei
+        // gas limit for L2Factory deployment = 1_000_000
+        // scale it down to 6 decimals
+        uint256 expectedFeeAmount = (1_000_000 * 1_000_000_000) / (10 ** 12)
+            + (l1Creator.gasLimitForL2FactoryDeployment() * 1_000_000_000) / (10 ** 12);
+
+        uint256 deployerBalanceBefore = _nativeToken.balanceOf(deployer);
+
+        /// do it
+        vm.deal(deployer, 1 ether);
+        vm.startPrank(deployer);
+        _nativeToken.approve(address(l1Creator), expectedFeeAmount);
+        l1Creator.createTokenBridge(address(_inbox), deployer, 1_000_000, 1_000_000_000);
+
+        /// check state
+
+        assertTrue(
+            deployerBalanceBefore - _nativeToken.balanceOf(deployer) == expectedFeeAmount,
+            "Incorrect fee paid"
+        );
+
+        {
+            (
+                address l1Router,
+                address l1StandardGateway,
+                address l1CustomGateway,
+                address l1WethGateway,
+                address l1Weth
+            ) = l1Creator.inboxToL1Deployment(address(_inbox));
+            assertTrue(l1Router != address(0), "Wrong l1Router");
+            assertTrue(l1StandardGateway != address(0), "Wrong l1StandardGateway");
+            assertTrue(l1CustomGateway != address(0), "Wrong l1CustomGateway");
+            assertTrue(l1WethGateway == address(0), "Wrong l1WethGateway");
+            assertTrue(l1Weth == address(0), "Wrong l1Weth");
+        }
+
+        {
+            (
+                address l2Router,
+                address l2StandardGateway,
+                address l2CustomGateway,
+                address l2WethGateway,
+                address l2Weth,
+                address l2ProxyAdmin,
+                address l2BeaconProxyFactory,
+                address l2UpgradeExecutor,
+                address l2Multicall
+            ) = l1Creator.inboxToL2Deployment(address(_inbox));
+            assertTrue(l2Router != address(0), "Wrong l2Router");
+            assertTrue(l2StandardGateway != address(0), "Wrong l2StandardGateway");
+            assertTrue(l2CustomGateway != address(0), "Wrong l2CustomGateway");
+            assertTrue(l2WethGateway == address(0), "Wrong l2WethGateway");
+            assertTrue(l2Weth == address(0), "Wrong l2Weth");
+            assertTrue(l2ProxyAdmin != address(0), "Wrong l2ProxyAdmin");
+            assertTrue(l2BeaconProxyFactory != address(0), "Wrong l2BeaconProxyFactory");
+            assertTrue(l2UpgradeExecutor != address(0), "Wrong l2UpgradeExecutor");
+            assertTrue(l2Multicall != address(0), "Wrong l2Multicall");
+        }
+    }
+
+    function test_createTokenBridge_ERC20Chain_6decimals_roundUp() public {
+        // prepare
+        _setTemplates();
+
+        ERC20Inbox _inbox;
+        ERC20 _nativeToken;
+        {
+            (RollupProxy rollup, ERC20Inbox inbox,, UpgradeExecutor upgExecutor, ERC20 nativeToken)
+            = _createERC20Rollup(6);
+
+            // mock owner() => upgExecutor
+            vm.mockCall(
+                address(rollup),
+                abi.encodeWithSignature("owner()"),
+                abi.encode(address(upgExecutor))
+            );
+
+            // mock rollupOwner is executor on upgExecutor
+            vm.mockCall(
+                address(upgExecutor),
+                abi.encodeWithSignature(
+                    "hasRole(bytes32,address)", upgExecutor.EXECUTOR_ROLE(), deployer
+                ),
+                abi.encode(true)
+            );
+
+            // mock chain id
+            uint256 mockChainId = 2000;
+            vm.mockCall(
+                address(rollup), abi.encodeWithSignature("chainId()"), abi.encode(mockChainId)
+            );
+
+            _inbox = inbox;
+            _nativeToken = nativeToken;
+        }
+
+        /// track fee amounts
+
+        // gasPriceBid = 0.0004 gwei
+        // gas limit for L2Factory deployment = 1_000
+        // scale down will return 0, so actual fee is rounded up to 1 wei for contracts and 1 wei for factory
+        uint256 expectedFeeAmount = 2;
+        uint256 deployerBalanceBefore = _nativeToken.balanceOf(deployer);
+
+        /// do it
+        vm.deal(deployer, 1 ether);
+        vm.startPrank(deployer);
+        _nativeToken.approve(address(l1Creator), expectedFeeAmount);
+        l1Creator.createTokenBridge(address(_inbox), deployer, 1000, 400_000);
+
+        /// check state
+
+        assertTrue(
+            deployerBalanceBefore - _nativeToken.balanceOf(deployer) == expectedFeeAmount,
+            "Incorrect fee paid"
+        );
+
+        {
+            (
+                address l1Router,
+                address l1StandardGateway,
+                address l1CustomGateway,
+                address l1WethGateway,
+                address l1Weth
+            ) = l1Creator.inboxToL1Deployment(address(_inbox));
+            assertTrue(l1Router != address(0), "Wrong l1Router");
+            assertTrue(l1StandardGateway != address(0), "Wrong l1StandardGateway");
+            assertTrue(l1CustomGateway != address(0), "Wrong l1CustomGateway");
+            assertTrue(l1WethGateway == address(0), "Wrong l1WethGateway");
+            assertTrue(l1Weth == address(0), "Wrong l1Weth");
+        }
+
+        {
+            (
+                address l2Router,
+                address l2StandardGateway,
+                address l2CustomGateway,
+                address l2WethGateway,
+                address l2Weth,
+                address l2ProxyAdmin,
+                address l2BeaconProxyFactory,
+                address l2UpgradeExecutor,
+                address l2Multicall
+            ) = l1Creator.inboxToL2Deployment(address(_inbox));
             assertTrue(l2Router != address(0), "Wrong l2Router");
             assertTrue(l2StandardGateway != address(0), "Wrong l2StandardGateway");
             assertTrue(l2CustomGateway != address(0), "Wrong l2CustomGateway");
@@ -758,7 +973,7 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
         bridge.setDelayedInbox(address(inbox), true);
     }
 
-    function _createERC20Rollup()
+    function _createERC20Rollup(uint8 decimals)
         internal
         returns (
             RollupProxy rollup,
@@ -781,7 +996,11 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
             )
         );
 
-        nativeToken = ERC20(address(new ERC20PresetMinterPauser("X", "Y")));
+        if (decimals == 18) {
+            nativeToken = ERC20(address(new ERC20PresetMinterPauser("X", "Y")));
+        } else {
+            nativeToken = ERC20(address(new USDC_Mock(decimals)));
+        }
         ERC20PresetMinterPauser(address(nativeToken)).mint(deployer, 10 ether);
 
         bridge.initialize(IOwnable(address(rollup)), address(nativeToken));
@@ -861,4 +1080,16 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
     event OrbitTokenBridgeDeploymentSet(
         address indexed inbox, L1DeploymentAddresses l1, L2DeploymentAddresses l2
     );
+}
+
+contract USDC_Mock is ERC20PresetMinterPauser {
+    uint8 private _decimals;
+
+    constructor(uint8 __decimals) ERC20PresetMinterPauser("USDC", "USDC") {
+        _decimals = __decimals;
+    }
+
+    function decimals() public view override returns (uint8) {
+        return _decimals;
+    }
 }
