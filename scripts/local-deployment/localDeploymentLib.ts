@@ -1,21 +1,22 @@
-import { ethers } from 'ethers'
+import { Wallet, ethers } from 'ethers'
 import { JsonRpcProvider } from '@ethersproject/providers'
 import { L1Network, L2Network, addCustomNetwork } from '@arbitrum/sdk'
 import { Bridge__factory } from '@arbitrum/sdk/dist/lib/abi/factories/Bridge__factory'
 import { RollupAdminLogic__factory } from '@arbitrum/sdk/dist/lib/abi/factories/RollupAdminLogic__factory'
-import * as fs from 'fs'
 import { execSync } from 'child_process'
 import {
   createTokenBridge,
   deployL1TokenBridgeCreator,
   getEstimateForDeployingFactory,
+  registerGateway,
 } from '../atomicTokenBridgeDeployer'
 import { l2Networks } from '@arbitrum/sdk/dist/lib/dataEntities/networks'
+import { IOwnable__factory, TestWETH9__factory } from '../../build/types'
 
 const LOCALHOST_L2_RPC = 'http://localhost:8547'
 const LOCALHOST_L3_RPC = 'http://localhost:3347'
-const LOCALHOST_L3_OWNER = '0x863c904166E801527125D8672442D736194A3362'
-
+const LOCALHOST_L3_OWNER_KEY =
+  '0xecdf21cb41c65afb51f91df408b7656e2c8739a5877f2814add0afd780cc210e'
 /**
  * Steps:
  * - read network info from local container and register networks
@@ -51,10 +52,11 @@ export const setupTokenBridgeInLocalEnv = async () => {
   }
 
   // set rollup owner either from env vars or use defaults
-  let rollupOwner = process.env['ROLLUP_OWNER'] as string
-  if (rollupOwner === undefined || rollupOwner === '') {
-    rollupOwner = LOCALHOST_L3_OWNER
+  let rollupOwnerKey = process.env['ROLLUP_OWNER_KEY'] as string
+  if (rollupOwnerKey === undefined) {
+    rollupOwnerKey = LOCALHOST_L3_OWNER_KEY
   }
+  const rollupOwnerAddress = ethers.utils.computeAddress(rollupOwnerKey)
 
   // if no ROLLUP_ADDRESS is defined, it will be pulled from local container
   const rollupAddress = process.env['ROLLUP_ADDRESS'] as string
@@ -105,8 +107,17 @@ export const setupTokenBridgeInLocalEnv = async () => {
 
   // prerequisite - deploy L1 creator and set templates
   console.log('Deploying L1TokenBridgeCreator')
-  // a random address for l1Weth
-  const l1Weth = '0x05EcEffc7CBA4e43a410340E849052AD43815aCA'
+
+  let l1Weth = process.env['PARENT_WETH_OVERRIDE']
+  if (l1Weth === undefined || l1Weth === '') {
+    const l1WethContract = await new TestWETH9__factory(parentDeployer).deploy(
+      'WETH',
+      'WETH'
+    )
+    await l1WethContract.deployed()
+
+    l1Weth = l1WethContract.address
+  }
 
   //// run retryable estimate for deploying L2 factory
   const deployFactoryGasParams = await getEstimateForDeployingFactory(
@@ -135,8 +146,25 @@ export const setupTokenBridgeInLocalEnv = async () => {
       childDeployer.provider!,
       l1TokenBridgeCreator,
       coreL2Network.ethBridge.rollup,
-      rollupOwner
+      rollupOwnerAddress
     )
+
+  // register weth gateway if it exists
+  if (l1Deployment.wethGateway !== ethers.constants.AddressZero) {
+    const upExecAddress = await IOwnable__factory.connect(
+      coreL2Network.ethBridge.rollup,
+      parentDeployer
+    ).owner()
+
+    await registerGateway(
+      new Wallet(rollupOwnerKey, parentDeployer.provider!),
+      childDeployer.provider!,
+      upExecAddress,
+      l1Deployment.router,
+      [l1Weth],
+      [l1Deployment.wethGateway]
+    )
+  }
 
   const l2Network: L2Network = {
     ...coreL2Network,
