@@ -74,7 +74,7 @@ These contracts will be owned by deployer:
 - ProxyAdmin of L1AtomicTokenBridgeCreator and L1TokenBridgeRetryableSender (owner can do upgrades)
 
 
-## Verify token bridge deployment
+## Test token bridge deployment
 There is a verification script which checks that token bridge contracts have been properly deployed and initialized. Here are steps for running it.
 
 Checkout target code, install dependencies and build
@@ -100,3 +100,14 @@ Run the script
 ```
 yarn run test:tokenbridge:deployment
 ```
+
+## Verify Orbit contracts' source code on the Blockscout
+Script `scripts/orbitVerifyOnBlockscout.ts` does the source code verification of all the contracts deployed by the L1AtomicTokenBridgeCreator to the specific Orbit chain.
+
+Script is applicable for the verifying source code on the Blockscout explorer. Steps are following:
+
+1. Update `hardhat.config.ts`. Find `orbit` field under `networks` and `customChains` and replace values with correct RPC and blockscout endpoints.
+2. `yarn install && yarn build`
+3. Set up `.env` - provide `BASECHAIN_RPC`, `L1_TOKEN_BRIDGE_CREATOR` (address of token bridge creator on parent chain) and `INBOX_ADDRESS`. 
+4. Optionally provide the `DEPLOYER_KEY`. That's the private key of any funded address on the Orbit chain. It is required if you want to get `UpgradeExecutor` and `aeWETH` verified. Due to specifics of cross-chain deployment used by token bridge creator, the only way to get `UpgradeExecutor` and `aeWETH` verified is to deploy dummy instances on the Orbit chain and verify them. That way the original instances will get automatically verified because of the deployed bytecode match. If `DEPLOYER_KEY` is not provided, this step will be skipped.
+5. Run script as following: `yarn run blockscout:verify --network orbit`
