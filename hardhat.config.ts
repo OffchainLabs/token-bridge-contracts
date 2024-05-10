@@ -45,7 +45,17 @@ const config = {
         },
       },
     ],
-    overrides: {},
+    overrides: {
+      'contracts/tokenbridge/test/UpgradeExecutorForVerification.sol': {
+        version: '0.8.16',
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 20000,
+          },
+        },
+      },
+    },
   },
   networks: {
     hardhat: {
@@ -143,6 +153,9 @@ const config = {
       },
       timeout: 100000,
     },
+    orbit: {
+      url: 'http://127.0.0.1:8547',
+    },
   },
   typechain: {
     outDir: 'build/types',
@@ -179,6 +192,7 @@ const config = {
       nova: process.env['NOVA_ARBISCAN_API_KEY'],
       arbGoerliRollup: process.env['ARBISCAN_API_KEY'],
       arbSepoliaRollup: 'x',
+      orbit: 'x',
     },
     customChains: [
       {
@@ -201,10 +215,19 @@ const config = {
         network: 'arbSepoliaRollup',
         chainId: 421614,
         urls: {
-          apiURL: 'https://sepolia-explorer.arbitrum.io/api?module=contract&action=verify',
+          apiURL:
+            'https://sepolia-explorer.arbitrum.io/api?module=contract&action=verify',
           browserURL: 'https://sepolia-explorer.arbitrum.io/',
         },
-      }
+      },
+      {
+        network: 'orbit',
+        chainId: 412346,
+        urls: {
+          apiURL: 'http://127.0.0.1:4000/api?module=contract&action=verify',
+          browserURL: 'http://127.0.0.1:4000/',
+        },
+      },
     ],
   },
 }
