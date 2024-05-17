@@ -10,17 +10,20 @@ import "./L1ArbitrumExtendedGateway.sol";
 contract L1USDCCustomGateway is L1ArbitrumExtendedGateway {
     address public l1USDC;
     address public l2USDC;
+    address public owner;
 
     function initialize(
         address _l2Counterpart,
         address _l1Router,
         address _inbox,
         address _l1USDC,
-        address _l2USDC
+        address _l2USDC,
+        address _owner
     ) public {
         L1ArbitrumGateway._initialize(_l2Counterpart, _l1Router, _inbox);
         l1USDC = _l1USDC;
         l2USDC = _l2USDC;
+        owner = _owner;
     }
 
     /**
@@ -43,5 +46,13 @@ contract L1USDCCustomGateway is L1ArbitrumExtendedGateway {
         return l2USDC;
     }
 
-    function burnLockedUSDC() external {}
+    function burnLockedUSDC() external {
+        require(msg.sender == owner, "ONLY_OWNER");
+        uint256 gatewayBalance = IERC20(l1USDC).balanceOf(address(this));
+        FiatToken(l1USDC).burn(gatewayBalance);
+    }
+}
+
+interface FiatToken {
+    function burn(uint256 _amount) external;
 }
