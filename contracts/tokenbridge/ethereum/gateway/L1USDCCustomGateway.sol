@@ -3,14 +3,14 @@
 pragma solidity ^0.8.0;
 
 import "./L1ArbitrumExtendedGateway.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 /**
  * @title Custom gateway for USDC bridging.
  */
-contract L1USDCCustomGateway is L1ArbitrumExtendedGateway {
+contract L1USDCCustomGateway is L1ArbitrumExtendedGateway, OwnableUpgradeable {
     address public l1USDC;
     address public l2USDC;
-    address public owner;
 
     function initialize(
         address _l2Counterpart,
@@ -23,7 +23,8 @@ contract L1USDCCustomGateway is L1ArbitrumExtendedGateway {
         L1ArbitrumGateway._initialize(_l2Counterpart, _l1Router, _inbox);
         l1USDC = _l1USDC;
         l2USDC = _l2USDC;
-        owner = _owner;
+        __Ownable_init();
+        transferOwnership(_owner);
     }
 
     /**
@@ -46,13 +47,12 @@ contract L1USDCCustomGateway is L1ArbitrumExtendedGateway {
         return l2USDC;
     }
 
-    function burnLockedUSDC() external {
-        require(msg.sender == owner, "ONLY_OWNER");
+    function burnLockedUSDC() external onlyOwner {
         uint256 gatewayBalance = IERC20(l1USDC).balanceOf(address(this));
-        FiatToken(l1USDC).burn(gatewayBalance);
+        Burnable(l1USDC).burn(gatewayBalance);
     }
 }
 
-interface FiatToken {
+interface Burnable {
     function burn(uint256 _amount) external;
 }
