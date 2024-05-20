@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.4;
 
 import "./L1ArbitrumExtendedGateway.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
@@ -11,6 +11,10 @@ import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Own
 contract L1USDCCustomGateway is L1ArbitrumExtendedGateway, OwnableUpgradeable {
     address public l1USDC;
     address public l2USDC;
+    bool public depositingPaused;
+
+    error L1USDCCustomGateway_DepositingAlreadyPaused();
+    error L1USDCCustomGateway_DepositingPaused();
 
     function initialize(
         address _l2Counterpart,
@@ -50,6 +54,32 @@ contract L1USDCCustomGateway is L1ArbitrumExtendedGateway, OwnableUpgradeable {
     function burnLockedUSDC() external onlyOwner {
         uint256 gatewayBalance = IERC20(l1USDC).balanceOf(address(this));
         Burnable(l1USDC).burn(gatewayBalance);
+    }
+
+    function pauseDeposits() external onlyOwner {
+        if (depositingPaused == true) {
+            revert L1USDCCustomGateway_DepositingAlreadyPaused();
+        }
+        depositingPaused = true;
+
+        // send retryable to pause withdrawals
+    }
+
+    function outboundTransferCustomRefund(
+        address _l1Token,
+        address _refundTo,
+        address _to,
+        uint256 _amount,
+        uint256 _maxGas,
+        uint256 _gasPriceBid,
+        bytes calldata _data
+    ) public payable override returns (bytes memory res) {
+        if (depositingPaused) {
+            revert L1USDCCustomGateway_DepositingPaused();
+        }
+        return super.outboundTransferCustomRefund(
+            _l1Token, _refundTo, _to, _amount, _maxGas, _gasPriceBid, _data
+        );
     }
 }
 
