@@ -16,6 +16,7 @@ contract L1USDCCustomGateway is L1ArbitrumExtendedGateway, OwnableUpgradeable {
 
     error L1USDCCustomGateway_DepositsAlreadyPaused();
     error L1USDCCustomGateway_DepositsPaused();
+    error L1USDCCustomGateway_DepositsNotPaused();
 
     function initialize(
         address _l2Counterpart,
@@ -24,11 +25,11 @@ contract L1USDCCustomGateway is L1ArbitrumExtendedGateway, OwnableUpgradeable {
         address _l1USDC,
         address _l2USDC,
         address _owner
-    ) public {
+    ) public initializer {
+        __Ownable_init();
         L1ArbitrumGateway._initialize(_l2Counterpart, _l1Router, _inbox);
         l1USDC = _l1USDC;
         l2USDC = _l2USDC;
-        __Ownable_init();
         transferOwnership(_owner);
     }
 
@@ -53,6 +54,9 @@ contract L1USDCCustomGateway is L1ArbitrumExtendedGateway, OwnableUpgradeable {
     }
 
     function burnLockedUSDC() external onlyOwner {
+        if (!depositsPaused) {
+            revert L1USDCCustomGateway_DepositsNotPaused();
+        }
         uint256 gatewayBalance = IERC20(l1USDC).balanceOf(address(this));
         Burnable(l1USDC).burn(gatewayBalance);
     }
