@@ -137,7 +137,7 @@ abstract contract L2ArbitrumGateway is L2ArbitrumMessenger, TokenGateway {
         uint256, /* _maxGas */
         uint256, /* _gasPriceBid */
         bytes calldata _data
-    ) public payable override returns (bytes memory res) {
+    ) public payable virtual override returns (bytes memory res) {
         // This function is set as public and virtual so that subclasses can override
         // it and add custom validation for callers (ie only whitelisted users)
 

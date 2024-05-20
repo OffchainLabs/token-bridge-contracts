@@ -16,13 +16,17 @@
  * limitations under the License.
  */
 
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.4;
 
 import "./L2ArbitrumGateway.sol";
 
 contract L2USDCGateway is L2ArbitrumGateway {
     address public l1USDC;
     address public l2USDC;
+    bool public withdrawalsPaused;
+
+    error L1USDCCustomGateway_WithdrawalsAlreadyPaused();
+    error L1USDCCustomGateway_WithdrawalsPaused();
 
     function initialize(address _l1Counterpart, address _router, address _l1USDC, address _l2USDC)
         public
@@ -32,13 +36,27 @@ contract L2USDCGateway is L2ArbitrumGateway {
         l2USDC = _l2USDC;
     }
 
-    /**
-     * @notice Calculate the address used when bridging an ERC20 token
-     * @dev the L1 and L2 address oracles may not always be in sync.
-     * For example, a custom token may have been registered but not deploy or the contract self destructed.
-     * @param l1ERC20 address of L1 token
-     * @return L2 address of a bridged ERC20 token
-     */
+    function pauseWithdrawals() external onlyCounterpartGateway {
+        if (withdrawalsPaused) {
+            revert L1USDCCustomGateway_WithdrawalsAlreadyPaused();
+        }
+        withdrawalsPaused = true;
+    }
+
+    function outboundTransfer(
+        address _l1Token,
+        address _to,
+        uint256 _amount,
+        uint256, /* _maxGas */
+        uint256, /* _gasPriceBid */
+        bytes calldata _data
+    ) public payable override returns (bytes memory res) {
+        if (withdrawalsPaused) {
+            revert L1USDCCustomGateway_WithdrawalsPaused();
+        }
+        return super.outboundTransfer(_l1Token, _to, _amount, 0, 0, _data);
+    }
+
     function calculateL2TokenAddress(address l1ERC20) public view override returns (address) {
         if (l1ERC20 != l1USDC) {
             // invalid L1 usdc address
@@ -47,10 +65,6 @@ contract L2USDCGateway is L2ArbitrumGateway {
         return l2USDC;
     }
 
-    /**
-     * @notice internal utility function used to handle when no contract is deployed at expected address
-     * @param l1ERC20 L1 address of ERC20
-     */
     function handleNoContract(
         address l1ERC20,
         address, /* expectedL2Address */

@@ -11,10 +11,10 @@ import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Own
 contract L1USDCCustomGateway is L1ArbitrumExtendedGateway, OwnableUpgradeable {
     address public l1USDC;
     address public l2USDC;
-    bool public depositingPaused;
+    bool public depositsPaused;
 
-    error L1USDCCustomGateway_DepositingAlreadyPaused();
-    error L1USDCCustomGateway_DepositingPaused();
+    error L1USDCCustomGateway_DepositsAlreadyPaused();
+    error L1USDCCustomGateway_DepositsPaused();
 
     function initialize(
         address _l2Counterpart,
@@ -57,10 +57,10 @@ contract L1USDCCustomGateway is L1ArbitrumExtendedGateway, OwnableUpgradeable {
     }
 
     function pauseDeposits() external onlyOwner {
-        if (depositingPaused == true) {
-            revert L1USDCCustomGateway_DepositingAlreadyPaused();
+        if (depositsPaused == true) {
+            revert L1USDCCustomGateway_DepositsAlreadyPaused();
         }
-        depositingPaused = true;
+        depositsPaused = true;
 
         // send retryable to pause withdrawals
     }
@@ -74,8 +74,8 @@ contract L1USDCCustomGateway is L1ArbitrumExtendedGateway, OwnableUpgradeable {
         uint256 _gasPriceBid,
         bytes calldata _data
     ) public payable override returns (bytes memory res) {
-        if (depositingPaused) {
-            revert L1USDCCustomGateway_DepositingPaused();
+        if (depositsPaused) {
+            revert L1USDCCustomGateway_DepositsPaused();
         }
         return super.outboundTransferCustomRefund(
             _l1Token, _refundTo, _to, _amount, _maxGas, _gasPriceBid, _data
