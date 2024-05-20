@@ -20,7 +20,7 @@ pragma solidity ^0.8.4;
 
 import "./L2ArbitrumGateway.sol";
 
-contract L2USDCGateway is L2ArbitrumGateway {
+contract L2USDCCustomGateway is L2ArbitrumGateway {
     address public l1USDC;
     address public l2USDC;
     bool public withdrawalsPaused;

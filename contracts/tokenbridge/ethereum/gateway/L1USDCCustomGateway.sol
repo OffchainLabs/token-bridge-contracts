@@ -3,6 +3,7 @@
 pragma solidity ^0.8.4;
 
 import "./L1ArbitrumExtendedGateway.sol";
+import {L2USDCCustomGateway} from "../../arbitrum/gateway/L2USDCCustomGateway.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 /**
@@ -56,13 +57,31 @@ contract L1USDCCustomGateway is L1ArbitrumExtendedGateway, OwnableUpgradeable {
         Burnable(l1USDC).burn(gatewayBalance);
     }
 
-    function pauseDeposits() external onlyOwner {
+    function pauseDeposits(
+        uint256 _maxGas,
+        uint256 _gasPriceBid,
+        uint256 _maxSubmissionCost,
+        address _creditBackAddress
+    ) external payable onlyOwner returns (uint256) {
         if (depositsPaused == true) {
             revert L1USDCCustomGateway_DepositsAlreadyPaused();
         }
         depositsPaused = true;
 
         // send retryable to pause withdrawals
+        bytes memory _data = abi.encodeWithSelector(L2USDCCustomGateway.pauseWithdrawals.selector);
+        return sendTxToL2CustomRefund({
+            _inbox: inbox,
+            _to: counterpartGateway,
+            _refundTo: _creditBackAddress,
+            _user: _creditBackAddress,
+            _l1CallValue: msg.value,
+            _l2CallValue: 0,
+            _maxSubmissionCost: _maxSubmissionCost,
+            _maxGas: _maxGas,
+            _gasPriceBid: _gasPriceBid,
+            _data: _data
+        });
     }
 
     function outboundTransferCustomRefund(
