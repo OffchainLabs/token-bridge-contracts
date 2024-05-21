@@ -7,11 +7,12 @@ import {
     L1USDCCustomGateway,
     L2USDCCustomGateway
 } from "contracts/tokenbridge/ethereum/gateway/L1USDCCustomGateway.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract L1USDCCustomGatewayTest is L1ArbitrumExtendedGatewayTest {
     L1USDCCustomGateway usdcGateway;
     address public owner = makeAddr("gw-owner");
-    address public L1_USDC = makeAddr("L1_USDC");
+    address public L1_USDC = address(new MockUsdc());
     address public L2_USDC = makeAddr("L2_USDC");
 
     function setUp() public virtual {
@@ -28,6 +29,46 @@ contract L1USDCCustomGatewayTest is L1ArbitrumExtendedGatewayTest {
     }
 
     /* solhint-disable func-name-mixedcase */
+    function test_burnLockedUSDC() public {
+        /// add some USDC to the gateway
+        uint256 lockedAmount = 234 ether;
+        deal(L1_USDC, address(usdcGateway), lockedAmount);
+        assertEq(
+            ERC20(L1_USDC).balanceOf(address(usdcGateway)), lockedAmount, "Invalid USDC balance"
+        );
+
+        /// pause deposits
+        vm.prank(owner);
+        usdcGateway.pauseDeposits{value: retryableCost}(
+            maxGas, gasPriceBid, maxSubmissionCost, creditBackAddress
+        );
+
+        vm.expectEmit(true, true, true, true);
+        emit GatewayUsdcBurned(lockedAmount);
+
+        /// burn USDC
+        vm.prank(owner);
+        usdcGateway.burnLockedUSDC();
+
+        /// checks
+        assertEq(ERC20(L1_USDC).balanceOf(address(usdcGateway)), 0, "Invalid USDC balance");
+    }
+
+    function test_burnLockedUSDC_revert_NotOwner() public {
+        vm.expectRevert("Ownable: caller is not the owner");
+        usdcGateway.burnLockedUSDC();
+    }
+
+    function test_burnLockedUSDC_revert_NotPaused() public {
+        vm.prank(owner);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                L1USDCCustomGateway.L1USDCCustomGateway_DepositsNotPaused.selector
+            )
+        );
+        usdcGateway.burnLockedUSDC();
+    }
+
     function test_calculateL2TokenAddress() public {
         assertEq(l1Gateway.calculateL2TokenAddress(L1_USDC), L2_USDC, "Invalid usdc address");
     }
@@ -57,6 +98,7 @@ contract L1USDCCustomGatewayTest is L1ArbitrumExtendedGatewayTest {
     function test_pauseDeposits() public {
         assertEq(usdcGateway.depositsPaused(), false, "Invalid depositPaused");
 
+        /// expect events
         vm.expectEmit(true, true, true, true);
         emit DepositsPaused();
 
@@ -75,11 +117,13 @@ contract L1USDCCustomGatewayTest is L1ArbitrumExtendedGatewayTest {
             abi.encodeWithSelector(L2USDCCustomGateway.pauseWithdrawals.selector)
         );
 
+        /// pause it
         vm.prank(owner);
         usdcGateway.pauseDeposits{value: retryableCost}(
             maxGas, gasPriceBid, maxSubmissionCost, creditBackAddress
         );
 
+        /// checks
         assertEq(usdcGateway.depositsPaused(), true, "Invalid depositPaused");
     }
 
@@ -116,4 +160,14 @@ contract L1USDCCustomGatewayTest is L1ArbitrumExtendedGatewayTest {
     event TicketData(uint256 maxSubmissionCost);
     event RefundAddresses(address excessFeeRefundAddress, address callValueRefundAddress);
     event InboxRetryableTicket(address from, address to, uint256 value, uint256 maxGas, bytes data);
+}
+
+contract MockUsdc is ERC20 {
+    constructor() ERC20("USD Coin", "USDC") {
+        _mint(msg.sender, 1_000_000 ether);
+    }
+
+    function burn(uint256 _amount) external {
+        _burn(msg.sender, _amount);
+    }
 }

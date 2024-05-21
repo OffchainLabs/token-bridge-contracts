@@ -36,19 +36,6 @@ contract L1USDCCustomGateway is L1ArbitrumExtendedGateway, OwnableUpgradeable {
         transferOwnership(_owner);
     }
 
-    function calculateL2TokenAddress(address l1ERC20)
-        public
-        view
-        override(ITokenGateway, TokenGateway)
-        returns (address)
-    {
-        if (l1ERC20 != l1USDC) {
-            // invalid L1 USDC address
-            return address(0);
-        }
-        return l2USDC;
-    }
-
     function burnLockedUSDC() external onlyOwner {
         if (!depositsPaused) {
             revert L1USDCCustomGateway_DepositsNotPaused();
@@ -103,6 +90,19 @@ contract L1USDCCustomGateway is L1ArbitrumExtendedGateway, OwnableUpgradeable {
         return super.outboundTransferCustomRefund(
             _l1Token, _refundTo, _to, _amount, _maxGas, _gasPriceBid, _data
         );
+    }
+
+    function calculateL2TokenAddress(address l1ERC20)
+        public
+        view
+        override(ITokenGateway, TokenGateway)
+        returns (address)
+    {
+        if (l1ERC20 != l1USDC) {
+            // invalid L1 USDC address
+            return address(0);
+        }
+        return l2USDC;
     }
 }
 
