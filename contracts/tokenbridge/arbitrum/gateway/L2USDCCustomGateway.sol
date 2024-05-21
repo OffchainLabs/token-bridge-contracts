@@ -25,6 +25,8 @@ contract L2USDCCustomGateway is L2ArbitrumGateway {
     address public l2USDC;
     bool public withdrawalsPaused;
 
+    event WithdrawalsPaused();
+
     error L1USDCCustomGateway_WithdrawalsAlreadyPaused();
     error L1USDCCustomGateway_WithdrawalsPaused();
 
@@ -41,6 +43,8 @@ contract L2USDCCustomGateway is L2ArbitrumGateway {
             revert L1USDCCustomGateway_WithdrawalsAlreadyPaused();
         }
         withdrawalsPaused = true;
+
+        emit WithdrawalsPaused();
     }
 
     function outboundTransfer(

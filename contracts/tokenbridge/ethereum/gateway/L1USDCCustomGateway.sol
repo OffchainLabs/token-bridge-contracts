@@ -14,6 +14,9 @@ contract L1USDCCustomGateway is L1ArbitrumExtendedGateway, OwnableUpgradeable {
     address public l2USDC;
     bool public depositsPaused;
 
+    event DepositsPaused();
+    event GatewayUsdcBurned(uint256 amount);
+
     error L1USDCCustomGateway_DepositsAlreadyPaused();
     error L1USDCCustomGateway_DepositsPaused();
     error L1USDCCustomGateway_DepositsNotPaused();
@@ -33,13 +36,6 @@ contract L1USDCCustomGateway is L1ArbitrumExtendedGateway, OwnableUpgradeable {
         transferOwnership(_owner);
     }
 
-    /**
-     * @notice Calculate the address used when bridging an ERC20 token
-     * @dev the L1 and L2 address oracles may not always be in sync.
-     * For example, a custom token may have been registered but not deploy or the contract self destructed.
-     * @param l1ERC20 address of L1 token
-     * @return L2 address of a bridged ERC20 token
-     */
     function calculateL2TokenAddress(address l1ERC20)
         public
         view
@@ -59,6 +55,8 @@ contract L1USDCCustomGateway is L1ArbitrumExtendedGateway, OwnableUpgradeable {
         }
         uint256 gatewayBalance = IERC20(l1USDC).balanceOf(address(this));
         Burnable(l1USDC).burn(gatewayBalance);
+
+        emit GatewayUsdcBurned(gatewayBalance);
     }
 
     function pauseDeposits(
@@ -71,6 +69,8 @@ contract L1USDCCustomGateway is L1ArbitrumExtendedGateway, OwnableUpgradeable {
             revert L1USDCCustomGateway_DepositsAlreadyPaused();
         }
         depositsPaused = true;
+
+        emit DepositsPaused();
 
         // send retryable to pause withdrawals
         bytes memory _data = abi.encodeWithSelector(L2USDCCustomGateway.pauseWithdrawals.selector);
