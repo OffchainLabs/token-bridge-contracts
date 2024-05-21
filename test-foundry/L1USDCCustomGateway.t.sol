@@ -7,7 +7,7 @@ import {L1USDCCustomGateway} from "contracts/tokenbridge/ethereum/gateway/L1USDC
 
 contract L1USDCCustomGatewayTest is L1ArbitrumExtendedGatewayTest {
     // gateway params
-    address public owner = makeAddr("owner");
+    address public owner = makeAddr("gw-owner");
 
     address public L1_USDC = makeAddr("L1_USDC");
     address public L2_USDC = makeAddr("L2_USDC");
@@ -24,6 +24,28 @@ contract L1USDCCustomGatewayTest is L1ArbitrumExtendedGatewayTest {
         retryableCost = maxSubmissionCost + gasPriceBid * maxGas;
 
         vm.deal(router, 100 ether);
+    }
+
+    /* solhint-disable func-name-mixedcase */
+    function test_calculateL2TokenAddress() public {
+        assertEq(l1Gateway.calculateL2TokenAddress(L1_USDC), L2_USDC, "Invalid usdc address");
+    }
+
+    function test_calculateL2TokenAddress_NotUSDC() public {
+        address randomToken = makeAddr("randomToken");
+        assertEq(l1Gateway.calculateL2TokenAddress(randomToken), address(0), "Invalid usdc address");
+    }
+
+    function test_initialize() public {
+        L1USDCCustomGateway gateway = new L1USDCCustomGateway();
+        gateway.initialize(l2Gateway, router, inbox, L1_USDC, L2_USDC, owner);
+
+        assertEq(gateway.counterpartGateway(), l2Gateway, "Invalid counterpartGateway");
+        assertEq(gateway.router(), router, "Invalid router");
+        assertEq(gateway.inbox(), inbox, "Invalid inbox");
+        assertEq(gateway.l1USDC(), L1_USDC, "Invalid L1_USDC");
+        assertEq(gateway.l2USDC(), L2_USDC, "Invalid L2_USDC");
+        assertEq(gateway.owner(), owner, "Invalid owner");
     }
 
     function test_finalizeInboundTransfer() public override {
