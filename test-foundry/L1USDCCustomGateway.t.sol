@@ -95,6 +95,156 @@ contract L1USDCCustomGatewayTest is L1ArbitrumExtendedGatewayTest {
         // TODO
     }
 
+    function test_outboundTransfer() public virtual override {
+        // fund user
+        uint256 depositAmount = 300_555;
+        deal(L1_USDC, user, depositAmount);
+        vm.deal(router, retryableCost);
+
+        // snapshot state before
+        uint256 userBalanceBefore = ERC20(L1_USDC).balanceOf(user);
+        uint256 l1GatewayBalanceBefore = ERC20(L1_USDC).balanceOf(address(l1Gateway));
+
+        // approve token
+        vm.prank(user);
+        ERC20(L1_USDC).approve(address(l1Gateway), depositAmount);
+
+        // prepare data
+        bytes memory callHookData = "";
+        bytes memory routerEncodedData = buildRouterEncodedData(callHookData);
+
+        // event checkers
+        vm.expectEmit(true, true, true, true);
+        emit TicketData(maxSubmissionCost);
+
+        vm.expectEmit(true, true, true, true);
+        emit RefundAddresses(user, user);
+
+        vm.expectEmit(true, true, true, true);
+        emit InboxRetryableTicket(
+            address(l1Gateway),
+            l2Gateway,
+            0,
+            maxGas,
+            l1Gateway.getOutboundCalldata(L1_USDC, user, user, depositAmount, callHookData)
+        );
+
+        vm.expectEmit(true, true, true, true);
+        emit DepositInitiated(L1_USDC, user, user, 0, depositAmount);
+
+        // trigger deposit
+        vm.prank(router);
+        bytes memory seqNum0 = l1Gateway.outboundTransfer{value: retryableCost}(
+            L1_USDC, user, depositAmount, maxGas, gasPriceBid, routerEncodedData
+        );
+
+        // check tokens are escrowed
+        uint256 userBalanceAfter = ERC20(L1_USDC).balanceOf(user);
+        assertEq(userBalanceBefore - userBalanceAfter, depositAmount, "Wrong user balance");
+
+        uint256 l1GatewayBalanceAfter = ERC20(L1_USDC).balanceOf(address(l1Gateway));
+        assertEq(
+            l1GatewayBalanceAfter - l1GatewayBalanceBefore,
+            depositAmount,
+            "Wrong l1 gateway balance"
+        );
+
+        assertEq(seqNum0, abi.encode(0), "Invalid seqNum0");
+    }
+
+    function test_outboundTransferCustomRefund() public {
+        // fund user
+        uint256 depositAmount = 5_500_000_555;
+        deal(L1_USDC, user, depositAmount);
+        vm.deal(router, retryableCost);
+
+        // snapshot state before
+        uint256 userBalanceBefore = ERC20(L1_USDC).balanceOf(user);
+        uint256 l1GatewayBalanceBefore = ERC20(L1_USDC).balanceOf(address(l1Gateway));
+
+        // approve token
+        vm.prank(user);
+        ERC20(L1_USDC).approve(address(l1Gateway), depositAmount);
+
+        // prepare data
+        bytes memory callHookData = "";
+        bytes memory routerEncodedData = buildRouterEncodedData(callHookData);
+
+        // event checkers
+        vm.expectEmit(true, true, true, true);
+        emit TicketData(maxSubmissionCost);
+
+        vm.expectEmit(true, true, true, true);
+        emit RefundAddresses(creditBackAddress, user);
+
+        vm.expectEmit(true, true, true, true);
+        emit InboxRetryableTicket(
+            address(l1Gateway),
+            l2Gateway,
+            0,
+            maxGas,
+            l1Gateway.getOutboundCalldata(L1_USDC, user, user, depositAmount, callHookData)
+        );
+
+        vm.expectEmit(true, true, true, true);
+        emit DepositInitiated(L1_USDC, user, user, 0, depositAmount);
+
+        // trigger deposit
+        vm.prank(router);
+        bytes memory seqNum0 = l1Gateway.outboundTransferCustomRefund{value: retryableCost}(
+            L1_USDC, creditBackAddress, user, depositAmount, maxGas, gasPriceBid, routerEncodedData
+        );
+
+        // check tokens are escrowed
+        uint256 userBalanceAfter = ERC20(L1_USDC).balanceOf(user);
+        assertEq(userBalanceBefore - userBalanceAfter, depositAmount, "Wrong user balance");
+
+        uint256 l1GatewayBalanceAfter = ERC20(L1_USDC).balanceOf(address(l1Gateway));
+        assertEq(
+            l1GatewayBalanceAfter - l1GatewayBalanceBefore,
+            depositAmount,
+            "Wrong l1 gateway balance"
+        );
+
+        assertEq(seqNum0, abi.encode(0), "Invalid seqNum0");
+    }
+
+    function test_outboundTransfer_revert_DepositsPaused() public {
+        vm.deal(router, retryableCost);
+
+        vm.prank(owner);
+        usdcGateway.pauseDeposits{value: retryableCost}(
+            maxGas, gasPriceBid, maxSubmissionCost, creditBackAddress
+        );
+
+        vm.expectRevert(
+            abi.encodeWithSelector(L1USDCCustomGateway.L1USDCCustomGateway_DepositsPaused.selector)
+        );
+        vm.prank(router);
+
+        l1Gateway.outboundTransferCustomRefund{value: retryableCost}(
+            L1_USDC, creditBackAddress, user, 100, maxGas, gasPriceBid, ""
+        );
+    }
+
+    function test_outboundTransferCustomRefund_revert_DepositsPaused() public {
+        vm.deal(router, retryableCost);
+
+        vm.prank(owner);
+        usdcGateway.pauseDeposits{value: retryableCost}(
+            maxGas, gasPriceBid, maxSubmissionCost, creditBackAddress
+        );
+
+        vm.expectRevert(
+            abi.encodeWithSelector(L1USDCCustomGateway.L1USDCCustomGateway_DepositsPaused.selector)
+        );
+        vm.prank(router);
+
+        l1Gateway.outboundTransferCustomRefund{value: retryableCost}(
+            L1_USDC, creditBackAddress, user, 200, maxGas, gasPriceBid, ""
+        );
+    }
+
     function test_pauseDeposits() public {
         assertEq(usdcGateway.depositsPaused(), false, "Invalid depositPaused");
 
@@ -160,6 +310,13 @@ contract L1USDCCustomGatewayTest is L1ArbitrumExtendedGatewayTest {
     event TicketData(uint256 maxSubmissionCost);
     event RefundAddresses(address excessFeeRefundAddress, address callValueRefundAddress);
     event InboxRetryableTicket(address from, address to, uint256 value, uint256 maxGas, bytes data);
+    event DepositInitiated(
+        address l1Token,
+        address indexed _from,
+        address indexed _to,
+        uint256 indexed _sequenceNumber,
+        uint256 _amount
+    );
 }
 
 contract MockUsdc is ERC20 {
