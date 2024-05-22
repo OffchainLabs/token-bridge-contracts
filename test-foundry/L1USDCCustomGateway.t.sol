@@ -92,7 +92,35 @@ contract L1USDCCustomGatewayTest is L1ArbitrumExtendedGatewayTest {
     }
 
     function test_finalizeInboundTransfer() public override {
-        // TODO
+        uint256 withdrawalAmount = 100_000_000;
+        deal(L1_USDC, address(l1Gateway), withdrawalAmount);
+
+        // snapshot state before
+        uint256 userBalanceBefore = ERC20(L1_USDC).balanceOf(user);
+        uint256 l1GatewayBalanceBefore = ERC20(L1_USDC).balanceOf(address(l1Gateway));
+
+        // withdrawal params
+        address from = address(3000);
+        uint256 exitNum = 7;
+        bytes memory callHookData = "";
+        bytes memory data = abi.encode(exitNum, callHookData);
+
+        InboxMock(address(inbox)).setL2ToL1Sender(l2Gateway);
+
+        // trigger withdrawal
+        vm.prank(address(IInbox(l1Gateway.inbox()).bridge()));
+        l1Gateway.finalizeInboundTransfer(L1_USDC, from, user, withdrawalAmount, data);
+
+        // check tokens are properly released
+        uint256 userBalanceAfter = ERC20(L1_USDC).balanceOf(user);
+        assertEq(userBalanceAfter - userBalanceBefore, withdrawalAmount, "Wrong user balance");
+
+        uint256 l1GatewayBalanceAfter = ERC20(L1_USDC).balanceOf(address(l1Gateway));
+        assertEq(
+            l1GatewayBalanceBefore - l1GatewayBalanceAfter,
+            withdrawalAmount,
+            "Wrong l1 gateway balance"
+        );
     }
 
     function test_outboundTransfer() public virtual override {
