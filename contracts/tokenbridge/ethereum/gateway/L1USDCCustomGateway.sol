@@ -20,6 +20,8 @@ contract L1USDCCustomGateway is L1ArbitrumExtendedGateway, OwnableUpgradeable {
     error L1USDCCustomGateway_DepositsAlreadyPaused();
     error L1USDCCustomGateway_DepositsPaused();
     error L1USDCCustomGateway_DepositsNotPaused();
+    error L1USDCCustomGateway_InvalidL1USDC();
+    error L1USDCCustomGateway_InvalidL2USDC();
 
     function initialize(
         address _l2Counterpart,
@@ -29,6 +31,12 @@ contract L1USDCCustomGateway is L1ArbitrumExtendedGateway, OwnableUpgradeable {
         address _l2USDC,
         address _owner
     ) public initializer {
+        if (_l1USDC == address(0)) {
+            revert L1USDCCustomGateway_InvalidL1USDC();
+        }
+        if (_l2USDC == address(0)) {
+            revert L1USDCCustomGateway_InvalidL2USDC();
+        }
         __Ownable_init();
         L1ArbitrumGateway._initialize(_l2Counterpart, _l1Router, _inbox);
         l1USDC = _l1USDC;

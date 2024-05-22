@@ -27,12 +27,20 @@ contract L2USDCCustomGateway is L2ArbitrumGateway {
 
     event WithdrawalsPaused();
 
-    error L1USDCCustomGateway_WithdrawalsAlreadyPaused();
-    error L1USDCCustomGateway_WithdrawalsPaused();
+    error L2USDCCustomGateway_WithdrawalsAlreadyPaused();
+    error L2USDCCustomGateway_WithdrawalsPaused();
+    error L2USDCCustomGateway_InvalidL1USDC();
+    error L2USDCCustomGateway_InvalidL2USDC();
 
     function initialize(address _l1Counterpart, address _router, address _l1USDC, address _l2USDC)
         public
     {
+        if (_l1USDC == address(0)) {
+            revert L2USDCCustomGateway_InvalidL1USDC();
+        }
+        if (_l2USDC == address(0)) {
+            revert L2USDCCustomGateway_InvalidL2USDC();
+        }
         L2ArbitrumGateway._initialize(_l1Counterpart, _router);
         l1USDC = _l1USDC;
         l2USDC = _l2USDC;
@@ -40,7 +48,7 @@ contract L2USDCCustomGateway is L2ArbitrumGateway {
 
     function pauseWithdrawals() external onlyCounterpartGateway {
         if (withdrawalsPaused) {
-            revert L1USDCCustomGateway_WithdrawalsAlreadyPaused();
+            revert L2USDCCustomGateway_WithdrawalsAlreadyPaused();
         }
         withdrawalsPaused = true;
 
@@ -56,7 +64,7 @@ contract L2USDCCustomGateway is L2ArbitrumGateway {
         bytes calldata _data
     ) public payable override returns (bytes memory res) {
         if (withdrawalsPaused) {
-            revert L1USDCCustomGateway_WithdrawalsPaused();
+            revert L2USDCCustomGateway_WithdrawalsPaused();
         }
         return super.outboundTransfer(_l1Token, _to, _amount, 0, 0, _data);
     }

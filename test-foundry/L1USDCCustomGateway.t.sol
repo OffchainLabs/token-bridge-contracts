@@ -91,6 +91,22 @@ contract L1USDCCustomGatewayTest is L1ArbitrumExtendedGatewayTest {
         assertEq(gateway.depositsPaused(), false, "Invalid depositPaused");
     }
 
+    function test_initialize_revert_InvalidL1USDC() public {
+        L1USDCCustomGateway gateway = new L1USDCCustomGateway();
+        vm.expectRevert(
+            abi.encodeWithSelector(L1USDCCustomGateway.L1USDCCustomGateway_InvalidL1USDC.selector)
+        );
+        gateway.initialize(l2Gateway, router, inbox, address(0), L2_USDC, owner);
+    }
+
+    function test_initialize_revert_InvalidL2USDC() public {
+        L1USDCCustomGateway gateway = new L1USDCCustomGateway();
+        vm.expectRevert(
+            abi.encodeWithSelector(L1USDCCustomGateway.L1USDCCustomGateway_InvalidL2USDC.selector)
+        );
+        gateway.initialize(l2Gateway, router, inbox, L1_USDC, address(0), owner);
+    }
+
     function test_finalizeInboundTransfer() public override {
         uint256 withdrawalAmount = 100_000_000;
         deal(L1_USDC, address(l1Gateway), withdrawalAmount);
