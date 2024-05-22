@@ -12,10 +12,9 @@ import {L2GatewayToken} from "contracts/tokenbridge/libraries/L2GatewayToken.sol
 
 contract L2USDCCustomGatewayTest is L2ArbitrumGatewayTest {
     L2USDCCustomGateway public l2USDCGateway;
-    address public l2BeaconProxyFactory;
-
     address public l1USDC = makeAddr("l1USDC");
     address public l2USDC;
+    address public user = makeAddr("usdc_user");
 
     function setUp() public virtual {
         l2USDCGateway = new L2USDCCustomGateway();
@@ -121,68 +120,60 @@ contract L2USDCCustomGatewayTest is L2ArbitrumGatewayTest {
     }
 
     function test_outboundTransfer() public override {
-        //     // mint token to user
-        //     deal(address(this), 100 ether);
-        //     aeWETH(payable(l2USDC)).depositTo{value: 20 ether}(sender);
+        // mint token to user
+        deal(address(l2USDC), sender, 1 ether);
 
-        //     // withdrawal params
-        //     bytes memory data = new bytes(0);
+        // withdrawal params
+        uint256 withdrawalAmount = 200_500;
+        bytes memory data = new bytes(0);
 
-        //     // events
-        //     uint256 expectedId = 0;
-        //     bytes memory expectedData =
-        //         L2USDCCustomGateway.getOutboundCalldata(l1USDC, sender, receiver, amount, data);
-        //     vm.expectEmit(true, true, true, true);
-        //     emit TxToL1(sender, l1Counterpart, expectedId, expectedData);
+        // events
+        uint256 expectedId = 0;
+        bytes memory expectedData =
+            l2USDCGateway.getOutboundCalldata(l1USDC, sender, receiver, withdrawalAmount, data);
+        vm.expectEmit(true, true, true, true);
+        emit TxToL1(sender, l1Counterpart, expectedId, expectedData);
 
-        //     vm.expectEmit(true, true, true, true);
-        //     emit WithdrawalInitiated(l1USDC, sender, receiver, expectedId, 0, amount);
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawalInitiated(l1USDC, sender, receiver, expectedId, 0, withdrawalAmount);
 
-        //     // withdraw
-        //     vm.etch(0x0000000000000000000000000000000000000064, address(arbSysMock).code);
-        //     vm.prank(sender);
-        //     L2USDCCustomGateway.outboundTransfer(l1USDC, receiver, amount, 0, 0, data);
+        // withdraw
+        vm.etch(0x0000000000000000000000000000000000000064, address(arbSysMock).code);
+        vm.prank(sender);
+        l2USDCGateway.outboundTransfer(l1USDC, receiver, withdrawalAmount, 0, 0, data);
     }
 
     function test_outboundTransfer_4Args() public override {
-        //     // mint token to user
-        //     deal(address(this), 100 ether);
-        //     aeWETH(payable(l2USDC)).depositTo{value: 20 ether}(sender);
+        // mint token to user
+        deal(address(l2USDC), sender, 1 ether);
 
-        //     // withdrawal params
-        //     bytes memory data = new bytes(0);
+        // withdrawal params
+        uint256 withdrawalAmount = 200_500;
+        bytes memory data = new bytes(0);
 
-        //     // events
-        //     uint256 expectedId = 0;
-        //     bytes memory expectedData =
-        //         L2USDCCustomGateway.getOutboundCalldata(l1USDC, sender, receiver, amount, data);
-        //     vm.expectEmit(true, true, true, true);
-        //     emit TxToL1(sender, l1Counterpart, expectedId, expectedData);
+        // events
+        uint256 expectedId = 0;
+        bytes memory expectedData =
+            l2USDCGateway.getOutboundCalldata(l1USDC, sender, receiver, withdrawalAmount, data);
+        vm.expectEmit(true, true, true, true);
+        emit TxToL1(sender, l1Counterpart, expectedId, expectedData);
 
-        //     vm.expectEmit(true, true, true, true);
-        //     emit WithdrawalInitiated(l1USDC, sender, receiver, expectedId, 0, amount);
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawalInitiated(l1USDC, sender, receiver, expectedId, 0, withdrawalAmount);
 
-        //     // withdraw
-        //     vm.etch(0x0000000000000000000000000000000000000064, address(arbSysMock).code);
-        //     vm.prank(sender);
-        //     L2USDCCustomGateway.outboundTransfer(l1USDC, receiver, amount, data);
+        // withdraw
+        vm.etch(0x0000000000000000000000000000000000000064, address(arbSysMock).code);
+        vm.prank(sender);
+        l2USDCGateway.outboundTransfer(l1USDC, receiver, withdrawalAmount, data);
     }
 
     function test_outboundTransfer_revert_NotExpectedL1Token() public override {
-        //     // mock invalid L1 token ref
-        //     address notl1USDC = makeAddr("notl1USDC");
-        //     vm.mockCall(address(l2USDC), abi.encodeWithSignature("l1Address()"), abi.encode(notl1USDC));
+        // mock invalid L1 token ref
+        address notl1USDC = makeAddr("notl1USDC");
+        vm.mockCall(address(l2USDC), abi.encodeWithSignature("l1Address()"), abi.encode(notl1USDC));
 
-        //     vm.expectRevert("NOT_EXPECTED_L1_TOKEN");
-        //     L2USDCCustomGateway.outboundTransfer(l1USDC, address(101), 200, 0, 0, new bytes(0));
-        // }
-
-        // function test_receive() public {
-        //     vm.deal(address(this), 5 ether);
-        //     bool sent = payable(L2USDCCustomGateway).send(5 ether);
-
-        //     assertTrue(sent, "Failed to send");
-        //     assertEq(address(L2USDCCustomGateway).balance, 5 ether, "Invalid balance");
+        vm.expectRevert("NOT_EXPECTED_L1_TOKEN");
+        l2USDCGateway.outboundTransfer(l1USDC, address(101), 200, 0, 0, new bytes(0));
     }
 }
 
