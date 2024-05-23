@@ -178,6 +178,19 @@ contract L2USDCCustomGatewayTest is L2ArbitrumGatewayTest {
         l2USDCGateway.outboundTransfer(l1USDC, address(101), 200, 0, 0, new bytes(0));
     }
 
+    function test_outboundTransfer_revert_WithdrawalsPaused() public {
+        // pause withdrawals
+        vm.prank(AddressAliasHelper.applyL1ToL2Alias(l1Counterpart));
+        l2USDCGateway.pauseWithdrawals();
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                L2USDCCustomGateway.L2USDCCustomGateway_WithdrawalsPaused.selector
+            )
+        );
+        l2USDCGateway.outboundTransfer(l1USDC, receiver, 200, 0, 0, new bytes(0));
+    }
+
     function test_pauseWithdrawals() public {
         assertEq(l2USDCGateway.withdrawalsPaused(), false, "Invalid initial state");
 
