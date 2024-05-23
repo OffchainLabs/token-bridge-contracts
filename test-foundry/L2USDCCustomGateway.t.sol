@@ -22,6 +22,8 @@ contract L2USDCCustomGatewayTest is L2ArbitrumGatewayTest {
 
         l2USDC = address(new L2USDC(address(l2USDCGateway), l1USDC));
         l2USDCGateway.initialize(l1Counterpart, router, l1USDC, l2USDC);
+
+        console.log(l2USDCGateway.counterpartGateway());
     }
 
     /* solhint-disable func-name-mixedcase */
@@ -175,6 +177,43 @@ contract L2USDCCustomGatewayTest is L2ArbitrumGatewayTest {
         vm.expectRevert("NOT_EXPECTED_L1_TOKEN");
         l2USDCGateway.outboundTransfer(l1USDC, address(101), 200, 0, 0, new bytes(0));
     }
+
+    function test_pauseWithdrawals() public {
+        assertEq(l2USDCGateway.withdrawalsPaused(), false, "Invalid initial state");
+
+        // events
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawalsPaused();
+
+        // pause withdrawals
+        vm.prank(AddressAliasHelper.applyL1ToL2Alias(l1Counterpart));
+        l2USDCGateway.pauseWithdrawals();
+
+        // checks
+        assertEq(l2USDCGateway.withdrawalsPaused(), true, "Invalid initial state");
+    }
+
+    function test_pauseWithdrawals_revert_WithdrawalsAlreadyPaused() public {
+        vm.startPrank(AddressAliasHelper.applyL1ToL2Alias(l1Counterpart));
+        l2USDCGateway.pauseWithdrawals();
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                L2USDCCustomGateway.L2USDCCustomGateway_WithdrawalsAlreadyPaused.selector
+            )
+        );
+        l2USDCGateway.pauseWithdrawals();
+    }
+
+    function test_pauseWithdrawals_revert_OnlyCounterpartGateway() public {
+        vm.expectRevert("ONLY_COUNTERPART_GATEWAY");
+        l2USDCGateway.pauseWithdrawals();
+    }
+
+    ////
+    // Event declarations
+    ////
+    event WithdrawalsPaused();
 }
 
 contract L2USDC is L2GatewayToken {
