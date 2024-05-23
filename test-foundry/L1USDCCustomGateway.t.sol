@@ -55,7 +55,9 @@ contract L1USDCCustomGatewayTest is L1ArbitrumExtendedGatewayTest {
     }
 
     function test_burnLockedUSDC_revert_NotOwner() public {
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert(
+            abi.encodeWithSelector(L1USDCCustomGateway.L1USDCCustomGateway_NotOwner.selector)
+        );
         usdcGateway.burnLockedUSDC();
     }
 
@@ -105,6 +107,14 @@ contract L1USDCCustomGatewayTest is L1ArbitrumExtendedGatewayTest {
             abi.encodeWithSelector(L1USDCCustomGateway.L1USDCCustomGateway_InvalidL2USDC.selector)
         );
         gateway.initialize(l2Gateway, router, inbox, L1_USDC, address(0), owner);
+    }
+
+    function test_initialize_revert_InvalidOwner() public {
+        L1USDCCustomGateway gateway = new L1USDCCustomGateway();
+        vm.expectRevert(
+            abi.encodeWithSelector(L1USDCCustomGateway.L1USDCCustomGateway_InvalidOwner.selector)
+        );
+        gateway.initialize(l2Gateway, router, inbox, L1_USDC, L2_USDC, address(0));
     }
 
     function test_finalizeInboundTransfer() public override {
@@ -322,7 +332,9 @@ contract L1USDCCustomGatewayTest is L1ArbitrumExtendedGatewayTest {
     }
 
     function test_pauseDeposits_revert_NotOwner() public {
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert(
+            abi.encodeWithSelector(L1USDCCustomGateway.L1USDCCustomGateway_NotOwner.selector)
+        );
         usdcGateway.pauseDeposits{value: retryableCost}(
             maxGas, gasPriceBid, maxSubmissionCost, creditBackAddress
         );
@@ -343,6 +355,29 @@ contract L1USDCCustomGatewayTest is L1ArbitrumExtendedGatewayTest {
         usdcGateway.pauseDeposits{value: retryableCost}(
             maxGas, gasPriceBid, maxSubmissionCost, creditBackAddress
         );
+    }
+
+    function test_setOwner() public {
+        address newOwner = makeAddr("new-owner");
+        vm.prank(owner);
+        usdcGateway.setOwner(newOwner);
+
+        assertEq(usdcGateway.owner(), newOwner, "Invalid owner");
+    }
+
+    function test_setOwner_revert_InvalidOwner() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(L1USDCCustomGateway.L1USDCCustomGateway_InvalidOwner.selector)
+        );
+        vm.prank(owner);
+        usdcGateway.setOwner(address(0));
+    }
+
+    function test_setOwner_revert_NotOwner() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(L1USDCCustomGateway.L1USDCCustomGateway_NotOwner.selector)
+        );
+        usdcGateway.setOwner(owner);
     }
 
     ////

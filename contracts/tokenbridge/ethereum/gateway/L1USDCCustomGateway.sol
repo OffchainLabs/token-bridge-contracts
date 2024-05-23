@@ -4,14 +4,14 @@ pragma solidity ^0.8.4;
 
 import "./L1ArbitrumExtendedGateway.sol";
 import {L2USDCCustomGateway} from "../../arbitrum/gateway/L2USDCCustomGateway.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 /**
  * @title Custom gateway for USDC bridging.
  */
-contract L1USDCCustomGateway is L1ArbitrumExtendedGateway, OwnableUpgradeable {
+contract L1USDCCustomGateway is L1ArbitrumExtendedGateway {
     address public l1USDC;
     address public l2USDC;
+    address public owner;
     bool public depositsPaused;
 
     event DepositsPaused();
@@ -22,6 +22,15 @@ contract L1USDCCustomGateway is L1ArbitrumExtendedGateway, OwnableUpgradeable {
     error L1USDCCustomGateway_DepositsNotPaused();
     error L1USDCCustomGateway_InvalidL1USDC();
     error L1USDCCustomGateway_InvalidL2USDC();
+    error L1USDCCustomGateway_NotOwner();
+    error L1USDCCustomGateway_InvalidOwner();
+
+    modifier onlyOwner() {
+        if (msg.sender != owner) {
+            revert L1USDCCustomGateway_NotOwner();
+        }
+        _;
+    }
 
     function initialize(
         address _l2Counterpart,
@@ -30,18 +39,20 @@ contract L1USDCCustomGateway is L1ArbitrumExtendedGateway, OwnableUpgradeable {
         address _l1USDC,
         address _l2USDC,
         address _owner
-    ) public initializer {
+    ) public {
         if (_l1USDC == address(0)) {
             revert L1USDCCustomGateway_InvalidL1USDC();
         }
         if (_l2USDC == address(0)) {
             revert L1USDCCustomGateway_InvalidL2USDC();
         }
-        __Ownable_init();
+        if (_owner == address(0)) {
+            revert L1USDCCustomGateway_InvalidOwner();
+        }
         L1ArbitrumGateway._initialize(_l2Counterpart, _l1Router, _inbox);
         l1USDC = _l1USDC;
         l2USDC = _l2USDC;
-        transferOwnership(_owner);
+        owner = _owner;
     }
 
     function burnLockedUSDC() external onlyOwner {
@@ -81,6 +92,13 @@ contract L1USDCCustomGateway is L1ArbitrumExtendedGateway, OwnableUpgradeable {
             _gasPriceBid: _gasPriceBid,
             _data: _data
         });
+    }
+
+    function setOwner(address newOwner) external onlyOwner {
+        if (newOwner == address(0)) {
+            revert L1USDCCustomGateway_InvalidOwner();
+        }
+        owner = newOwner;
     }
 
     function outboundTransferCustomRefund(
