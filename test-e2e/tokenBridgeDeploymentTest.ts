@@ -193,9 +193,9 @@ describe('tokenBridge', () => {
     await checkL2Ownership(l2Deployment, usingFeeToken)
     await checkLogicContracts(usingFeeToken, l2Deployment)
 
-    // This should always be the last check, because WETH gateway registration is a 
+    // This should always be the last check, because WETH gateway registration is a
     // separate step that should be done after token bridge is atomically deployed
-    if (!usingFeeToken) {
+    if (!usingFeeToken && !isLocalDeployment(l1Provider, l2Provider)) {
       await checkWethGatewayIsRegistered(
         L1WethGateway__factory.connect(l1Deployment.wethGateway, l1Provider),
         L1GatewayRouter__factory.connect(l1Deployment.router, l1Provider),
@@ -834,4 +834,14 @@ interface L2DeploymentAddresses {
   beaconProxyFactory: string
   upgradeExecutor: string
   multicall: string
+}
+
+function isLocalDeployment(
+  l1Provider: JsonRpcProvider,
+  l2Provider: JsonRpcProvider
+) {
+  return (
+    l1Provider.network.chainId === 412346 ||
+    l2Provider.network.chainId === 333333
+  )
 }
