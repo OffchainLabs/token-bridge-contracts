@@ -108,7 +108,7 @@ jobs:
 
       - uses: OffchainLabs/actions/run-nitro-test-node@main
         with:
-          l3-node: true 
+          l3-node: true
           no-token-bridge: true
           no-l3-token-bridge: true
 
@@ -170,3 +170,6 @@ jobs:
 
       - name: Verify creation code generation
         run: yarn test:creation-code
+
+      - name: Test e2e orbit token bridge actions
+        run: yarn hardhat test test-e2e/orbitTokenBridge.ts
