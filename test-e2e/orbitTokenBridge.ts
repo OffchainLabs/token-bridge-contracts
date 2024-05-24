@@ -15,6 +15,8 @@ import {
   ERC20__factory,
   IERC20Bridge__factory,
   IInbox__factory,
+  IOwnable__factory,
+  L1GatewayRouter__factory,
   L1OrbitCustomGateway__factory,
   L1OrbitERC20Gateway__factory,
   L1OrbitGatewayRouter__factory,
@@ -28,6 +30,7 @@ import {
   TestERC20__factory,
   TestOrbitCustomTokenL1__factory,
   TransparentUpgradeableProxy__factory,
+  UpgradeExecutor__factory,
 } from '../build/types'
 import { defaultAbiCoder } from 'ethers/lib/utils'
 import { BigNumber, Wallet, ethers } from 'ethers'
@@ -37,6 +40,9 @@ const config = {
   parentUrl: 'http://localhost:8547',
   childUrl: 'http://localhost:3347',
 }
+
+const LOCALHOST_L3_OWNER_KEY =
+  '0xecdf21cb41c65afb51f91df408b7656e2c8739a5877f2814add0afd780cc210e'
 
 let parentProvider: JsonRpcProvider
 let childProvider: JsonRpcProvider
@@ -545,7 +551,12 @@ describe('orbitTokenBridge', () => {
     ).to.be.eq(tokenTotalFeeAmount)
   })
 
-  it('can upgrade from bridged USDC to native USDC', async function () {
+  it.only('can upgrade from bridged USDC to native USDC', async function () {
+    console.log('deplyerL1Wallet: ', deployerL1Wallet.address)
+    console.log('deplyerL2Wallet: ', deployerL2Wallet.address)
+    console.log('userL1Wallet: ', userL1Wallet.address)
+    console.log('userL2Wallet: ', userL2Wallet.address)
+
     // create new L1USDCCustomGateway behind proxy
     const proxyAdminFac = await new ProxyAdmin__factory(
       deployerL1Wallet
@@ -553,17 +564,17 @@ describe('orbitTokenBridge', () => {
     const proxyAdmin = await proxyAdminFac.deployed()
 
     const l1USDCCustomGatewayFactory = await new L1USDCCustomGateway__factory(
-      userL1Wallet
+      deployerL1Wallet
     ).deploy()
     const l1USDCCustomGatewayLogic = await l1USDCCustomGatewayFactory.deployed()
 
     const tupFactory = await new TransparentUpgradeableProxy__factory(
-      userL1Wallet
+      deployerL1Wallet
     ).deploy(l1USDCCustomGatewayLogic.address, proxyAdmin.address, '0x')
     const tup = await tupFactory.deployed()
 
     const l1USDCCustomGateway = new L1USDCCustomGateway__factory(
-      userL1Wallet
+      deployerL1Wallet
     ).attach(tup.address)
 
     console.log('L1USDCCustomGateway address: ', l1USDCCustomGateway.address)
@@ -574,30 +585,32 @@ describe('orbitTokenBridge', () => {
     ).deploy()
     const proxyAdminL2 = await proxyAdminL2Fac.deployed()
 
-    const l2USDCCustomGatewayFactory = await new L1USDCCustomGateway__factory(
-      userL2Wallet
+    const l2USDCCustomGatewayFactory = await new L2USDCCustomGateway__factory(
+      deployerL2Wallet
     ).deploy()
     const l2USDCCustomGatewayLogic = await l2USDCCustomGatewayFactory.deployed()
 
     const tupL2Factory = await new TransparentUpgradeableProxy__factory(
-      userL2Wallet
+      deployerL2Wallet
     ).deploy(l2USDCCustomGatewayLogic.address, proxyAdminL2.address, '0x')
     const tupL2 = await tupL2Factory.deployed()
 
     const l2USDCCustomGateway = new L2USDCCustomGateway__factory(
-      userL2Wallet
+      deployerL2Wallet
     ).attach(tupL2.address)
 
     console.log('L2USDCCustomGateway address: ', l2USDCCustomGateway.address)
 
     // create l1 usdc
-    const l1UsdcFactory = await new TestERC20__factory(userL1Wallet).deploy()
+    const l1UsdcFactory = await new TestERC20__factory(
+      deployerL1Wallet
+    ).deploy()
     const l1Usdc = await l1UsdcFactory.deployed()
     console.log('L1 USDC address: ', l1Usdc.address)
 
     // create l2 usdc
     const l2UsdcFactory = await new TestArbCustomToken__factory(
-      userL2Wallet
+      deployerL2Wallet
     ).deploy(l2USDCCustomGateway.address, l1Usdc.address)
     const l2Usdc = await l2UsdcFactory.deployed()
     console.log('L2 USDC address: ', l2Usdc.address)
@@ -610,9 +623,10 @@ describe('orbitTokenBridge', () => {
         _l2Network.ethBridge.inbox,
         l1Usdc.address,
         l2Usdc.address,
-        userL1Wallet.address
+        deployerL1Wallet.address
       )
     ).wait()
+    console.log('L1 USDC custom gateway initialized')
 
     // initialize l2 usdc gateway
     await (
@@ -623,22 +637,39 @@ describe('orbitTokenBridge', () => {
         l2Usdc.address
       )
     ).wait()
+    console.log('L2 USDC custom gateway initialized')
 
     // register USDC custom gateway
-    const router = L1OrbitGatewayRouter__factory.connect(
+    const router = L1GatewayRouter__factory.connect(
       _l2Network.tokenBridge.l1GatewayRouter,
-      userL1Wallet
+      deployerL1Wallet
     )
+
     const tokens = [l1Usdc.address]
     const gateways = [l1USDCCustomGateway.address]
+
+    console.log('Registering USDC custom gateway')
+
+    const maxGas = BigNumber.from(500000)
+    const gasPriceBid = BigNumber.from(200000000)
+    const maxSubmissionCost = BigNumber.from(257600000000)
+    const registrationCalldata = router.interface.encodeFunctionData(
+      'setGateways',
+      [tokens, gateways, maxGas, gasPriceBid, maxSubmissionCost]
+    )
+
+    const rollupOwner = new Wallet(LOCALHOST_L3_OWNER_KEY, parentProvider)
+    const upExec = UpgradeExecutor__factory.connect(
+      await IOwnable__factory.connect(
+        _l2Network.ethBridge.rollup,
+        deployerL1Wallet
+      ).owner(),
+      rollupOwner
+    )
     await (
-      await router['setGateways(address[],address[],uint256,uint256,uint256)'](
-        tokens,
-        gateways,
-        1000000,
-        200000000,
-        200000000
-      )
+      await upExec.executeCall(router.address, registrationCalldata, {
+        value: maxGas.mul(gasPriceBid).add(maxSubmissionCost),
+      })
     ).wait()
 
     console.log('USDC custom gateway registered')
