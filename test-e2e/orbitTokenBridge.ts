@@ -644,6 +644,10 @@ describe('orbitTokenBridge', () => {
       _l2Network.tokenBridge.l1GatewayRouter,
       deployerL1Wallet
     )
+    const l2Router = L2GatewayRouter__factory.connect(
+      _l2Network.tokenBridge.l2GatewayRouter,
+      deployerL2Wallet
+    )
 
     const tokens = [l1Usdc.address]
     const gateways = [l1USDCCustomGateway.address]
@@ -666,14 +670,26 @@ describe('orbitTokenBridge', () => {
       ).owner(),
       rollupOwner
     )
-    await (
-      await upExec.executeCall(router.address, registrationCalldata, {
+    const gwRegistrationTx = await upExec.executeCall(
+      router.address,
+      registrationCalldata,
+      {
         value: maxGas.mul(gasPriceBid).add(maxSubmissionCost),
-      })
-    ).wait()
+      }
+    )
 
-    console.log('USDC custom gateway registered')
-    console.log(await router.getGateway(l1Usdc.address))
+    // wait for L2 msg to be executed
+    await waitOnL2Msg(gwRegistrationTx)
+
+    /// check gateway registration
+    expect(await router.getGateway(l1Usdc.address)).to.be.eq(
+      l1USDCCustomGateway.address
+    )
+    expect(await l1USDCCustomGateway.depositsPaused()).to.be.eq(false)
+    expect(await l2Router.getGateway(l1Usdc.address)).to.be.eq(
+      l2USDCCustomGateway.address
+    )
+    expect(await l2USDCCustomGateway.withdrawalsPaused()).to.be.eq(false)
   })
 })
 
