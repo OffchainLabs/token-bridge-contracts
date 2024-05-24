@@ -690,6 +690,21 @@ describe('orbitTokenBridge', () => {
       l2USDCCustomGateway.address
     )
     expect(await l2USDCCustomGateway.withdrawalsPaused()).to.be.eq(false)
+
+    /// pause deposits
+    const pausDepositsTx = await l1USDCCustomGateway.pauseDeposits(
+      maxGas,
+      gasPriceBid,
+      maxSubmissionCost,
+      deployerL1Wallet.address,
+      { value: maxGas.mul(gasPriceBid).add(maxSubmissionCost) }
+    )
+
+    // wait for L2 msg to be executed
+    await waitOnL2Msg(pausDepositsTx)
+
+    expect(await l1USDCCustomGateway.depositsPaused()).to.be.eq(true)
+    expect(await l2USDCCustomGateway.withdrawalsPaused()).to.be.eq(true)
   })
 })
 
