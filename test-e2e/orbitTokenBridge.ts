@@ -551,12 +551,7 @@ describe('orbitTokenBridge', () => {
     ).to.be.eq(tokenTotalFeeAmount)
   })
 
-  it.only('can upgrade from bridged USDC to native USDC', async function () {
-    console.log('deplyerL1Wallet: ', deployerL1Wallet.address)
-    console.log('deplyerL2Wallet: ', deployerL2Wallet.address)
-    console.log('userL1Wallet: ', userL1Wallet.address)
-    console.log('userL2Wallet: ', userL2Wallet.address)
-
+  xit('can upgrade from bridged USDC to native USDC', async function () {
     // create new L1USDCCustomGateway behind proxy
     const proxyAdminFac = await new ProxyAdmin__factory(
       deployerL1Wallet
@@ -705,6 +700,8 @@ describe('orbitTokenBridge', () => {
 
     expect(await l1USDCCustomGateway.depositsPaused()).to.be.eq(true)
     expect(await l2USDCCustomGateway.withdrawalsPaused()).to.be.eq(true)
+
+    // TODO upgrade USDC
   })
 })
 
