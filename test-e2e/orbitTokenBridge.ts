@@ -18,12 +18,16 @@ import {
   L1OrbitCustomGateway__factory,
   L1OrbitERC20Gateway__factory,
   L1OrbitGatewayRouter__factory,
+  L1USDCCustomGateway__factory,
   L2CustomGateway__factory,
   L2GatewayRouter__factory,
+  L2USDCCustomGateway__factory,
+  ProxyAdmin__factory,
   TestArbCustomToken__factory,
   TestERC20,
   TestERC20__factory,
   TestOrbitCustomTokenL1__factory,
+  TransparentUpgradeableProxy__factory,
 } from '../build/types'
 import { defaultAbiCoder } from 'ethers/lib/utils'
 import { BigNumber, Wallet, ethers } from 'ethers'
@@ -539,6 +543,106 @@ describe('orbitTokenBridge', () => {
     expect(
       bridgeNativeTokenBalanceAfter.sub(bridgeNativeTokenBalanceBefore)
     ).to.be.eq(tokenTotalFeeAmount)
+  })
+
+  it('can upgrade from bridged USDC to native USDC', async function () {
+    // create new L1USDCCustomGateway behind proxy
+    const proxyAdminFac = await new ProxyAdmin__factory(
+      deployerL1Wallet
+    ).deploy()
+    const proxyAdmin = await proxyAdminFac.deployed()
+
+    const l1USDCCustomGatewayFactory = await new L1USDCCustomGateway__factory(
+      userL1Wallet
+    ).deploy()
+    const l1USDCCustomGatewayLogic = await l1USDCCustomGatewayFactory.deployed()
+
+    const tupFactory = await new TransparentUpgradeableProxy__factory(
+      userL1Wallet
+    ).deploy(l1USDCCustomGatewayLogic.address, proxyAdmin.address, '0x')
+    const tup = await tupFactory.deployed()
+
+    const l1USDCCustomGateway = new L1USDCCustomGateway__factory(
+      userL1Wallet
+    ).attach(tup.address)
+
+    console.log('L1USDCCustomGateway address: ', l1USDCCustomGateway.address)
+
+    // create new L2USDCCustomGateway behind proxy
+    const proxyAdminL2Fac = await new ProxyAdmin__factory(
+      deployerL2Wallet
+    ).deploy()
+    const proxyAdminL2 = await proxyAdminL2Fac.deployed()
+
+    const l2USDCCustomGatewayFactory = await new L1USDCCustomGateway__factory(
+      userL2Wallet
+    ).deploy()
+    const l2USDCCustomGatewayLogic = await l2USDCCustomGatewayFactory.deployed()
+
+    const tupL2Factory = await new TransparentUpgradeableProxy__factory(
+      userL2Wallet
+    ).deploy(l2USDCCustomGatewayLogic.address, proxyAdminL2.address, '0x')
+    const tupL2 = await tupL2Factory.deployed()
+
+    const l2USDCCustomGateway = new L2USDCCustomGateway__factory(
+      userL2Wallet
+    ).attach(tupL2.address)
+
+    console.log('L2USDCCustomGateway address: ', l2USDCCustomGateway.address)
+
+    // create l1 usdc
+    const l1UsdcFactory = await new TestERC20__factory(userL1Wallet).deploy()
+    const l1Usdc = await l1UsdcFactory.deployed()
+    console.log('L1 USDC address: ', l1Usdc.address)
+
+    // create l2 usdc
+    const l2UsdcFactory = await new TestArbCustomToken__factory(
+      userL2Wallet
+    ).deploy(l2USDCCustomGateway.address, l1Usdc.address)
+    const l2Usdc = await l2UsdcFactory.deployed()
+    console.log('L2 USDC address: ', l2Usdc.address)
+
+    // initialize l1 usdc gateway
+    await (
+      await l1USDCCustomGateway.initialize(
+        l2USDCCustomGateway.address,
+        _l2Network.tokenBridge.l1GatewayRouter,
+        _l2Network.ethBridge.inbox,
+        l1Usdc.address,
+        l2Usdc.address,
+        userL1Wallet.address
+      )
+    ).wait()
+
+    // initialize l2 usdc gateway
+    await (
+      await l2USDCCustomGateway.initialize(
+        l1USDCCustomGateway.address,
+        _l2Network.tokenBridge.l2GatewayRouter,
+        l1Usdc.address,
+        l2Usdc.address
+      )
+    ).wait()
+
+    // register USDC custom gateway
+    const router = L1OrbitGatewayRouter__factory.connect(
+      _l2Network.tokenBridge.l1GatewayRouter,
+      userL1Wallet
+    )
+    const tokens = [l1Usdc.address]
+    const gateways = [l1USDCCustomGateway.address]
+    await (
+      await router['setGateways(address[],address[],uint256,uint256,uint256)'](
+        tokens,
+        gateways,
+        1000000,
+        200000000,
+        200000000
+      )
+    ).wait()
+
+    console.log('USDC custom gateway registered')
+    console.log(await router.getGateway(l1Usdc.address))
   })
 })
 
