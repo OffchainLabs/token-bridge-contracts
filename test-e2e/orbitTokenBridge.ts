@@ -60,7 +60,7 @@ let _l2Network: L2Network
 
 let token: TestERC20
 let l2Token: ERC20
-let nativeToken: ERC20
+let nativeToken: ERC20 | undefined
 
 describe('orbitTokenBridge', () => {
   // configure orbit token bridge
@@ -78,6 +78,15 @@ describe('orbitTokenBridge', () => {
 
     _l1Network = l1Network
     _l2Network = l2Network
+
+    const nativeTokenAddress = await getFeeToken(
+      l2Network.ethBridge.inbox,
+      parentProvider
+    )
+    nativeToken =
+      nativeTokenAddress === ethers.constants.AddressZero
+        ? undefined
+        : ERC20__factory.connect(nativeTokenAddress, parentProvider)
 
     // create user wallets and fund it
     const userKey = ethers.utils.sha256(ethers.utils.toUtf8Bytes('user_wallet'))
@@ -554,6 +563,11 @@ describe('orbitTokenBridge', () => {
   })
 
   xit('can upgrade from bridged USDC to native USDC', async function () {
+    /// test applicable only for eth based chains
+    if (nativeToken) {
+      return
+    }
+
     /// create new L1 usdc gateway behind proxy
     const proxyAdminFac = await new ProxyAdmin__factory(
       deployerL1Wallet
