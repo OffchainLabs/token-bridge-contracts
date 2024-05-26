@@ -8,7 +8,7 @@ import {
 } from '@arbitrum/sdk'
 import { getBaseFee } from '@arbitrum/sdk/dist/lib/utils/lib'
 import { JsonRpcProvider } from '@ethersproject/providers'
-import { expect, use } from 'chai'
+import { expect } from 'chai'
 import { setupTokenBridgeInLocalEnv } from '../scripts/local-deployment/localDeploymentLib'
 import {
   ERC20,
@@ -24,6 +24,8 @@ import {
   L2CustomGateway__factory,
   L2GatewayRouter__factory,
   L2USDCCustomGateway__factory,
+  MockL1Usdc__factory,
+  MockL2Usdc__factory,
   ProxyAdmin__factory,
   TestArbCustomToken__factory,
   TestERC20,
@@ -596,18 +598,44 @@ describe('orbitTokenBridge', () => {
 
     console.log('L2USDCCustomGateway address: ', l2USDCCustomGateway.address)
 
-    // create l1 usdc
-    const l1UsdcFactory = await new TestERC20__factory(
+    // create l1 usdc behind proxy
+    const l1UsdcFactory = await new MockL1Usdc__factory(
       deployerL1Wallet
     ).deploy()
-    const l1Usdc = await l1UsdcFactory.deployed()
+    const l1UsdcLogic = await l1UsdcFactory.deployed()
+
+    const tupL1UsdcFactory = await new TransparentUpgradeableProxy__factory(
+      deployerL1Wallet
+    ).deploy(l1UsdcLogic.address, proxyAdmin.address, '0x')
+    const tupL1Usdc = await tupL1UsdcFactory.deployed()
+
+    const l1Usdc = new MockL1Usdc__factory(deployerL1Wallet).attach(
+      tupL1Usdc.address
+    )
+
+    await (await l1Usdc.initialize()).wait()
+
     console.log('L1 USDC address: ', l1Usdc.address)
 
-    // create l2 usdc
-    const l2UsdcFactory = await new TestArbCustomToken__factory(
+    // create l2 usdc behind proxy
+    const l2UsdcFactory = await new MockL2Usdc__factory(
       deployerL2Wallet
-    ).deploy(l2USDCCustomGateway.address, l1Usdc.address)
-    const l2Usdc = await l2UsdcFactory.deployed()
+    ).deploy()
+    const l2UsdcLogic = await l2UsdcFactory.deployed()
+
+    const tupL2UsdcFactory = await new TransparentUpgradeableProxy__factory(
+      deployerL2Wallet
+    ).deploy(l2UsdcLogic.address, proxyAdminL2.address, '0x')
+    const tupL2Usdc = await tupL2UsdcFactory.deployed()
+
+    const l2Usdc = new MockL2Usdc__factory(deployerL2Wallet).attach(
+      tupL2Usdc.address
+    )
+
+    await (
+      await l2Usdc.initialize(l2USDCCustomGateway.address, l1Usdc.address)
+    ).wait()
+
     console.log('L2 USDC address: ', l2Usdc.address)
 
     // initialize l1 usdc gateway
