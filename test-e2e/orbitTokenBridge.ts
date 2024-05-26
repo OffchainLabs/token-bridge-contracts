@@ -554,7 +554,7 @@ describe('orbitTokenBridge', () => {
   })
 
   xit('can upgrade from bridged USDC to native USDC', async function () {
-    // create new L1USDCCustomGateway behind proxy
+    /// create new L1 usdc gateway behind proxy
     const proxyAdminFac = await new ProxyAdmin__factory(
       deployerL1Wallet
     ).deploy()
@@ -576,7 +576,7 @@ describe('orbitTokenBridge', () => {
 
     console.log('L1USDCCustomGateway address: ', l1USDCCustomGateway.address)
 
-    // create new L2USDCCustomGateway behind proxy
+    /// create new L2 usdc gateway behind proxy
     const proxyAdminL2Fac = await new ProxyAdmin__factory(
       deployerL2Wallet
     ).deploy()
@@ -598,7 +598,7 @@ describe('orbitTokenBridge', () => {
 
     console.log('L2USDCCustomGateway address: ', l2USDCCustomGateway.address)
 
-    // create l1 usdc behind proxy
+    /// create l1 usdc behind proxy
     const l1UsdcFactory = await new MockL1Usdc__factory(
       deployerL1Wallet
     ).deploy()
@@ -617,7 +617,7 @@ describe('orbitTokenBridge', () => {
 
     console.log('L1 USDC address: ', l1Usdc.address)
 
-    // create l2 usdc behind proxy
+    /// create l2 usdc behind proxy
     const l2UsdcFactory = await new MockL2Usdc__factory(
       deployerL2Wallet
     ).deploy()
@@ -638,7 +638,7 @@ describe('orbitTokenBridge', () => {
 
     console.log('L2 USDC address: ', l2Usdc.address)
 
-    // initialize l1 usdc gateway
+    /// initialize gateways
     await (
       await l1USDCCustomGateway.initialize(
         l2USDCCustomGateway.address,
@@ -651,7 +651,6 @@ describe('orbitTokenBridge', () => {
     ).wait()
     console.log('L1 USDC custom gateway initialized')
 
-    // initialize l2 usdc gateway
     await (
       await l2USDCCustomGateway.initialize(
         l1USDCCustomGateway.address,
@@ -662,7 +661,7 @@ describe('orbitTokenBridge', () => {
     ).wait()
     console.log('L2 USDC custom gateway initialized')
 
-    // register USDC custom gateway
+    /// register USDC custom gateway
     const router = L1GatewayRouter__factory.connect(
       _l2Network.tokenBridge.l1GatewayRouter,
       deployerL1Wallet
@@ -679,7 +678,7 @@ describe('orbitTokenBridge', () => {
 
     const maxGas = BigNumber.from(500000)
     const gasPriceBid = BigNumber.from(200000000)
-    const maxSubmissionCost = BigNumber.from(257600000000)
+    let maxSubmissionCost = BigNumber.from(257600000000)
     const registrationCalldata = router.interface.encodeFunctionData(
       'setGateways',
       [tokens, gateways, maxGas, gasPriceBid, maxSubmissionCost]
@@ -704,6 +703,8 @@ describe('orbitTokenBridge', () => {
     // wait for L2 msg to be executed
     await waitOnL2Msg(gwRegistrationTx)
 
+    console.log('USDC custom gateway registered')
+
     /// check gateway registration
     expect(await router.getGateway(l1Usdc.address)).to.be.eq(
       l1USDCCustomGateway.address
@@ -713,6 +714,42 @@ describe('orbitTokenBridge', () => {
       l2USDCCustomGateway.address
     )
     expect(await l2USDCCustomGateway.withdrawalsPaused()).to.be.eq(false)
+
+    /// do some deposits
+    console.log('Depositing USDC')
+    const depositAmount = ethers.utils.parseEther('2')
+    await (await l1Usdc.transfer(userL1Wallet.address, depositAmount)).wait()
+
+    await (
+      await l1Usdc
+        .connect(userL1Wallet)
+        .approve(l1USDCCustomGateway.address, depositAmount)
+    ).wait()
+    console.log('Approved USDC')
+
+    maxSubmissionCost = BigNumber.from(334400000000)
+    const depositTx = await router
+      .connect(userL1Wallet)
+      .outboundTransferCustomRefund(
+        l1Usdc.address,
+        userL2Wallet.address,
+        userL2Wallet.address,
+        depositAmount,
+        maxGas,
+        gasPriceBid,
+        defaultAbiCoder.encode(['uint256', 'bytes'], [maxSubmissionCost, '0x']),
+        { value: maxGas.mul(gasPriceBid).add(maxSubmissionCost) }
+      )
+    console.log('Deposited USDC')
+
+    // wait for L2 msg to be executed
+    await waitOnL2Msg(depositTx)
+
+    // check deposit has been processed
+    expect(await l2Usdc.balanceOf(userL2Wallet.address)).to.be.eq(depositAmount)
+    expect(await l1Usdc.balanceOf(l1USDCCustomGateway.address)).to.be.eq(
+      depositAmount
+    )
 
     /// pause deposits
     const pausDepositsTx = await l1USDCCustomGateway.pauseDeposits(
@@ -729,7 +766,11 @@ describe('orbitTokenBridge', () => {
     expect(await l1USDCCustomGateway.depositsPaused()).to.be.eq(true)
     expect(await l2USDCCustomGateway.withdrawalsPaused()).to.be.eq(true)
 
-    // TODO upgrade USDC
+    /// burn USDC
+    console.log('Burning USDC')
+    await (await l1USDCCustomGateway.burnLockedUSDC()).wait()
+    expect(await l1Usdc.balanceOf(l1USDCCustomGateway.address)).to.be.eq(0)
+    expect(await l2Usdc.balanceOf(userL2Wallet.address)).to.be.eq(depositAmount)
   })
 })
 

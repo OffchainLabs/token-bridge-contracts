@@ -11,6 +11,7 @@ contract MockL1Usdc is ERC20BurnableUpgradeable {
     function initialize() public initializer {
         __ERC20Burnable_init();
         __ERC20_init("Mock USDC", "MUSDC");
+        _mint(msg.sender, 1_000_000 ether);
     }
 }
 
