@@ -28,6 +28,7 @@ import {
   MockL2Usdc__factory,
   ProxyAdmin__factory,
   TestArbCustomToken__factory,
+  TestCustomTokenL1__factory,
   TestERC20,
   TestERC20__factory,
   TestOrbitCustomTokenL1__factory,
@@ -114,15 +115,18 @@ describe('orbitTokenBridge', () => {
 
   it('can deposit token via default gateway', async function () {
     // fund user to be able to pay retryable fees
-    nativeToken = ERC20__factory.connect(
-      await getFeeToken(_l2Network.ethBridge.inbox, userL1Wallet),
-      userL1Wallet
-    )
-    await (
-      await nativeToken
-        .connect(deployerL1Wallet)
-        .transfer(userL1Wallet.address, ethers.utils.parseEther('1000'))
-    ).wait()
+    console.log('nativeToken: ', nativeToken)
+
+    if (nativeToken) {
+      console.log('funding user with native token')
+      await (
+        await nativeToken
+          .connect(deployerL1Wallet)
+          .transfer(userL1Wallet.address, ethers.utils.parseEther('1000'))
+      ).wait()
+    }
+
+    console.log('creating token to be bridged')
 
     // create token to be bridged
     const tokenFactory = await new TestERC20__factory(userL1Wallet).deploy()
@@ -130,17 +134,16 @@ describe('orbitTokenBridge', () => {
     await (await token.mint()).wait()
 
     // snapshot state before
-
     const userTokenBalanceBefore = await token.balanceOf(userL1Wallet.address)
     const gatewayTokenBalanceBefore = await token.balanceOf(
       _l2Network.tokenBridge.l1ERC20Gateway
     )
-    const userNativeTokenBalanceBefore = await nativeToken.balanceOf(
-      userL1Wallet.address
-    )
-    const bridgeNativeTokenBalanceBefore = await nativeToken.balanceOf(
-      _l2Network.ethBridge.bridge
-    )
+    const userNativeTokenBalanceBefore = nativeToken
+      ? await nativeToken.balanceOf(userL1Wallet.address)
+      : await parentProvider.getBalance(userL1Wallet.address)
+    const bridgeNativeTokenBalanceBefore = nativeToken
+      ? await nativeToken.balanceOf(_l2Network.ethBridge.bridge)
+      : await parentProvider.getBalance(_l2Network.ethBridge.bridge)
 
     // approve token
     const depositAmount = 350
@@ -149,7 +152,9 @@ describe('orbitTokenBridge', () => {
     ).wait()
 
     // calculate retryable params
-    const maxSubmissionCost = 0
+    const maxSubmissionCost = nativeToken
+      ? BigNumber.from(0)
+      : BigNumber.from(584000000000)
     const callhook = '0x'
 
     const gateway = L1OrbitERC20Gateway__factory.connect(
@@ -180,28 +185,40 @@ describe('orbitTokenBridge', () => {
       parentProvider
     )
 
-    const gasLimit = retryableParams.gasLimit.mul(40)
+    const gasLimit = retryableParams.gasLimit.mul(60)
     const maxFeePerGas = retryableParams.maxFeePerGas
     const tokenTotalFeeAmount = gasLimit.mul(maxFeePerGas).mul(2)
 
     // approve fee amount
-    await (
-      await nativeToken.approve(
-        _l2Network.tokenBridge.l1ERC20Gateway,
-        tokenTotalFeeAmount
-      )
-    ).wait()
+    if (nativeToken) {
+      await (
+        await nativeToken.approve(
+          _l2Network.tokenBridge.l1ERC20Gateway,
+          tokenTotalFeeAmount
+        )
+      ).wait()
+    }
 
     // bridge it
-    const userEncodedData = defaultAbiCoder.encode(
-      ['uint256', 'bytes', 'uint256'],
-      [maxSubmissionCost, callhook, tokenTotalFeeAmount]
-    )
+    const userEncodedData = nativeToken
+      ? defaultAbiCoder.encode(
+          ['uint256', 'bytes', 'uint256'],
+          [maxSubmissionCost, callhook, tokenTotalFeeAmount]
+        )
+      : defaultAbiCoder.encode(
+          ['uint256', 'bytes'],
+          [maxSubmissionCost, callhook]
+        )
 
-    const router = L1OrbitGatewayRouter__factory.connect(
-      _l2Network.tokenBridge.l1GatewayRouter,
-      userL1Wallet
-    )
+    const router = nativeToken
+      ? L1OrbitGatewayRouter__factory.connect(
+          _l2Network.tokenBridge.l1GatewayRouter,
+          userL1Wallet
+        )
+      : L1GatewayRouter__factory.connect(
+          _l2Network.tokenBridge.l1GatewayRouter,
+          userL1Wallet
+        )
 
     const depositTx = await router.outboundTransferCustomRefund(
       token.address,
@@ -210,7 +227,8 @@ describe('orbitTokenBridge', () => {
       depositAmount,
       gasLimit,
       maxFeePerGas,
-      userEncodedData
+      userEncodedData,
+      { value: nativeToken ? BigNumber.from(0) : tokenTotalFeeAmount }
     )
 
     // wait for L2 msg to be executed
@@ -236,16 +254,22 @@ describe('orbitTokenBridge', () => {
       depositAmount
     )
 
-    const userNativeTokenBalanceAfter = await nativeToken.balanceOf(
-      userL1Wallet.address
-    )
-    expect(
-      userNativeTokenBalanceBefore.sub(userNativeTokenBalanceAfter)
-    ).to.be.eq(tokenTotalFeeAmount)
+    const userNativeTokenBalanceAfter = nativeToken
+      ? await nativeToken.balanceOf(userL1Wallet.address)
+      : await parentProvider.getBalance(userL1Wallet.address)
+    if (nativeToken) {
+      expect(
+        userNativeTokenBalanceBefore.sub(userNativeTokenBalanceAfter)
+      ).to.be.eq(tokenTotalFeeAmount)
+    } else {
+      expect(
+        userNativeTokenBalanceBefore.sub(userNativeTokenBalanceAfter)
+      ).to.be.gte(tokenTotalFeeAmount.toNumber())
+    }
 
-    const bridgeNativeTokenBalanceAfter = await nativeToken.balanceOf(
-      _l2Network.ethBridge.bridge
-    )
+    const bridgeNativeTokenBalanceAfter = nativeToken
+      ? await nativeToken.balanceOf(_l2Network.ethBridge.bridge)
+      : await parentProvider.getBalance(_l2Network.ethBridge.bridge)
     expect(
       bridgeNativeTokenBalanceAfter.sub(bridgeNativeTokenBalanceBefore)
     ).to.be.eq(tokenTotalFeeAmount)
@@ -316,38 +340,46 @@ describe('orbitTokenBridge', () => {
 
   it('can deposit token via custom gateway', async function () {
     // fund user to be able to pay retryable fees
-    nativeToken = ERC20__factory.connect(
-      await getFeeToken(_l2Network.ethBridge.inbox, userL1Wallet),
-      userL1Wallet
-    )
-    await (
-      await nativeToken
-        .connect(deployerL1Wallet)
-        .transfer(userL1Wallet.address, ethers.utils.parseEther('1000'))
-    ).wait()
+    if (nativeToken) {
+      await (
+        await nativeToken
+          .connect(deployerL1Wallet)
+          .transfer(userL1Wallet.address, ethers.utils.parseEther('1000'))
+      ).wait()
+    }
 
     // create L1 custom token
-    const customL1TokenFactory = await new TestOrbitCustomTokenL1__factory(
-      userL1Wallet
-    ).deploy(
-      _l2Network.tokenBridge.l1CustomGateway,
-      _l2Network.tokenBridge.l1GatewayRouter
-    )
+    const customL1TokenFactory = nativeToken
+      ? await new TestOrbitCustomTokenL1__factory(deployerL1Wallet).deploy(
+          _l2Network.tokenBridge.l1CustomGateway,
+          _l2Network.tokenBridge.l1GatewayRouter
+        )
+      : await new TestCustomTokenL1__factory(deployerL1Wallet).deploy(
+          _l2Network.tokenBridge.l1CustomGateway,
+          _l2Network.tokenBridge.l1GatewayRouter
+        )
     const customL1Token = await customL1TokenFactory.deployed()
-    await (await customL1Token.mint()).wait()
+    await (await customL1Token.connect(userL1Wallet).mint()).wait()
 
     // create L2 custom token
-    await depositNativeToL2()
+    if (nativeToken) {
+      await depositNativeToL2()
+    }
     const customL2TokenFactory = await new TestArbCustomToken__factory(
-      userL2Wallet
+      deployerL2Wallet
     ).deploy(_l2Network.tokenBridge.l2CustomGateway, customL1Token.address)
     const customL2Token = await customL2TokenFactory.deployed()
 
     // prepare custom gateway registration params
-    const router = L1OrbitGatewayRouter__factory.connect(
-      _l2Network.tokenBridge.l1GatewayRouter,
-      userL1Wallet
-    )
+    const router = nativeToken
+      ? L1OrbitGatewayRouter__factory.connect(
+          _l2Network.tokenBridge.l1GatewayRouter,
+          userL1Wallet
+        )
+      : L1GatewayRouter__factory.connect(
+          _l2Network.tokenBridge.l1GatewayRouter,
+          userL1Wallet
+        )
     const l1ToL2MessageGasEstimate = new L1ToL2MessageGasEstimator(
       childProvider
     )
@@ -389,17 +421,20 @@ describe('orbitTokenBridge', () => {
     )
 
     // approve fee amount
-    await (
-      await nativeToken.approve(
-        customL1Token.address,
-        BigNumber.from(2).mul(
-          gwRetryableParams.deposit.add(routerRetryableParams.deposit)
+    if (nativeToken) {
+      await (
+        await nativeToken.approve(
+          customL1Token.address,
+          BigNumber.from(2).mul(
+            gwRetryableParams.deposit.add(routerRetryableParams.deposit)
+          )
         )
-      )
-    ).wait()
+      ).wait()
+    }
 
     // do the custom gateway registration
-
+    const valueForGateway = gwRetryableParams.deposit.mul(BigNumber.from(2))
+    const valueForRouter = routerRetryableParams.deposit.mul(BigNumber.from(2))
     const receipt = await (
       await customL1Token.registerTokenOnL2(
         customL2Token.address,
@@ -408,9 +443,14 @@ describe('orbitTokenBridge', () => {
         gwRetryableParams.gasLimit.mul(2),
         routerRetryableParams.gasLimit.mul(2),
         BigNumber.from(100000000),
-        gwRetryableParams.deposit.mul(BigNumber.from(2)),
-        routerRetryableParams.deposit.mul(BigNumber.from(2)),
-        userL1Wallet.address
+        valueForGateway,
+        valueForRouter,
+        userL1Wallet.address,
+        {
+          value: nativeToken
+            ? BigNumber.from(0)
+            : valueForGateway.add(valueForRouter),
+        }
       )
     ).wait()
 
@@ -444,20 +484,19 @@ describe('orbitTokenBridge', () => {
     const gatewayTokenBalanceBefore = await customL1Token.balanceOf(
       _l2Network.tokenBridge.l1CustomGateway
     )
-    const userNativeTokenBalanceBefore = await nativeToken.balanceOf(
-      userL1Wallet.address
-    )
-    const bridgeNativeTokenBalanceBefore = await nativeToken.balanceOf(
-      _l2Network.ethBridge.bridge
-    )
+    const userNativeTokenBalanceBefore = nativeToken
+      ? await nativeToken.balanceOf(userL1Wallet.address)
+      : await parentProvider.getBalance(userL1Wallet.address)
+    const bridgeNativeTokenBalanceBefore = nativeToken
+      ? await nativeToken.balanceOf(_l2Network.ethBridge.bridge)
+      : await parentProvider.getBalance(_l2Network.ethBridge.bridge)
 
     // approve token
     const depositAmount = 110
     await (
-      await customL1Token.approve(
-        _l2Network.tokenBridge.l1CustomGateway,
-        depositAmount
-      )
+      await customL1Token
+        .connect(userL1Wallet)
+        .approve(_l2Network.tokenBridge.l1CustomGateway, depositAmount)
     ).wait()
 
     // calculate retryable params
@@ -494,18 +533,26 @@ describe('orbitTokenBridge', () => {
     const tokenTotalFeeAmount = gasLimit.mul(maxFeePerGas).mul(2)
 
     // approve fee amount
-    await (
-      await nativeToken.approve(
-        _l2Network.tokenBridge.l1CustomGateway,
-        tokenTotalFeeAmount
-      )
-    ).wait()
+    if (nativeToken) {
+      await (
+        await nativeToken.approve(
+          _l2Network.tokenBridge.l1CustomGateway,
+          tokenTotalFeeAmount
+        )
+      ).wait()
+    }
 
     // bridge it
-    const userEncodedData = defaultAbiCoder.encode(
-      ['uint256', 'bytes', 'uint256'],
-      [maxSubmissionCost, callhook, tokenTotalFeeAmount]
-    )
+    const userEncodedData = nativeToken
+      ? defaultAbiCoder.encode(
+          ['uint256', 'bytes', 'uint256'],
+          [maxSubmissionCost, callhook, tokenTotalFeeAmount]
+        )
+      : defaultAbiCoder.encode(
+          ['uint256', 'bytes'],
+          [BigNumber.from(334400000000), callhook]
+        )
+
     const depositTx = await router.outboundTransferCustomRefund(
       customL1Token.address,
       userL1Wallet.address,
@@ -513,7 +560,8 @@ describe('orbitTokenBridge', () => {
       depositAmount,
       gasLimit,
       maxFeePerGas,
-      userEncodedData
+      userEncodedData,
+      { value: nativeToken ? BigNumber.from(0) : tokenTotalFeeAmount }
     )
 
     // wait for L2 msg to be executed
@@ -547,16 +595,21 @@ describe('orbitTokenBridge', () => {
       depositAmount
     )
 
-    const userNativeTokenBalanceAfter = await nativeToken.balanceOf(
-      userL1Wallet.address
-    )
-    expect(
-      userNativeTokenBalanceBefore.sub(userNativeTokenBalanceAfter)
-    ).to.be.eq(tokenTotalFeeAmount)
-
-    const bridgeNativeTokenBalanceAfter = await nativeToken.balanceOf(
-      _l2Network.ethBridge.bridge
-    )
+    const userNativeTokenBalanceAfter = nativeToken
+      ? await nativeToken.balanceOf(userL1Wallet.address)
+      : await parentProvider.getBalance(userL1Wallet.address)
+    if (nativeToken) {
+      expect(
+        userNativeTokenBalanceBefore.sub(userNativeTokenBalanceAfter)
+      ).to.be.eq(tokenTotalFeeAmount)
+    } else {
+      expect(
+        userNativeTokenBalanceBefore.sub(userNativeTokenBalanceAfter)
+      ).to.be.gte(tokenTotalFeeAmount.toNumber())
+    }
+    const bridgeNativeTokenBalanceAfter = nativeToken
+      ? await nativeToken.balanceOf(_l2Network.ethBridge.bridge)
+      : await parentProvider.getBalance(_l2Network.ethBridge.bridge)
     expect(
       bridgeNativeTokenBalanceAfter.sub(bridgeNativeTokenBalanceBefore)
     ).to.be.eq(tokenTotalFeeAmount)
