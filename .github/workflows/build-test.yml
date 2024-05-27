@@ -134,6 +134,9 @@ jobs:
       - name: Verify creation code generation
         run: yarn test:creation-code
 
+      - name: Test e2e orbit token bridge actions
+      run: yarn hardhat test test-e2e/orbitTokenBridge.ts
+
   test-e2e-custom-fee-token:
     name: Test e2e on custom fee token chain
     runs-on: ubuntu-latest

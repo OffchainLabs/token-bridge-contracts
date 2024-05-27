@@ -615,7 +615,7 @@ describe('orbitTokenBridge', () => {
     ).to.be.eq(tokenTotalFeeAmount)
   })
 
-  xit('can upgrade from bridged USDC to native USDC', async function () {
+  it('can upgrade from bridged USDC to native USDC', async function () {
     /// test applicable only for eth based chains
     if (nativeToken) {
       return
