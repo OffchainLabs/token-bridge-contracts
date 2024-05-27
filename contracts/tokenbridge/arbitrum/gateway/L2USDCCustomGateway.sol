@@ -1,25 +1,22 @@
 // SPDX-License-Identifier: Apache-2.0
-
-/*
- * Copyright 2020, Offchain Labs, Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 pragma solidity ^0.8.4;
 
-import "./L2ArbitrumGateway.sol";
+import {L2ArbitrumGateway} from "./L2ArbitrumGateway.sol";
 
+/**
+ * @title  Child chain custom gateway for USDC implementing Bridged USDC Standard.
+ * @notice Reference to the Circle's Bridged USDC Standard:
+ *         https://github.com/circlefin/stablecoin-evm/blob/master/doc/bridged_USDC_standard.md
+ *
+ * @dev    This contract can be used on new Orbit chains which want to provide USDC
+ *         bridging solution and keep the possibility to upgrade to native USDC at
+ *         some point later. This solution will NOT be used in existing Arbitrum chains.
+ *
+ *         Parent chain custom gateway to be used along this parent chain custom gateway is L1USDCCustomGateway.
+ *         This custom gateway differs from standard gateway in the following ways:
+ *         - it supports a single parent chain - child chain USDC token pair
+ *         - withdrawals can be permanently paused by the counterpart gateway
+ */
 contract L2USDCCustomGateway is L2ArbitrumGateway {
     address public l1USDC;
     address public l2USDC;
@@ -46,6 +43,10 @@ contract L2USDCCustomGateway is L2ArbitrumGateway {
         l2USDC = _l2USDC;
     }
 
+    /**
+     * @notice Pause all withdrawals. This can only be called by the counterpart gateway.
+     *         Pausing is permanent and can not be undone.
+     */
     function pauseWithdrawals() external onlyCounterpartGateway {
         if (withdrawalsPaused) {
             revert L2USDCCustomGateway_WithdrawalsAlreadyPaused();
@@ -55,6 +56,9 @@ contract L2USDCCustomGateway is L2ArbitrumGateway {
         emit WithdrawalsPaused();
     }
 
+    /**
+     * @notice Entrypoint for withdrawing USDC, can be used only if withdrawals are not paused.
+     */
     function outboundTransfer(
         address _l1Token,
         address _to,
@@ -69,6 +73,9 @@ contract L2USDCCustomGateway is L2ArbitrumGateway {
         return super.outboundTransfer(_l1Token, _to, _amount, 0, 0, _data);
     }
 
+    /**
+     * @notice Only parent chain - child chain USDC token pair is supported
+     */
     function calculateL2TokenAddress(address l1ERC20) public view override returns (address) {
         if (l1ERC20 != l1USDC) {
             // invalid L1 usdc address
@@ -77,6 +84,9 @@ contract L2USDCCustomGateway is L2ArbitrumGateway {
         return l2USDC;
     }
 
+    /**
+     * @notice Withdraw back the USDC if child chain side is not set up properly
+     */
     function handleNoContract(
         address l1ERC20,
         address, /* expectedL2Address */
@@ -85,8 +95,7 @@ contract L2USDCCustomGateway is L2ArbitrumGateway {
         uint256 _amount,
         bytes memory /* deployData */
     ) internal override returns (bool shouldHalt) {
-        // it is assumed that the custom token is deployed in the L2 before deposits are made
-        // trigger withdrawal
+        // it is assumed that the custom token is deployed to child chain before deposits are made
         triggerWithdrawal(l1ERC20, address(this), _from, _amount, "");
         return true;
     }

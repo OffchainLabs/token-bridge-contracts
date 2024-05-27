@@ -138,7 +138,7 @@ contract L1USDCCustomGateway is L1ArbitrumExtendedGateway {
     }
 
     /**
-     * @inheritdoc IL1ArbitrumGateway
+     * @notice entrypoint for depositing USDC, can be used only if deposits are not paused.
      */
     function outboundTransferCustomRefund(
         address _l1Token,
@@ -158,7 +158,7 @@ contract L1USDCCustomGateway is L1ArbitrumExtendedGateway {
     }
 
     /**
-     * @inheritdoc ITokenGateway
+     * @notice only parent chain - child chain USDC token pair is supported
      */
     function calculateL2TokenAddress(address l1ERC20)
         public
@@ -175,5 +175,8 @@ contract L1USDCCustomGateway is L1ArbitrumExtendedGateway {
 }
 
 interface Burnable {
+    /**
+     * @notice Circle's referent USDC implementation exposes burn function of this signature.
+     */
     function burn(uint256 _amount) external;
 }
