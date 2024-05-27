@@ -1,12 +1,31 @@
 // SPDX-License-Identifier: Apache-2.0
-
 pragma solidity ^0.8.4;
 
-import "./L1ArbitrumExtendedGateway.sol";
+import {
+    L1ArbitrumExtendedGateway,
+    L1ArbitrumGateway,
+    IL1ArbitrumGateway,
+    ITokenGateway,
+    TokenGateway,
+    IERC20
+} from "./L1ArbitrumExtendedGateway.sol";
 import {L2USDCCustomGateway} from "../../arbitrum/gateway/L2USDCCustomGateway.sol";
 
 /**
- * @title Custom gateway for USDC bridging.
+ * @title Custom gateway for USDC implementing Bridged USDC Standard.
+ * @notice Reference to the Circle's Bridged USDC Standard:
+ *         https://github.com/circlefin/stablecoin-evm/blob/master/doc/bridged_USDC_standard.md
+ *
+ * @dev    This contract can be used on new Orbit chains which want to provide USDC
+ *         bridging solution and keep the possibility to upgrade to native USDC at
+ *         some point later. This solution will NOT be used in existing Arbitrum chains.
+ *
+ *         Child chain custom gateway to be used along this parent chain custom gateway is L2USDCCustomGateway.
+ *         This custom gateway differs from standard gateway in the following ways:
+ *         - it supports a single parent chain - child chain USDC token pair
+ *         - it is ownable
+ *         - owner can one-time permanently pause deposits
+ *         - owner can trigger burning all the USDC tokens locked in the gateway
  */
 contract L1USDCCustomGateway is L1ArbitrumExtendedGateway {
     address public l1USDC;
@@ -55,23 +74,22 @@ contract L1USDCCustomGateway is L1ArbitrumExtendedGateway {
         owner = _owner;
     }
 
-    function burnLockedUSDC() external onlyOwner {
-        if (!depositsPaused) {
-            revert L1USDCCustomGateway_DepositsNotPaused();
-        }
-        uint256 gatewayBalance = IERC20(l1USDC).balanceOf(address(this));
-        Burnable(l1USDC).burn(gatewayBalance);
-
-        emit GatewayUsdcBurned(gatewayBalance);
-    }
-
+    /**
+     * @notice Pauses deposits and triggers a retryable ticket to pause withdrawals on the child chain.
+     *         Pausing is permanent and can't be undone. Pausing is prerequisite for burning escrowed USDC tokens.
+     * @param _maxGas Max gas for retryable ticket
+     * @param _gasPriceBid Gas price for retryable ticket
+     * @param _maxSubmissionCost Max submission cost for retryable ticket
+     * @param _creditBackAddress Address to credit back on the child chain
+     * @return seqNum Sequence number of the retryable ticket
+     */
     function pauseDeposits(
         uint256 _maxGas,
         uint256 _gasPriceBid,
         uint256 _maxSubmissionCost,
         address _creditBackAddress
     ) external payable onlyOwner returns (uint256) {
-        if (depositsPaused == true) {
+        if (depositsPaused) {
             revert L1USDCCustomGateway_DepositsAlreadyPaused();
         }
         depositsPaused = true;
@@ -94,6 +112,24 @@ contract L1USDCCustomGateway is L1ArbitrumExtendedGateway {
         });
     }
 
+    /**
+     * @notice Burns the USDC tokens escrowed in the gateway.
+     * @dev    Can be called by owner after deposits are paused.
+     *         Function signature complies by Bridged USDC Standard.
+     */
+    function burnLockedUSDC() external onlyOwner {
+        if (!depositsPaused) {
+            revert L1USDCCustomGateway_DepositsNotPaused();
+        }
+        uint256 gatewayBalance = IERC20(l1USDC).balanceOf(address(this));
+        Burnable(l1USDC).burn(gatewayBalance);
+
+        emit GatewayUsdcBurned(gatewayBalance);
+    }
+
+    /**
+     * @notice Sets a new owner.
+     */
     function setOwner(address newOwner) external onlyOwner {
         if (newOwner == address(0)) {
             revert L1USDCCustomGateway_InvalidOwner();
@@ -101,6 +137,9 @@ contract L1USDCCustomGateway is L1ArbitrumExtendedGateway {
         owner = newOwner;
     }
 
+    /**
+     * @inheritdoc IL1ArbitrumGateway
+     */
     function outboundTransferCustomRefund(
         address _l1Token,
         address _refundTo,
@@ -118,6 +157,9 @@ contract L1USDCCustomGateway is L1ArbitrumExtendedGateway {
         );
     }
 
+    /**
+     * @inheritdoc ITokenGateway
+     */
     function calculateL2TokenAddress(address l1ERC20)
         public
         view
