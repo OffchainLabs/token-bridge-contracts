@@ -11,6 +11,8 @@ import { JsonRpcProvider } from '@ethersproject/providers'
 import { expect } from 'chai'
 import { setupTokenBridgeInLocalEnv } from '../scripts/local-deployment/localDeploymentLib'
 import {
+  AeWETH__factory,
+  BridgedUsdcCustomToken__factory,
   ERC20,
   ERC20__factory,
   IERC20Bridge__factory,
@@ -631,9 +633,10 @@ describe('orbitTokenBridge', () => {
       deployerL1Wallet
     ).deploy(l1USDCCustomGatewayLogic.address, proxyAdmin.address, '0x')
     const tup = await tupFactory.deployed()
-    const l1USDCCustomGateway = new L1USDCCustomGateway__factory(
+    const l1USDCCustomGateway = L1USDCCustomGateway__factory.connect(
+      tup.address,
       deployerL1Wallet
-    ).attach(tup.address)
+    )
     console.log('L1USDCCustomGateway address: ', l1USDCCustomGateway.address)
 
     /// create new L2 usdc gateway behind proxy
@@ -649,9 +652,10 @@ describe('orbitTokenBridge', () => {
       deployerL2Wallet
     ).deploy(l2USDCCustomGatewayLogic.address, proxyAdminL2.address, '0x')
     const tupL2 = await tupL2Factory.deployed()
-    const l2USDCCustomGateway = new L2USDCCustomGateway__factory(
+    const l2USDCCustomGateway = L2USDCCustomGateway__factory.connect(
+      tupL2.address,
       deployerL2Wallet
-    ).attach(tupL2.address)
+    )
     console.log('L2USDCCustomGateway address: ', l2USDCCustomGateway.address)
 
     /// create l1 usdc behind proxy
@@ -663,14 +667,15 @@ describe('orbitTokenBridge', () => {
       deployerL1Wallet
     ).deploy(l1UsdcLogic.address, proxyAdmin.address, '0x')
     const tupL1Usdc = await tupL1UsdcFactory.deployed()
-    const l1Usdc = new MockL1Usdc__factory(deployerL1Wallet).attach(
-      tupL1Usdc.address
+    const l1Usdc = MockL1Usdc__factory.connect(
+      tupL1Usdc.address,
+      deployerL1Wallet
     )
     await (await l1Usdc.initialize()).wait()
     console.log('L1 USDC address: ', l1Usdc.address)
 
     /// create l2 usdc behind proxy
-    const l2UsdcFactory = await new MockL2Usdc__factory(
+    const l2UsdcFactory = await new BridgedUsdcCustomToken__factory(
       deployerL2Wallet
     ).deploy()
     const l2UsdcLogic = await l2UsdcFactory.deployed()
@@ -678,11 +683,16 @@ describe('orbitTokenBridge', () => {
       deployerL2Wallet
     ).deploy(l2UsdcLogic.address, proxyAdminL2.address, '0x')
     const tupL2Usdc = await tupL2UsdcFactory.deployed()
-    const l2Usdc = new MockL2Usdc__factory(deployerL2Wallet).attach(
-      tupL2Usdc.address
+    const l2Usdc = BridgedUsdcCustomToken__factory.connect(
+      tupL2Usdc.address,
+      deployerL2Wallet
     )
     await (
-      await l2Usdc.initialize(l2USDCCustomGateway.address, l1Usdc.address)
+      await l2Usdc.initialize(
+        'Bridged USDC Orbit',
+        l2USDCCustomGateway.address,
+        l1Usdc.address
+      )
     ).wait()
     console.log('L2 USDC address: ', l2Usdc.address)
 
@@ -789,16 +799,10 @@ describe('orbitTokenBridge', () => {
     console.log('Deposited USDC')
 
     /// pause deposits
-    await (
-      await l1USDCCustomGateway.pauseDeposits(
-        maxGas,
-        gasPriceBid,
-        maxSubmissionCost,
-        deployerL1Wallet.address
-      )
-    ).wait()
+    await (await l1USDCCustomGateway.pauseDeposits()).wait()
     expect(await l1USDCCustomGateway.depositsPaused()).to.be.eq(true)
 
+    /// pause withdrawals
     await (await l2USDCCustomGateway.pauseWithdrawals()).wait()
     expect(await l2USDCCustomGateway.withdrawalsPaused()).to.be.eq(true)
 
