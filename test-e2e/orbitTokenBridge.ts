@@ -704,7 +704,8 @@ describe('orbitTokenBridge', () => {
         l1USDCCustomGateway.address,
         _l2Network.tokenBridge.l2GatewayRouter,
         l1Usdc.address,
-        l2Usdc.address
+        l2Usdc.address,
+        deployerL2Wallet.address
       )
     ).wait()
     console.log('L2 USDC custom gateway initialized')
@@ -788,15 +789,17 @@ describe('orbitTokenBridge', () => {
     console.log('Deposited USDC')
 
     /// pause deposits
-    const pauseDepositsTx = await l1USDCCustomGateway.pauseDeposits(
-      maxGas,
-      gasPriceBid,
-      maxSubmissionCost,
-      deployerL1Wallet.address,
-      { value: maxGas.mul(gasPriceBid).add(maxSubmissionCost) }
-    )
-    await waitOnL2Msg(pauseDepositsTx)
+    await (
+      await l1USDCCustomGateway.pauseDeposits(
+        maxGas,
+        gasPriceBid,
+        maxSubmissionCost,
+        deployerL1Wallet.address
+      )
+    ).wait()
     expect(await l1USDCCustomGateway.depositsPaused()).to.be.eq(true)
+
+    await (await l2USDCCustomGateway.pauseWithdrawals()).wait()
     expect(await l2USDCCustomGateway.withdrawalsPaused()).to.be.eq(true)
 
     /// transfer ownership to circle
@@ -837,7 +840,7 @@ async function depositNativeToL2() {
   /// deposit tokens
   const amountToDeposit = ethers.utils.parseEther('2.0')
   await (
-    await nativeToken
+    await nativeToken!
       .connect(userL1Wallet)
       .approve(_l2Network.ethBridge.inbox, amountToDeposit)
   ).wait()

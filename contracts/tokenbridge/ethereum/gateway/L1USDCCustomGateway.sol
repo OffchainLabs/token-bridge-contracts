@@ -75,41 +75,17 @@ contract L1USDCCustomGateway is L1ArbitrumExtendedGateway {
     }
 
     /**
-     * @notice Pauses deposits and triggers a retryable ticket to pause withdrawals on the child chain.
-     *         Pausing is permanent and can't be undone. Pausing is prerequisite for burning escrowed USDC tokens.
-     * @param _maxGas Max gas for retryable ticket
-     * @param _gasPriceBid Gas price for retryable ticket
-     * @param _maxSubmissionCost Max submission cost for retryable ticket
-     * @param _creditBackAddress Address to credit back on the child chain
-     * @return seqNum Sequence number of the retryable ticket
+     * @notice Pauses deposits. This can only be called by the owner.
+     * @dev    Pausing is permanent and can't be undone. Pausing is prerequisite for burning escrowed USDC tokens.
+     *         Incoming withdrawals are not affected. Pausing the withdrawals needs to be done separately on the child chain.
      */
-    function pauseDeposits(
-        uint256 _maxGas,
-        uint256 _gasPriceBid,
-        uint256 _maxSubmissionCost,
-        address _creditBackAddress
-    ) external payable onlyOwner returns (uint256) {
+    function pauseDeposits() external onlyOwner {
         if (depositsPaused) {
             revert L1USDCCustomGateway_DepositsAlreadyPaused();
         }
         depositsPaused = true;
 
         emit DepositsPaused();
-
-        // send retryable to pause withdrawals
-        bytes memory _data = abi.encodeWithSelector(L2USDCCustomGateway.pauseWithdrawals.selector);
-        return sendTxToL2CustomRefund({
-            _inbox: inbox,
-            _to: counterpartGateway,
-            _refundTo: _creditBackAddress,
-            _user: _creditBackAddress,
-            _l1CallValue: msg.value,
-            _l2CallValue: 0,
-            _maxSubmissionCost: _maxSubmissionCost,
-            _maxGas: _maxGas,
-            _gasPriceBid: _gasPriceBid,
-            _data: _data
-        });
     }
 
     /**

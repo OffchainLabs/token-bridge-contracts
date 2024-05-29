@@ -39,9 +39,7 @@ contract L1USDCCustomGatewayTest is L1ArbitrumExtendedGatewayTest {
 
         /// pause deposits
         vm.prank(owner);
-        usdcGateway.pauseDeposits{value: retryableCost}(
-            maxGas, gasPriceBid, maxSubmissionCost, creditBackAddress
-        );
+        usdcGateway.pauseDeposits();
 
         vm.expectEmit(true, true, true, true);
         emit GatewayUsdcBurned(lockedAmount);
@@ -267,9 +265,7 @@ contract L1USDCCustomGatewayTest is L1ArbitrumExtendedGatewayTest {
         vm.deal(router, retryableCost);
 
         vm.prank(owner);
-        usdcGateway.pauseDeposits{value: retryableCost}(
-            maxGas, gasPriceBid, maxSubmissionCost, creditBackAddress
-        );
+        usdcGateway.pauseDeposits();
 
         vm.expectRevert(
             abi.encodeWithSelector(L1USDCCustomGateway.L1USDCCustomGateway_DepositsPaused.selector)
@@ -285,9 +281,7 @@ contract L1USDCCustomGatewayTest is L1ArbitrumExtendedGatewayTest {
         vm.deal(router, retryableCost);
 
         vm.prank(owner);
-        usdcGateway.pauseDeposits{value: retryableCost}(
-            maxGas, gasPriceBid, maxSubmissionCost, creditBackAddress
-        );
+        usdcGateway.pauseDeposits();
 
         vm.expectRevert(
             abi.encodeWithSelector(L1USDCCustomGateway.L1USDCCustomGateway_DepositsPaused.selector)
@@ -306,26 +300,9 @@ contract L1USDCCustomGatewayTest is L1ArbitrumExtendedGatewayTest {
         vm.expectEmit(true, true, true, true);
         emit DepositsPaused();
 
-        vm.expectEmit(true, true, true, true);
-        emit TicketData(maxSubmissionCost);
-
-        vm.expectEmit(true, true, true, true);
-        emit RefundAddresses(creditBackAddress, creditBackAddress);
-
-        vm.expectEmit(true, true, true, true);
-        emit InboxRetryableTicket(
-            address(usdcGateway),
-            l2Gateway,
-            0,
-            maxGas,
-            abi.encodeWithSelector(L2USDCCustomGateway.pauseWithdrawals.selector)
-        );
-
         /// pause it
         vm.prank(owner);
-        usdcGateway.pauseDeposits{value: retryableCost}(
-            maxGas, gasPriceBid, maxSubmissionCost, creditBackAddress
-        );
+        usdcGateway.pauseDeposits();
 
         /// checks
         assertEq(usdcGateway.depositsPaused(), true, "Invalid depositPaused");
@@ -335,16 +312,12 @@ contract L1USDCCustomGatewayTest is L1ArbitrumExtendedGatewayTest {
         vm.expectRevert(
             abi.encodeWithSelector(L1USDCCustomGateway.L1USDCCustomGateway_NotOwner.selector)
         );
-        usdcGateway.pauseDeposits{value: retryableCost}(
-            maxGas, gasPriceBid, maxSubmissionCost, creditBackAddress
-        );
+        usdcGateway.pauseDeposits();
     }
 
     function test_pauseDeposits_revert_DepositsAlreadyPaused() public {
         vm.prank(owner);
-        usdcGateway.pauseDeposits{value: retryableCost}(
-            maxGas, gasPriceBid, maxSubmissionCost, creditBackAddress
-        );
+        usdcGateway.pauseDeposits();
 
         vm.prank(owner);
         vm.expectRevert(
@@ -352,9 +325,7 @@ contract L1USDCCustomGatewayTest is L1ArbitrumExtendedGatewayTest {
                 L1USDCCustomGateway.L1USDCCustomGateway_DepositsAlreadyPaused.selector
             )
         );
-        usdcGateway.pauseDeposits{value: retryableCost}(
-            maxGas, gasPriceBid, maxSubmissionCost, creditBackAddress
-        );
+        usdcGateway.pauseDeposits();
     }
 
     function test_setOwner() public {
