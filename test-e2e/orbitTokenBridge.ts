@@ -11,7 +11,6 @@ import { JsonRpcProvider } from '@ethersproject/providers'
 import { expect } from 'chai'
 import { setupTokenBridgeInLocalEnv } from '../scripts/local-deployment/localDeploymentLib'
 import {
-  AeWETH__factory,
   BridgedUsdcCustomToken__factory,
   ERC20,
   ERC20__factory,
@@ -71,11 +70,28 @@ describe('orbitTokenBridge', () => {
     parentProvider = new ethers.providers.JsonRpcProvider(config.parentUrl)
     childProvider = new ethers.providers.JsonRpcProvider(config.childUrl)
 
+    const testDevKey =
+      '0xb6b15c8cb491557369f3c7d2c287b053eb229daa9c22138887752191c9520659'
+    const testDevL1Wallet = new ethers.Wallet(testDevKey, parentProvider)
+    const testDevL2Wallet = new ethers.Wallet(testDevKey, childProvider)
+
     const deployerKey = ethers.utils.sha256(
       ethers.utils.toUtf8Bytes('user_token_bridge_deployer')
     )
     deployerL1Wallet = new ethers.Wallet(deployerKey, parentProvider)
     deployerL2Wallet = new ethers.Wallet(deployerKey, childProvider)
+    await (
+      await testDevL1Wallet.sendTransaction({
+        to: deployerL1Wallet.address,
+        value: ethers.utils.parseEther('20.0'),
+      })
+    ).wait()
+    await (
+      await testDevL2Wallet.sendTransaction({
+        to: deployerL2Wallet.address,
+        value: ethers.utils.parseEther('20.0'),
+      })
+    ).wait()
 
     const { l1Network, l2Network } = await setupTokenBridgeInLocalEnv()
 
@@ -89,6 +105,12 @@ describe('orbitTokenBridge', () => {
     await (
       await deployerL1Wallet.sendTransaction({
         to: userL1Wallet.address,
+        value: ethers.utils.parseEther('10.0'),
+      })
+    ).wait()
+    await (
+      await deployerL2Wallet.sendTransaction({
+        to: userL2Wallet.address,
         value: ethers.utils.parseEther('10.0'),
       })
     ).wait()
