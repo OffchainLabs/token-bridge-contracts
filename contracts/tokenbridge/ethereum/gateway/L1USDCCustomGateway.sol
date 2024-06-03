@@ -9,7 +9,6 @@ import {
     TokenGateway,
     IERC20
 } from "./L1ArbitrumExtendedGateway.sol";
-import {L2USDCCustomGateway} from "../../arbitrum/gateway/L2USDCCustomGateway.sol";
 
 /**
  * @title Custom gateway for USDC implementing Bridged USDC Standard.
@@ -26,6 +25,9 @@ import {L2USDCCustomGateway} from "../../arbitrum/gateway/L2USDCCustomGateway.so
  *         - it is ownable
  *         - owner can one-time permanently pause deposits
  *         - owner can trigger burning all the USDC tokens locked in the gateway
+ *
+ *         This contract is to be used on chains where ETH is the native token. If chain is using
+ *         custom fee token then use L1FeeTokenUSDCCustomGateway instead.
  */
 contract L1USDCCustomGateway is L1ArbitrumExtendedGateway {
     address public l1USDC;

@@ -3,10 +3,7 @@
 pragma solidity ^0.8.0;
 
 import "./L1ArbitrumExtendedGateway.t.sol";
-import {
-    L1USDCCustomGateway,
-    L2USDCCustomGateway
-} from "contracts/tokenbridge/ethereum/gateway/L1USDCCustomGateway.sol";
+import {L1USDCCustomGateway} from "contracts/tokenbridge/ethereum/gateway/L1USDCCustomGateway.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract L1USDCCustomGatewayTest is L1ArbitrumExtendedGatewayTest {
