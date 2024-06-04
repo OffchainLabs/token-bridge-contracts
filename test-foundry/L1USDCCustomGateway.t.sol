@@ -201,7 +201,7 @@ contract L1USDCCustomGatewayTest is L1ArbitrumExtendedGatewayTest {
         assertEq(seqNum0, abi.encode(0), "Invalid seqNum0");
     }
 
-    function test_outboundTransferCustomRefund() public {
+    function test_outboundTransferCustomRefund() public virtual  {
         // fund user
         uint256 depositAmount = 5_500_000_555;
         deal(L1_USDC, user, depositAmount);
