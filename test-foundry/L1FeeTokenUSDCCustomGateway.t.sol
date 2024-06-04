@@ -44,6 +44,7 @@ contract L1FeeTokenUSDCCustomGatewayTest is L1USDCCustomGatewayTest {
         bytes memory routerEncodedData = buildRouterEncodedData("");
 
         // snapshot state before
+        uint256 userNativeTokenBalanceBefore = nativeToken.balanceOf(user);
         uint256 userBalanceBefore = ERC20(L1_USDC).balanceOf(user);
         uint256 l1GatewayBalanceBefore = ERC20(L1_USDC).balanceOf(address(l1Gateway));
 
@@ -70,7 +71,7 @@ contract L1FeeTokenUSDCCustomGatewayTest is L1USDCCustomGatewayTest {
             maxGas,
             gasPriceBid,
             nativeTokenTotalFee,
-            l1Gateway.getOutboundCalldata(L1_USDC, user, user, depositAmount, "")
+            l1Gateway.getOutboundCalldata(L1_USDC, user, user, 300, "")
         );
 
         vm.expectEmit(true, true, true, true);
@@ -94,6 +95,13 @@ contract L1FeeTokenUSDCCustomGatewayTest is L1USDCCustomGatewayTest {
             "Wrong l1 gateway balance"
         );
 
+        uint256 userNativeTokenBalanceAfter = nativeToken.balanceOf(user);
+        assertEq(
+            userNativeTokenBalanceAfter - userNativeTokenBalanceBefore,
+            nativeTokenTotalFee,
+            "Wrong user native token balance"
+        );
+
         assertEq(seqNum, abi.encode(0), "Invalid seqNum");
     }
 
@@ -103,6 +111,7 @@ contract L1FeeTokenUSDCCustomGatewayTest is L1USDCCustomGatewayTest {
         bytes memory routerEncodedData = buildRouterEncodedData("");
 
         // snapshot state before
+        uint256 userNativeTokenBalanceBefore = nativeToken.balanceOf(user);
         uint256 userBalanceBefore = ERC20(L1_USDC).balanceOf(user);
         uint256 l1GatewayBalanceBefore = ERC20(L1_USDC).balanceOf(address(l1Gateway));
 
@@ -129,7 +138,7 @@ contract L1FeeTokenUSDCCustomGatewayTest is L1USDCCustomGatewayTest {
             maxGas,
             gasPriceBid,
             nativeTokenTotalFee,
-            l1Gateway.getOutboundCalldata(L1_USDC, user, user, depositAmount, "")
+            l1Gateway.getOutboundCalldata(L1_USDC, user, user, 100, "")
         );
 
         vm.expectEmit(true, true, true, true);
@@ -151,6 +160,158 @@ contract L1FeeTokenUSDCCustomGatewayTest is L1USDCCustomGatewayTest {
             l1GatewayBalanceAfter - l1GatewayBalanceBefore,
             depositAmount,
             "Wrong l1 gateway balance"
+        );
+
+        uint256 userNativeTokenBalanceAfter = nativeToken.balanceOf(user);
+        assertEq(
+            userNativeTokenBalanceAfter - userNativeTokenBalanceBefore,
+            nativeTokenTotalFee,
+            "Wrong user native token balance"
+        );
+
+        assertEq(seqNum, abi.encode(0), "Invalid seqNum");
+    }
+
+    function test_outboundTransferCustomRefund_InboxPrefunded() public {
+        uint256 depositAmount = 100;
+        deal(L1_USDC, user, depositAmount);
+        bytes memory routerEncodedData = buildRouterEncodedData("");
+
+        // pre-fund inbox
+        address inbox = address(l1Gateway.inbox());
+        vm.prank(user);
+        nativeToken.transfer(inbox, nativeTokenTotalFee * 2);
+
+        // snapshot state before
+        uint256 userNativeTokenBalanceBefore = nativeToken.balanceOf(user);
+        uint256 userBalanceBefore = ERC20(L1_USDC).balanceOf(user);
+        uint256 l1GatewayBalanceBefore = ERC20(L1_USDC).balanceOf(address(l1Gateway));
+
+        // approve token
+        vm.prank(user);
+        ERC20(L1_USDC).approve(address(l1Gateway), depositAmount);
+
+        // approve fees
+        vm.prank(user);
+        nativeToken.approve(address(l1Gateway), nativeTokenTotalFee);
+
+        // event checkers
+        vm.expectEmit(true, true, true, true);
+        emit TicketData(maxSubmissionCost);
+
+        vm.expectEmit(true, true, true, true);
+        emit RefundAddresses(creditBackAddress, user);
+
+        vm.expectEmit(true, true, true, true);
+        emit ERC20InboxRetryableTicket(
+            address(l1Gateway),
+            l2Gateway,
+            0,
+            maxGas,
+            gasPriceBid,
+            nativeTokenTotalFee,
+            l1Gateway.getOutboundCalldata(L1_USDC, user, user, 100, "")
+        );
+
+        vm.expectEmit(true, true, true, true);
+        emit DepositInitiated(L1_USDC, user, user, 0, depositAmount);
+
+        // trigger deposit
+        vm.prank(router);
+
+        bytes memory seqNum = l1Gateway.outboundTransferCustomRefund(
+            L1_USDC, creditBackAddress, user, depositAmount, maxGas, gasPriceBid, routerEncodedData
+        );
+
+        // check tokens are escrowed
+        uint256 userBalanceAfter = ERC20(L1_USDC).balanceOf(user);
+        assertEq(userBalanceBefore - userBalanceAfter, depositAmount, "Wrong user balance");
+
+        uint256 l1GatewayBalanceAfter = ERC20(L1_USDC).balanceOf(address(l1Gateway));
+        assertEq(
+            l1GatewayBalanceAfter - l1GatewayBalanceBefore,
+            depositAmount,
+            "Wrong l1 gateway balance"
+        );
+
+        uint256 userNativeTokenBalanceAfter = nativeToken.balanceOf(user);
+        assertEq(
+            userNativeTokenBalanceAfter,
+            userNativeTokenBalanceBefore,
+            "Wrong user native token balance"
+        );
+
+        assertEq(seqNum, abi.encode(0), "Invalid seqNum");
+    }
+
+    function test_outboundTransferCustomRefund_InboxPartiallyPrefunded() public {
+        uint256 depositAmount = 100;
+        deal(L1_USDC, user, depositAmount);
+        bytes memory routerEncodedData = buildRouterEncodedData("");
+
+        // pre-fund inbox
+        uint256 prefundAmount = nativeTokenTotalFee / 3;
+        address inbox = address(l1Gateway.inbox());
+        vm.prank(user);
+        nativeToken.transfer(inbox, prefundAmount);
+
+        // snapshot state before
+        uint256 userNativeTokenBalanceBefore = nativeToken.balanceOf(user);
+        uint256 userBalanceBefore = ERC20(L1_USDC).balanceOf(user);
+        uint256 l1GatewayBalanceBefore = ERC20(L1_USDC).balanceOf(address(l1Gateway));
+
+        // approve token
+        vm.prank(user);
+        ERC20(L1_USDC).approve(address(l1Gateway), depositAmount);
+
+        // approve fees
+        vm.prank(user);
+        nativeToken.approve(address(l1Gateway), nativeTokenTotalFee - prefundAmount);
+
+        // event checkers
+        vm.expectEmit(true, true, true, true);
+        emit TicketData(maxSubmissionCost);
+
+        vm.expectEmit(true, true, true, true);
+        emit RefundAddresses(creditBackAddress, user);
+
+        vm.expectEmit(true, true, true, true);
+        emit ERC20InboxRetryableTicket(
+            address(l1Gateway),
+            l2Gateway,
+            0,
+            maxGas,
+            gasPriceBid,
+            nativeTokenTotalFee,
+            l1Gateway.getOutboundCalldata(L1_USDC, user, user, 100, "")
+        );
+
+        vm.expectEmit(true, true, true, true);
+        emit DepositInitiated(L1_USDC, user, user, 0, depositAmount);
+
+        // trigger deposit
+        vm.prank(router);
+
+        bytes memory seqNum = l1Gateway.outboundTransferCustomRefund(
+            L1_USDC, creditBackAddress, user, depositAmount, maxGas, gasPriceBid, routerEncodedData
+        );
+
+        // check tokens are escrowed
+        uint256 userBalanceAfter = ERC20(L1_USDC).balanceOf(user);
+        assertEq(userBalanceBefore - userBalanceAfter, depositAmount, "Wrong user balance");
+
+        uint256 l1GatewayBalanceAfter = ERC20(L1_USDC).balanceOf(address(l1Gateway));
+        assertEq(
+            l1GatewayBalanceAfter - l1GatewayBalanceBefore,
+            depositAmount,
+            "Wrong l1 gateway balance"
+        );
+
+        uint256 userNativeTokenBalanceAfter = nativeToken.balanceOf(user);
+        assertEq(
+            userNativeTokenBalanceBefore - userNativeTokenBalanceAfter,
+            nativeTokenTotalFee - prefundAmount,
+            "Wrong user native token balance"
         );
 
         assertEq(seqNum, abi.encode(0), "Invalid seqNum");
