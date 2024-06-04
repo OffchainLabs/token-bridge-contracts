@@ -10,8 +10,6 @@ import {ERC20InboxMock} from "contracts/tokenbridge/test/InboxMock.sol";
 import {ERC20PresetMinterPauser} from
     "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetMinterPauser.sol";
 
-import "forge-std/console.sol";
-
 contract L1FeeTokenUSDCCustomGatewayTest is L1USDCCustomGatewayTest {
     ERC20 public nativeToken;
     uint256 public nativeTokenTotalFee;
@@ -97,7 +95,7 @@ contract L1FeeTokenUSDCCustomGatewayTest is L1USDCCustomGatewayTest {
 
         uint256 userNativeTokenBalanceAfter = nativeToken.balanceOf(user);
         assertEq(
-            userNativeTokenBalanceAfter - userNativeTokenBalanceBefore,
+            userNativeTokenBalanceBefore - userNativeTokenBalanceAfter,
             nativeTokenTotalFee,
             "Wrong user native token balance"
         );
@@ -164,7 +162,7 @@ contract L1FeeTokenUSDCCustomGatewayTest is L1USDCCustomGatewayTest {
 
         uint256 userNativeTokenBalanceAfter = nativeToken.balanceOf(user);
         assertEq(
-            userNativeTokenBalanceAfter - userNativeTokenBalanceBefore,
+            userNativeTokenBalanceBefore - userNativeTokenBalanceAfter,
             nativeTokenTotalFee,
             "Wrong user native token balance"
         );

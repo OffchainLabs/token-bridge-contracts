@@ -23,8 +23,6 @@ import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 import {TransparentUpgradeableProxy} from
     "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
-import "forge-std/console.sol";
-
 contract L2AtomicTokenBridgeFactoryTest is Test {
     L2AtomicTokenBridgeFactory public l2Factory;
     address public deployer = makeAddr("deployer");
