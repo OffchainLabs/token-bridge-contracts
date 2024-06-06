@@ -864,7 +864,7 @@ describe('orbitTokenBridge', () => {
     console.log('USDC burned')
   })
 
-  it.only('can upgrade from bridged USDC to native USDC when fee token is used', async function () {
+  it('can upgrade from bridged USDC to native USDC when fee token is used', async function () {
     /// test applicable only for fee token based chains
     if (!nativeToken) {
       return
@@ -924,10 +924,7 @@ describe('orbitTokenBridge', () => {
     console.log('L1 USDC address: ', l1Usdc.address)
 
     /// create l2 usdc behind proxy
-    const l2UsdcFactory = await new BridgedUsdcCustomToken__factory(
-      deployerL2Wallet
-    ).deploy()
-    const l2UsdcLogic = await l2UsdcFactory.deployed()
+    const l2UsdcLogic = await _deployBridgedUsdcToken(deployerL2Wallet)
     const tupL2UsdcFactory = await new TransparentUpgradeableProxy__factory(
       deployerL2Wallet
     ).deploy(l2UsdcLogic.address, proxyAdminL2.address, '0x')
