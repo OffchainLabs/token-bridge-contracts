@@ -22,9 +22,6 @@ contract L2USDCCustomGatewayTest is L2ArbitrumGatewayTest {
         l2USDCGateway = new L2USDCCustomGateway();
         l2Gateway = L2ArbitrumGateway(address(l2USDCGateway));
 
-        // l2USDC = address(new L2USDC(address(l2USDCGateway), l1USDC));
-        // l2USDCGateway.initialize(l1Counterpart, router, l1USDC, l2USDC, owner);
-
         address bridgedUsdcLogic = TestUtil.deployBridgedUsdcToken();
         l2USDC = TestUtil.deployProxy(bridgedUsdcLogic);
         FiatTokenArbitrumOrbitV2_2(l2USDC).initialize(
@@ -41,6 +38,8 @@ contract L2USDCCustomGatewayTest is L2ArbitrumGatewayTest {
         FiatTokenArbitrumOrbitV2_2(l2USDC).initializeV2_1(makeAddr("lostAndFound"));
         FiatTokenArbitrumOrbitV2_2(l2USDC).initializeV2_2(new address[](0), "USDC.e");
         FiatTokenArbitrumOrbitV2_2(l2USDC).initializeArbitrumOrbit(address(l2USDCGateway), l1USDC);
+
+        l2USDCGateway.initialize(l1Counterpart, router, l1USDC, l2USDC, owner);
     }
 
     /* solhint-disable func-name-mixedcase */
