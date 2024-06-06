@@ -4,7 +4,6 @@ pragma solidity ^0.8.4;
 import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 
-
 library TestUtil {
     function deployProxy(address logic) public returns (address) {
         ProxyAdmin pa = new ProxyAdmin();
@@ -22,7 +21,6 @@ library TestUtil {
                 create(0, add(sigCheckerLibBytecode, 0x20), mload(sigCheckerLibBytecode))
         }
         require(sigCheckerAddress != address(0), "Failed to deploy contract");
-
 
         /// deploy bridged usdc token
 
