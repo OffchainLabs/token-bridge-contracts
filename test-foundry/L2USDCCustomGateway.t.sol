@@ -9,6 +9,7 @@ import {L1USDCCustomGateway} from "contracts/tokenbridge/ethereum/gateway/L1USDC
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {AddressAliasHelper} from "contracts/tokenbridge/libraries/AddressAliasHelper.sol";
 import {L2GatewayToken} from "contracts/tokenbridge/libraries/L2GatewayToken.sol";
+import {TestUtil} from "./util/TestUtil.sol";
 
 contract L2USDCCustomGatewayTest is L2ArbitrumGatewayTest {
     L2USDCCustomGateway public l2USDCGateway;
@@ -21,8 +22,25 @@ contract L2USDCCustomGatewayTest is L2ArbitrumGatewayTest {
         l2USDCGateway = new L2USDCCustomGateway();
         l2Gateway = L2ArbitrumGateway(address(l2USDCGateway));
 
-        l2USDC = address(new L2USDC(address(l2USDCGateway), l1USDC));
-        l2USDCGateway.initialize(l1Counterpart, router, l1USDC, l2USDC, owner);
+        // l2USDC = address(new L2USDC(address(l2USDCGateway), l1USDC));
+        // l2USDCGateway.initialize(l1Counterpart, router, l1USDC, l2USDC, owner);
+
+        address bridgedUsdcLogic = TestUtil.deployBridgedUsdcToken();
+        l2USDC = TestUtil.deployProxy(bridgedUsdcLogic);
+        FiatTokenArbitrumOrbitV2_2(l2USDC).initialize(
+            "USDC token",
+            "USDC.e",
+            "USD",
+            uint8(6),
+            makeAddr("newMasterMinter"),
+            makeAddr("newPauser"),
+            makeAddr("newBlacklister"),
+            owner
+        );
+        FiatTokenArbitrumOrbitV2_2(l2USDC).initializeV2("USDC");
+        FiatTokenArbitrumOrbitV2_2(l2USDC).initializeV2_1(makeAddr("lostAndFound"));
+        FiatTokenArbitrumOrbitV2_2(l2USDC).initializeV2_2(new address[](0), "USDC.e");
+        FiatTokenArbitrumOrbitV2_2(l2USDC).initializeArbitrumOrbit(address(l2USDCGateway), l1USDC);
     }
 
     /* solhint-disable func-name-mixedcase */
@@ -262,8 +280,20 @@ contract L2USDCCustomGatewayTest is L2ArbitrumGatewayTest {
     event WithdrawalsPaused();
 }
 
-contract L2USDC is L2GatewayToken {
-    constructor(address l2USDCGateway, address l1USDC) {
-        L2GatewayToken._initialize("L2 USDC", "USDC", 18, l2USDCGateway, l1USDC);
-    }
+interface FiatTokenArbitrumOrbitV2_2 {
+    function initialize(
+        string memory tokenName,
+        string memory tokenSymbol,
+        string memory tokenCurrency,
+        uint8 tokenDecimals,
+        address newMasterMinter,
+        address newPauser,
+        address newBlacklister,
+        address newOwner
+    ) external;
+    function initializeV2(string calldata newName) external;
+    function initializeV2_1(address lostAndFound) external;
+    function initializeV2_2(address[] calldata accountsToBlacklist, string calldata newSymbol)
+        external;
+    function initializeArbitrumOrbit(address _l2Gateway, address _l1Token) external;
 }
