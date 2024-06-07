@@ -50,18 +50,14 @@ contract L1USDCGatewayTest is L1ArbitrumExtendedGatewayTest {
     }
 
     function test_burnLockedUSDC_revert_NotOwner() public {
-        vm.expectRevert(
-            abi.encodeWithSelector(L1USDCGateway.L1USDCGateway_NotOwner.selector)
-        );
+        vm.expectRevert(abi.encodeWithSelector(L1USDCGateway.L1USDCGateway_NotOwner.selector));
         usdcGateway.burnLockedUSDC();
     }
 
     function test_burnLockedUSDC_revert_NotPaused() public {
         vm.prank(owner);
         vm.expectRevert(
-            abi.encodeWithSelector(
-                L1USDCGateway.L1USDCGateway_DepositsNotPaused.selector
-            )
+            abi.encodeWithSelector(L1USDCGateway.L1USDCGateway_DepositsNotPaused.selector)
         );
         usdcGateway.burnLockedUSDC();
     }
@@ -90,25 +86,19 @@ contract L1USDCGatewayTest is L1ArbitrumExtendedGatewayTest {
 
     function test_initialize_revert_InvalidL1USDC() public {
         L1USDCGateway gateway = new L1USDCGateway();
-        vm.expectRevert(
-            abi.encodeWithSelector(L1USDCGateway.L1USDCGateway_InvalidL1USDC.selector)
-        );
+        vm.expectRevert(abi.encodeWithSelector(L1USDCGateway.L1USDCGateway_InvalidL1USDC.selector));
         gateway.initialize(l2Gateway, router, inbox, address(0), L2_USDC, owner);
     }
 
     function test_initialize_revert_InvalidL2USDC() public {
         L1USDCGateway gateway = new L1USDCGateway();
-        vm.expectRevert(
-            abi.encodeWithSelector(L1USDCGateway.L1USDCGateway_InvalidL2USDC.selector)
-        );
+        vm.expectRevert(abi.encodeWithSelector(L1USDCGateway.L1USDCGateway_InvalidL2USDC.selector));
         gateway.initialize(l2Gateway, router, inbox, L1_USDC, address(0), owner);
     }
 
     function test_initialize_revert_InvalidOwner() public {
         L1USDCGateway gateway = new L1USDCGateway();
-        vm.expectRevert(
-            abi.encodeWithSelector(L1USDCGateway.L1USDCGateway_InvalidOwner.selector)
-        );
+        vm.expectRevert(abi.encodeWithSelector(L1USDCGateway.L1USDCGateway_InvalidOwner.selector));
         gateway.initialize(l2Gateway, router, inbox, L1_USDC, L2_USDC, address(0));
     }
 
@@ -201,7 +191,7 @@ contract L1USDCGatewayTest is L1ArbitrumExtendedGatewayTest {
         assertEq(seqNum0, abi.encode(0), "Invalid seqNum0");
     }
 
-    function test_outboundTransferCustomRefund() public virtual  {
+    function test_outboundTransferCustomRefund() public virtual {
         // fund user
         uint256 depositAmount = 5_500_000_555;
         deal(L1_USDC, user, depositAmount);
@@ -264,9 +254,7 @@ contract L1USDCGatewayTest is L1ArbitrumExtendedGatewayTest {
         vm.prank(owner);
         usdcGateway.pauseDeposits();
 
-        vm.expectRevert(
-            abi.encodeWithSelector(L1USDCGateway.L1USDCGateway_DepositsPaused.selector)
-        );
+        vm.expectRevert(abi.encodeWithSelector(L1USDCGateway.L1USDCGateway_DepositsPaused.selector));
         vm.prank(router);
 
         l1Gateway.outboundTransferCustomRefund{value: retryableCost}(
@@ -280,9 +268,7 @@ contract L1USDCGatewayTest is L1ArbitrumExtendedGatewayTest {
         vm.prank(owner);
         usdcGateway.pauseDeposits();
 
-        vm.expectRevert(
-            abi.encodeWithSelector(L1USDCGateway.L1USDCGateway_DepositsPaused.selector)
-        );
+        vm.expectRevert(abi.encodeWithSelector(L1USDCGateway.L1USDCGateway_DepositsPaused.selector));
         vm.prank(router);
 
         l1Gateway.outboundTransferCustomRefund{value: retryableCost}(
@@ -306,9 +292,7 @@ contract L1USDCGatewayTest is L1ArbitrumExtendedGatewayTest {
     }
 
     function test_pauseDeposits_revert_NotOwner() public {
-        vm.expectRevert(
-            abi.encodeWithSelector(L1USDCGateway.L1USDCGateway_NotOwner.selector)
-        );
+        vm.expectRevert(abi.encodeWithSelector(L1USDCGateway.L1USDCGateway_NotOwner.selector));
         usdcGateway.pauseDeposits();
     }
 
@@ -318,9 +302,7 @@ contract L1USDCGatewayTest is L1ArbitrumExtendedGatewayTest {
 
         vm.prank(owner);
         vm.expectRevert(
-            abi.encodeWithSelector(
-                L1USDCGateway.L1USDCGateway_DepositsAlreadyPaused.selector
-            )
+            abi.encodeWithSelector(L1USDCGateway.L1USDCGateway_DepositsAlreadyPaused.selector)
         );
         usdcGateway.pauseDeposits();
     }
@@ -334,17 +316,13 @@ contract L1USDCGatewayTest is L1ArbitrumExtendedGatewayTest {
     }
 
     function test_setOwner_revert_InvalidOwner() public {
-        vm.expectRevert(
-            abi.encodeWithSelector(L1USDCGateway.L1USDCGateway_InvalidOwner.selector)
-        );
+        vm.expectRevert(abi.encodeWithSelector(L1USDCGateway.L1USDCGateway_InvalidOwner.selector));
         vm.prank(owner);
         usdcGateway.setOwner(address(0));
     }
 
     function test_setOwner_revert_NotOwner() public {
-        vm.expectRevert(
-            abi.encodeWithSelector(L1USDCGateway.L1USDCGateway_NotOwner.selector)
-        );
+        vm.expectRevert(abi.encodeWithSelector(L1USDCGateway.L1USDCGateway_NotOwner.selector));
         usdcGateway.setOwner(owner);
     }
 
