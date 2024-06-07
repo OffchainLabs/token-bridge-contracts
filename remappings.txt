@@ -4,4 +4,3 @@ forge-std/=lib/forge-std/src/
 @openzeppelin/contracts/=node_modules/@openzeppelin/contracts/
 @arbitrum=node_modules/@arbitrum
 @offchainlabs=node_modules/@offchainlabs
-@solady=node_modules/solady
