@@ -2,15 +2,15 @@
 
 pragma solidity ^0.8.0;
 
-import "./L1USDCCustomGateway.t.sol";
-import {L1FeeTokenUSDCCustomGateway} from
-    "contracts/tokenbridge/ethereum/gateway/L1FeeTokenUSDCCustomGateway.sol";
+import "./L1USDCGateway.t.sol";
+import {L1OrbitUSDCGateway} from
+    "contracts/tokenbridge/ethereum/gateway/L1OrbitUSDCGateway.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {ERC20InboxMock} from "contracts/tokenbridge/test/InboxMock.sol";
 import {ERC20PresetMinterPauser} from
     "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetMinterPauser.sol";
 
-contract L1FeeTokenUSDCCustomGatewayTest is L1USDCCustomGatewayTest {
+contract L1OrbitUSDCGatewayTest is L1USDCGatewayTest {
     ERC20 public nativeToken;
     uint256 public nativeTokenTotalFee;
 
@@ -21,10 +21,10 @@ contract L1FeeTokenUSDCCustomGatewayTest is L1USDCCustomGatewayTest {
         ERC20PresetMinterPauser(address(nativeToken)).mint(owner, 1_000_000 ether);
         ERC20InboxMock(inbox).setMockNativeToken(address(nativeToken));
 
-        usdcGateway = new L1FeeTokenUSDCCustomGateway();
+        usdcGateway = new L1OrbitUSDCGateway();
         l1Gateway = IL1ArbitrumGateway(address(usdcGateway));
 
-        L1FeeTokenUSDCCustomGateway(address(l1Gateway)).initialize(
+        L1OrbitUSDCGateway(address(l1Gateway)).initialize(
             l2Gateway, router, inbox, L1_USDC, L2_USDC, owner
         );
 

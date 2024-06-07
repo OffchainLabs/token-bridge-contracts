@@ -19,7 +19,7 @@ import {
  *         bridging solution and keep the possibility to upgrade to native USDC at
  *         some point later. This solution will NOT be used in existing Arbitrum chains.
  *
- *         Child chain custom gateway to be used along this parent chain custom gateway is L2USDCCustomGateway.
+ *         Child chain custom gateway to be used along this parent chain custom gateway is L2USDCGateway.
  *         This custom gateway differs from standard gateway in the following ways:
  *         - it supports a single parent chain - child chain USDC token pair
  *         - it is ownable
@@ -27,9 +27,9 @@ import {
  *         - owner can trigger burning all the USDC tokens locked in the gateway
  *
  *         This contract is to be used on chains where ETH is the native token. If chain is using
- *         custom fee token then use L1FeeTokenUSDCCustomGateway instead.
+ *         custom fee token then use L1OrbitUSDCGateway instead.
  */
-contract L1USDCCustomGateway is L1ArbitrumExtendedGateway {
+contract L1USDCGateway is L1ArbitrumExtendedGateway {
     address public l1USDC;
     address public l2USDC;
     address public owner;
@@ -38,17 +38,17 @@ contract L1USDCCustomGateway is L1ArbitrumExtendedGateway {
     event DepositsPaused();
     event GatewayUsdcBurned(uint256 amount);
 
-    error L1USDCCustomGateway_DepositsAlreadyPaused();
-    error L1USDCCustomGateway_DepositsPaused();
-    error L1USDCCustomGateway_DepositsNotPaused();
-    error L1USDCCustomGateway_InvalidL1USDC();
-    error L1USDCCustomGateway_InvalidL2USDC();
-    error L1USDCCustomGateway_NotOwner();
-    error L1USDCCustomGateway_InvalidOwner();
+    error L1USDCGateway_DepositsAlreadyPaused();
+    error L1USDCGateway_DepositsPaused();
+    error L1USDCGateway_DepositsNotPaused();
+    error L1USDCGateway_InvalidL1USDC();
+    error L1USDCGateway_InvalidL2USDC();
+    error L1USDCGateway_NotOwner();
+    error L1USDCGateway_InvalidOwner();
 
     modifier onlyOwner() {
         if (msg.sender != owner) {
-            revert L1USDCCustomGateway_NotOwner();
+            revert L1USDCGateway_NotOwner();
         }
         _;
     }
@@ -62,13 +62,13 @@ contract L1USDCCustomGateway is L1ArbitrumExtendedGateway {
         address _owner
     ) public {
         if (_l1USDC == address(0)) {
-            revert L1USDCCustomGateway_InvalidL1USDC();
+            revert L1USDCGateway_InvalidL1USDC();
         }
         if (_l2USDC == address(0)) {
-            revert L1USDCCustomGateway_InvalidL2USDC();
+            revert L1USDCGateway_InvalidL2USDC();
         }
         if (_owner == address(0)) {
-            revert L1USDCCustomGateway_InvalidOwner();
+            revert L1USDCGateway_InvalidOwner();
         }
         L1ArbitrumGateway._initialize(_l2Counterpart, _l1Router, _inbox);
         l1USDC = _l1USDC;
@@ -83,7 +83,7 @@ contract L1USDCCustomGateway is L1ArbitrumExtendedGateway {
      */
     function pauseDeposits() external onlyOwner {
         if (depositsPaused) {
-            revert L1USDCCustomGateway_DepositsAlreadyPaused();
+            revert L1USDCGateway_DepositsAlreadyPaused();
         }
         depositsPaused = true;
 
@@ -97,7 +97,7 @@ contract L1USDCCustomGateway is L1ArbitrumExtendedGateway {
      */
     function burnLockedUSDC() external onlyOwner {
         if (!depositsPaused) {
-            revert L1USDCCustomGateway_DepositsNotPaused();
+            revert L1USDCGateway_DepositsNotPaused();
         }
         uint256 gatewayBalance = IERC20(l1USDC).balanceOf(address(this));
         Burnable(l1USDC).burn(gatewayBalance);
@@ -110,7 +110,7 @@ contract L1USDCCustomGateway is L1ArbitrumExtendedGateway {
      */
     function setOwner(address newOwner) external onlyOwner {
         if (newOwner == address(0)) {
-            revert L1USDCCustomGateway_InvalidOwner();
+            revert L1USDCGateway_InvalidOwner();
         }
         owner = newOwner;
     }
@@ -128,7 +128,7 @@ contract L1USDCCustomGateway is L1ArbitrumExtendedGateway {
         bytes calldata _data
     ) public payable override returns (bytes memory res) {
         if (depositsPaused) {
-            revert L1USDCCustomGateway_DepositsPaused();
+            revert L1USDCGateway_DepositsPaused();
         }
         return super.outboundTransferCustomRefund(
             _l1Token, _refundTo, _to, _amount, _maxGas, _gasPriceBid, _data

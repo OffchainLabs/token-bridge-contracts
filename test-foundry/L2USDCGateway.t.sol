@@ -4,21 +4,21 @@ pragma solidity ^0.8.0;
 
 import "./L2ArbitrumGateway.t.sol";
 
-import {L2USDCCustomGateway} from "contracts/tokenbridge/arbitrum/gateway/L2USDCCustomGateway.sol";
-import {L1USDCCustomGateway} from "contracts/tokenbridge/ethereum/gateway/L1USDCCustomGateway.sol";
+import {L2USDCGateway} from "contracts/tokenbridge/arbitrum/gateway/L2USDCGateway.sol";
+import {L1USDCGateway} from "contracts/tokenbridge/ethereum/gateway/L1USDCGateway.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {AddressAliasHelper} from "contracts/tokenbridge/libraries/AddressAliasHelper.sol";
 import {L2GatewayToken} from "contracts/tokenbridge/libraries/L2GatewayToken.sol";
 
-contract L2USDCCustomGatewayTest is L2ArbitrumGatewayTest {
-    L2USDCCustomGateway public l2USDCGateway;
+contract L2USDCGatewayTest is L2ArbitrumGatewayTest {
+    L2USDCGateway public l2USDCGateway;
     address public l1USDC = makeAddr("l1USDC");
     address public l2USDC;
     address public user = makeAddr("usdc_user");
     address public owner = makeAddr("l2gw-owner");
 
     function setUp() public virtual {
-        l2USDCGateway = new L2USDCCustomGateway();
+        l2USDCGateway = new L2USDCGateway();
         l2Gateway = L2ArbitrumGateway(address(l2USDCGateway));
 
         l2USDC = address(new L2USDC(address(l2USDCGateway), l1USDC));
@@ -88,8 +88,8 @@ contract L2USDCCustomGatewayTest is L2ArbitrumGatewayTest {
     }
 
     function test_initialize() public {
-        L2USDCCustomGateway gateway = new L2USDCCustomGateway();
-        L2USDCCustomGateway(gateway).initialize(l1Counterpart, router, l1USDC, l2USDC, owner);
+        L2USDCGateway gateway = new L2USDCGateway();
+        L2USDCGateway(gateway).initialize(l1Counterpart, router, l1USDC, l2USDC, owner);
 
         assertEq(gateway.counterpartGateway(), l1Counterpart, "Invalid counterpartGateway");
         assertEq(gateway.router(), router, "Invalid router");
@@ -99,32 +99,32 @@ contract L2USDCCustomGatewayTest is L2ArbitrumGatewayTest {
     }
 
     function test_initialize_revert_InvalidL1USDC() public {
-        L2USDCCustomGateway gateway = new L2USDCCustomGateway();
+        L2USDCGateway gateway = new L2USDCGateway();
         vm.expectRevert(
-            abi.encodeWithSelector(L2USDCCustomGateway.L2USDCCustomGateway_InvalidL1USDC.selector)
+            abi.encodeWithSelector(L2USDCGateway.L2USDCGateway_InvalidL1USDC.selector)
         );
-        L2USDCCustomGateway(gateway).initialize(l1Counterpart, router, address(0), l2USDC, owner);
+        L2USDCGateway(gateway).initialize(l1Counterpart, router, address(0), l2USDC, owner);
     }
 
     function test_initialize_revert_InvalidL2USDC() public {
-        L2USDCCustomGateway gateway = new L2USDCCustomGateway();
+        L2USDCGateway gateway = new L2USDCGateway();
         vm.expectRevert(
-            abi.encodeWithSelector(L2USDCCustomGateway.L2USDCCustomGateway_InvalidL2USDC.selector)
+            abi.encodeWithSelector(L2USDCGateway.L2USDCGateway_InvalidL2USDC.selector)
         );
-        L2USDCCustomGateway(gateway).initialize(l1Counterpart, router, l1USDC, address(0), owner);
+        L2USDCGateway(gateway).initialize(l1Counterpart, router, l1USDC, address(0), owner);
     }
 
     function test_initialize_revert_AlreadyInit() public {
-        L2USDCCustomGateway gateway = new L2USDCCustomGateway();
-        L2USDCCustomGateway(gateway).initialize(l1Counterpart, router, l1USDC, l2USDC, owner);
+        L2USDCGateway gateway = new L2USDCGateway();
+        L2USDCGateway(gateway).initialize(l1Counterpart, router, l1USDC, l2USDC, owner);
         vm.expectRevert("ALREADY_INIT");
-        L2USDCCustomGateway(gateway).initialize(l1Counterpart, router, l1USDC, l2USDC, owner);
+        L2USDCGateway(gateway).initialize(l1Counterpart, router, l1USDC, l2USDC, owner);
     }
 
     function test_initialize_revert_InvalidOwner() public {
-        L2USDCCustomGateway gateway = new L2USDCCustomGateway();
+        L2USDCGateway gateway = new L2USDCGateway();
         vm.expectRevert(
-            abi.encodeWithSelector(L2USDCCustomGateway.L2USDCCustomGateway_InvalidOwner.selector)
+            abi.encodeWithSelector(L2USDCGateway.L2USDCGateway_InvalidOwner.selector)
         );
         gateway.initialize(l1Counterpart, router, l1USDC, l2USDC, address(0));
     }
@@ -193,7 +193,7 @@ contract L2USDCCustomGatewayTest is L2ArbitrumGatewayTest {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                L2USDCCustomGateway.L2USDCCustomGateway_WithdrawalsPaused.selector
+                L2USDCGateway.L2USDCGateway_WithdrawalsPaused.selector
             )
         );
         l2USDCGateway.outboundTransfer(l1USDC, receiver, 200, 0, 0, new bytes(0));
@@ -220,7 +220,7 @@ contract L2USDCCustomGatewayTest is L2ArbitrumGatewayTest {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                L2USDCCustomGateway.L2USDCCustomGateway_WithdrawalsAlreadyPaused.selector
+                L2USDCGateway.L2USDCGateway_WithdrawalsAlreadyPaused.selector
             )
         );
         l2USDCGateway.pauseWithdrawals();
@@ -228,7 +228,7 @@ contract L2USDCCustomGatewayTest is L2ArbitrumGatewayTest {
 
     function test_pauseWithdrawals_revert_NotOwner() public {
         vm.expectRevert(
-            abi.encodeWithSelector(L2USDCCustomGateway.L2USDCCustomGateway_NotOwner.selector)
+            abi.encodeWithSelector(L2USDCGateway.L2USDCGateway_NotOwner.selector)
         );
         l2USDCGateway.pauseWithdrawals();
     }
@@ -243,7 +243,7 @@ contract L2USDCCustomGatewayTest is L2ArbitrumGatewayTest {
 
     function test_setOwner_revert_InvalidOwner() public {
         vm.expectRevert(
-            abi.encodeWithSelector(L2USDCCustomGateway.L2USDCCustomGateway_InvalidOwner.selector)
+            abi.encodeWithSelector(L2USDCGateway.L2USDCGateway_InvalidOwner.selector)
         );
         vm.prank(owner);
         l2USDCGateway.setOwner(address(0));
@@ -251,7 +251,7 @@ contract L2USDCCustomGatewayTest is L2ArbitrumGatewayTest {
 
     function test_setOwner_revert_NotOwner() public {
         vm.expectRevert(
-            abi.encodeWithSelector(L2USDCCustomGateway.L2USDCCustomGateway_NotOwner.selector)
+            abi.encodeWithSelector(L2USDCGateway.L2USDCGateway_NotOwner.selector)
         );
         l2USDCGateway.setOwner(owner);
     }
