@@ -8,7 +8,7 @@ import {L2USDCCustomGateway} from "contracts/tokenbridge/arbitrum/gateway/L2USDC
 import {L1USDCCustomGateway} from "contracts/tokenbridge/ethereum/gateway/L1USDCCustomGateway.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {AddressAliasHelper} from "contracts/tokenbridge/libraries/AddressAliasHelper.sol";
-import {L2GatewayToken} from "contracts/tokenbridge/libraries/L2GatewayToken.sol";
+import {L2GatewayToken, IArbToken} from "contracts/tokenbridge/libraries/L2GatewayToken.sol";
 import {IFiatTokenArbitrumOrbitV2_2} from
     "contracts/tokenbridge/test/IFiatTokenArbitrumOrbitV2_2.sol";
 import {TestUtil} from "./util/TestUtil.sol";
@@ -19,6 +19,7 @@ contract L2USDCCustomGatewayTest is L2ArbitrumGatewayTest {
     address public l2USDC;
     address public user = makeAddr("usdc_user");
     address public owner = makeAddr("l2gw-owner");
+    address masterMinter = makeAddr("newMasterMinter");
 
     function setUp() public virtual {
         l2USDCGateway = new L2USDCCustomGateway();
@@ -31,7 +32,7 @@ contract L2USDCCustomGatewayTest is L2ArbitrumGatewayTest {
             "USDC.e",
             "USD",
             uint8(6),
-            makeAddr("newMasterMinter"),
+            masterMinter,
             makeAddr("newPauser"),
             makeAddr("newBlacklister"),
             owner
@@ -40,6 +41,11 @@ contract L2USDCCustomGatewayTest is L2ArbitrumGatewayTest {
         IFiatTokenArbitrumOrbitV2_2(l2USDC).initializeV2_1(makeAddr("lostAndFound"));
         IFiatTokenArbitrumOrbitV2_2(l2USDC).initializeV2_2(new address[](0), "USDC.e");
         IFiatTokenArbitrumOrbitV2_2(l2USDC).initializeArbitrumOrbit(address(l2USDCGateway), l1USDC);
+
+        vm.prank(masterMinter);
+        IFiatTokenArbitrumOrbitV2_2(l2USDC).configureMinter(
+            address(l2USDCGateway), type(uint256).max
+        );
 
         l2USDCGateway.initialize(l1Counterpart, router, l1USDC, l2USDC, owner);
     }
@@ -156,6 +162,10 @@ contract L2USDCCustomGatewayTest is L2ArbitrumGatewayTest {
         uint256 withdrawalAmount = 200_500;
         bytes memory data = new bytes(0);
 
+        // mint some tokens so withdrawal can be successful
+        vm.prank(address(l2USDCGateway));
+        IArbToken(l2USDC).bridgeMint(sender, withdrawalAmount * 2);
+
         // events
         uint256 expectedId = 0;
         bytes memory expectedData =
@@ -179,6 +189,10 @@ contract L2USDCCustomGatewayTest is L2ArbitrumGatewayTest {
         // withdrawal params
         uint256 withdrawalAmount = 200_500;
         bytes memory data = new bytes(0);
+
+        // mint some tokens so withdrawal can be successful
+        vm.prank(address(l2USDCGateway));
+        IArbToken(l2USDC).bridgeMint(sender, withdrawalAmount);
 
         // events
         uint256 expectedId = 0;

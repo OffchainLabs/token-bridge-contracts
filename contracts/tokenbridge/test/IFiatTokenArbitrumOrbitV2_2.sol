@@ -17,4 +17,5 @@ interface IFiatTokenArbitrumOrbitV2_2 {
     function initializeV2_2(address[] calldata accountsToBlacklist, string calldata newSymbol)
         external;
     function initializeArbitrumOrbit(address _l2Gateway, address _l1Token) external;
+    function configureMinter(address minter, uint256 minterAllowedAmount) external;
 }
