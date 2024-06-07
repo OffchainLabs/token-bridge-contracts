@@ -100,17 +100,13 @@ contract L2USDCGatewayTest is L2ArbitrumGatewayTest {
 
     function test_initialize_revert_InvalidL1USDC() public {
         L2USDCGateway gateway = new L2USDCGateway();
-        vm.expectRevert(
-            abi.encodeWithSelector(L2USDCGateway.L2USDCGateway_InvalidL1USDC.selector)
-        );
+        vm.expectRevert(abi.encodeWithSelector(L2USDCGateway.L2USDCGateway_InvalidL1USDC.selector));
         L2USDCGateway(gateway).initialize(l1Counterpart, router, address(0), l2USDC, owner);
     }
 
     function test_initialize_revert_InvalidL2USDC() public {
         L2USDCGateway gateway = new L2USDCGateway();
-        vm.expectRevert(
-            abi.encodeWithSelector(L2USDCGateway.L2USDCGateway_InvalidL2USDC.selector)
-        );
+        vm.expectRevert(abi.encodeWithSelector(L2USDCGateway.L2USDCGateway_InvalidL2USDC.selector));
         L2USDCGateway(gateway).initialize(l1Counterpart, router, l1USDC, address(0), owner);
     }
 
@@ -123,9 +119,7 @@ contract L2USDCGatewayTest is L2ArbitrumGatewayTest {
 
     function test_initialize_revert_InvalidOwner() public {
         L2USDCGateway gateway = new L2USDCGateway();
-        vm.expectRevert(
-            abi.encodeWithSelector(L2USDCGateway.L2USDCGateway_InvalidOwner.selector)
-        );
+        vm.expectRevert(abi.encodeWithSelector(L2USDCGateway.L2USDCGateway_InvalidOwner.selector));
         gateway.initialize(l1Counterpart, router, l1USDC, l2USDC, address(0));
     }
 
@@ -192,9 +186,7 @@ contract L2USDCGatewayTest is L2ArbitrumGatewayTest {
         l2USDCGateway.pauseWithdrawals();
 
         vm.expectRevert(
-            abi.encodeWithSelector(
-                L2USDCGateway.L2USDCGateway_WithdrawalsPaused.selector
-            )
+            abi.encodeWithSelector(L2USDCGateway.L2USDCGateway_WithdrawalsPaused.selector)
         );
         l2USDCGateway.outboundTransfer(l1USDC, receiver, 200, 0, 0, new bytes(0));
     }
@@ -219,17 +211,13 @@ contract L2USDCGatewayTest is L2ArbitrumGatewayTest {
         l2USDCGateway.pauseWithdrawals();
 
         vm.expectRevert(
-            abi.encodeWithSelector(
-                L2USDCGateway.L2USDCGateway_WithdrawalsAlreadyPaused.selector
-            )
+            abi.encodeWithSelector(L2USDCGateway.L2USDCGateway_WithdrawalsAlreadyPaused.selector)
         );
         l2USDCGateway.pauseWithdrawals();
     }
 
     function test_pauseWithdrawals_revert_NotOwner() public {
-        vm.expectRevert(
-            abi.encodeWithSelector(L2USDCGateway.L2USDCGateway_NotOwner.selector)
-        );
+        vm.expectRevert(abi.encodeWithSelector(L2USDCGateway.L2USDCGateway_NotOwner.selector));
         l2USDCGateway.pauseWithdrawals();
     }
 
@@ -242,17 +230,13 @@ contract L2USDCGatewayTest is L2ArbitrumGatewayTest {
     }
 
     function test_setOwner_revert_InvalidOwner() public {
-        vm.expectRevert(
-            abi.encodeWithSelector(L2USDCGateway.L2USDCGateway_InvalidOwner.selector)
-        );
+        vm.expectRevert(abi.encodeWithSelector(L2USDCGateway.L2USDCGateway_InvalidOwner.selector));
         vm.prank(owner);
         l2USDCGateway.setOwner(address(0));
     }
 
     function test_setOwner_revert_NotOwner() public {
-        vm.expectRevert(
-            abi.encodeWithSelector(L2USDCGateway.L2USDCGateway_NotOwner.selector)
-        );
+        vm.expectRevert(abi.encodeWithSelector(L2USDCGateway.L2USDCGateway_NotOwner.selector));
         l2USDCGateway.setOwner(owner);
     }
 
