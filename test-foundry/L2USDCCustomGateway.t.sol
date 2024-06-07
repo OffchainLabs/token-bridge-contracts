@@ -9,6 +9,8 @@ import {L1USDCCustomGateway} from "contracts/tokenbridge/ethereum/gateway/L1USDC
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {AddressAliasHelper} from "contracts/tokenbridge/libraries/AddressAliasHelper.sol";
 import {L2GatewayToken} from "contracts/tokenbridge/libraries/L2GatewayToken.sol";
+import {IFiatTokenArbitrumOrbitV2_2} from
+    "contracts/tokenbridge/test/IFiatTokenArbitrumOrbitV2_2.sol";
 import {TestUtil} from "./util/TestUtil.sol";
 
 contract L2USDCCustomGatewayTest is L2ArbitrumGatewayTest {
@@ -24,7 +26,7 @@ contract L2USDCCustomGatewayTest is L2ArbitrumGatewayTest {
 
         address bridgedUsdcLogic = TestUtil.deployBridgedUsdcToken();
         l2USDC = TestUtil.deployProxy(bridgedUsdcLogic);
-        FiatTokenArbitrumOrbitV2_2(l2USDC).initialize(
+        IFiatTokenArbitrumOrbitV2_2(l2USDC).initialize(
             "USDC token",
             "USDC.e",
             "USD",
@@ -34,10 +36,10 @@ contract L2USDCCustomGatewayTest is L2ArbitrumGatewayTest {
             makeAddr("newBlacklister"),
             owner
         );
-        FiatTokenArbitrumOrbitV2_2(l2USDC).initializeV2("USDC");
-        FiatTokenArbitrumOrbitV2_2(l2USDC).initializeV2_1(makeAddr("lostAndFound"));
-        FiatTokenArbitrumOrbitV2_2(l2USDC).initializeV2_2(new address[](0), "USDC.e");
-        FiatTokenArbitrumOrbitV2_2(l2USDC).initializeArbitrumOrbit(address(l2USDCGateway), l1USDC);
+        IFiatTokenArbitrumOrbitV2_2(l2USDC).initializeV2("USDC");
+        IFiatTokenArbitrumOrbitV2_2(l2USDC).initializeV2_1(makeAddr("lostAndFound"));
+        IFiatTokenArbitrumOrbitV2_2(l2USDC).initializeV2_2(new address[](0), "USDC.e");
+        IFiatTokenArbitrumOrbitV2_2(l2USDC).initializeArbitrumOrbit(address(l2USDCGateway), l1USDC);
 
         l2USDCGateway.initialize(l1Counterpart, router, l1USDC, l2USDC, owner);
     }
