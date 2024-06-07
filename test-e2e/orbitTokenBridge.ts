@@ -17,15 +17,15 @@ import {
   IERC20__factory,
   IInbox__factory,
   IOwnable__factory,
-  L1FeeTokenUSDCCustomGateway__factory,
+  L1OrbitUSDCGateway__factory,
   L1GatewayRouter__factory,
   L1OrbitCustomGateway__factory,
   L1OrbitERC20Gateway__factory,
   L1OrbitGatewayRouter__factory,
-  L1USDCCustomGateway__factory,
+  L1USDCGateway__factory,
   L2CustomGateway__factory,
   L2GatewayRouter__factory,
-  L2USDCCustomGateway__factory,
+  L2USDCGateway__factory,
   MockL1Usdc__factory,
   ProxyAdmin__factory,
   TestArbCustomToken__factory,
@@ -657,7 +657,7 @@ describe('orbitTokenBridge', () => {
       deployerL1Wallet
     ).deploy()
     const proxyAdmin = await proxyAdminFac.deployed()
-    const l1USDCCustomGatewayFactory = await new L1USDCCustomGateway__factory(
+    const l1USDCCustomGatewayFactory = await new L1USDCGateway__factory(
       deployerL1Wallet
     ).deploy()
     const l1USDCCustomGatewayLogic = await l1USDCCustomGatewayFactory.deployed()
@@ -665,18 +665,18 @@ describe('orbitTokenBridge', () => {
       deployerL1Wallet
     ).deploy(l1USDCCustomGatewayLogic.address, proxyAdmin.address, '0x')
     const tup = await tupFactory.deployed()
-    const l1USDCCustomGateway = L1USDCCustomGateway__factory.connect(
+    const l1USDCCustomGateway = L1USDCGateway__factory.connect(
       tup.address,
       deployerL1Wallet
     )
-    console.log('L1USDCCustomGateway address: ', l1USDCCustomGateway.address)
+    console.log('L1USDCGateway address: ', l1USDCCustomGateway.address)
 
     /// create new L2 usdc gateway behind proxy
     const proxyAdminL2Fac = await new ProxyAdmin__factory(
       deployerL2Wallet
     ).deploy()
     const proxyAdminL2 = await proxyAdminL2Fac.deployed()
-    const l2USDCCustomGatewayFactory = await new L2USDCCustomGateway__factory(
+    const l2USDCCustomGatewayFactory = await new L2USDCGateway__factory(
       deployerL2Wallet
     ).deploy()
     const l2USDCCustomGatewayLogic = await l2USDCCustomGatewayFactory.deployed()
@@ -684,11 +684,11 @@ describe('orbitTokenBridge', () => {
       deployerL2Wallet
     ).deploy(l2USDCCustomGatewayLogic.address, proxyAdminL2.address, '0x')
     const tupL2 = await tupL2Factory.deployed()
-    const l2USDCCustomGateway = L2USDCCustomGateway__factory.connect(
+    const l2USDCCustomGateway = L2USDCGateway__factory.connect(
       tupL2.address,
       deployerL2Wallet
     )
-    console.log('L2USDCCustomGateway address: ', l2USDCCustomGateway.address)
+    console.log('L2USDCGateway address: ', l2USDCCustomGateway.address)
 
     /// create l1 usdc behind proxy
     const l1UsdcFactory = await new MockL1Usdc__factory(
@@ -904,24 +904,24 @@ describe('orbitTokenBridge', () => {
     ).deploy()
     const proxyAdmin = await proxyAdminFac.deployed()
     const l1USDCCustomGatewayFactory =
-      await new L1FeeTokenUSDCCustomGateway__factory(deployerL1Wallet).deploy()
+      await new L1OrbitUSDCGateway__factory(deployerL1Wallet).deploy()
     const l1USDCCustomGatewayLogic = await l1USDCCustomGatewayFactory.deployed()
     const tupFactory = await new TransparentUpgradeableProxy__factory(
       deployerL1Wallet
     ).deploy(l1USDCCustomGatewayLogic.address, proxyAdmin.address, '0x')
     const tup = await tupFactory.deployed()
-    const l1USDCCustomGateway = L1USDCCustomGateway__factory.connect(
+    const l1USDCCustomGateway = L1USDCGateway__factory.connect(
       tup.address,
       deployerL1Wallet
     )
-    console.log('L1USDCCustomGateway address: ', l1USDCCustomGateway.address)
+    console.log('L1USDCGateway address: ', l1USDCCustomGateway.address)
 
     /// create new L2 usdc gateway behind proxy
     const proxyAdminL2Fac = await new ProxyAdmin__factory(
       deployerL2Wallet
     ).deploy()
     const proxyAdminL2 = await proxyAdminL2Fac.deployed()
-    const l2USDCCustomGatewayFactory = await new L2USDCCustomGateway__factory(
+    const l2USDCCustomGatewayFactory = await new L2USDCGateway__factory(
       deployerL2Wallet
     ).deploy()
     const l2USDCCustomGatewayLogic = await l2USDCCustomGatewayFactory.deployed()
@@ -929,11 +929,11 @@ describe('orbitTokenBridge', () => {
       deployerL2Wallet
     ).deploy(l2USDCCustomGatewayLogic.address, proxyAdminL2.address, '0x')
     const tupL2 = await tupL2Factory.deployed()
-    const l2USDCCustomGateway = L2USDCCustomGateway__factory.connect(
+    const l2USDCCustomGateway = L2USDCGateway__factory.connect(
       tupL2.address,
       deployerL2Wallet
     )
-    console.log('L2USDCCustomGateway address: ', l2USDCCustomGateway.address)
+    console.log('L2USDCGateway address: ', l2USDCCustomGateway.address)
 
     /// create l1 usdc behind proxy
     const l1UsdcFactory = await new MockL1Usdc__factory(

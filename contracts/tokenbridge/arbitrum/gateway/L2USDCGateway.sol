@@ -12,13 +12,13 @@ import {L2ArbitrumGateway} from "./L2ArbitrumGateway.sol";
  *         bridging solution and keep the possibility to upgrade to native USDC at
  *         some point later. This solution will NOT be used in existing Arbitrum chains.
  *
- *         Parent chain custom gateway to be used along this parent chain custom gateway is L1USDCCustomGateway.
+ *         Parent chain custom gateway to be used along this parent chain custom gateway is L1USDCGateway.
  *         This custom gateway differs from standard gateway in the following ways:
  *         - it supports a single parent chain - child chain USDC token pair
  *         - it is ownable
  *         - withdrawals can be permanently paused by the owner
  */
-contract L2USDCCustomGateway is L2ArbitrumGateway {
+contract L2USDCGateway is L2ArbitrumGateway {
     address public l1USDC;
     address public l2USDC;
     address public owner;
@@ -26,16 +26,16 @@ contract L2USDCCustomGateway is L2ArbitrumGateway {
 
     event WithdrawalsPaused();
 
-    error L2USDCCustomGateway_WithdrawalsAlreadyPaused();
-    error L2USDCCustomGateway_WithdrawalsPaused();
-    error L2USDCCustomGateway_InvalidL1USDC();
-    error L2USDCCustomGateway_InvalidL2USDC();
-    error L2USDCCustomGateway_NotOwner();
-    error L2USDCCustomGateway_InvalidOwner();
+    error L2USDCGateway_WithdrawalsAlreadyPaused();
+    error L2USDCGateway_WithdrawalsPaused();
+    error L2USDCGateway_InvalidL1USDC();
+    error L2USDCGateway_InvalidL2USDC();
+    error L2USDCGateway_NotOwner();
+    error L2USDCGateway_InvalidOwner();
 
     modifier onlyOwner() {
         if (msg.sender != owner) {
-            revert L2USDCCustomGateway_NotOwner();
+            revert L2USDCGateway_NotOwner();
         }
         _;
     }
@@ -48,13 +48,13 @@ contract L2USDCCustomGateway is L2ArbitrumGateway {
         address _owner
     ) public {
         if (_l1USDC == address(0)) {
-            revert L2USDCCustomGateway_InvalidL1USDC();
+            revert L2USDCGateway_InvalidL1USDC();
         }
         if (_l2USDC == address(0)) {
-            revert L2USDCCustomGateway_InvalidL2USDC();
+            revert L2USDCGateway_InvalidL2USDC();
         }
         if (_owner == address(0)) {
-            revert L2USDCCustomGateway_InvalidOwner();
+            revert L2USDCGateway_InvalidOwner();
         }
         L2ArbitrumGateway._initialize(_l1Counterpart, _router);
         l1USDC = _l1USDC;
@@ -68,7 +68,7 @@ contract L2USDCCustomGateway is L2ArbitrumGateway {
      */
     function pauseWithdrawals() external onlyOwner {
         if (withdrawalsPaused) {
-            revert L2USDCCustomGateway_WithdrawalsAlreadyPaused();
+            revert L2USDCGateway_WithdrawalsAlreadyPaused();
         }
         withdrawalsPaused = true;
 
@@ -80,7 +80,7 @@ contract L2USDCCustomGateway is L2ArbitrumGateway {
      */
     function setOwner(address newOwner) external onlyOwner {
         if (newOwner == address(0)) {
-            revert L2USDCCustomGateway_InvalidOwner();
+            revert L2USDCGateway_InvalidOwner();
         }
         owner = newOwner;
     }
@@ -97,7 +97,7 @@ contract L2USDCCustomGateway is L2ArbitrumGateway {
         bytes calldata _data
     ) public payable override returns (bytes memory res) {
         if (withdrawalsPaused) {
-            revert L2USDCCustomGateway_WithdrawalsPaused();
+            revert L2USDCGateway_WithdrawalsPaused();
         }
         return super.outboundTransfer(_l1Token, _to, _amount, 0, 0, _data);
     }

@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.0;
 
-import {L1USDCCustomGateway} from "./L1USDCCustomGateway.sol";
+import {L1USDCGateway} from "./L1USDCGateway.sol";
 import {IERC20Inbox} from "../L1ArbitrumMessenger.sol";
 import {IERC20Bridge} from "../../libraries/IERC20Bridge.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
@@ -17,7 +17,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
  *         bridging solution and keep the possibility to upgrade to native USDC at
  *         some point later. This solution will NOT be used in existing Arbitrum chains.
  *
- *         Child chain custom gateway to be used along this parent chain custom gateway is L2USDCCustomGateway.
+ *         Child chain custom gateway to be used along this parent chain custom gateway is L2USDCGateway.
  *         This custom gateway differs from standard gateway in the following ways:
  *         - it supports a single parent chain - child chain USDC token pair
  *         - it is ownable
@@ -25,9 +25,9 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
  *         - owner can trigger burning all the USDC tokens locked in the gateway
  *
  *         This contract is to be used on chains where custom fee token is used. If chain is using
- *         ETH as native token then use L1USDCCustomGateway instead.
+ *         ETH as native token then use L1USDCGateway instead.
  */
-contract L1FeeTokenUSDCCustomGateway is L1USDCCustomGateway {
+contract L1OrbitUSDCGateway is L1USDCGateway {
     using SafeERC20 for IERC20;
 
     function _parseUserEncodedData(bytes memory data)
