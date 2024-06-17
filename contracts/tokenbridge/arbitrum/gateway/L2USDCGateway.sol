@@ -2,6 +2,7 @@
 pragma solidity ^0.8.4;
 
 import {L2ArbitrumGateway} from "./L2ArbitrumGateway.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
  * @title  Child chain custom gateway for USDC implementing Bridged USDC Standard.
@@ -19,6 +20,9 @@ import {L2ArbitrumGateway} from "./L2ArbitrumGateway.sol";
  *         - withdrawals can be permanently paused by the owner
  */
 contract L2USDCGateway is L2ArbitrumGateway {
+    using SafeERC20 for IERC20;
+    using Address for address;
+
     address public l1USDC;
     address public l2USDC;
     address public owner;
@@ -113,6 +117,25 @@ contract L2USDCGateway is L2ArbitrumGateway {
         return l2USDC;
     }
 
+    function inboundEscrowTransfer(address _l2Address, address _dest, uint256 _amount)
+        internal
+        override
+    {
+        IFiatToken(_l2Address).mint(_dest, _amount);
+    }
+
+    function outboundEscrowTransfer(address _l2Token, address _from, uint256 _amount)
+        internal
+        override
+        returns (uint256)
+    {
+        // fetch the USDC tokens from the user and then burn them
+        IERC20(_l2Token).safeTransferFrom(_from, address(this), _amount);
+        IFiatToken(_l2Token).burn(_amount);
+
+        return _amount;
+    }
+
     /**
      * @notice Withdraw back the USDC if child chain side is not set up properly
      */
@@ -128,4 +151,15 @@ contract L2USDCGateway is L2ArbitrumGateway {
         triggerWithdrawal(l1ERC20, address(this), _from, _amount, "");
         return true;
     }
+
+    function _tokenAddressCheck(address _l1Token, address _l2Token) internal view override {
+        require(_l2Token.isContract(), "TOKEN_NOT_DEPLOYED");
+        require(_l1Token == l1USDC, "NOT_EXPECTED_L1_TOKEN");
+        require(_l2Token == l2USDC, "NOT_EXPECTED_L2_TOKEN");
+    }
+}
+
+interface IFiatToken {
+    function burn(uint256 _amount) external;
+    function mint(address _to, uint256 _amount) external;
 }

@@ -162,8 +162,7 @@ abstract contract L2ArbitrumGateway is L2ArbitrumMessenger, TokenGateway {
         uint256 id;
         {
             address l2Token = calculateL2TokenAddress(_l1Token);
-            require(l2Token.isContract(), "TOKEN_NOT_DEPLOYED");
-            require(IArbToken(l2Token).l1Address() == _l1Token, "NOT_EXPECTED_L1_TOKEN");
+            _tokenAddressCheck(_l1Token, l2Token);
 
             _amount = outboundEscrowTransfer(l2Token, _from, _amount);
             id = triggerWithdrawal(_l1Token, _from, _to, _amount, _extraData);
@@ -296,4 +295,9 @@ abstract contract L2ArbitrumGateway is L2ArbitrumMessenger, TokenGateway {
         uint256 _amount,
         bytes memory gatewayData
     ) internal virtual returns (bool shouldHalt);
+
+    function _tokenAddressCheck(address _l1Token, address _l2Token) internal view virtual {
+        require(_l2Token.isContract(), "TOKEN_NOT_DEPLOYED");
+        require(IArbToken(_l2Token).l1Address() == _l1Token, "NOT_EXPECTED_L1_TOKEN");
+    }
 }
