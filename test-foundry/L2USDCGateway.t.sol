@@ -253,37 +253,6 @@ contract L2USDCGatewayTest is L2ArbitrumGatewayTest {
         l2USDCGateway.setOwner(owner);
     }
 
-    function test_unpauseWithdrawals() public {
-        // pause withdrawals
-        vm.prank(owner);
-        l2USDCGateway.pauseWithdrawals();
-        assertEq(l2USDCGateway.withdrawalsPaused(), true, "Invalid withdrawalsPaused");
-
-        // events
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawalsUnpaused();
-
-        // unpause withdrawals
-        vm.prank(owner);
-        l2USDCGateway.unpauseWithdrawals();
-
-        // checks
-        assertEq(l2USDCGateway.withdrawalsPaused(), false, "Invalid withdrawalsPaused");
-    }
-
-    function test_unpauseWithdrawals_revert_NotOwner() public {
-        vm.expectRevert(abi.encodeWithSelector(L2USDCGateway.L2USDCGateway_NotOwner.selector));
-        l2USDCGateway.unpauseWithdrawals();
-    }
-
-    function test_unpauseWithdrawals_revert_AlreadyUnpaused() public {
-        vm.prank(owner);
-        vm.expectRevert(
-            abi.encodeWithSelector(L2USDCGateway.L2USDCGateway_WithdrawalsAlreadyUnpaused.selector)
-        );
-        l2USDCGateway.unpauseWithdrawals();
-    }
-
     ////
     // Event declarations
     ////

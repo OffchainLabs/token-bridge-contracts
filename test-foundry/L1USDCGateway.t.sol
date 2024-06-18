@@ -382,42 +382,10 @@ contract L1USDCGatewayTest is L1ArbitrumExtendedGatewayTest {
         usdcGateway.setOwner(owner);
     }
 
-    function test_unpauseDeposits() public {
-        vm.prank(owner);
-        usdcGateway.pauseDeposits();
-
-        assertEq(usdcGateway.depositsPaused(), true, "Invalid depositPaused");
-
-        /// expect events
-        vm.expectEmit(true, true, true, true);
-        emit DepositsUnpaused();
-
-        /// unpause it
-        vm.prank(owner);
-        usdcGateway.unpauseDeposits();
-
-        /// checks
-        assertEq(usdcGateway.depositsPaused(), false, "Invalid depositPaused");
-    }
-
-    function test_unpauseDeposits_revert_NotOwner() public {
-        vm.expectRevert(abi.encodeWithSelector(L1USDCGateway.L1USDCGateway_NotOwner.selector));
-        usdcGateway.unpauseDeposits();
-    }
-
-    function test_unpauseDeposits_revert_DepositsAlreadyUnpaused() public {
-        vm.prank(owner);
-        vm.expectRevert(
-            abi.encodeWithSelector(L1USDCGateway.L1USDCGateway_DepositsAlreadyUnpaused.selector)
-        );
-        usdcGateway.unpauseDeposits();
-    }
-
     ////
     // Event declarations
     ////
     event DepositsPaused();
-    event DepositsUnpaused();
     event GatewayUsdcBurned(uint256 amount);
     event BurnerSet(address indexed burner);
 

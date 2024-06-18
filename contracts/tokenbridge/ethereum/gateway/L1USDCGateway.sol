@@ -23,7 +23,7 @@ import {
  *         This custom gateway differs from standard gateway in the following ways:
  *         - it supports a single parent chain - child chain USDC token pair
  *         - it is ownable
- *         - owner can pause (and unpause) deposits
+ *         - owner can one-time permanently pause deposits
  *         - owner can set a burner address
  *         - burner can trigger burning all the USDC tokens locked in the gateway
  *
@@ -39,12 +39,10 @@ contract L1USDCGateway is L1ArbitrumExtendedGateway {
     bool public depositsPaused;
 
     event DepositsPaused();
-    event DepositsUnpaused();
     event GatewayUsdcBurned(uint256 amount);
     event BurnerSet(address indexed burner);
 
     error L1USDCGateway_DepositsAlreadyPaused();
-    error L1USDCGateway_DepositsAlreadyUnpaused();
     error L1USDCGateway_DepositsPaused();
     error L1USDCGateway_DepositsNotPaused();
     error L1USDCGateway_InvalidL1USDC();
@@ -87,7 +85,7 @@ contract L1USDCGateway is L1ArbitrumExtendedGateway {
     /**
      * @notice Pauses deposits. This can only be called by the owner.
      * @dev    Pausing is prerequisite for burning escrowed USDC tokens. Incoming withdrawals are not affected.
-     *         Pausing the withdrawals needs to be done separately on the child chain.
+     *         It is onetime permanent action. Pausing the withdrawals needs to be done separately on the child chain.
      */
     function pauseDeposits() external onlyOwner {
         if (depositsPaused) {
@@ -96,18 +94,6 @@ contract L1USDCGateway is L1ArbitrumExtendedGateway {
         depositsPaused = true;
 
         emit DepositsPaused();
-    }
-
-    /**
-     * @notice Unpauses deposits. This can only be called by the owner.
-     */
-    function unpauseDeposits() external onlyOwner {
-        if (!depositsPaused) {
-            revert L1USDCGateway_DepositsAlreadyUnpaused();
-        }
-        depositsPaused = false;
-
-        emit DepositsUnpaused();
     }
 
     function setL2GatewaySupply(uint256 _l2GatewaySupply) external onlyCounterpartGateway {
