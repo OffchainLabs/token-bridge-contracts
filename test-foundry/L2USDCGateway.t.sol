@@ -23,6 +23,8 @@ contract L2USDCGatewayTest is L2ArbitrumGatewayTest {
 
         l2USDC = address(new MockFiatToken(address(l2USDCGateway)));
         l2USDCGateway.initialize(l1Counterpart, router, l1USDC, l2USDC, owner);
+
+        vm.etch(0x0000000000000000000000000000000000000064, address(arbSysMock).code);
     }
 
     /* solhint-disable func-name-mixedcase */
@@ -199,6 +201,14 @@ contract L2USDCGatewayTest is L2ArbitrumGatewayTest {
 
         // events
         vm.expectEmit(true, true, true, true);
+        emit TxToL1(
+            address(l2USDCGateway),
+            address(l1Counterpart),
+            0,
+            abi.encodeCall(L1USDCGateway.setL2GatewaySupply, (5000 ether))
+        );
+
+        vm.expectEmit(true, true, true, true);
         emit WithdrawalsPaused();
 
         // pause withdrawals
@@ -291,6 +301,10 @@ contract MockFiatToken is ERC20 {
     modifier onlyMinter() {
         require(msg.sender == minter, "only minter");
         _;
+    }
+
+    function totalSupply() public view override returns (uint256) {
+        return 5000 ether;
     }
 
     function mint(address account, uint256 amount) public onlyMinter {

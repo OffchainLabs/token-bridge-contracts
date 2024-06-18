@@ -14,6 +14,7 @@ contract L1USDCGatewayTest is L1ArbitrumExtendedGatewayTest {
 
     function setUp() public virtual {
         inbox = address(new InboxMock());
+        InboxMock(inbox).setL2ToL1Sender(l2Gateway);
 
         l1Gateway = new L1USDCGateway();
         usdcGateway = L1USDCGateway(payable(address(l1Gateway)));
@@ -43,15 +44,24 @@ contract L1USDCGatewayTest is L1ArbitrumExtendedGatewayTest {
         vm.prank(owner);
         usdcGateway.setBurner(burner);
 
+        /// set L2 supply
+        vm.prank(address(IInbox(l1Gateway.inbox()).bridge()));
+        uint256 l2Supply = lockedAmount - 100;
+        usdcGateway.setL2GatewaySupply(l2Supply);
+
         vm.expectEmit(true, true, true, true);
-        emit GatewayUsdcBurned(lockedAmount);
+        emit GatewayUsdcBurned(l2Supply);
 
         /// burn USDC
         vm.prank(burner);
         usdcGateway.burnLockedUSDC();
 
         /// checks
-        assertEq(ERC20(L1_USDC).balanceOf(address(usdcGateway)), 0, "Invalid USDC balance");
+        assertEq(
+            ERC20(L1_USDC).balanceOf(address(usdcGateway)),
+            lockedAmount - l2Supply,
+            "Invalid USDC balance"
+        );
     }
 
     function test_burnLockedUSDC_revert_NotOwner() public {
@@ -69,6 +79,25 @@ contract L1USDCGatewayTest is L1ArbitrumExtendedGatewayTest {
         vm.expectRevert(
             abi.encodeWithSelector(L1USDCGateway.L1USDCGateway_DepositsNotPaused.selector)
         );
+        usdcGateway.burnLockedUSDC();
+    }
+
+    function test_burnLockedUSDC_revert_L2SupplyNotSet() public {
+        /// add some USDC to the gateway
+        uint256 lockedAmount = 234 ether;
+        deal(L1_USDC, address(usdcGateway), lockedAmount);
+
+        /// pause deposits
+        vm.prank(owner);
+        usdcGateway.pauseDeposits();
+
+        /// set burner
+        address burner = makeAddr("burner");
+        vm.prank(owner);
+        usdcGateway.setBurner(burner);
+
+        vm.expectRevert(abi.encodeWithSelector(L1USDCGateway.L1USDCGateway_L2SupplyNotSet.selector));
+        vm.prank(burner);
         usdcGateway.burnLockedUSDC();
     }
 

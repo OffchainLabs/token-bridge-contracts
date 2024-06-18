@@ -35,6 +35,7 @@ contract L1USDCGateway is L1ArbitrumExtendedGateway {
     address public l2USDC;
     address public owner;
     address public burner;
+    uint256 public l2GatewaySupply;
     bool public depositsPaused;
 
     event DepositsPaused();
@@ -51,6 +52,7 @@ contract L1USDCGateway is L1ArbitrumExtendedGateway {
     error L1USDCGateway_NotOwner();
     error L1USDCGateway_InvalidOwner();
     error L1USDCGateway_NotBurner();
+    error L1USDCGateway_L2SupplyNotSet();
 
     modifier onlyOwner() {
         if (msg.sender != owner) {
@@ -108,6 +110,10 @@ contract L1USDCGateway is L1ArbitrumExtendedGateway {
         emit DepositsUnpaused();
     }
 
+    function setL2GatewaySupply(uint256 _l2GatewaySupply) external onlyCounterpartGateway {
+        l2GatewaySupply = _l2GatewaySupply;
+    }
+
     /**
      * @notice Burns the USDC tokens escrowed in the gateway.
      * @dev    Can be called by burner when deposits are paused.
@@ -120,10 +126,13 @@ contract L1USDCGateway is L1ArbitrumExtendedGateway {
         if (!depositsPaused) {
             revert L1USDCGateway_DepositsNotPaused();
         }
-        uint256 gatewayBalance = IERC20(l1USDC).balanceOf(address(this));
-        Burnable(l1USDC).burn(gatewayBalance);
+        uint256 _amountToBurn = l2GatewaySupply;
+        if (_amountToBurn == 0) {
+            revert L1USDCGateway_L2SupplyNotSet();
+        }
 
-        emit GatewayUsdcBurned(gatewayBalance);
+        Burnable(l1USDC).burn(_amountToBurn);
+        emit GatewayUsdcBurned(_amountToBurn);
     }
 
     /**

@@ -2,6 +2,7 @@
 pragma solidity ^0.8.4;
 
 import "./L2ArbitrumGateway.sol";
+import {L1USDCGateway} from "../../ethereum/gateway/L1USDCGateway.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
@@ -76,6 +77,14 @@ contract L2USDCGateway is L2ArbitrumGateway {
             revert L2USDCGateway_WithdrawalsAlreadyPaused();
         }
         withdrawalsPaused = true;
+
+        // send a message to the L1 Gateway with total supply. That's final supply on L2 which will be burned on L1
+        sendTxToL1({
+            _l1CallValue: 0,
+            _from: address(this),
+            _to: counterpartGateway,
+            _data: abi.encodeCall(L1USDCGateway.setL2GatewaySupply, (IERC20(l2USDC).totalSupply()))
+        });
 
         emit WithdrawalsPaused();
     }
@@ -158,9 +167,8 @@ contract L2USDCGateway is L2ArbitrumGateway {
 
         address expectedAddress = calculateL2TokenAddress(_token);
         if (!expectedAddress.isContract()) {
-            bool shouldHalt =
-                handleNoContract(_token, expectedAddress, _from, _to, _amount, gatewayData);
-            if (shouldHalt) return;
+            handleNoContract(_token, expectedAddress, _from, _to, _amount, gatewayData);
+            return;
         }
 
         inboundEscrowTransfer(expectedAddress, _to, _amount);
