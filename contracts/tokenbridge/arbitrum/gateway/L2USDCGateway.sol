@@ -29,8 +29,10 @@ contract L2USDCGateway is L2ArbitrumGateway {
     bool public withdrawalsPaused;
 
     event WithdrawalsPaused();
+    event WithdrawalsUnpaused();
 
     error L2USDCGateway_WithdrawalsAlreadyPaused();
+    error L2USDCGateway_WithdrawalsAlreadyUnpaused();
     error L2USDCGateway_WithdrawalsPaused();
     error L2USDCGateway_InvalidL1USDC();
     error L2USDCGateway_InvalidL2USDC();
@@ -68,7 +70,6 @@ contract L2USDCGateway is L2ArbitrumGateway {
 
     /**
      * @notice Pause all withdrawals. This can only be called by the owner.
-     *         Pausing is permanent and can not be undone.
      */
     function pauseWithdrawals() external onlyOwner {
         if (withdrawalsPaused) {
@@ -77,6 +78,18 @@ contract L2USDCGateway is L2ArbitrumGateway {
         withdrawalsPaused = true;
 
         emit WithdrawalsPaused();
+    }
+
+    /**
+     * @notice Unpause withdrawals. This can only be called by the owner.
+     */
+    function unpauseWithdrawals() external onlyOwner {
+        if (!withdrawalsPaused) {
+            revert L2USDCGateway_WithdrawalsAlreadyUnpaused();
+        }
+        withdrawalsPaused = false;
+
+        emit WithdrawalsUnpaused();
     }
 
     /**
@@ -160,8 +173,8 @@ contract L2USDCGateway is L2ArbitrumGateway {
 
     function _isL1AddressValid(address l1Address, address expectedL2Address)
         internal
-        override
         view
+        override
         returns (bool)
     {
         return l1Address == l1USDC && expectedL2Address == l2USDC;
