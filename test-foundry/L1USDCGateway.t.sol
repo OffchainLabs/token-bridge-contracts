@@ -38,11 +38,16 @@ contract L1USDCGatewayTest is L1ArbitrumExtendedGatewayTest {
         vm.prank(owner);
         usdcGateway.pauseDeposits();
 
+        /// set burner
+        address burner = makeAddr("burner");
+        vm.prank(owner);
+        usdcGateway.setBurner(burner);
+
         vm.expectEmit(true, true, true, true);
         emit GatewayUsdcBurned(lockedAmount);
 
         /// burn USDC
-        vm.prank(owner);
+        vm.prank(burner);
         usdcGateway.burnLockedUSDC();
 
         /// checks
@@ -50,12 +55,17 @@ contract L1USDCGatewayTest is L1ArbitrumExtendedGatewayTest {
     }
 
     function test_burnLockedUSDC_revert_NotOwner() public {
-        vm.expectRevert(abi.encodeWithSelector(L1USDCGateway.L1USDCGateway_NotOwner.selector));
+        vm.expectRevert(abi.encodeWithSelector(L1USDCGateway.L1USDCGateway_NotBurner.selector));
         usdcGateway.burnLockedUSDC();
     }
 
     function test_burnLockedUSDC_revert_NotPaused() public {
+        /// set burner
+        address burner = makeAddr("burner");
         vm.prank(owner);
+        usdcGateway.setBurner(burner);
+
+        vm.prank(burner);
         vm.expectRevert(
             abi.encodeWithSelector(L1USDCGateway.L1USDCGateway_DepositsNotPaused.selector)
         );
@@ -82,6 +92,7 @@ contract L1USDCGatewayTest is L1ArbitrumExtendedGatewayTest {
         assertEq(gateway.l2USDC(), L2_USDC, "Invalid L2_USDC");
         assertEq(gateway.owner(), owner, "Invalid owner");
         assertEq(gateway.depositsPaused(), false, "Invalid depositPaused");
+        assertEq(gateway.burner(), address(0), "Invalid burner");
     }
 
     function test_initialize_revert_InvalidL1USDC() public {
@@ -307,6 +318,22 @@ contract L1USDCGatewayTest is L1ArbitrumExtendedGatewayTest {
         usdcGateway.pauseDeposits();
     }
 
+    function test_setBurner() public {
+        address newBurner = makeAddr("new-burner");
+        vm.expectEmit(true, true, true, true);
+        emit BurnerSet(newBurner);
+
+        vm.prank(owner);
+        usdcGateway.setBurner(newBurner);
+
+        assertEq(usdcGateway.burner(), newBurner, "Invalid burner");
+    }
+
+    function test_setBurner_revert_NotOwner() public {
+        vm.expectRevert(abi.encodeWithSelector(L1USDCGateway.L1USDCGateway_NotOwner.selector));
+        usdcGateway.setBurner(address(0));
+    }
+
     function test_setOwner() public {
         address newOwner = makeAddr("new-owner");
         vm.prank(owner);
@@ -363,6 +390,7 @@ contract L1USDCGatewayTest is L1ArbitrumExtendedGatewayTest {
     event DepositsPaused();
     event DepositsUnpaused();
     event GatewayUsdcBurned(uint256 amount);
+    event BurnerSet(address indexed burner);
 
     event TicketData(uint256 maxSubmissionCost);
     event RefundAddresses(address excessFeeRefundAddress, address callValueRefundAddress);

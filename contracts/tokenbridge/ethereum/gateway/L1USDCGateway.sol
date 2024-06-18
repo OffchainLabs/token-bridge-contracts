@@ -24,7 +24,8 @@ import {
  *         - it supports a single parent chain - child chain USDC token pair
  *         - it is ownable
  *         - owner can pause (and unpause) deposits
- *         - owner can trigger burning all the USDC tokens locked in the gateway
+ *         - owner can set a burner address
+ *         - burner can trigger burning all the USDC tokens locked in the gateway
  *
  *         This contract is to be used on chains where ETH is the native token. If chain is using
  *         custom fee token then use L1OrbitUSDCGateway instead.
@@ -33,11 +34,13 @@ contract L1USDCGateway is L1ArbitrumExtendedGateway {
     address public l1USDC;
     address public l2USDC;
     address public owner;
+    address public burner;
     bool public depositsPaused;
 
     event DepositsPaused();
     event DepositsUnpaused();
     event GatewayUsdcBurned(uint256 amount);
+    event BurnerSet(address indexed burner);
 
     error L1USDCGateway_DepositsAlreadyPaused();
     error L1USDCGateway_DepositsAlreadyUnpaused();
@@ -47,6 +50,7 @@ contract L1USDCGateway is L1ArbitrumExtendedGateway {
     error L1USDCGateway_InvalidL2USDC();
     error L1USDCGateway_NotOwner();
     error L1USDCGateway_InvalidOwner();
+    error L1USDCGateway_NotBurner();
 
     modifier onlyOwner() {
         if (msg.sender != owner) {
@@ -106,10 +110,13 @@ contract L1USDCGateway is L1ArbitrumExtendedGateway {
 
     /**
      * @notice Burns the USDC tokens escrowed in the gateway.
-     * @dev    Can be called by owner if deposits are paused.
+     * @dev    Can be called by burner when deposits are paused.
      *         Function signature complies by Bridged USDC Standard.
      */
-    function burnLockedUSDC() external onlyOwner {
+    function burnLockedUSDC() external {
+        if (msg.sender != burner) {
+            revert L1USDCGateway_NotBurner();
+        }
         if (!depositsPaused) {
             revert L1USDCGateway_DepositsNotPaused();
         }
@@ -127,6 +134,14 @@ contract L1USDCGateway is L1ArbitrumExtendedGateway {
             revert L1USDCGateway_InvalidOwner();
         }
         owner = newOwner;
+    }
+
+    /**
+     * @notice Sets a new burner.
+     */
+    function setBurner(address newBurner) external onlyOwner {
+        burner = newBurner;
+        emit BurnerSet(newBurner);
     }
 
     /**
