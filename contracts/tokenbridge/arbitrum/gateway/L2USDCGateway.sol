@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.4;
 
-import {L2ArbitrumGateway} from "./L2ArbitrumGateway.sol";
+import "./L2ArbitrumGateway.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
@@ -116,7 +116,57 @@ contract L2USDCGateway is L2ArbitrumGateway {
         if (withdrawalsPaused) {
             revert L2USDCGateway_WithdrawalsPaused();
         }
-        return super.outboundTransfer(_l1Token, _to, _amount, 0, 0, _data);
+
+        require(msg.value == 0, "NO_VALUE");
+
+        address _from;
+        bytes memory _extraData;
+        {
+            if (isRouter(msg.sender)) {
+                (_from, _extraData) = GatewayMessageHandler.parseFromRouterToGateway(_data);
+            } else {
+                _from = msg.sender;
+                _extraData = _data;
+            }
+        }
+        // the inboundEscrowAndCall functionality has been disabled, so no data is allowed
+        require(_extraData.length == 0, "EXTRA_DATA_DISABLED");
+
+        address l2Token = calculateL2TokenAddress(_l1Token);
+        require(l2Token.isContract(), "TOKEN_NOT_DEPLOYED");
+
+        _amount = outboundEscrowTransfer(l2Token, _from, _amount);
+        uint256 id = triggerWithdrawal(_l1Token, _from, _to, _amount, _extraData);
+
+        return abi.encode(id);
+    }
+
+    function finalizeInboundTransfer(
+        address _token,
+        address _from,
+        address _to,
+        uint256 _amount,
+        bytes calldata _data
+    ) external payable override onlyCounterpartGateway {
+        (bytes memory gatewayData, bytes memory callHookData) =
+            GatewayMessageHandler.parseFromL1GatewayMsg(_data);
+
+        if (callHookData.length != 0) {
+            // callHookData should always be 0 since inboundEscrowAndCall is disabled
+            callHookData = bytes("");
+        }
+
+        address expectedAddress = calculateL2TokenAddress(_token);
+        if (!expectedAddress.isContract()) {
+            bool shouldHalt =
+                handleNoContract(_token, expectedAddress, _from, _to, _amount, gatewayData);
+            if (shouldHalt) return;
+        }
+
+        inboundEscrowTransfer(expectedAddress, _to, _amount);
+        emit DepositFinalized(_token, _from, _to, _amount);
+
+        return;
     }
 
     /**
@@ -163,21 +213,6 @@ contract L2USDCGateway is L2ArbitrumGateway {
         // it is assumed that the custom token is deployed to child chain before deposits are made
         triggerWithdrawal(l1ERC20, address(this), _from, _amount, "");
         return true;
-    }
-
-    function _tokenAddressCheck(address _l1Token, address _l2Token) internal view override {
-        require(_l2Token.isContract(), "TOKEN_NOT_DEPLOYED");
-        require(_l1Token == l1USDC, "NOT_EXPECTED_L1_TOKEN");
-        require(_l2Token == l2USDC, "NOT_EXPECTED_L2_TOKEN");
-    }
-
-    function _isL1AddressValid(address l1Address, address expectedL2Address)
-        internal
-        view
-        override
-        returns (bool)
-    {
-        return l1Address == l1USDC && expectedL2Address == l2USDC;
     }
 }
 
