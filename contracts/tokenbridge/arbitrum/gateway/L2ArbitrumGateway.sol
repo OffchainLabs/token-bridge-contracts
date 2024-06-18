@@ -251,33 +251,14 @@ abstract contract L2ArbitrumGateway is L2ArbitrumMessenger, TokenGateway {
             );
             if (shouldHalt) return;
         }
+
         // ignores gatewayData if token already deployed
-
-        {
-            // validate if L1 address supplied matches that of the expected L2 address
-            (bool success, bytes memory _l1AddressData) = expectedAddress.staticcall(
-                abi.encodeWithSelector(IArbToken.l1Address.selector)
-            );
-
-            bool shouldWithdraw;
-            if (!success || _l1AddressData.length < 32) {
-                shouldWithdraw = true;
-            } else {
-                // we do this in the else branch since we want to avoid reverts
-                // and `toAddress` reverts if _l1AddressData has a short length
-                // `_l1AddressData` should be 12 bytes of padding then 20 bytes for the address
-                address expectedL1Address = BytesLib.toAddress(_l1AddressData, 12);
-                if (expectedL1Address != _token) {
-                    shouldWithdraw = true;
-                }
-            }
-
-            if (shouldWithdraw) {
-                // we don't need the return value from triggerWithdrawal since this is forcing
-                // a withdrawal back to the L1 instead of composing with a L2 dapp
-                triggerWithdrawal(_token, address(this), _from, _amount, "");
-                return;
-            }
+        bool shouldWithdraw = !_isL1AddressValid(_token, expectedAddress);
+        if (shouldWithdraw) {
+            // we don't need the return value from triggerWithdrawal since this is forcing
+            // a withdrawal back to the L1 instead of composing with a L2 dapp
+            triggerWithdrawal(_token, address(this), _from, _amount, "");
+            return;
         }
 
         inboundEscrowTransfer(expectedAddress, _to, _amount);
@@ -299,5 +280,18 @@ abstract contract L2ArbitrumGateway is L2ArbitrumMessenger, TokenGateway {
     function _tokenAddressCheck(address _l1Token, address _l2Token) internal view virtual {
         require(_l2Token.isContract(), "TOKEN_NOT_DEPLOYED");
         require(IArbToken(_l2Token).l1Address() == _l1Token, "NOT_EXPECTED_L1_TOKEN");
+    }
+
+    function _isL1AddressValid(address l1Address, address expectedL2Address) internal virtual view returns(bool) {
+        (bool success, bytes memory _l1AddressData) = expectedL2Address.staticcall(
+            abi.encodeWithSelector(IArbToken.l1Address.selector)
+        );
+
+        if (!success || _l1AddressData.length < 32) {
+            return false;
+        }
+
+        address expectedL1Address = BytesLib.toAddress(_l1AddressData, 12);
+        return expectedL1Address == l1Address;
     }
 }

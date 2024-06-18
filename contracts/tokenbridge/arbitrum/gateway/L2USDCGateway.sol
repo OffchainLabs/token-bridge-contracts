@@ -157,6 +157,15 @@ contract L2USDCGateway is L2ArbitrumGateway {
         require(_l1Token == l1USDC, "NOT_EXPECTED_L1_TOKEN");
         require(_l2Token == l2USDC, "NOT_EXPECTED_L2_TOKEN");
     }
+
+    function _isL1AddressValid(address l1Address, address expectedL2Address)
+        internal
+        override
+        view
+        returns (bool)
+    {
+        return l1Address == l1USDC && expectedL2Address == l2USDC;
+    }
 }
 
 interface IFiatToken {

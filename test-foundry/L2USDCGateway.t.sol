@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 
 import "./L2ArbitrumGateway.t.sol";
 
-import {L2USDCGateway} from "contracts/tokenbridge/arbitrum/gateway/L2USDCGateway.sol";
+import "contracts/tokenbridge/arbitrum/gateway/L2USDCGateway.sol";
 import {L1USDCGateway} from "contracts/tokenbridge/ethereum/gateway/L1USDCGateway.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {AddressAliasHelper} from "contracts/tokenbridge/libraries/AddressAliasHelper.sol";
@@ -21,7 +21,7 @@ contract L2USDCGatewayTest is L2ArbitrumGatewayTest {
         l2USDCGateway = new L2USDCGateway();
         l2Gateway = L2ArbitrumGateway(address(l2USDCGateway));
 
-        l2USDC = address(new L2USDC(address(l2USDCGateway), l1USDC));
+        l2USDC = address(new MockFiatToken(address(l2USDCGateway)));
         l2USDCGateway.initialize(l1Counterpart, router, l1USDC, l2USDC, owner);
     }
 
@@ -131,6 +131,10 @@ contract L2USDCGatewayTest is L2ArbitrumGatewayTest {
         uint256 withdrawalAmount = 200_500;
         bytes memory data = new bytes(0);
 
+        // approve withdrawal
+        vm.prank(sender);
+        IERC20(l2USDC).approve(address(l2USDCGateway), withdrawalAmount);
+
         // events
         uint256 expectedId = 0;
         bytes memory expectedData =
@@ -155,6 +159,10 @@ contract L2USDCGatewayTest is L2ArbitrumGatewayTest {
         uint256 withdrawalAmount = 200_500;
         bytes memory data = new bytes(0);
 
+        // approve withdrawal
+        vm.prank(sender);
+        IERC20(l2USDC).approve(address(l2USDCGateway), withdrawalAmount);
+
         // events
         uint256 expectedId = 0;
         bytes memory expectedData =
@@ -169,15 +177,6 @@ contract L2USDCGatewayTest is L2ArbitrumGatewayTest {
         vm.etch(0x0000000000000000000000000000000000000064, address(arbSysMock).code);
         vm.prank(sender);
         l2USDCGateway.outboundTransfer(l1USDC, receiver, withdrawalAmount, data);
-    }
-
-    function test_outboundTransfer_revert_NotExpectedL1Token() public override {
-        // mock invalid L1 token ref
-        address notl1USDC = makeAddr("notl1USDC");
-        vm.mockCall(address(l2USDC), abi.encodeWithSignature("l1Address()"), abi.encode(notl1USDC));
-
-        vm.expectRevert("NOT_EXPECTED_L1_TOKEN");
-        l2USDCGateway.outboundTransfer(l1USDC, address(101), 200, 0, 0, new bytes(0));
     }
 
     function test_outboundTransfer_revert_WithdrawalsPaused() public {
@@ -246,8 +245,23 @@ contract L2USDCGatewayTest is L2ArbitrumGatewayTest {
     event WithdrawalsPaused();
 }
 
-contract L2USDC is L2GatewayToken {
-    constructor(address l2USDCGateway, address l1USDC) {
-        L2GatewayToken._initialize("L2 USDC", "USDC", 18, l2USDCGateway, l1USDC);
+contract MockFiatToken is ERC20 {
+    address public minter;
+
+    constructor(address _minter) ERC20("Bridged USDC", "USDC.e") {
+        minter = _minter;
+    }
+
+    modifier onlyMinter() {
+        require(msg.sender == minter, "only minter");
+        _;
+    }
+
+    function mint(address account, uint256 amount) public onlyMinter {
+        _mint(account, amount);
+    }
+
+    function burn(uint256 amount) public onlyMinter {
+        _burn(msg.sender, amount);
     }
 }
