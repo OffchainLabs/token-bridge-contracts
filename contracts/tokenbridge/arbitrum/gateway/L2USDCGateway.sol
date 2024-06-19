@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.4;
 
-import {L2ArbitrumGateway} from "./L2ArbitrumGateway.sol";
+import "./L2ArbitrumGateway.sol";
+import {L1USDCGateway, IFiatToken} from "../../ethereum/gateway/L1USDCGateway.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
  * @title  Child chain custom gateway for USDC implementing Bridged USDC Standard.
@@ -19,6 +21,9 @@ import {L2ArbitrumGateway} from "./L2ArbitrumGateway.sol";
  *         - withdrawals can be permanently paused by the owner
  */
 contract L2USDCGateway is L2ArbitrumGateway {
+    using SafeERC20 for IERC20;
+    using Address for address;
+
     address public l1USDC;
     address public l2USDC;
     address public owner;
@@ -72,6 +77,14 @@ contract L2USDCGateway is L2ArbitrumGateway {
         }
         withdrawalsPaused = true;
 
+        // send a message to the L1 Gateway with total supply. That's final supply on L2 which will be burned on L1
+        sendTxToL1({
+            _l1CallValue: 0,
+            _from: address(this),
+            _to: counterpartGateway,
+            _data: abi.encodeCall(L1USDCGateway.setL2GatewaySupply, (IERC20(l2USDC).totalSupply()))
+        });
+
         emit WithdrawalsPaused();
     }
 
@@ -99,7 +112,45 @@ contract L2USDCGateway is L2ArbitrumGateway {
         if (withdrawalsPaused) {
             revert L2USDCGateway_WithdrawalsPaused();
         }
-        return super.outboundTransfer(_l1Token, _to, _amount, 0, 0, _data);
+
+        require(msg.value == 0, "NO_VALUE");
+
+        address _from;
+        bytes memory _extraData;
+        if (isRouter(msg.sender)) {
+            (_from, _extraData) = GatewayMessageHandler.parseFromRouterToGateway(_data);
+        } else {
+            _from = msg.sender;
+            _extraData = _data;
+        }
+        require(_extraData.length == 0, "EXTRA_DATA_DISABLED");
+
+        address l2Token = calculateL2TokenAddress(_l1Token);
+        require(l2Token.isContract(), "TOKEN_NOT_DEPLOYED");
+
+        _amount = outboundEscrowTransfer(l2Token, _from, _amount);
+        uint256 id = triggerWithdrawal(_l1Token, _from, _to, _amount, _extraData);
+
+        return abi.encode(id);
+    }
+
+    function finalizeInboundTransfer(
+        address _token,
+        address _from,
+        address _to,
+        uint256 _amount,
+        bytes calldata /* _data */
+    ) external payable override onlyCounterpartGateway {
+        address expectedAddress = calculateL2TokenAddress(_token);
+        if (!expectedAddress.isContract()) {
+            handleNoContract(_token, expectedAddress, _from, _to, _amount, "");
+            return;
+        }
+
+        inboundEscrowTransfer(expectedAddress, _to, _amount);
+        emit DepositFinalized(_token, _from, _to, _amount);
+
+        return;
     }
 
     /**
@@ -111,6 +162,25 @@ contract L2USDCGateway is L2ArbitrumGateway {
             return address(0);
         }
         return l2USDC;
+    }
+
+    function inboundEscrowTransfer(address _l2Address, address _dest, uint256 _amount)
+        internal
+        override
+    {
+        IFiatToken(_l2Address).mint(_dest, _amount);
+    }
+
+    function outboundEscrowTransfer(address _l2Token, address _from, uint256 _amount)
+        internal
+        override
+        returns (uint256)
+    {
+        // fetch the USDC tokens from the user and then burn them
+        IERC20(_l2Token).safeTransferFrom(_from, address(this), _amount);
+        IFiatToken(_l2Token).burn(_amount);
+
+        return _amount;
     }
 
     /**

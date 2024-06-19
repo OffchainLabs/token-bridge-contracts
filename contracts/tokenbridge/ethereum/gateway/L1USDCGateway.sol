@@ -9,6 +9,7 @@ import {
     TokenGateway,
     IERC20
 } from "./L1ArbitrumExtendedGateway.sol";
+import {IFiatToken} from "../../libraries/IFiatToken.sol";
 
 /**
  * @title Custom gateway for USDC implementing Bridged USDC Standard.
@@ -24,7 +25,8 @@ import {
  *         - it supports a single parent chain - child chain USDC token pair
  *         - it is ownable
  *         - owner can one-time permanently pause deposits
- *         - owner can trigger burning all the USDC tokens locked in the gateway
+ *         - owner can set a burner address
+ *         - burner can trigger burning all the USDC tokens locked in the gateway
  *
  *         This contract is to be used on chains where ETH is the native token. If chain is using
  *         custom fee token then use L1OrbitUSDCGateway instead.
@@ -33,10 +35,13 @@ contract L1USDCGateway is L1ArbitrumExtendedGateway {
     address public l1USDC;
     address public l2USDC;
     address public owner;
+    address public burner;
+    uint256 public l2GatewaySupply;
     bool public depositsPaused;
 
     event DepositsPaused();
     event GatewayUsdcBurned(uint256 amount);
+    event BurnerSet(address indexed burner);
 
     error L1USDCGateway_DepositsAlreadyPaused();
     error L1USDCGateway_DepositsPaused();
@@ -45,6 +50,8 @@ contract L1USDCGateway is L1ArbitrumExtendedGateway {
     error L1USDCGateway_InvalidL2USDC();
     error L1USDCGateway_NotOwner();
     error L1USDCGateway_InvalidOwner();
+    error L1USDCGateway_NotBurner();
+    error L1USDCGateway_L2SupplyNotSet();
 
     modifier onlyOwner() {
         if (msg.sender != owner) {
@@ -90,19 +97,29 @@ contract L1USDCGateway is L1ArbitrumExtendedGateway {
         emit DepositsPaused();
     }
 
+    function setL2GatewaySupply(uint256 _l2GatewaySupply) external onlyCounterpartGateway {
+        l2GatewaySupply = _l2GatewaySupply;
+    }
+
     /**
      * @notice Burns the USDC tokens escrowed in the gateway.
-     * @dev    Can be called by owner after deposits are paused.
+     * @dev    Can be called by burner when deposits are paused.
      *         Function signature complies by Bridged USDC Standard.
      */
-    function burnLockedUSDC() external onlyOwner {
+    function burnLockedUSDC() external {
+        if (msg.sender != burner) {
+            revert L1USDCGateway_NotBurner();
+        }
         if (!depositsPaused) {
             revert L1USDCGateway_DepositsNotPaused();
         }
-        uint256 gatewayBalance = IERC20(l1USDC).balanceOf(address(this));
-        Burnable(l1USDC).burn(gatewayBalance);
+        uint256 _amountToBurn = l2GatewaySupply;
+        if (_amountToBurn == 0) {
+            revert L1USDCGateway_L2SupplyNotSet();
+        }
 
-        emit GatewayUsdcBurned(gatewayBalance);
+        IFiatToken(l1USDC).burn(_amountToBurn);
+        emit GatewayUsdcBurned(_amountToBurn);
     }
 
     /**
@@ -113,6 +130,14 @@ contract L1USDCGateway is L1ArbitrumExtendedGateway {
             revert L1USDCGateway_InvalidOwner();
         }
         owner = newOwner;
+    }
+
+    /**
+     * @notice Sets a new burner.
+     */
+    function setBurner(address newBurner) external onlyOwner {
+        burner = newBurner;
+        emit BurnerSet(newBurner);
     }
 
     /**
@@ -150,11 +175,4 @@ contract L1USDCGateway is L1ArbitrumExtendedGateway {
         }
         return l2USDC;
     }
-}
-
-interface Burnable {
-    /**
-     * @notice Circle's referent USDC implementation exposes burn function of this signature.
-     */
-    function burn(uint256 _amount) external;
 }

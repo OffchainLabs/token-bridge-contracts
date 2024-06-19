@@ -15,6 +15,8 @@ contract L1OrbitUSDCGatewayTest is L1USDCGatewayTest {
 
     function setUp() public virtual override {
         inbox = address(new ERC20InboxMock());
+        InboxMock(inbox).setL2ToL1Sender(l2Gateway);
+
         nativeToken = ERC20(address(new ERC20PresetMinterPauser("X", "Y")));
         ERC20PresetMinterPauser(address(nativeToken)).mint(user, 1_000_000 ether);
         ERC20PresetMinterPauser(address(nativeToken)).mint(owner, 1_000_000 ether);

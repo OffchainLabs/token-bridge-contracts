@@ -230,7 +230,7 @@ abstract contract L2ArbitrumGateway is L2ArbitrumMessenger, TokenGateway {
         address _to,
         uint256 _amount,
         bytes calldata _data
-    ) external payable override onlyCounterpartGateway {
+    ) external payable virtual override onlyCounterpartGateway {
         (bytes memory gatewayData, bytes memory callHookData) = GatewayMessageHandler
             .parseFromL1GatewayMsg(_data);
 

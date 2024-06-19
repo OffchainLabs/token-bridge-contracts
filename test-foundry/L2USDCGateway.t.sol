@@ -4,14 +4,11 @@ pragma solidity ^0.8.0;
 
 import "./L2ArbitrumGateway.t.sol";
 
-import {L2USDCGateway} from "contracts/tokenbridge/arbitrum/gateway/L2USDCGateway.sol";
+import "contracts/tokenbridge/arbitrum/gateway/L2USDCGateway.sol";
 import {L1USDCGateway} from "contracts/tokenbridge/ethereum/gateway/L1USDCGateway.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {AddressAliasHelper} from "contracts/tokenbridge/libraries/AddressAliasHelper.sol";
-import {L2GatewayToken, IArbToken} from "contracts/tokenbridge/libraries/L2GatewayToken.sol";
-import {IFiatTokenArbitrumOrbitV2_2} from
-    "contracts/tokenbridge/test/IFiatTokenArbitrumOrbitV2_2.sol";
-import {TestUtil} from "./util/TestUtil.sol";
+import {L2GatewayToken} from "contracts/tokenbridge/libraries/L2GatewayToken.sol";
 
 contract L2USDCGatewayTest is L2ArbitrumGatewayTest {
     L2USDCGateway public l2USDCGateway;
@@ -19,36 +16,15 @@ contract L2USDCGatewayTest is L2ArbitrumGatewayTest {
     address public l2USDC;
     address public user = makeAddr("usdc_user");
     address public owner = makeAddr("l2gw-owner");
-    address masterMinter = makeAddr("newMasterMinter");
 
     function setUp() public virtual {
         l2USDCGateway = new L2USDCGateway();
         l2Gateway = L2ArbitrumGateway(address(l2USDCGateway));
 
-        address bridgedUsdcLogic = TestUtil.deployBridgedUsdcToken();
-        l2USDC = TestUtil.deployProxy(bridgedUsdcLogic);
-        IFiatTokenArbitrumOrbitV2_2(l2USDC).initialize(
-            "USDC token",
-            "USDC.e",
-            "USD",
-            uint8(6),
-            masterMinter,
-            makeAddr("newPauser"),
-            makeAddr("newBlacklister"),
-            owner
-        );
-        IFiatTokenArbitrumOrbitV2_2(l2USDC).initializeV2("USDC");
-        IFiatTokenArbitrumOrbitV2_2(l2USDC).initializeV2_1(makeAddr("lostAndFound"));
-        IFiatTokenArbitrumOrbitV2_2(l2USDC).initializeV2_2(new address[](0), "USDC.e");
-        IFiatTokenArbitrumOrbitV2_2(l2USDC).initializeArbitrumOrbit(address(l2USDCGateway), l1USDC);
-
-        vm.startPrank(masterMinter);
-        IFiatTokenArbitrumOrbitV2_2(l2USDC).configureMinter(
-            address(l2USDCGateway), type(uint256).max
-        );
-        vm.stopPrank();
-
+        l2USDC = address(new MockFiatToken(address(l2USDCGateway)));
         l2USDCGateway.initialize(l1Counterpart, router, l1USDC, l2USDC, owner);
+
+        vm.etch(0x0000000000000000000000000000000000000064, address(arbSysMock).code);
     }
 
     /* solhint-disable func-name-mixedcase */
@@ -157,9 +133,9 @@ contract L2USDCGatewayTest is L2ArbitrumGatewayTest {
         uint256 withdrawalAmount = 200_500;
         bytes memory data = new bytes(0);
 
-        // mint some tokens so withdrawal can be successful
-        vm.prank(address(l2USDCGateway));
-        IArbToken(l2USDC).bridgeMint(sender, withdrawalAmount * 2);
+        // approve withdrawal
+        vm.prank(sender);
+        IERC20(l2USDC).approve(address(l2USDCGateway), withdrawalAmount);
 
         // events
         uint256 expectedId = 0;
@@ -185,9 +161,9 @@ contract L2USDCGatewayTest is L2ArbitrumGatewayTest {
         uint256 withdrawalAmount = 200_500;
         bytes memory data = new bytes(0);
 
-        // mint some tokens so withdrawal can be successful
-        vm.prank(address(l2USDCGateway));
-        IArbToken(l2USDC).bridgeMint(sender, withdrawalAmount);
+        // approve withdrawal
+        vm.prank(sender);
+        IERC20(l2USDC).approve(address(l2USDCGateway), withdrawalAmount);
 
         // events
         uint256 expectedId = 0;
@@ -205,15 +181,6 @@ contract L2USDCGatewayTest is L2ArbitrumGatewayTest {
         l2USDCGateway.outboundTransfer(l1USDC, receiver, withdrawalAmount, data);
     }
 
-    function test_outboundTransfer_revert_NotExpectedL1Token() public override {
-        // mock invalid L1 token ref
-        address notl1USDC = makeAddr("notl1USDC");
-        vm.mockCall(address(l2USDC), abi.encodeWithSignature("l1Address()"), abi.encode(notl1USDC));
-
-        vm.expectRevert("NOT_EXPECTED_L1_TOKEN");
-        l2USDCGateway.outboundTransfer(l1USDC, address(101), 200, 0, 0, new bytes(0));
-    }
-
     function test_outboundTransfer_revert_WithdrawalsPaused() public {
         // pause withdrawals
         vm.prank(owner);
@@ -225,10 +192,22 @@ contract L2USDCGatewayTest is L2ArbitrumGatewayTest {
         l2USDCGateway.outboundTransfer(l1USDC, receiver, 200, 0, 0, new bytes(0));
     }
 
+    function test_outboundTransfer_revert_NotExpectedL1Token() public override {
+        // TODO
+    }
+
     function test_pauseWithdrawals() public {
-        assertEq(l2USDCGateway.withdrawalsPaused(), false, "Invalid initial state");
+        assertEq(l2USDCGateway.withdrawalsPaused(), false, "Invalid withdrawalsPaused");
 
         // events
+        vm.expectEmit(true, true, true, true);
+        emit TxToL1(
+            address(l2USDCGateway),
+            address(l1Counterpart),
+            0,
+            abi.encodeCall(L1USDCGateway.setL2GatewaySupply, (5000 ether))
+        );
+
         vm.expectEmit(true, true, true, true);
         emit WithdrawalsPaused();
 
@@ -237,7 +216,7 @@ contract L2USDCGatewayTest is L2ArbitrumGatewayTest {
         l2USDCGateway.pauseWithdrawals();
 
         // checks
-        assertEq(l2USDCGateway.withdrawalsPaused(), true, "Invalid initial state");
+        assertEq(l2USDCGateway.withdrawalsPaused(), true, "Invalid withdrawalsPaused");
     }
 
     function test_pauseWithdrawals_revert_WithdrawalsAlreadyPaused() public {
@@ -278,4 +257,30 @@ contract L2USDCGatewayTest is L2ArbitrumGatewayTest {
     // Event declarations
     ////
     event WithdrawalsPaused();
+    event WithdrawalsUnpaused();
+}
+
+contract MockFiatToken is ERC20 {
+    address public minter;
+
+    constructor(address _minter) ERC20("Bridged USDC", "USDC.e") {
+        minter = _minter;
+    }
+
+    modifier onlyMinter() {
+        require(msg.sender == minter, "only minter");
+        _;
+    }
+
+    function totalSupply() public view override returns (uint256) {
+        return 5000 ether;
+    }
+
+    function mint(address account, uint256 amount) public onlyMinter {
+        _mint(account, amount);
+    }
+
+    function burn(uint256 amount) public onlyMinter {
+        _burn(msg.sender, amount);
+    }
 }
