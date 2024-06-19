@@ -117,15 +117,12 @@ contract L2USDCGateway is L2ArbitrumGateway {
 
         address _from;
         bytes memory _extraData;
-        {
-            if (isRouter(msg.sender)) {
-                (_from, _extraData) = GatewayMessageHandler.parseFromRouterToGateway(_data);
-            } else {
-                _from = msg.sender;
-                _extraData = _data;
-            }
+        if (isRouter(msg.sender)) {
+            (_from, _extraData) = GatewayMessageHandler.parseFromRouterToGateway(_data);
+        } else {
+            _from = msg.sender;
+            _extraData = _data;
         }
-        // the inboundEscrowAndCall functionality has been disabled, so no data is allowed
         require(_extraData.length == 0, "EXTRA_DATA_DISABLED");
 
         address l2Token = calculateL2TokenAddress(_l1Token);
@@ -142,19 +139,11 @@ contract L2USDCGateway is L2ArbitrumGateway {
         address _from,
         address _to,
         uint256 _amount,
-        bytes calldata _data
+        bytes calldata /* _data */
     ) external payable override onlyCounterpartGateway {
-        (bytes memory gatewayData, bytes memory callHookData) =
-            GatewayMessageHandler.parseFromL1GatewayMsg(_data);
-
-        if (callHookData.length != 0) {
-            // callHookData should always be 0 since inboundEscrowAndCall is disabled
-            callHookData = bytes("");
-        }
-
         address expectedAddress = calculateL2TokenAddress(_token);
         if (!expectedAddress.isContract()) {
-            handleNoContract(_token, expectedAddress, _from, _to, _amount, gatewayData);
+            handleNoContract(_token, expectedAddress, _from, _to, _amount, "");
             return;
         }
 
