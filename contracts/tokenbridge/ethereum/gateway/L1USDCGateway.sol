@@ -9,6 +9,7 @@ import {
     TokenGateway,
     IERC20
 } from "./L1ArbitrumExtendedGateway.sol";
+import {IFiatToken} from "../../libraries/IFiatToken.sol";
 
 /**
  * @title Custom gateway for USDC implementing Bridged USDC Standard.
@@ -84,8 +85,8 @@ contract L1USDCGateway is L1ArbitrumExtendedGateway {
 
     /**
      * @notice Pauses deposits. This can only be called by the owner.
-     * @dev    Pausing is prerequisite for burning escrowed USDC tokens. Incoming withdrawals are not affected.
-     *         It is onetime permanent action. Pausing the withdrawals needs to be done separately on the child chain.
+     * @dev    Pausing is permanent and can't be undone. Pausing is prerequisite for burning escrowed USDC tokens.
+     *         Incoming withdrawals are not affected. Pausing the withdrawals needs to be done separately on the child chain.
      */
     function pauseDeposits() external onlyOwner {
         if (depositsPaused) {
@@ -117,7 +118,7 @@ contract L1USDCGateway is L1ArbitrumExtendedGateway {
             revert L1USDCGateway_L2SupplyNotSet();
         }
 
-        Burnable(l1USDC).burn(_amountToBurn);
+        IFiatToken(l1USDC).burn(_amountToBurn);
         emit GatewayUsdcBurned(_amountToBurn);
     }
 
@@ -174,11 +175,4 @@ contract L1USDCGateway is L1ArbitrumExtendedGateway {
         }
         return l2USDC;
     }
-}
-
-interface Burnable {
-    /**
-     * @notice Circle's referent USDC implementation exposes burn function of this signature.
-     */
-    function burn(uint256 _amount) external;
 }

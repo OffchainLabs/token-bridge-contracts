@@ -2,7 +2,7 @@
 pragma solidity ^0.8.4;
 
 import "./L2ArbitrumGateway.sol";
-import {L1USDCGateway} from "../../ethereum/gateway/L1USDCGateway.sol";
+import {L1USDCGateway, IFiatToken} from "../../ethereum/gateway/L1USDCGateway.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
@@ -198,9 +198,4 @@ contract L2USDCGateway is L2ArbitrumGateway {
         triggerWithdrawal(l1ERC20, address(this), _from, _amount, "");
         return true;
     }
-}
-
-interface IFiatToken {
-    function burn(uint256 _amount) external;
-    function mint(address _to, uint256 _amount) external;
 }
