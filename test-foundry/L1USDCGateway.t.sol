@@ -142,6 +142,13 @@ contract L1USDCGatewayTest is L1ArbitrumExtendedGatewayTest {
         gateway.initialize(l2Gateway, router, inbox, L1_USDC, L2_USDC, address(0));
     }
 
+    function test_initialize_revert_AlreadyInit() public {
+        L1USDCGateway gateway = new L1USDCGateway();
+        gateway.initialize(l2Gateway, router, inbox, L1_USDC, L2_USDC, owner);
+        vm.expectRevert("ALREADY_INIT");
+        gateway.initialize(l2Gateway, router, inbox, L1_USDC, L2_USDC, owner);
+    }
+
     function test_finalizeInboundTransfer() public override {
         uint256 withdrawalAmount = 100_000_000;
         deal(L1_USDC, address(l1Gateway), withdrawalAmount);
