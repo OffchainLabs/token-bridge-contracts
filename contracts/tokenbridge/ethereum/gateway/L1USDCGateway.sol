@@ -103,7 +103,8 @@ contract L1USDCGateway is L1ArbitrumExtendedGateway {
 
     /**
      * @notice Burns the USDC tokens escrowed in the gateway.
-     * @dev    Can be called by burner when deposits are paused.
+     * @dev    Can be called by burner when deposits are paused and when
+     *         L2 gateway has set the L2 supply. That's the amount that will be burned
      *         Function signature complies by Bridged USDC Standard.
      */
     function burnLockedUSDC() external {
@@ -118,6 +119,7 @@ contract L1USDCGateway is L1ArbitrumExtendedGateway {
             revert L1USDCGateway_L2SupplyNotSet();
         }
 
+        l2GatewaySupply = 0;
         IFiatToken(l1USDC).burn(_amountToBurn);
         emit GatewayUsdcBurned(_amountToBurn);
     }
