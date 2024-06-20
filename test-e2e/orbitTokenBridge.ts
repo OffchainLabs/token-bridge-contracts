@@ -26,7 +26,6 @@ import {
   L2CustomGateway__factory,
   L2GatewayRouter__factory,
   L2USDCGateway__factory,
-  MockL1Usdc__factory,
   ProxyAdmin__factory,
   TestArbCustomToken__factory,
   TestCustomTokenL1__factory,
