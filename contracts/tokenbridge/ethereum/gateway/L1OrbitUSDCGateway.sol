@@ -22,7 +22,8 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
  *         - it supports a single parent chain - child chain USDC token pair
  *         - it is ownable
  *         - owner can one-time permanently pause deposits
- *         - owner can trigger burning all the USDC tokens locked in the gateway
+ *         - owner can set a burner address
+ *         - burner can trigger burning the amount of USDC tokens locked in the gateway that matches the L2 supply
  *
  *         This contract is to be used on chains where custom fee token is used. If chain is using
  *         ETH as native token then use L1USDCGateway instead.

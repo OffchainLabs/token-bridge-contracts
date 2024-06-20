@@ -26,7 +26,7 @@ import {IFiatToken} from "../../libraries/IFiatToken.sol";
  *         - it is ownable
  *         - owner can one-time permanently pause deposits
  *         - owner can set a burner address
- *         - burner can trigger burning all the USDC tokens locked in the gateway
+ *         - burner can trigger burning the amount of USDC tokens locked in the gateway that matches the L2 supply
  *
  *         This contract is to be used on chains where ETH is the native token. If chain is using
  *         custom fee token then use L1OrbitUSDCGateway instead.
@@ -36,8 +36,8 @@ contract L1USDCGateway is L1ArbitrumExtendedGateway {
     address public l2USDC;
     address public owner;
     address public burner;
-    uint256 public l2GatewaySupply;
     bool public depositsPaused;
+    uint256 public l2GatewaySupply;
 
     event DepositsPaused();
     event GatewayUsdcBurned(uint256 amount);
