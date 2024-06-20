@@ -14,7 +14,8 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
  *         bridging solution and keep the possibility to upgrade to native USDC at
  *         some point later. This solution will NOT be used in existing Arbitrum chains.
  *
- *         Parent chain custom gateway to be used along this parent chain custom gateway is L1USDCGateway.
+ *         Parent chain custom gateway to be used along this child chain custom gateway is
+ *         L1USDCGateway (when eth is used to pay fees) or L1OrbitUSDCGateway (when custom fee token is used).
  *         This custom gateway differs from standard gateway in the following ways:
  *         - it supports a single parent chain - child chain USDC token pair
  *         - it is ownable
@@ -70,6 +71,7 @@ contract L2USDCGateway is L2ArbitrumGateway {
     /**
      * @notice Pause all withdrawals. This can only be called by the owner.
      *         Pausing is permanent and can not be undone.
+     *         Additionally, a message containing L2 supply is sent to the L1 Gateway.
      */
     function pauseWithdrawals() external onlyOwner {
         if (withdrawalsPaused) {
@@ -143,7 +145,7 @@ contract L2USDCGateway is L2ArbitrumGateway {
     ) external payable override onlyCounterpartGateway {
         address expectedAddress = calculateL2TokenAddress(_token);
         if (!expectedAddress.isContract()) {
-            handleNoContract(_token, expectedAddress, _from, _to, _amount, "");
+            handleNoContract(_token, address(0), _from, address(0), _amount, "");
             return;
         }
 
