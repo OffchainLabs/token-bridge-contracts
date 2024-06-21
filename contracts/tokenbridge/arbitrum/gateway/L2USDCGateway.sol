@@ -162,4 +162,13 @@ contract L2USDCGateway is L2ArbitrumGateway {
         triggerWithdrawal(l1ERC20, address(this), _from, _amount, "");
         return true;
     }
+
+    function _isValidTokenAddress(address _l1Address, address _expectedL2Address)
+        internal
+        view
+        override
+        returns (bool)
+    {
+        return _l1Address == l1USDC && _expectedL2Address == l2USDC;
+    }
 }
