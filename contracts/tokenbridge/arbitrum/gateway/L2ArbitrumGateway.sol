@@ -278,6 +278,12 @@ abstract contract L2ArbitrumGateway is L2ArbitrumMessenger, TokenGateway {
         bytes memory gatewayData
     ) internal virtual returns (bool shouldHalt);
 
+    /**
+     * @notice Check if expected token address matches the provided one
+     * @param _l1Address provided address of L1 token
+     * @param _expectedL2Address address of L2 gateway expects
+     * @return true if addresses match, false otherwise
+     */
     function _isValidTokenAddress(address _l1Address, address _expectedL2Address)
         internal
         view
