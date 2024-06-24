@@ -114,45 +114,7 @@ contract L2USDCGateway is L2ArbitrumGateway {
         if (withdrawalsPaused) {
             revert L2USDCGateway_WithdrawalsPaused();
         }
-
-        require(msg.value == 0, "NO_VALUE");
-
-        address _from;
-        bytes memory _extraData;
-        if (isRouter(msg.sender)) {
-            (_from, _extraData) = GatewayMessageHandler.parseFromRouterToGateway(_data);
-        } else {
-            _from = msg.sender;
-            _extraData = _data;
-        }
-        require(_extraData.length == 0, "EXTRA_DATA_DISABLED");
-
-        address l2Token = calculateL2TokenAddress(_l1Token);
-        require(l2Token.isContract(), "TOKEN_NOT_DEPLOYED");
-
-        _amount = outboundEscrowTransfer(l2Token, _from, _amount);
-        uint256 id = triggerWithdrawal(_l1Token, _from, _to, _amount, _extraData);
-
-        return abi.encode(id);
-    }
-
-    function finalizeInboundTransfer(
-        address _token,
-        address _from,
-        address _to,
-        uint256 _amount,
-        bytes calldata /* _data */
-    ) external payable override onlyCounterpartGateway {
-        address expectedAddress = calculateL2TokenAddress(_token);
-        if (!expectedAddress.isContract()) {
-            handleNoContract(_token, address(0), _from, address(0), _amount, "");
-            return;
-        }
-
-        inboundEscrowTransfer(expectedAddress, _to, _amount);
-        emit DepositFinalized(_token, _from, _to, _amount);
-
-        return;
+        return super.outboundTransfer(_l1Token, _to, _amount, 0, 0, _data);
     }
 
     /**
@@ -199,5 +161,14 @@ contract L2USDCGateway is L2ArbitrumGateway {
         // it is assumed that the custom token is deployed to child chain before deposits are made
         triggerWithdrawal(l1ERC20, address(this), _from, _amount, "");
         return true;
+    }
+
+    function _isValidTokenAddress(address _l1Address, address _expectedL2Address)
+        internal
+        view
+        override
+        returns (bool)
+    {
+        return _l1Address == l1USDC && _expectedL2Address == l2USDC;
     }
 }
