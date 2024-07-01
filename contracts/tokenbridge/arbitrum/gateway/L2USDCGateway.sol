@@ -19,7 +19,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
  *         This custom gateway differs from standard gateway in the following ways:
  *         - it supports a single parent chain - child chain USDC token pair
  *         - it is ownable
- *         - withdrawals can be permanently paused by the owner
+ *         - withdrawals can be paused by the owner
  */
 contract L2USDCGateway is L2ArbitrumGateway {
     using SafeERC20 for IERC20;
@@ -31,8 +31,10 @@ contract L2USDCGateway is L2ArbitrumGateway {
     bool public withdrawalsPaused;
 
     event WithdrawalsPaused();
+    event WithdrawalsUnpaused();
 
     error L2USDCGateway_WithdrawalsAlreadyPaused();
+    error L2USDCGateway_WithdrawalsAlreadyUnpaused();
     error L2USDCGateway_WithdrawalsPaused();
     error L2USDCGateway_InvalidL1USDC();
     error L2USDCGateway_InvalidL2USDC();
@@ -70,7 +72,6 @@ contract L2USDCGateway is L2ArbitrumGateway {
 
     /**
      * @notice Pause all withdrawals. This can only be called by the owner.
-     *         Pausing is permanent and can not be undone.
      */
     function pauseWithdrawals() external onlyOwner {
         if (withdrawalsPaused) {
@@ -78,6 +79,18 @@ contract L2USDCGateway is L2ArbitrumGateway {
         }
         withdrawalsPaused = true;
         emit WithdrawalsPaused();
+    }
+
+    /**
+     * @notice Unpause withdrawals. This can only be called by the owner.
+     */
+    function unpauseWithdrawals() external onlyOwner {
+        if (!withdrawalsPaused) {
+            revert L2USDCGateway_WithdrawalsAlreadyUnpaused();
+        }
+        withdrawalsPaused = false;
+
+        emit WithdrawalsUnpaused();
     }
 
     /**
