@@ -897,27 +897,18 @@ describe('orbitTokenBridge', () => {
     expect(await l1USDCCustomGateway.depositsPaused()).to.be.eq(true)
     console.log('Deposits paused')
 
+    /// pause withdrawals
+    await (await l2USDCCustomGateway.pauseWithdrawals()).wait()
+    expect(await l2USDCCustomGateway.withdrawalsPaused()).to.be.eq(true)
+    console.log('Withdrawals paused')
+
     /// chain owner/circle checks that all pending deposits (all retryables depositing usdc) are executed
 
-    /// pause withdrawals and send L2 supply to L1
-    const pauseReceipt = await (
-      await l2USDCCustomGateway.pauseWithdrawals()
-    ).wait()
-    const l2PauseReceipt = new L2TransactionReceipt(pauseReceipt)
-    const messages = await l2PauseReceipt.getL2ToL1Messages(userL1Wallet)
-    const l2ToL1Msg = messages[0]
-    const timeToWaitMs = 60 * 1000
-    await l2ToL1Msg.waitUntilReadyToExecute(
-      deployerL2Wallet.provider!,
-      timeToWaitMs
-    )
-    // execute msg on L1
-    await (await l2ToL1Msg.execute(deployerL2Wallet.provider!)).wait()
-
-    // check withdrawals are paused and l2 supply is set in l1 gateway
-    expect(await l2USDCCustomGateway.withdrawalsPaused()).to.be.eq(true)
-    expect(await l1USDCCustomGateway.l2GatewaySupply()).to.be.gt(0)
-    console.log('Withdrawals paused and L2 supply set in L1 gateway')
+    // set burn amount
+    const burnAmount = await l2Usdc.totalSupply()
+    await (await l1USDCCustomGateway.setBurnAmount(burnAmount)).wait()
+    expect(await l1USDCCustomGateway.burnAmount()).to.be.eq(burnAmount)
+    console.log('Burn amount set')
 
     /// make circle the burner
     const circleWallet = ethers.Wallet.createRandom().connect(parentProvider)
@@ -928,6 +919,7 @@ describe('orbitTokenBridge', () => {
       })
     ).wait()
     await (await l1USDCCustomGateway.setBurner(circleWallet.address)).wait()
+    expect(await l1USDCCustomGateway.burner()).to.be.eq(circleWallet.address)
 
     /// add minter rights to usdc gateway so it can burn USDC
     await (
@@ -1227,27 +1219,18 @@ describe('orbitTokenBridge', () => {
     expect(await l1USDCCustomGateway.depositsPaused()).to.be.eq(true)
     console.log('Deposits paused')
 
+    /// pause withdrawals
+    await (await l2USDCCustomGateway.pauseWithdrawals()).wait()
+    expect(await l2USDCCustomGateway.withdrawalsPaused()).to.be.eq(true)
+    console.log('Withdrawals paused')
+
     /// chain owner/circle checks that all pending deposits (all retryables depositing usdc) are executed
 
-    /// pause withdrawals and send L2 supply to L1
-    const pauseReceipt = await (
-      await l2USDCCustomGateway.pauseWithdrawals()
-    ).wait()
-    const l2PauseReceipt = new L2TransactionReceipt(pauseReceipt)
-    const messages = await l2PauseReceipt.getL2ToL1Messages(userL1Wallet)
-    const l2ToL1Msg = messages[0]
-    const timeToWaitMs = 60 * 1000
-    await l2ToL1Msg.waitUntilReadyToExecute(
-      deployerL2Wallet.provider!,
-      timeToWaitMs
-    )
-    // execute msg on L1
-    await (await l2ToL1Msg.execute(deployerL2Wallet.provider!)).wait()
-
-    // check withdrawals are paused and l2 supply is set in l1 gateway
-    expect(await l2USDCCustomGateway.withdrawalsPaused()).to.be.eq(true)
-    expect(await l1USDCCustomGateway.l2GatewaySupply()).to.be.gt(0)
-    console.log('Withdrawals paused and L2 supply set in L1 gateway')
+    // set burn amount
+    const burnAmount = await l2Usdc.totalSupply()
+    await (await l1USDCCustomGateway.setBurnAmount(burnAmount)).wait()
+    expect(await l1USDCCustomGateway.burnAmount()).to.be.eq(burnAmount)
+    console.log('Burn amount set')
 
     /// make circle the burner
     const circleWallet = ethers.Wallet.createRandom().connect(parentProvider)
@@ -1258,6 +1241,7 @@ describe('orbitTokenBridge', () => {
       })
     ).wait()
     await (await l1USDCCustomGateway.setBurner(circleWallet.address)).wait()
+    expect(await l1USDCCustomGateway.burner()).to.be.eq(circleWallet.address)
 
     /// add minter rights to usdc gateway so it can burn USDC
     await (
