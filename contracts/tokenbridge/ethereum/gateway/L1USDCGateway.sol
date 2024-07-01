@@ -4,10 +4,8 @@ pragma solidity ^0.8.4;
 import {
     L1ArbitrumExtendedGateway,
     L1ArbitrumGateway,
-    IL1ArbitrumGateway,
     ITokenGateway,
-    TokenGateway,
-    IERC20
+    TokenGateway
 } from "./L1ArbitrumExtendedGateway.sol";
 import {IFiatToken} from "../../libraries/IFiatToken.sol";
 
@@ -26,6 +24,7 @@ import {IFiatToken} from "../../libraries/IFiatToken.sol";
  *         - it is ownable
  *         - owner can one-time permanently pause deposits
  *         - owner can set a burner address
+ *         - owner can set the amount of USDC tokens to be burned by burner
  *         - burner can trigger burning the amount of USDC tokens locked in the gateway that matches the L2 supply
  *
  *         This contract is to be used on chains where ETH is the native token. If chain is using
@@ -37,11 +36,12 @@ contract L1USDCGateway is L1ArbitrumExtendedGateway {
     address public owner;
     address public burner;
     bool public depositsPaused;
-    uint256 public l2GatewaySupply;
+    uint256 public burnAmount;
 
     event DepositsPaused();
     event GatewayUsdcBurned(uint256 amount);
     event BurnerSet(address indexed burner);
+    event BurnAmountSet(uint256 amount);
 
     error L1USDCGateway_DepositsAlreadyPaused();
     error L1USDCGateway_DepositsPaused();
@@ -51,7 +51,7 @@ contract L1USDCGateway is L1ArbitrumExtendedGateway {
     error L1USDCGateway_NotOwner();
     error L1USDCGateway_InvalidOwner();
     error L1USDCGateway_NotBurner();
-    error L1USDCGateway_L2SupplyNotSet();
+    error L1USDCGateway_BurnAmountNotSet();
 
     modifier onlyOwner() {
         if (msg.sender != owner) {
@@ -97,14 +97,20 @@ contract L1USDCGateway is L1ArbitrumExtendedGateway {
         emit DepositsPaused();
     }
 
-    function setL2GatewaySupply(uint256 _l2GatewaySupply) external onlyOwner {
-        l2GatewaySupply = _l2GatewaySupply;
+    /**
+     * @notice Owner sets the amount of USDC tokens to be burned by burner account.
+     * @dev    This amount should match the L2 supply of bridged USDC. But it's not enforced, so burner
+     *         should verify that correct amount is set before proceeding with burning.
+     */
+    function setBurnAmount(uint256 _burnAmount) external onlyOwner {
+        burnAmount = _burnAmount;
+        emit BurnAmountSet(_burnAmount);
     }
 
     /**
      * @notice Burns the USDC tokens escrowed in the gateway.
      * @dev    Can be called by burner when deposits are paused and when
-     *         L2 gateway has set the L2 supply. That's the amount that will be burned
+     *         owner has set the burn amount. Amount should match the L2 supply.
      *         Function signature complies by Bridged USDC Standard.
      */
     function burnLockedUSDC() external {
@@ -114,14 +120,14 @@ contract L1USDCGateway is L1ArbitrumExtendedGateway {
         if (!depositsPaused) {
             revert L1USDCGateway_DepositsNotPaused();
         }
-        uint256 _amountToBurn = l2GatewaySupply;
-        if (_amountToBurn == 0) {
-            revert L1USDCGateway_L2SupplyNotSet();
+        uint256 _burnAmount = burnAmount;
+        if (_burnAmount == 0) {
+            revert L1USDCGateway_BurnAmountNotSet();
         }
 
-        l2GatewaySupply = 0;
-        IFiatToken(l1USDC).burn(_amountToBurn);
-        emit GatewayUsdcBurned(_amountToBurn);
+        burnAmount = 0;
+        IFiatToken(l1USDC).burn(_burnAmount);
+        emit GatewayUsdcBurned(_burnAmount);
     }
 
     /**

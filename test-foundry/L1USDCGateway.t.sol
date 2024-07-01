@@ -44,10 +44,10 @@ contract L1USDCGatewayTest is L1ArbitrumExtendedGatewayTest {
         vm.prank(owner);
         usdcGateway.setBurner(burner);
 
-        /// set L2 supply
-        vm.prank(address(IInbox(l1Gateway.inbox()).bridge()));
+        /// set burn amount
+        vm.prank(owner);
         uint256 l2Supply = lockedAmount - 100;
-        usdcGateway.setL2GatewaySupply(l2Supply);
+        usdcGateway.setBurnAmount(l2Supply);
 
         vm.expectEmit(true, true, true, true);
         emit GatewayUsdcBurned(l2Supply);
@@ -82,7 +82,7 @@ contract L1USDCGatewayTest is L1ArbitrumExtendedGatewayTest {
         usdcGateway.burnLockedUSDC();
     }
 
-    function test_burnLockedUSDC_revert_L2SupplyNotSet() public {
+    function test_burnLockedUSDC_revert_BurnAmountNotSet() public {
         /// add some USDC to the gateway
         uint256 lockedAmount = 234 ether;
         deal(L1_USDC, address(usdcGateway), lockedAmount);
@@ -96,7 +96,9 @@ contract L1USDCGatewayTest is L1ArbitrumExtendedGatewayTest {
         vm.prank(owner);
         usdcGateway.setBurner(burner);
 
-        vm.expectRevert(abi.encodeWithSelector(L1USDCGateway.L1USDCGateway_L2SupplyNotSet.selector));
+        vm.expectRevert(
+            abi.encodeWithSelector(L1USDCGateway.L1USDCGateway_BurnAmountNotSet.selector)
+        );
         vm.prank(burner);
         usdcGateway.burnLockedUSDC();
     }
@@ -370,6 +372,18 @@ contract L1USDCGatewayTest is L1ArbitrumExtendedGatewayTest {
         usdcGateway.setBurner(address(0));
     }
 
+    function test_setBurnAmount() public {
+        uint256 amount = 100;
+
+        vm.expectEmit(true, true, true, true);
+        emit BurnAmountSet(amount);
+
+        vm.prank(owner);
+        usdcGateway.setBurnAmount(amount);
+
+        assertEq(usdcGateway.burnAmount(), amount, "Invalid burnAmount");
+    }
+
     function test_setOwner() public {
         address newOwner = makeAddr("new-owner");
         vm.prank(owner);
@@ -395,6 +409,7 @@ contract L1USDCGatewayTest is L1ArbitrumExtendedGatewayTest {
     event DepositsPaused();
     event GatewayUsdcBurned(uint256 amount);
     event BurnerSet(address indexed burner);
+    event BurnAmountSet(uint256 amount);
 
     event TicketData(uint256 maxSubmissionCost);
     event RefundAddresses(address excessFeeRefundAddress, address callValueRefundAddress);
