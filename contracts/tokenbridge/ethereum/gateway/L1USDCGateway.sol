@@ -97,7 +97,7 @@ contract L1USDCGateway is L1ArbitrumExtendedGateway {
         emit DepositsPaused();
     }
 
-    function setL2GatewaySupply(uint256 _l2GatewaySupply) external onlyCounterpartGateway {
+    function setL2GatewaySupply(uint256 _l2GatewaySupply) external onlyOwner {
         l2GatewaySupply = _l2GatewaySupply;
     }
 

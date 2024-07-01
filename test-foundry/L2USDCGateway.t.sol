@@ -230,14 +230,6 @@ contract L2USDCGatewayTest is L2ArbitrumGatewayTest {
 
         // events
         vm.expectEmit(true, true, true, true);
-        emit TxToL1(
-            address(l2USDCGateway),
-            address(l1Counterpart),
-            0,
-            abi.encodeCall(L1USDCGateway.setL2GatewaySupply, mockL2Supply)
-        );
-
-        vm.expectEmit(true, true, true, true);
         emit WithdrawalsPaused();
 
         // pause withdrawals

@@ -71,22 +71,12 @@ contract L2USDCGateway is L2ArbitrumGateway {
     /**
      * @notice Pause all withdrawals. This can only be called by the owner.
      *         Pausing is permanent and can not be undone.
-     *         Additionally, a message containing L2 supply is sent to the L1 Gateway.
      */
     function pauseWithdrawals() external onlyOwner {
         if (withdrawalsPaused) {
             revert L2USDCGateway_WithdrawalsAlreadyPaused();
         }
         withdrawalsPaused = true;
-
-        // send a message to the L1 Gateway with total supply. That's final supply on L2 which will be burned on L1
-        sendTxToL1({
-            _l1CallValue: 0,
-            _from: address(this),
-            _to: counterpartGateway,
-            _data: abi.encodeCall(L1USDCGateway.setL2GatewaySupply, (IERC20(l2USDC).totalSupply()))
-        });
-
         emit WithdrawalsPaused();
     }
 
