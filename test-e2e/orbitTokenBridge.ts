@@ -35,6 +35,7 @@ import {
   TransparentUpgradeableProxy__factory,
   UpgradeExecutor__factory,
   IFiatToken__factory,
+  IFiatTokenProxy__factory,
 } from '../build/types'
 import { defaultAbiCoder } from 'ethers/lib/utils'
 import { BigNumber, Wallet, ethers } from 'ethers'
@@ -47,6 +48,11 @@ import {
   abi as UsdcAbi,
   bytecode as UsdcBytecode,
 } from '@offchainlabs/stablecoin-evm/artifacts/hardhat/contracts/v2/FiatTokenV2_2.sol/FiatTokenV2_2.json'
+import {
+  abi as UsdcProxyAbi,
+  bytecode as UsdcProxyBytecode,
+} from '@offchainlabs/stablecoin-evm/artifacts/hardhat/contracts/v1/FiatTokenProxy.sol/FiatTokenProxy.json'
+import exp from 'constants'
 const config = {
   parentUrl: 'http://localhost:8547',
   childUrl: 'http://localhost:3347',
@@ -699,7 +705,7 @@ describe('orbitTokenBridge', () => {
     console.log('L2USDCGateway address: ', l2USDCCustomGateway.address)
 
     /// create l1 usdc behind proxy
-    const l1UsdcLogic = await _deployBridgedUsdcToken(deployerL1Wallet)
+    const l1UsdcLogic = await _deployUsdcToken(deployerL1Wallet)
     const tupL1UsdcFactory = await new TransparentUpgradeableProxy__factory(
       deployerL1Wallet
     ).deploy(l1UsdcLogic.address, proxyAdmin.address, '0x')
@@ -730,18 +736,20 @@ describe('orbitTokenBridge', () => {
     console.log('L1 USDC address: ', l1Usdc.address)
 
     /// create l2 usdc behind proxy
-    const l2UsdcLogic = await _deployBridgedUsdcToken(deployerL2Wallet)
-    const tupL2UsdcFactory = await new TransparentUpgradeableProxy__factory(
-      deployerL2Wallet
-    ).deploy(l2UsdcLogic.address, proxyAdminL2.address, '0x')
-    const tupL2Usdc = await tupL2UsdcFactory.deployed()
-    const l2UsdcInit = IFiatToken__factory.connect(
-      tupL2Usdc.address,
+    const l2UsdcLogic = await _deployUsdcToken(deployerL2Wallet)
+    const l2UsdcProxyAddress = await _deployUsdcProxy(
+      deployerL2Wallet,
+      l2UsdcLogic.address,
+      proxyAdminL2.address
+    )
+
+    const l2UsdcFiatToken = IFiatToken__factory.connect(
+      l2UsdcProxyAddress,
       deployerL2Wallet
     )
     const masterMinterL2 = deployerL2Wallet
     await (
-      await l2UsdcInit.initialize(
+      await l2UsdcFiatToken.initialize(
         'USDC token',
         'USDC.e',
         'USD',
@@ -752,12 +760,15 @@ describe('orbitTokenBridge', () => {
         deployerL2Wallet.address
       )
     ).wait()
-    await (await l2UsdcInit.initializeV2('USDC')).wait()
+    await (await l2UsdcFiatToken.initializeV2('USDC')).wait()
     await (
-      await l2UsdcInit.initializeV2_1(ethers.Wallet.createRandom().address)
+      await l2UsdcFiatToken.initializeV2_1(ethers.Wallet.createRandom().address)
     ).wait()
-    await (await l2UsdcInit.initializeV2_2([], 'USDC.e')).wait()
-    const l2Usdc = IERC20__factory.connect(l2UsdcInit.address, deployerL2Wallet)
+    await (await l2UsdcFiatToken.initializeV2_2([], 'USDC.e')).wait()
+    const l2Usdc = IERC20__factory.connect(
+      l2UsdcFiatToken.address,
+      deployerL2Wallet
+    )
     console.log('L2 USDC address: ', l2Usdc.address)
 
     /// initialize gateways
@@ -836,16 +847,16 @@ describe('orbitTokenBridge', () => {
 
     /// add minter role with max allowance to L2 gateway
     await (
-      await l2UsdcInit
+      await l2UsdcFiatToken
         .connect(masterMinterL2)
         .configureMinter(
           l2USDCCustomGateway.address,
           ethers.constants.MaxUint256
         )
     ).wait()
-    expect(await l2UsdcInit.isMinter(l2USDCCustomGateway.address)).to.be.eq(
-      true
-    )
+    expect(
+      await l2UsdcFiatToken.isMinter(l2USDCCustomGateway.address)
+    ).to.be.eq(true)
     console.log('Minter role with max allowance granted to L2 USDC gateway')
 
     /// mint some USDC to user
@@ -911,15 +922,15 @@ describe('orbitTokenBridge', () => {
     console.log('Burn amount set')
 
     /// make circle the burner
-    const circleWallet = ethers.Wallet.createRandom().connect(parentProvider)
+    const circleWalletL1 = ethers.Wallet.createRandom().connect(parentProvider)
     await (
       await deployerL1Wallet.sendTransaction({
-        to: circleWallet.address,
+        to: circleWalletL1.address,
         value: ethers.utils.parseEther('1'),
       })
     ).wait()
-    await (await l1USDCCustomGateway.setBurner(circleWallet.address)).wait()
-    expect(await l1USDCCustomGateway.burner()).to.be.eq(circleWallet.address)
+    await (await l1USDCCustomGateway.setBurner(circleWalletL1.address)).wait()
+    expect(await l1USDCCustomGateway.burner()).to.be.eq(circleWalletL1.address)
 
     /// add minter rights to usdc gateway so it can burn USDC
     await (
@@ -929,23 +940,68 @@ describe('orbitTokenBridge', () => {
 
     /// remove minter role from the L2 gateway
     await (
-      await l2UsdcInit
+      await l2UsdcFiatToken
         .connect(masterMinterL2)
         .removeMinter(l2USDCCustomGateway.address)
     ).wait()
-    expect(await l2UsdcInit.isMinter(l2USDCCustomGateway.address)).to.be.eq(
-      false
-    )
+    expect(
+      await l2UsdcFiatToken.isMinter(l2USDCCustomGateway.address)
+    ).to.be.eq(false)
     console.log('Minter role removed from L2 USDC gateway')
 
+    /// set USDC role transferrer
+    const circleWalletL2 = ethers.Wallet.createRandom().connect(childProvider)
+    await (
+      await deployerL2Wallet.sendTransaction({
+        to: circleWalletL2.address,
+        value: ethers.utils.parseEther('1'),
+      })
+    ).wait()
+    await (
+      await l2USDCCustomGateway.setUsdcOwnershipTransferrer(
+        circleWalletL2.address
+      )
+    ).wait()
+    expect(await l2USDCCustomGateway.usdcOwnershipTransferrer()).to.be.eq(
+      circleWalletL2.address
+    )
+    console.log('USDC ownership transferrer set to', circleWalletL2.address)
+
+    /// transfer child chain USDC ownership to gateway
+    await (
+      await l2UsdcFiatToken.transferOwnership(l2USDCCustomGateway.address)
+    ).wait()
+    expect(await l2UsdcFiatToken.owner()).to.be.eq(l2USDCCustomGateway.address)
+    console.log('USDC ownership transferred to gateway')
+
+    /// transfer proxyAdmin to gateway
+    const fiatTokenProxy = IFiatTokenProxy__factory.connect(
+      l2UsdcFiatToken.address,
+      deployerL2Wallet
+    )
+    await (
+      await proxyAdminL2.changeProxyAdmin(
+        fiatTokenProxy.address,
+        l2USDCCustomGateway.address
+      )
+    ).wait()
+    expect(await fiatTokenProxy.admin()).to.be.eq(l2USDCCustomGateway.address)
+    console.log('Proxy admin transferred to gateway')
+
     /// transfer child chain USDC ownership to circle
-    await (await l2UsdcInit.transferOwnership(circleWallet.address)).wait()
-    expect(await l2UsdcInit.owner()).to.be.eq(circleWallet.address)
-    console.log('L2 USDC ownership transferred to circle')
+    await (
+      await l2USDCCustomGateway
+        .connect(circleWalletL2)
+        .transferUSDCRoles(circleWalletL2.address)
+    ).wait()
+
+    expect(await l2UsdcFiatToken.owner()).to.be.eq(circleWalletL2.address)
+    expect(await fiatTokenProxy.admin()).to.be.eq(circleWalletL2.address)
+    console.log('USDC ownership transferred to circle')
 
     /// circle burns USDC on L1
     await (
-      await l1USDCCustomGateway.connect(circleWallet).burnLockedUSDC()
+      await l1USDCCustomGateway.connect(circleWalletL1).burnLockedUSDC()
     ).wait()
     expect(await l1Usdc.balanceOf(l1USDCCustomGateway.address)).to.be.eq(0)
     expect(await l2Usdc.balanceOf(userL2Wallet.address)).to.be.eq(depositAmount)
@@ -997,7 +1053,7 @@ describe('orbitTokenBridge', () => {
     console.log('L2USDCGateway address: ', l2USDCCustomGateway.address)
 
     /// create l1 usdc behind proxy
-    const l1UsdcLogic = await _deployBridgedUsdcToken(deployerL1Wallet)
+    const l1UsdcLogic = await _deployUsdcToken(deployerL1Wallet)
     const tupL1UsdcFactory = await new TransparentUpgradeableProxy__factory(
       deployerL1Wallet
     ).deploy(l1UsdcLogic.address, proxyAdmin.address, '0x')
@@ -1028,18 +1084,20 @@ describe('orbitTokenBridge', () => {
     console.log('L1 USDC address: ', l1Usdc.address)
 
     /// create l2 usdc behind proxy
-    const l2UsdcLogic = await _deployBridgedUsdcToken(deployerL2Wallet)
-    const tupL2UsdcFactory = await new TransparentUpgradeableProxy__factory(
-      deployerL2Wallet
-    ).deploy(l2UsdcLogic.address, proxyAdminL2.address, '0x')
-    const tupL2Usdc = await tupL2UsdcFactory.deployed()
-    const l2UsdcInit = IFiatToken__factory.connect(
-      tupL2Usdc.address,
+    const l2UsdcLogic = await _deployUsdcToken(deployerL2Wallet)
+    const l2UsdcProxyAddress = await _deployUsdcProxy(
+      deployerL2Wallet,
+      l2UsdcLogic.address,
+      proxyAdminL2.address
+    )
+
+    const l2UsdcFiatToken = IFiatToken__factory.connect(
+      l2UsdcProxyAddress,
       deployerL2Wallet
     )
     const masterMinterL2 = deployerL2Wallet
     await (
-      await l2UsdcInit.initialize(
+      await l2UsdcFiatToken.initialize(
         'USDC token',
         'USDC.e',
         'USD',
@@ -1050,12 +1108,15 @@ describe('orbitTokenBridge', () => {
         deployerL2Wallet.address
       )
     ).wait()
-    await (await l2UsdcInit.initializeV2('USDC')).wait()
+    await (await l2UsdcFiatToken.initializeV2('USDC')).wait()
     await (
-      await l2UsdcInit.initializeV2_1(ethers.Wallet.createRandom().address)
+      await l2UsdcFiatToken.initializeV2_1(ethers.Wallet.createRandom().address)
     ).wait()
-    await (await l2UsdcInit.initializeV2_2([], 'USDC.e')).wait()
-    const l2Usdc = IERC20__factory.connect(l2UsdcInit.address, deployerL2Wallet)
+    await (await l2UsdcFiatToken.initializeV2_2([], 'USDC.e')).wait()
+    const l2Usdc = IERC20__factory.connect(
+      l2UsdcFiatToken.address,
+      deployerL2Wallet
+    )
     console.log('L2 USDC address: ', l2Usdc.address)
 
     /// initialize gateways
@@ -1149,16 +1210,16 @@ describe('orbitTokenBridge', () => {
 
     /// add minter role with max allowance to L2 gateway
     await (
-      await l2UsdcInit
+      await l2UsdcFiatToken
         .connect(masterMinterL2)
         .configureMinter(
           l2USDCCustomGateway.address,
           ethers.constants.MaxUint256
         )
     ).wait()
-    expect(await l2UsdcInit.isMinter(l2USDCCustomGateway.address)).to.be.eq(
-      true
-    )
+    expect(
+      await l2UsdcFiatToken.isMinter(l2USDCCustomGateway.address)
+    ).to.be.eq(true)
     console.log('Minter role with max allowance granted to L2 USDC gateway')
 
     /// mint some USDC to user
@@ -1233,15 +1294,16 @@ describe('orbitTokenBridge', () => {
     console.log('Burn amount set')
 
     /// make circle the burner
-    const circleWallet = ethers.Wallet.createRandom().connect(parentProvider)
+    const circleWalletL1 = ethers.Wallet.createRandom().connect(parentProvider)
     await (
       await deployerL1Wallet.sendTransaction({
-        to: circleWallet.address,
+        to: circleWalletL1.address,
         value: ethers.utils.parseEther('1'),
       })
     ).wait()
-    await (await l1USDCCustomGateway.setBurner(circleWallet.address)).wait()
-    expect(await l1USDCCustomGateway.burner()).to.be.eq(circleWallet.address)
+    await (await l1USDCCustomGateway.setBurner(circleWalletL1.address)).wait()
+    expect(await l1USDCCustomGateway.burner()).to.be.eq(circleWalletL1.address)
+    console.log('Circle set as burner')
 
     /// add minter rights to usdc gateway so it can burn USDC
     await (
@@ -1251,23 +1313,68 @@ describe('orbitTokenBridge', () => {
 
     /// remove minter role from the L2 gateway
     await (
-      await l2UsdcInit
+      await l2UsdcFiatToken
         .connect(masterMinterL2)
         .removeMinter(l2USDCCustomGateway.address)
     ).wait()
-    expect(await l2UsdcInit.isMinter(l2USDCCustomGateway.address)).to.be.eq(
-      false
-    )
+    expect(
+      await l2UsdcFiatToken.isMinter(l2USDCCustomGateway.address)
+    ).to.be.eq(false)
     console.log('Minter role removed from L2 USDC gateway')
 
+    /// set USDC role transferrer
+    const circleWalletL2 = ethers.Wallet.createRandom().connect(childProvider)
+    await (
+      await deployerL2Wallet.sendTransaction({
+        to: circleWalletL2.address,
+        value: ethers.utils.parseEther('1'),
+      })
+    ).wait()
+    await (
+      await l2USDCCustomGateway.setUsdcOwnershipTransferrer(
+        circleWalletL2.address
+      )
+    ).wait()
+    expect(await l2USDCCustomGateway.usdcOwnershipTransferrer()).to.be.eq(
+      circleWalletL2.address
+    )
+    console.log('USDC ownership transferrer set to', circleWalletL2.address)
+
+    /// transfer child chain USDC ownership to gateway
+    await (
+      await l2UsdcFiatToken.transferOwnership(l2USDCCustomGateway.address)
+    ).wait()
+    expect(await l2UsdcFiatToken.owner()).to.be.eq(l2USDCCustomGateway.address)
+    console.log('USDC ownership transferred to gateway')
+
+    /// transfer proxyAdmin to gateway
+    const fiatTokenProxy = IFiatTokenProxy__factory.connect(
+      l2UsdcFiatToken.address,
+      deployerL2Wallet
+    )
+    await (
+      await proxyAdminL2.changeProxyAdmin(
+        fiatTokenProxy.address,
+        l2USDCCustomGateway.address
+      )
+    ).wait()
+    expect(await fiatTokenProxy.admin()).to.be.eq(l2USDCCustomGateway.address)
+    console.log('Proxy admin transferred to gateway')
+
     /// transfer child chain USDC ownership to circle
-    await (await l2UsdcInit.transferOwnership(circleWallet.address)).wait()
-    expect(await l2UsdcInit.owner()).to.be.eq(circleWallet.address)
-    console.log('L2 USDC ownership transferred to circle')
+    await (
+      await l2USDCCustomGateway
+        .connect(circleWalletL2)
+        .transferUSDCRoles(circleWalletL2.address)
+    ).wait()
+
+    expect(await l2UsdcFiatToken.owner()).to.be.eq(circleWalletL2.address)
+    expect(await fiatTokenProxy.admin()).to.be.eq(circleWalletL2.address)
+    console.log('USDC ownership transferred to circle')
 
     /// circle burns USDC on L1
     await (
-      await l1USDCCustomGateway.connect(circleWallet).burnLockedUSDC()
+      await l1USDCCustomGateway.connect(circleWalletL1).burnLockedUSDC()
     ).wait()
     expect(await l1Usdc.balanceOf(l1USDCCustomGateway.address)).to.be.eq(0)
     expect(await l2Usdc.balanceOf(userL2Wallet.address)).to.be.eq(depositAmount)
@@ -1343,7 +1450,7 @@ function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
-async function _deployBridgedUsdcToken(deployer: Wallet) {
+async function _deployUsdcToken(deployer: Wallet) {
   /// deploy library
   const sigCheckerFac = new ethers.ContractFactory(
     SigCheckerAbi,
@@ -1370,4 +1477,26 @@ async function _deployBridgedUsdcToken(deployer: Wallet) {
   const bridgedUsdcLogic = await bridgedUsdcLogicFactory.deploy()
 
   return bridgedUsdcLogic
+}
+
+async function _deployUsdcProxy(
+  deployer: Wallet,
+  bridgedUsdcLogic: string,
+  proxyAdmin: string
+) {
+  const usdcProxyFactory = new ethers.ContractFactory(
+    UsdcProxyAbi,
+    UsdcProxyBytecode,
+    deployer
+  )
+  const usdcProxy = await usdcProxyFactory.deploy(bridgedUsdcLogic)
+
+  await (
+    await IFiatTokenProxy__factory.connect(
+      usdcProxy.address,
+      deployer
+    ).changeAdmin(proxyAdmin)
+  ).wait()
+
+  return usdcProxy.address
 }
