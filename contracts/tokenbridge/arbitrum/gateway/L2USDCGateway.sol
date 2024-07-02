@@ -2,7 +2,7 @@
 pragma solidity ^0.8.4;
 
 import "./L2ArbitrumGateway.sol";
-import {L1USDCGateway, IFiatToken} from "../../ethereum/gateway/L1USDCGateway.sol";
+import {IFiatToken, IFiatTokenProxy} from "../../ethereum/gateway/L1USDCGateway.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
@@ -28,10 +28,14 @@ contract L2USDCGateway is L2ArbitrumGateway {
     address public l1USDC;
     address public l2USDC;
     address public owner;
+    address public usdcOwnershipTransferrer;
     bool public withdrawalsPaused;
 
     event WithdrawalsPaused();
     event WithdrawalsUnpaused();
+    event OwnerSet(address indexed owner);
+    event USDCOwnershipTransferrerSet(address indexed usdcOwnershipTransferrer);
+    event USDCOwnershipTransferred(address indexed newOwner, address indexed newProxyAdmin);
 
     error L2USDCGateway_WithdrawalsAlreadyPaused();
     error L2USDCGateway_WithdrawalsAlreadyUnpaused();
@@ -40,6 +44,7 @@ contract L2USDCGateway is L2ArbitrumGateway {
     error L2USDCGateway_InvalidL2USDC();
     error L2USDCGateway_NotOwner();
     error L2USDCGateway_InvalidOwner();
+    error L2USDCGateway_NotUSDCOwnershipTransferrer();
 
     modifier onlyOwner() {
         if (msg.sender != owner) {
@@ -101,6 +106,31 @@ contract L2USDCGateway is L2ArbitrumGateway {
             revert L2USDCGateway_InvalidOwner();
         }
         owner = newOwner;
+        emit OwnerSet(newOwner);
+    }
+
+    /**
+     * @notice Sets the account which is able to transfer USDC role away from the gateway to some other account.
+     */
+    function setUsdcOwnershipTransferrer(address _usdcOwnershipTransferrer) external onlyOwner {
+        usdcOwnershipTransferrer = _usdcOwnershipTransferrer;
+        emit USDCOwnershipTransferrerSet(_usdcOwnershipTransferrer);
+    }
+
+    /**
+     * @notice In accordance with bridged USDC standard, the ownership of the USDC token contract is transferred
+     *         to the new owner, and the proxy admin is transferred to the caller (usdcOwnershipTransferrer).
+     * @dev    For transfer to be successful, this gaetway should be both the owner and the proxy admin of L2 USDC token.
+     */
+    function transferUSDCRoles(address _owner) external {
+        if (msg.sender != usdcOwnershipTransferrer) {
+            revert L2USDCGateway_NotUSDCOwnershipTransferrer();
+        }
+
+        IFiatTokenProxy(l2USDC).changeAdmin(msg.sender);
+        IFiatToken(l2USDC).transferOwnership(_owner);
+
+        emit USDCOwnershipTransferred(_owner, msg.sender);
     }
 
     /**

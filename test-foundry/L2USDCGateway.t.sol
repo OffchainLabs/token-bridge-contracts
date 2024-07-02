@@ -10,23 +10,26 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {AddressAliasHelper} from "contracts/tokenbridge/libraries/AddressAliasHelper.sol";
 import {L2GatewayToken} from "contracts/tokenbridge/libraries/L2GatewayToken.sol";
 import {IFiatToken} from "contracts/tokenbridge/libraries/IFiatToken.sol";
-import {TestUtil} from "./util/TestUtil.sol";
 
 contract L2USDCGatewayTest is L2ArbitrumGatewayTest {
     L2USDCGateway public l2USDCGateway;
     address public l1USDC = makeAddr("l1USDC");
     address public l2USDC;
     address public user = makeAddr("usdc_user");
-    address public owner = makeAddr("l2gw-owner");
-    address masterMinter = makeAddr("masterMinter");
+    address public gatewayOwner = makeAddr("l2gw-owner");
+    address public usdcOwner = makeAddr("usdc-owner");
+    address public usdcProxyAdmin = makeAddr("usdcProxyAdmin");
+    address public masterMinter = makeAddr("masterMinter");
 
     function setUp() public virtual {
         l2USDCGateway = new L2USDCGateway();
         l2Gateway = L2ArbitrumGateway(address(l2USDCGateway));
 
-        // address bridgedUsdcLogic = TestUtil.deployBridgedUsdcToken();
         address bridgedUsdcLogic = _deployBridgedUsdcToken();
-        l2USDC = TestUtil.deployProxy(bridgedUsdcLogic);
+        vm.prank(usdcProxyAdmin);
+        l2USDC = _deployUsdcProxy(bridgedUsdcLogic);
+
+        vm.startPrank(usdcOwner);
         IFiatToken(l2USDC).initialize(
             "USDC token",
             "USDC.e",
@@ -35,18 +38,22 @@ contract L2USDCGatewayTest is L2ArbitrumGatewayTest {
             masterMinter,
             makeAddr("newPauser"),
             makeAddr("newBlacklister"),
-            owner
+            usdcOwner
         );
         IFiatToken(l2USDC).initializeV2("USDC");
         IFiatToken(l2USDC).initializeV2_1(makeAddr("lostAndFound"));
         IFiatToken(l2USDC).initializeV2_2(new address[](0), "USDC.e");
+        vm.stopPrank();
 
         vm.prank(masterMinter);
         IFiatToken(l2USDC).configureMinter(address(l2USDCGateway), type(uint256).max);
 
-        vm.prank(owner);
-        l2USDCGateway.initialize(l1Counterpart, router, l1USDC, l2USDC, owner);
+        vm.prank(gatewayOwner);
+        l2USDCGateway.initialize(l1Counterpart, router, l1USDC, l2USDC, gatewayOwner);
         vm.etch(0x0000000000000000000000000000000000000064, address(arbSysMock).code);
+
+        assertEq(IFiatToken(l2USDC).owner(), usdcOwner, "Invalid owner");
+        assertEq(IFiatTokenProxy(l2USDC).admin(), usdcProxyAdmin, "Invalid proxyAdmin");
     }
 
     /* solhint-disable func-name-mixedcase */
@@ -113,32 +120,32 @@ contract L2USDCGatewayTest is L2ArbitrumGatewayTest {
 
     function test_initialize() public {
         L2USDCGateway gateway = new L2USDCGateway();
-        L2USDCGateway(gateway).initialize(l1Counterpart, router, l1USDC, l2USDC, owner);
+        L2USDCGateway(gateway).initialize(l1Counterpart, router, l1USDC, l2USDC, gatewayOwner);
 
         assertEq(gateway.counterpartGateway(), l1Counterpart, "Invalid counterpartGateway");
         assertEq(gateway.router(), router, "Invalid router");
         assertEq(gateway.l1USDC(), l1USDC, "Invalid l1USDC");
         assertEq(gateway.l2USDC(), l2USDC, "Invalid l2USDC");
-        assertEq(gateway.owner(), owner, "Invalid owner");
+        assertEq(gateway.owner(), gatewayOwner, "Invalid owner");
     }
 
     function test_initialize_revert_InvalidL1USDC() public {
         L2USDCGateway gateway = new L2USDCGateway();
         vm.expectRevert(abi.encodeWithSelector(L2USDCGateway.L2USDCGateway_InvalidL1USDC.selector));
-        L2USDCGateway(gateway).initialize(l1Counterpart, router, address(0), l2USDC, owner);
+        L2USDCGateway(gateway).initialize(l1Counterpart, router, address(0), l2USDC, gatewayOwner);
     }
 
     function test_initialize_revert_InvalidL2USDC() public {
         L2USDCGateway gateway = new L2USDCGateway();
         vm.expectRevert(abi.encodeWithSelector(L2USDCGateway.L2USDCGateway_InvalidL2USDC.selector));
-        L2USDCGateway(gateway).initialize(l1Counterpart, router, l1USDC, address(0), owner);
+        L2USDCGateway(gateway).initialize(l1Counterpart, router, l1USDC, address(0), gatewayOwner);
     }
 
     function test_initialize_revert_AlreadyInit() public {
         L2USDCGateway gateway = new L2USDCGateway();
-        L2USDCGateway(gateway).initialize(l1Counterpart, router, l1USDC, l2USDC, owner);
+        L2USDCGateway(gateway).initialize(l1Counterpart, router, l1USDC, l2USDC, gatewayOwner);
         vm.expectRevert("ALREADY_INIT");
-        L2USDCGateway(gateway).initialize(l1Counterpart, router, l1USDC, l2USDC, owner);
+        L2USDCGateway(gateway).initialize(l1Counterpart, router, l1USDC, l2USDC, gatewayOwner);
     }
 
     function test_initialize_revert_InvalidOwner() public {
@@ -207,7 +214,7 @@ contract L2USDCGatewayTest is L2ArbitrumGatewayTest {
 
     function test_outboundTransfer_revert_WithdrawalsPaused() public {
         // pause withdrawals
-        vm.prank(owner);
+        vm.prank(gatewayOwner);
         l2USDCGateway.pauseWithdrawals();
 
         vm.expectRevert(
@@ -233,7 +240,7 @@ contract L2USDCGatewayTest is L2ArbitrumGatewayTest {
         emit WithdrawalsPaused();
 
         // pause withdrawals
-        vm.prank(owner);
+        vm.prank(gatewayOwner);
         l2USDCGateway.pauseWithdrawals();
 
         // checks
@@ -241,7 +248,7 @@ contract L2USDCGatewayTest is L2ArbitrumGatewayTest {
     }
 
     function test_pauseWithdrawals_revert_WithdrawalsAlreadyPaused() public {
-        vm.startPrank(owner);
+        vm.startPrank(gatewayOwner);
         l2USDCGateway.pauseWithdrawals();
 
         vm.expectRevert(
@@ -257,7 +264,11 @@ contract L2USDCGatewayTest is L2ArbitrumGatewayTest {
 
     function test_setOwner() public {
         address newOwner = makeAddr("new-owner");
-        vm.prank(owner);
+
+        vm.expectEmit(true, true, true, true);
+        emit OwnerSet(newOwner);
+
+        vm.prank(gatewayOwner);
         l2USDCGateway.setOwner(newOwner);
 
         assertEq(l2USDCGateway.owner(), newOwner, "Invalid owner");
@@ -265,18 +276,82 @@ contract L2USDCGatewayTest is L2ArbitrumGatewayTest {
 
     function test_setOwner_revert_InvalidOwner() public {
         vm.expectRevert(abi.encodeWithSelector(L2USDCGateway.L2USDCGateway_InvalidOwner.selector));
-        vm.prank(owner);
+        vm.prank(gatewayOwner);
         l2USDCGateway.setOwner(address(0));
     }
 
     function test_setOwner_revert_NotOwner() public {
         vm.expectRevert(abi.encodeWithSelector(L2USDCGateway.L2USDCGateway_NotOwner.selector));
-        l2USDCGateway.setOwner(owner);
+        l2USDCGateway.setOwner(gatewayOwner);
+    }
+
+    function test_setUsdcOwnershipTransferrer() public {
+        assertEq(
+            l2USDCGateway.usdcOwnershipTransferrer(), address(0), "Invalid usdcOwnershipTransferrer"
+        );
+
+        address transferrer = makeAddr("transferrer");
+
+        vm.expectEmit(true, true, true, true);
+        emit USDCOwnershipTransferrerSet(transferrer);
+
+        vm.prank(gatewayOwner);
+        l2USDCGateway.setUsdcOwnershipTransferrer(transferrer);
+
+        assertEq(
+            l2USDCGateway.usdcOwnershipTransferrer(),
+            transferrer,
+            "Invalid usdcOwnershipTransferrer"
+        );
+    }
+
+    function test_setUsdcOwnershipTransferrer_revert_NotOwner() public {
+        vm.expectRevert(abi.encodeWithSelector(L2USDCGateway.L2USDCGateway_NotOwner.selector));
+        l2USDCGateway.setUsdcOwnershipTransferrer(makeAddr("rand"));
+    }
+
+    function test_transferUSDCRoles() public {
+        // set the transferrer
+        address transferrer = makeAddr("transferrer");
+        vm.prank(gatewayOwner);
+        l2USDCGateway.setUsdcOwnershipTransferrer(transferrer);
+
+        // transfer ownership to gateway
+        vm.prank(usdcOwner);
+        IFiatToken(l2USDC).transferOwnership(address(l2USDCGateway));
+
+        // transfer proxy admin to gateway
+        vm.prank(usdcProxyAdmin);
+        IFiatTokenProxy(l2USDC).changeAdmin(address(l2USDCGateway));
+
+        assertEq(IFiatToken(l2USDC).owner(), address(l2USDCGateway), "Invalid owner");
+        assertEq(IFiatTokenProxy(l2USDC).admin(), address(l2USDCGateway), "Invalid proxyAdmin");
+
+        address newTokenOwner = makeAddr("new-token-owner");
+
+        // events
+        vm.expectEmit(true, true, true, true);
+        emit USDCOwnershipTransferred(newTokenOwner, transferrer);
+
+        // transferUSDCRoles
+        vm.prank(transferrer);
+        l2USDCGateway.transferUSDCRoles(newTokenOwner);
+
+        // checks
+        assertEq(IFiatToken(l2USDC).owner(), newTokenOwner, "Invalid owner");
+        assertEq(IFiatTokenProxy(l2USDC).admin(), transferrer, "Invalid proxyAdmin");
+    }
+
+    function test_transferUSDCRoles_revert_NotUSDCOwnershipTransferrer() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(L2USDCGateway.L2USDCGateway_NotUSDCOwnershipTransferrer.selector)
+        );
+        l2USDCGateway.transferUSDCRoles(makeAddr("rand"));
     }
 
     function test_unpauseWithdrawals() public {
         // pause withdrawals
-        vm.prank(owner);
+        vm.prank(gatewayOwner);
         l2USDCGateway.pauseWithdrawals();
         assertEq(l2USDCGateway.withdrawalsPaused(), true, "Invalid withdrawalsPaused");
 
@@ -285,7 +360,7 @@ contract L2USDCGatewayTest is L2ArbitrumGatewayTest {
         emit WithdrawalsUnpaused();
 
         // unpause withdrawals
-        vm.prank(owner);
+        vm.prank(gatewayOwner);
         l2USDCGateway.unpauseWithdrawals();
 
         // checks
@@ -298,7 +373,7 @@ contract L2USDCGatewayTest is L2ArbitrumGatewayTest {
     }
 
     function test_unpauseWithdrawals_revert_AlreadyUnpaused() public {
-        vm.prank(owner);
+        vm.prank(gatewayOwner);
         vm.expectRevert(
             abi.encodeWithSelector(L2USDCGateway.L2USDCGateway_WithdrawalsAlreadyUnpaused.selector)
         );
@@ -310,6 +385,9 @@ contract L2USDCGatewayTest is L2ArbitrumGatewayTest {
     ////
     event WithdrawalsPaused();
     event WithdrawalsUnpaused();
+    event OwnerSet(address indexed owner);
+    event USDCOwnershipTransferrerSet(address indexed usdcOwnershipTransferrer);
+    event USDCOwnershipTransferred(address indexed newOwner, address indexed newProxyAdmin);
 
     function _deployBridgedUsdcToken() public returns (address) {
         /// deploy library
@@ -344,6 +422,16 @@ contract L2USDCGatewayTest is L2ArbitrumGatewayTest {
         return bridgedUsdcToken;
     }
 
+    function _deployUsdcProxy(address logic) public returns (address) {
+        address proxyAddress = _deployBytecodeWithConstructorFromJSON(
+            "/node_modules/@offchainlabs/stablecoin-evm/artifacts/hardhat/contracts/v1/FiatTokenProxy.sol/FiatTokenProxy.json",
+            abi.encode(logic)
+        );
+        require(proxyAddress != address(0), "Failed to deploy contract");
+
+        return proxyAddress;
+    }
+
     function _deployBytecode(bytes memory bytecode) public returns (address) {
         address addr;
         assembly {
@@ -353,9 +441,25 @@ contract L2USDCGatewayTest is L2ArbitrumGatewayTest {
         return addr;
     }
 
+    function _deployBytecodeWithConstructor(bytes memory bytecode, bytes memory abiencodedargs)
+        internal
+        returns (address)
+    {
+        bytes memory bytecodeWithConstructor = bytes.concat(bytecode, abiencodedargs);
+        return _deployBytecode(bytecodeWithConstructor);
+    }
+
     function _deployBytecodeFromJSON(bytes memory path) public returns (address) {
         bytes memory bytecode = _getBytecode(path);
         return _deployBytecode(bytecode);
+    }
+
+    function _deployBytecodeWithConstructorFromJSON(bytes memory path, bytes memory abiencodedargs)
+        internal
+        returns (address)
+    {
+        bytes memory bytecode = _getBytecode(path);
+        return _deployBytecodeWithConstructor(bytecode, abiencodedargs);
     }
 
     function _getBytecode(bytes memory path) public returns (bytes memory) {

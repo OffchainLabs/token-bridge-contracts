@@ -7,7 +7,7 @@ import {
     ITokenGateway,
     TokenGateway
 } from "./L1ArbitrumExtendedGateway.sol";
-import {IFiatToken} from "../../libraries/IFiatToken.sol";
+import {IFiatToken, IFiatTokenProxy} from "../../libraries/IFiatToken.sol";
 
 /**
  * @title Custom gateway for USDC implementing Bridged USDC Standard.

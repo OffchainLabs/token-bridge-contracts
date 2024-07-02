@@ -123,3 +123,18 @@ interface IFiatToken {
     function updateRescuer(address newRescuer) external;
     function version() external pure returns (string memory);
 }
+
+/**
+ * @title IFiatTokenProxy
+ * @dev Interface contains functions from Circle's referent implementation of the USDC proxy
+ *      Ref: https://github.com/circlefin/stablecoin-evm
+ *
+ *      This interface is used in the L1USDCGateway, L1OrbitUSDCGateway and L2USDCGateway contracts.
+ */
+interface IFiatTokenProxy {
+    function admin() external view returns (address);
+    function changeAdmin(address newAdmin) external;
+    function implementation() external view returns (address);
+    function upgradeTo(address newImplementation) external;
+    function upgradeToAndCall(address newImplementation, bytes memory data) external payable;
+}
