@@ -112,6 +112,14 @@ contract L1USDCGateway is L1ArbitrumExtendedGateway {
     }
 
     /**
+     * @notice Owner sets a new burner.
+     */
+    function setBurner(address newBurner) external onlyOwner {
+        burner = newBurner;
+        emit BurnerSet(newBurner);
+    }
+
+    /**
      * @notice Owner sets the amount of USDC tokens to be burned by burner account.
      * @dev    This amount should match the L2 supply of bridged USDC. But it's not enforced, so burner
      *         should verify that correct amount is set before proceeding with burning.
@@ -152,14 +160,6 @@ contract L1USDCGateway is L1ArbitrumExtendedGateway {
             revert L1USDCGateway_InvalidOwner();
         }
         owner = newOwner;
-    }
-
-    /**
-     * @notice Sets a new burner.
-     */
-    function setBurner(address newBurner) external onlyOwner {
-        burner = newBurner;
-        emit BurnerSet(newBurner);
     }
 
     /**

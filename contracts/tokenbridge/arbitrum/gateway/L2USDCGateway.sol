@@ -20,6 +20,8 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
  *         - it supports a single parent chain - child chain USDC token pair
  *         - it is ownable
  *         - withdrawals can be paused by the owner
+ *         - owner can set an "transferrer" account which will be able to transfer USDC ownership
+ *         - transferrer can transfer USDC owner and proxyAdmin
  */
 contract L2USDCGateway is L2ArbitrumGateway {
     using SafeERC20 for IERC20;
@@ -94,7 +96,6 @@ contract L2USDCGateway is L2ArbitrumGateway {
             revert L2USDCGateway_WithdrawalsAlreadyUnpaused();
         }
         withdrawalsPaused = false;
-
         emit WithdrawalsUnpaused();
     }
 
@@ -120,7 +121,7 @@ contract L2USDCGateway is L2ArbitrumGateway {
     /**
      * @notice In accordance with bridged USDC standard, the ownership of the USDC token contract is transferred
      *         to the new owner, and the proxy admin is transferred to the caller (usdcOwnershipTransferrer).
-     * @dev    For transfer to be successful, this gaetway should be both the owner and the proxy admin of L2 USDC token.
+     * @dev    For transfer to be successful, this gateway should be both the owner and the proxy admin of L2 USDC token.
      */
     function transferUSDCRoles(address _owner) external {
         if (msg.sender != usdcOwnershipTransferrer) {
