@@ -21,7 +21,7 @@ jobs:
       - name: Setup node/yarn
         uses: actions/setup-node@v3
         with:
-          node-version: 16
+          node-version: 18
           cache: 'yarn'
           cache-dependency-path: '**/yarn.lock'
 
@@ -53,7 +53,7 @@ jobs:
       - name: Setup node/yarn
         uses: actions/setup-node@v3
         with:
-          node-version: 16
+          node-version: 18
           cache: 'yarn'
           cache-dependency-path: '**/yarn.lock'
 
@@ -82,7 +82,7 @@ jobs:
       - name: Setup node/yarn
         uses: actions/setup-node@v3
         with:
-          node-version: 16
+          node-version: 18
           cache: 'yarn'
           cache-dependency-path: '**/yarn.lock'
 
@@ -112,11 +112,12 @@ jobs:
           no-token-bridge: true
           no-l3-token-bridge: true
           token-bridge-branch: '${{ github.head_ref }}'
+          nitro-testnode-ref: node-18
 
       - name: Setup node/yarn
         uses: actions/setup-node@v3
         with:
-          node-version: 16
+          node-version: 18
           cache: 'yarn'
           cache-dependency-path: '**/yarn.lock'
 
@@ -150,11 +151,12 @@ jobs:
           no-token-bridge: true
           no-l3-token-bridge: true
           token-bridge-branch: '${{ github.head_ref }}'
+          nitro-testnode-ref: node-18
 
       - name: Setup node/yarn
         uses: actions/setup-node@v3
         with:
-          node-version: 16
+          node-version: 18
           cache: 'yarn'
           cache-dependency-path: '**/yarn.lock'
 
@@ -191,13 +193,12 @@ jobs:
           no-token-bridge: true
           no-l3-token-bridge: true
           token-bridge-branch: '${{ github.head_ref }}'
-          nitro-contracts-branch: 'e2e-decimals'
-          nitro-testnode-ref: 'non18-decimal-token'
+          nitro-testnode-ref: 'non18-decimal-token-node-18'
 
       - name: Setup node/yarn
         uses: actions/setup-node@v3
         with:
-          node-version: 16
+          node-version: 18
           cache: 'yarn'
           cache-dependency-path: '**/yarn.lock'
 
