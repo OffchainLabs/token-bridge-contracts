@@ -193,6 +193,7 @@ jobs:
           no-token-bridge: true
           no-l3-token-bridge: true
           token-bridge-branch: '${{ github.head_ref }}'
+          nitro-contracts-branch: 'develop'
           nitro-testnode-ref: 'non18-decimal-token-node-18'
 
       - name: Setup node/yarn
