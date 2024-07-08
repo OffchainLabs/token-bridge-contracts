@@ -17,8 +17,8 @@ import {
   TestWETH9__factory,
 } from '../../build/types'
 
-const LOCALHOST_L2_RPC = 'http://localhost:8547'
-const LOCALHOST_L3_RPC = 'http://localhost:3347'
+const LOCALHOST_L2_RPC = 'http://127.0.0.1:8547'
+const LOCALHOST_L3_RPC = 'http://127.0.0.1:3347'
 const LOCALHOST_L3_OWNER_KEY =
   '0xecdf21cb41c65afb51f91df408b7656e2c8739a5877f2814add0afd780cc210e'
 /**

@@ -31,8 +31,8 @@ import { BigNumber, Wallet, ethers } from 'ethers'
 import { exit } from 'process'
 
 const config = {
-  parentUrl: 'http://localhost:8547',
-  childUrl: 'http://localhost:3347',
+  parentUrl: 'http://127.0.0.1:8547',
+  childUrl: 'http://127.0.0.1:3347',
 }
 
 let parentProvider: JsonRpcProvider
