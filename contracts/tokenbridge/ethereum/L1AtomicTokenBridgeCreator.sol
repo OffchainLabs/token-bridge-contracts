@@ -9,6 +9,7 @@ import {
     L2TemplateAddresses,
     IERC20Inbox,
     IERC20,
+    ERC20,
     SafeERC20
 } from "./L1TokenBridgeRetryableSender.sol";
 import {L1GatewayRouter} from "./gateway/L1GatewayRouter.sol";
@@ -216,7 +217,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         // deployment mappings should not be updated in case of resend
         bool isResend = (inboxToL1Deployment[inbox].router != address(0));
 
-        bool isUsingFeeToken = _getFeeToken(inbox) != address(0);
+        address feeToken = _getFeeToken(inbox);
 
         // store L2 addresses before deployments
         L1DeploymentAddresses memory l1Deployment;
@@ -233,7 +234,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             l2Deployment.router = _getProxyAddress(OrbitSalts.L2_ROUTER, chainId);
             l2Deployment.standardGateway = _getProxyAddress(OrbitSalts.L2_STANDARD_GATEWAY, chainId);
             l2Deployment.customGateway = _getProxyAddress(OrbitSalts.L2_CUSTOM_GATEWAY, chainId);
-            if (!isUsingFeeToken) {
+            if (feeToken == address(0)) {
                 l2Deployment.wethGateway = _getProxyAddress(OrbitSalts.L2_WETH_GATEWAY, chainId);
                 l2Deployment.weth = _getProxyAddress(OrbitSalts.L2_WETH, chainId);
             }
@@ -256,7 +257,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         if (!isResend) {
             // l1 router deployment block
             {
-                address routerTemplate = isUsingFeeToken
+                address routerTemplate = feeToken != address(0)
                     ? address(l1Templates.feeTokenBasedRouterTemplate)
                     : address(l1Templates.routerTemplate);
                 l1Deployment.router = _deployProxyWithSalt(
@@ -266,7 +267,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
 
             // l1 standard gateway deployment block
             {
-                address template = isUsingFeeToken
+                address template = feeToken != address(0)
                     ? address(l1Templates.feeTokenBasedStandardGatewayTemplate)
                     : address(l1Templates.standardGatewayTemplate);
 
@@ -289,7 +290,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
 
             // l1 custom gateway deployment block
             {
-                address template = isUsingFeeToken
+                address template = feeToken != address(0)
                     ? address(l1Templates.feeTokenBasedCustomGatewayTemplate)
                     : address(l1Templates.customGatewayTemplate);
 
@@ -307,7 +308,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             }
 
             // l1 weth gateway deployment block
-            if (!isUsingFeeToken) {
+            if (feeToken == address(0)) {
                 L1WethGateway wethGateway = L1WethGateway(
                     payable(
                         _deployProxyWithSalt(
@@ -338,13 +339,36 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
 
         // deploy factory and then L2 contracts through L2 factory, using 2 retryables calls
         // we do not care if it is a resend or not, if the L2 deployment already exists it will simply fail on L2
-        _deployL2Factory(inbox, gasPriceBid, isUsingFeeToken);
-        if (isUsingFeeToken) {
+        _deployL2Factory(inbox, gasPriceBid, feeToken);
+
+        RetryableParams memory retryableParams = RetryableParams(
+            inbox,
+            canonicalL2FactoryAddress,
+            msg.sender,
+            msg.sender,
+            maxGasForContracts,
+            gasPriceBid,
+            0
+        );
+
+        if (feeToken != address(0)) {
             // transfer fee tokens to inbox to pay for 2nd retryable
-            address feeToken = _getFeeToken(inbox);
-            uint256 fee = maxGasForContracts * gasPriceBid;
-            IERC20(feeToken).safeTransferFrom(msg.sender, inbox, fee);
+            retryableParams.feeTokenTotalFeeAmount =
+                _getScaledAmount(feeToken, maxGasForContracts * gasPriceBid);
+            IERC20(feeToken).safeTransferFrom(
+                msg.sender, inbox, retryableParams.feeTokenTotalFeeAmount
+            );
         }
+
+        L2TemplateAddresses memory l2TemplateAddress = L2TemplateAddresses(
+            l2RouterTemplate,
+            l2StandardGatewayTemplate,
+            l2CustomGatewayTemplate,
+            feeToken != address(0) ? address(0) : l2WethGatewayTemplate,
+            feeToken != address(0) ? address(0) : l2WethTemplate,
+            address(l1Templates.upgradeExecutor),
+            l2MulticallTemplate
+        );
 
         // alias rollup owner if it is a contract
         address l2RollupOwner = rollupOwner.code.length == 0
@@ -354,30 +378,13 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         // sweep the balance to send the retryable and refund the difference
         // it is known that any eth previously in this contract can be extracted
         // tho it is not expected that this contract will have any eth
-        retryableSender.sendRetryable{value: isUsingFeeToken ? 0 : address(this).balance}(
-            RetryableParams(
-                inbox,
-                canonicalL2FactoryAddress,
-                msg.sender,
-                msg.sender,
-                maxGasForContracts,
-                gasPriceBid
-            ),
-            L2TemplateAddresses(
-                l2RouterTemplate,
-                l2StandardGatewayTemplate,
-                l2CustomGatewayTemplate,
-                isUsingFeeToken ? address(0) : l2WethGatewayTemplate,
-                isUsingFeeToken ? address(0) : l2WethTemplate,
-                address(l1Templates.upgradeExecutor),
-                l2MulticallTemplate
-            ),
+        _sendRetryableToCreateContracts(
+            retryableParams,
+            l2TemplateAddress,
             l1Deployment,
-            l2Deployment.standardGateway,
+            l2Deployment,
             l2RollupOwner,
-            msg.sender,
-            upgradeExecutor,
-            isUsingFeeToken
+            upgradeExecutor
         );
 
         // deployment mappings should not be updated in case of resend
@@ -388,6 +395,27 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             inboxToL1Deployment[inbox] = l1Deployment;
             inboxToL2Deployment[inbox] = l2Deployment;
         }
+    }
+
+    function _sendRetryableToCreateContracts(
+        RetryableParams memory retryableParams,
+        L2TemplateAddresses memory l2TemplateAddress,
+        L1DeploymentAddresses memory l1Deployment,
+        L2DeploymentAddresses memory l2Deployment,
+        address l2RollupOwner,
+        address upgradeExecutor
+    ) internal {
+        retryableSender.sendRetryable{
+            value: retryableParams.feeTokenTotalFeeAmount > 0 ? 0 : address(this).balance
+        }(
+            retryableParams,
+            l2TemplateAddress,
+            l1Deployment,
+            l2Deployment.standardGateway,
+            l2RollupOwner,
+            msg.sender,
+            upgradeExecutor
+        );
     }
 
     /**
@@ -416,16 +444,16 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         return inboxToL1Deployment[inbox].router;
     }
 
-    function _deployL2Factory(address inbox, uint256 gasPriceBid, bool isUsingFeeToken) internal {
+    function _deployL2Factory(address inbox, uint256 gasPriceBid, address feeToken) internal {
         // encode L2 factory bytecode
         bytes memory deploymentData =
             CreationCodeHelper.getCreationCodeFor(l2TokenBridgeFactoryTemplate.code);
 
-        if (isUsingFeeToken) {
+        if (feeToken != address(0)) {
             // transfer fee tokens to inbox to pay for 1st retryable
-            address feeToken = _getFeeToken(inbox);
             uint256 retryableFee = gasLimitForL2FactoryDeployment * gasPriceBid;
-            IERC20(feeToken).safeTransferFrom(msg.sender, inbox, retryableFee);
+            uint256 scaledRetryableFee = _getScaledAmount(feeToken, retryableFee);
+            IERC20(feeToken).safeTransferFrom(msg.sender, inbox, scaledRetryableFee);
 
             IERC20Inbox(inbox).createRetryableTicket(
                 address(0),
@@ -435,7 +463,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                 msg.sender,
                 gasLimitForL2FactoryDeployment,
                 gasPriceBid,
-                retryableFee,
+                scaledRetryableFee,
                 deploymentData
             );
         } else {
@@ -568,6 +596,25 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         returns (address)
     {
         return address(new TransparentUpgradeableProxy{salt: salt}(logic, admin, bytes("")));
+    }
+
+    /**
+     * @notice Scale amount to the fee token's decimals. Ie. amount of 1e18 will be scaled to 1e6 if fee token has 6 decimals like USDC.
+     */
+    function _getScaledAmount(address feeToken, uint256 amount) internal view returns (uint256) {
+        uint8 decimals = ERC20(feeToken).decimals();
+        if (decimals == 18) {
+            return amount;
+        }
+        if (decimals < 18) {
+            uint256 scaledAmount = amount / (10 ** (18 - decimals));
+            // round up if necessary
+            if (scaledAmount * (10 ** (18 - decimals)) < amount) {
+                scaledAmount++;
+            }
+            return scaledAmount;
+        }
+        return amount * (10 ** (decimals - 18));
     }
 }
 

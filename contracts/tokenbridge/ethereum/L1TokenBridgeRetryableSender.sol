@@ -15,7 +15,7 @@ import {
 import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 import {TransparentUpgradeableProxy} from
     "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {IERC20, ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
@@ -47,9 +47,9 @@ contract L1TokenBridgeRetryableSender is Initializable, OwnableUpgradeable {
         address l2StandardGatewayAddress,
         address rollupOwner,
         address deployer,
-        address l1UpgradeExecutor,
-        bool isUsingFeeToken
+        address l1UpgradeExecutor
     ) external payable onlyOwner {
+        bool isUsingFeeToken = retryableParams.feeTokenTotalFeeAmount > 0;
         address aliasedL1UpgradeExecutor = AddressAliasHelper.applyL1ToL2Alias(l1UpgradeExecutor);
         if (!isUsingFeeToken) {
             _sendRetryableUsingEth(
@@ -94,7 +94,7 @@ contract L1TokenBridgeRetryableSender is Initializable, OwnableUpgradeable {
                     l2.wethTemplate.code,
                     l2.upgradeExecutorTemplate.code,
                     l2.multicallTemplate.code
-                    ),
+                ),
                 l1.router,
                 l1.standardGateway,
                 l1.customGateway,
@@ -138,7 +138,7 @@ contract L1TokenBridgeRetryableSender is Initializable, OwnableUpgradeable {
                     "",
                     l2.upgradeExecutorTemplate.code,
                     l2.multicallTemplate.code
-                    ),
+                ),
                 l1.router,
                 l1.standardGateway,
                 l1.customGateway,
@@ -150,9 +150,7 @@ contract L1TokenBridgeRetryableSender is Initializable, OwnableUpgradeable {
             )
         );
 
-        uint256 retryableFee = retryableParams.maxGas * retryableParams.gasPriceBid;
-
-        _createRetryableUsingFeeToken(retryableParams, retryableFee, data);
+        _createRetryableUsingFeeToken(retryableParams, data);
     }
 
     function _createRetryableUsingEth(
@@ -175,7 +173,6 @@ contract L1TokenBridgeRetryableSender is Initializable, OwnableUpgradeable {
 
     function _createRetryableUsingFeeToken(
         RetryableParams calldata retryableParams,
-        uint256 retryableFee,
         bytes memory data
     ) internal {
         IERC20Inbox(retryableParams.inbox).createRetryableTicket(
@@ -186,7 +183,7 @@ contract L1TokenBridgeRetryableSender is Initializable, OwnableUpgradeable {
             retryableParams.callValueRefundAddress,
             retryableParams.maxGas,
             retryableParams.gasPriceBid,
-            retryableFee,
+            retryableParams.feeTokenTotalFeeAmount,
             data
         );
     }
@@ -202,6 +199,7 @@ struct RetryableParams {
     address callValueRefundAddress;
     uint256 maxGas;
     uint256 gasPriceBid;
+    uint256 feeTokenTotalFeeAmount;
 }
 
 /**
