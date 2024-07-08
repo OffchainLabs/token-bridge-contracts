@@ -942,7 +942,7 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
         } else {
             nativeToken = ERC20(address(new USDC_Mock(decimals)));
         }
-        ERC20PresetMinterPauser(address(nativeToken)).mint(deployer, type(uint128).max);
+        ERC20PresetMinterPauser(address(nativeToken)).mint(deployer, type(uint160).max);
 
         bridge.initialize(IOwnable(address(rollup)), address(nativeToken));
         inbox.initialize(IBridge(address(bridge)), ISequencerInbox(makeAddr("sequencerInbox")));
