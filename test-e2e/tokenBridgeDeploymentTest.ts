@@ -39,8 +39,8 @@ import { ethers } from 'hardhat'
 import { Contract } from 'ethers'
 
 const config = {
-  l1Url: process.env.BASECHAIN_RPC || 'http://localhost:8547',
-  l2Url: process.env.ORBIT_RPC || 'http://localhost:3347',
+  l1Url: process.env.BASECHAIN_RPC || 'http://127.0.0.1:8547',
+  l2Url: process.env.ORBIT_RPC || 'http://127.0.0.1:3347',
 }
 
 let l1Provider: JsonRpcProvider

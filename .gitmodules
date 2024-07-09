@@ -4,4 +4,5 @@
 [submodule "lib/nitro-contracts"]
 	path = lib/nitro-contracts
 	url = https://github.com/OffchainLabs/nitro-contracts.git
-	branch = v1.2.1
+	branch = develop
+

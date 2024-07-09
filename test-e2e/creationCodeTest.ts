@@ -10,7 +10,7 @@ import {
 import path from 'path'
 import fs from 'fs'
 
-const LOCALHOST_L2_RPC = 'http://localhost:8547'
+const LOCALHOST_L2_RPC = 'http://127.0.0.1:8547'
 
 const AE_WETH_EXPECTED_CONSTRUCTOR_SIZE = 348
 const UPGRADE_EXECUTOR_EXPECTED_CONSTRUCTOR_SIZE = 242

@@ -8,15 +8,16 @@ import {
 } from '@arbitrum/sdk'
 import { getBaseFee } from '@arbitrum/sdk/dist/lib/utils/lib'
 import { JsonRpcProvider } from '@ethersproject/providers'
-import { expect, use } from 'chai'
-import { setupTokenBridgeInLocalEnv } from '../scripts/local-deployment/localDeploymentLib'
+import { expect } from 'chai'
+import {
+  _getScaledAmount,
+  setupTokenBridgeInLocalEnv,
+} from '../scripts/local-deployment/localDeploymentLib'
 import {
   ERC20,
   ERC20__factory,
   IERC20Bridge__factory,
   IInbox__factory,
-  L1OrbitCustomGateway__factory,
-  L1OrbitERC20Gateway__factory,
   L1OrbitGatewayRouter__factory,
   L2CustomGateway__factory,
   L2GatewayRouter__factory,
@@ -30,8 +31,8 @@ import { BigNumber, Wallet, ethers } from 'ethers'
 import { exit } from 'process'
 
 const config = {
-  parentUrl: 'http://localhost:8547',
-  childUrl: 'http://localhost:3347',
+  parentUrl: 'http://127.0.0.1:8547',
+  childUrl: 'http://127.0.0.1:3347',
 }
 
 let parentProvider: JsonRpcProvider
@@ -100,7 +101,10 @@ describe('orbitTokenBridge', () => {
     await (
       await nativeToken
         .connect(deployerL1Wallet)
-        .transfer(userL1Wallet.address, ethers.utils.parseEther('1000'))
+        .transfer(
+          userL1Wallet.address,
+          ethers.utils.parseUnits('100', await nativeToken.decimals())
+        )
     ).wait()
 
     // create token to be bridged
@@ -109,7 +113,6 @@ describe('orbitTokenBridge', () => {
     await (await token.mint()).wait()
 
     // snapshot state before
-
     const userTokenBalanceBefore = await token.balanceOf(userL1Wallet.address)
     const gatewayTokenBalanceBefore = await token.balanceOf(
       _l2Network.tokenBridge.l1ERC20Gateway
@@ -122,46 +125,20 @@ describe('orbitTokenBridge', () => {
     )
 
     // approve token
-    const depositAmount = 350
+    const depositAmount = 120
     await (
       await token.approve(_l2Network.tokenBridge.l1ERC20Gateway, depositAmount)
     ).wait()
 
-    // calculate retryable params
+    // set retryable params
     const maxSubmissionCost = 0
-    const callhook = '0x'
-
-    const gateway = L1OrbitERC20Gateway__factory.connect(
-      _l2Network.tokenBridge.l1ERC20Gateway,
-      userL1Wallet
+    const gasLimit = BigNumber.from(1000000)
+    const maxFeePerGas = BigNumber.from(300000000)
+    const tokenTotalFeeAmount = await _getScaledAmount(
+      nativeToken.address,
+      gasLimit.mul(maxFeePerGas),
+      nativeToken.provider!
     )
-    const outboundCalldata = await gateway.getOutboundCalldata(
-      token.address,
-      userL1Wallet.address,
-      userL2Wallet.address,
-      depositAmount,
-      callhook
-    )
-
-    const l1ToL2MessageGasEstimate = new L1ToL2MessageGasEstimator(
-      childProvider
-    )
-    const retryableParams = await l1ToL2MessageGasEstimate.estimateAll(
-      {
-        from: userL1Wallet.address,
-        to: userL2Wallet.address,
-        l2CallValue: BigNumber.from(0),
-        excessFeeRefundAddress: userL1Wallet.address,
-        callValueRefundAddress: userL1Wallet.address,
-        data: outboundCalldata,
-      },
-      await getBaseFee(parentProvider),
-      parentProvider
-    )
-
-    const gasLimit = retryableParams.gasLimit.mul(40)
-    const maxFeePerGas = retryableParams.maxFeePerGas
-    const tokenTotalFeeAmount = gasLimit.mul(maxFeePerGas).mul(2)
 
     // approve fee amount
     await (
@@ -174,7 +151,7 @@ describe('orbitTokenBridge', () => {
     // bridge it
     const userEncodedData = defaultAbiCoder.encode(
       ['uint256', 'bytes', 'uint256'],
-      [maxSubmissionCost, callhook, tokenTotalFeeAmount]
+      [maxSubmissionCost, '0x', tokenTotalFeeAmount]
     )
 
     const router = L1OrbitGatewayRouter__factory.connect(
@@ -302,7 +279,10 @@ describe('orbitTokenBridge', () => {
     await (
       await nativeToken
         .connect(deployerL1Wallet)
-        .transfer(userL1Wallet.address, ethers.utils.parseEther('1000'))
+        .transfer(
+          userL1Wallet.address,
+          ethers.utils.parseUnits('100', await nativeToken.decimals())
+        )
     ).wait()
 
     // create L1 custom token
@@ -368,27 +348,32 @@ describe('orbitTokenBridge', () => {
     )
 
     // approve fee amount
+    const gwFee = await _getScaledAmount(
+      nativeToken.address,
+      gwRetryableParams.deposit,
+      nativeToken.provider!
+    )
+    const routerFee = await _getScaledAmount(
+      nativeToken.address,
+      routerRetryableParams.deposit,
+      nativeToken.provider!
+    )
+    const registrationFee = gwFee.add(routerFee).mul(2)
     await (
-      await nativeToken.approve(
-        customL1Token.address,
-        BigNumber.from(2).mul(
-          gwRetryableParams.deposit.add(routerRetryableParams.deposit)
-        )
-      )
+      await nativeToken.approve(customL1Token.address, registrationFee)
     ).wait()
 
     // do the custom gateway registration
-
     const receipt = await (
       await customL1Token.registerTokenOnL2(
         customL2Token.address,
         gwRetryableParams.maxSubmissionCost,
         routerRetryableParams.maxSubmissionCost,
-        gwRetryableParams.gasLimit.mul(2),
-        routerRetryableParams.gasLimit.mul(2),
+        gwRetryableParams.gasLimit,
+        routerRetryableParams.gasLimit,
         BigNumber.from(100000000),
-        gwRetryableParams.deposit.mul(BigNumber.from(2)),
-        routerRetryableParams.deposit.mul(BigNumber.from(2)),
+        gwFee,
+        routerFee,
         userL1Wallet.address
       )
     ).wait()
@@ -441,36 +426,13 @@ describe('orbitTokenBridge', () => {
 
     // calculate retryable params
     const maxSubmissionCost = 0
-    const callhook = '0x'
-
-    const gateway = L1OrbitCustomGateway__factory.connect(
-      _l2Network.tokenBridge.l1CustomGateway,
-      userL1Wallet
+    const gasLimit = BigNumber.from(1000000)
+    const maxFeePerGas = BigNumber.from(300000000)
+    const tokenTotalFeeAmount = await _getScaledAmount(
+      nativeToken.address,
+      gasLimit.mul(maxFeePerGas),
+      nativeToken.provider!
     )
-    const outboundCalldata = await gateway.getOutboundCalldata(
-      customL1Token.address,
-      userL1Wallet.address,
-      userL2Wallet.address,
-      depositAmount,
-      callhook
-    )
-
-    const retryableParams = await l1ToL2MessageGasEstimate.estimateAll(
-      {
-        from: userL1Wallet.address,
-        to: userL2Wallet.address,
-        l2CallValue: BigNumber.from(0),
-        excessFeeRefundAddress: userL1Wallet.address,
-        callValueRefundAddress: userL1Wallet.address,
-        data: outboundCalldata,
-      },
-      await getBaseFee(parentProvider),
-      parentProvider
-    )
-
-    const gasLimit = retryableParams.gasLimit.mul(40)
-    const maxFeePerGas = retryableParams.maxFeePerGas
-    const tokenTotalFeeAmount = gasLimit.mul(maxFeePerGas).mul(2)
 
     // approve fee amount
     await (
@@ -483,7 +445,7 @@ describe('orbitTokenBridge', () => {
     // bridge it
     const userEncodedData = defaultAbiCoder.encode(
       ['uint256', 'bytes', 'uint256'],
-      [maxSubmissionCost, callhook, tokenTotalFeeAmount]
+      [maxSubmissionCost, '0x', tokenTotalFeeAmount]
     )
     const depositTx = await router.outboundTransferCustomRefund(
       customL1Token.address,
@@ -547,7 +509,10 @@ describe('orbitTokenBridge', () => {
  */
 async function depositNativeToL2() {
   /// deposit tokens
-  const amountToDeposit = ethers.utils.parseEther('2.0')
+  const amountToDeposit = ethers.utils.parseUnits(
+    '2.0',
+    await nativeToken.decimals()
+  )
   await (
     await nativeToken
       .connect(userL1Wallet)
