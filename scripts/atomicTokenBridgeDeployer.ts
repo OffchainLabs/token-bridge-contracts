@@ -22,10 +22,9 @@ import {
   IERC20Bridge__factory,
   IERC20__factory,
   ArbMulticall2__factory,
-  IRollupCore__factory,
-  IBridge__factory,
   Multicall2__factory,
   IInboxProxyAdmin__factory,
+  ERC20__factory,
   UpgradeExecutor__factory,
 } from '../build/types'
 import {
@@ -45,6 +44,7 @@ import { ContractVerifier } from './contractVerifier'
 import { OmitTyped } from '@arbitrum/sdk/dist/lib/utils/types'
 import { L1ToL2MessageGasParams } from '@arbitrum/sdk/dist/lib/message/L1ToL2MessageCreator'
 import { L1ContractCallTransactionReceipt } from '@arbitrum/sdk/dist/lib/message/L1Transaction'
+import { _getScaledAmount } from './local-deployment/localDeploymentLib'
 
 /**
  * Dummy non-zero address which is provided to logic contracts initializers
@@ -113,10 +113,12 @@ export const createTokenBridge = async (
   const maxSubmissionCostForContracts =
     deployFactoryGasParams.maxSubmissionCost.mul(2)
 
-  let retryableFee = maxSubmissionCostForFactory
-    .add(maxSubmissionCostForContracts)
-    .add(maxGasForFactory.mul(gasPrice))
-    .add(maxGasForContracts.mul(gasPrice))
+  let retryableFeeForFactory = maxSubmissionCostForFactory.add(
+    maxGasForFactory.mul(gasPrice)
+  )
+  let retryableFeeForContracts = maxSubmissionCostForContracts.add(
+    maxGasForContracts.mul(gasPrice)
+  )
 
   // get inbox from rollup contract
   const inbox = await RollupAdminLogic__factory.connect(
@@ -127,13 +129,24 @@ export const createTokenBridge = async (
   // if fee token is used approve the fee
   const feeToken = await _getFeeToken(inbox, l1Signer.provider!)
   if (feeToken != ethers.constants.AddressZero) {
+    // scale the retryable fees to the fee token decimals denomination
+    let scaledRetryableFeeForFactory = await _getScaledAmount(
+      feeToken,
+      retryableFeeForFactory,
+      l1Signer.provider!
+    )
+    let scaledRetryableFeeForContracts = await _getScaledAmount(
+      feeToken,
+      retryableFeeForContracts,
+      l1Signer.provider!
+    )
+
     await (
       await IERC20__factory.connect(feeToken, l1Signer).approve(
         l1TokenBridgeCreator.address,
-        retryableFee
+        scaledRetryableFeeForFactory.add(scaledRetryableFeeForContracts)
       )
     ).wait()
-    retryableFee = BigNumber.from(0)
   }
 
   /// do it - create token bridge
@@ -143,7 +156,12 @@ export const createTokenBridge = async (
       rollupOwnerAddress,
       maxGasForContracts,
       gasPrice,
-      { value: retryableFee }
+      {
+        value:
+          feeToken == ethers.constants.AddressZero
+            ? retryableFeeForFactory.add(retryableFeeForContracts)
+            : BigNumber.from(0),
+      }
     )
   ).wait()
 

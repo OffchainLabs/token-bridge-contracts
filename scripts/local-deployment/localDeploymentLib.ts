@@ -1,4 +1,4 @@
-import { Wallet, ethers } from 'ethers'
+import { BigNumber, Wallet, ethers } from 'ethers'
 import { JsonRpcProvider } from '@ethersproject/providers'
 import { L1Network, L2Network, addCustomNetwork } from '@arbitrum/sdk'
 import { Bridge__factory } from '@arbitrum/sdk/dist/lib/abi/factories/Bridge__factory'
@@ -10,10 +10,14 @@ import {
   getEstimateForDeployingFactory,
   registerGateway,
 } from '../atomicTokenBridgeDeployer'
-import { IOwnable__factory, TestWETH9__factory } from '../../build/types'
+import {
+  ERC20__factory,
+  IOwnable__factory,
+  TestWETH9__factory,
+} from '../../build/types'
 
-const LOCALHOST_L2_RPC = 'http://localhost:8547'
-const LOCALHOST_L3_RPC = 'http://localhost:3347'
+const LOCALHOST_L2_RPC = 'http://127.0.0.1:8547'
+const LOCALHOST_L3_RPC = 'http://127.0.0.1:3347'
 const LOCALHOST_L3_OWNER_KEY =
   '0xecdf21cb41c65afb51f91df408b7656e2c8739a5877f2814add0afd780cc210e'
 /**
@@ -336,5 +340,28 @@ export const getLocalNetworks = async (
   return {
     l1Network,
     l2Network,
+  }
+}
+
+/**
+ * Scale the amount from 18-denomination to the fee token decimals denomination
+ */
+export async function _getScaledAmount(
+  feeToken: string,
+  amount: BigNumber,
+  provider: ethers.providers.Provider
+): Promise<BigNumber> {
+  const decimals = await ERC20__factory.connect(feeToken, provider).decimals()
+  if (decimals == 18) {
+    return amount
+  } else if (decimals < 18) {
+    let scaledAmount = amount.div(BigNumber.from(10).pow(18 - decimals))
+    // round up if necessary
+    if (scaledAmount.mul(BigNumber.from(10).pow(18 - decimals)).lt(amount)) {
+      scaledAmount = scaledAmount.add(1)
+    }
+    return scaledAmount
+  } else {
+    return amount.mul(BigNumber.from(10).pow(decimals - 18))
   }
 }
