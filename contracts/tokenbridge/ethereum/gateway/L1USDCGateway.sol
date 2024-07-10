@@ -24,7 +24,7 @@ import {IFiatToken, IFiatTokenProxy} from "../../libraries/IFiatToken.sol";
  *         - it is ownable
  *         - owner can pause and unpause deposits
  *         - owner can set a burner address
- *         - owner can set the amount of USDC tokens to be burned by burner
+ *         - owner can set the amount of USDC tokens to be burned by burner. Owner is trusted to this correctly and not frontrun the burning.
  *         - burner can trigger burning the amount of USDC tokens locked in the gateway that matches the L2 supply
  *
  *         This contract is to be used on chains where ETH is the native token. If chain is using
@@ -131,8 +131,9 @@ contract L1USDCGateway is L1ArbitrumExtendedGateway {
 
     /**
      * @notice Burns the USDC tokens escrowed in the gateway.
-     * @dev    Can be called by burner when deposits are paused and when
-     *         owner has set the burn amount. Amount should match the L2 supply.
+     * @dev    Can be called by burner when deposits are paused and when owner has set the burn amount.
+     *         Owner is trusted to correctly set the burn amount and to not frontrun the burning by
+     *         modifying the burn amount.
      *         Function signature complies by Bridged USDC Standard.
      */
     function burnLockedUSDC() external {

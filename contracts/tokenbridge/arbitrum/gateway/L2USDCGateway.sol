@@ -197,6 +197,11 @@ contract L2USDCGateway is L2ArbitrumGateway {
         return true;
     }
 
+    /**
+     * @notice We need to override this function because base implementation assumes that L2 token implements
+     *         `l1Address()` function from IArbToken interface. In the case of USDC gateway IArbToken logic is
+     *         part of this contract, so we just check that addresses match the expected L1 and L2 USDC address.
+     */
     function _isValidTokenAddress(address _l1Address, address _expectedL2Address)
         internal
         view
