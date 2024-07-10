@@ -201,7 +201,9 @@ describe('orbitTokenBridge', () => {
     ).wait()
 
     // calculate retryable params
-    const maxSubmissionCost = 0
+    const maxSubmissionCost = nativeToken
+      ? BigNumber.from(0)
+      : BigNumber.from(584000000000)
     const callhook = '0x'
 
     const gateway = L1OrbitERC20Gateway__factory.connect(
@@ -232,15 +234,15 @@ describe('orbitTokenBridge', () => {
       parentProvider
     )
 
-    const gasLimit = retryableParams.gasLimit.mul(40)
+    const gasLimit = retryableParams.gasLimit.mul(60)
     const maxFeePerGas = retryableParams.maxFeePerGas
     const tokenTotalFeeAmount = nativeToken
       ? await _getScaledAmount(
           nativeToken.address,
-          gasLimit.mul(maxFeePerGas),
+          gasLimit.mul(maxFeePerGas).mul(2),
           nativeToken.provider!
         )
-      : gasLimit.mul(maxFeePerGas)
+      : gasLimit.mul(maxFeePerGas).mul(2)
 
     // approve fee amount
     if (nativeToken) {
@@ -566,7 +568,9 @@ describe('orbitTokenBridge', () => {
     ).wait()
 
     // calculate retryable params
-    const maxSubmissionCost = 0
+    const maxSubmissionCost = nativeToken
+      ? BigNumber.from(0)
+      : BigNumber.from(584000000000)
     const callhook = '0x'
 
     const gasLimit = BigNumber.from(1000000)
@@ -574,10 +578,10 @@ describe('orbitTokenBridge', () => {
     const tokenTotalFeeAmount = nativeToken
       ? await _getScaledAmount(
           nativeToken.address,
-          gasLimit.mul(maxFeePerGas),
+          gasLimit.mul(maxFeePerGas).mul(2),
           nativeToken.provider!
         )
-      : gasLimit.mul(maxFeePerGas)
+      : gasLimit.mul(maxFeePerGas).mul(2)
 
     // approve fee amount
     if (nativeToken) {
@@ -1156,7 +1160,11 @@ describe('orbitTokenBridge', () => {
     )
     const maxGas = BigNumber.from(500000)
     const gasPriceBid = BigNumber.from(200000000)
-    const totalFeeTokenAmount = maxGas.mul(gasPriceBid)
+    const totalFeeTokenAmount = await _getScaledAmount(
+      nativeToken!.address,
+      maxGas.mul(gasPriceBid),
+      nativeToken!.provider
+    )
     const maxSubmissionCost = BigNumber.from(0)
 
     // prefund inbox to pay for registration
