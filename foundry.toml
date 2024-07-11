@@ -7,6 +7,7 @@ cache_path  = 'forge-cache'
 optimizer = true
 optimizer_runs = 100
 via_ir = false
+fs_permissions = [{ access = "read", path = "node_modules/@offchainlabs/stablecoin-evm"}]
 
 [fmt]
 number_underscore = 'thousands'

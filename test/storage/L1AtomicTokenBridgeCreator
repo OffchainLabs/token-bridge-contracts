@@ -1,0 +1,22 @@
+| Name                           | Type                                             | Slot | Offset | Bytes | Contract                                                                                 |
+|--------------------------------|--------------------------------------------------|------|--------|-------|------------------------------------------------------------------------------------------|
+| _initialized                   | uint8                                            | 0    | 0      | 1     | contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol:L1AtomicTokenBridgeCreator |
+| _initializing                  | bool                                             | 0    | 1      | 1     | contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol:L1AtomicTokenBridgeCreator |
+| __gap                          | uint256[50]                                      | 1    | 0      | 1600  | contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol:L1AtomicTokenBridgeCreator |
+| _owner                         | address                                          | 51   | 0      | 20    | contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol:L1AtomicTokenBridgeCreator |
+| __gap                          | uint256[49]                                      | 52   | 0      | 1568  | contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol:L1AtomicTokenBridgeCreator |
+| inboxToL1Deployment            | mapping(address => struct L1DeploymentAddresses) | 101  | 0      | 32    | contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol:L1AtomicTokenBridgeCreator |
+| inboxToL2Deployment            | mapping(address => struct L2DeploymentAddresses) | 102  | 0      | 32    | contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol:L1AtomicTokenBridgeCreator |
+| gasLimitForL2FactoryDeployment | uint256                                          | 103  | 0      | 32    | contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol:L1AtomicTokenBridgeCreator |
+| retryableSender                | contract L1TokenBridgeRetryableSender            | 104  | 0      | 20    | contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol:L1AtomicTokenBridgeCreator |
+| l1Templates                    | struct L1AtomicTokenBridgeCreator.L1Templates    | 105  | 0      | 256   | contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol:L1AtomicTokenBridgeCreator |
+| l2TokenBridgeFactoryTemplate   | address                                          | 113  | 0      | 20    | contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol:L1AtomicTokenBridgeCreator |
+| l2RouterTemplate               | address                                          | 114  | 0      | 20    | contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol:L1AtomicTokenBridgeCreator |
+| l2StandardGatewayTemplate      | address                                          | 115  | 0      | 20    | contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol:L1AtomicTokenBridgeCreator |
+| l2CustomGatewayTemplate        | address                                          | 116  | 0      | 20    | contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol:L1AtomicTokenBridgeCreator |
+| l2WethGatewayTemplate          | address                                          | 117  | 0      | 20    | contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol:L1AtomicTokenBridgeCreator |
+| l2WethTemplate                 | address                                          | 118  | 0      | 20    | contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol:L1AtomicTokenBridgeCreator |
+| l2MulticallTemplate            | address                                          | 119  | 0      | 20    | contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol:L1AtomicTokenBridgeCreator |
+| l1Weth                         | address                                          | 120  | 0      | 20    | contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol:L1AtomicTokenBridgeCreator |
+| l1Multicall                    | address                                          | 121  | 0      | 20    | contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol:L1AtomicTokenBridgeCreator |
+| canonicalL2FactoryAddress      | address                                          | 122  | 0      | 20    | contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol:L1AtomicTokenBridgeCreator |

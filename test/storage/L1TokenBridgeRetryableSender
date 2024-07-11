@@ -1,0 +1,7 @@
+| Name          | Type        | Slot | Offset | Bytes | Contract                                                                                     |
+|---------------|-------------|------|--------|-------|----------------------------------------------------------------------------------------------|
+| _initialized  | uint8       | 0    | 0      | 1     | contracts/tokenbridge/ethereum/L1TokenBridgeRetryableSender.sol:L1TokenBridgeRetryableSender |
+| _initializing | bool        | 0    | 1      | 1     | contracts/tokenbridge/ethereum/L1TokenBridgeRetryableSender.sol:L1TokenBridgeRetryableSender |
+| __gap         | uint256[50] | 1    | 0      | 1600  | contracts/tokenbridge/ethereum/L1TokenBridgeRetryableSender.sol:L1TokenBridgeRetryableSender |
+| _owner        | address     | 51   | 0      | 20    | contracts/tokenbridge/ethereum/L1TokenBridgeRetryableSender.sol:L1TokenBridgeRetryableSender |
+| __gap         | uint256[49] | 52   | 0      | 1568  | contracts/tokenbridge/ethereum/L1TokenBridgeRetryableSender.sol:L1TokenBridgeRetryableSender |
