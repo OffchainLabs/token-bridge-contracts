@@ -98,6 +98,9 @@ jobs:
       - name: Test function signatures
         run: yarn run test:signatures
 
+      - name: Test unused errors
+        run: yarn run test:unused:errors
+
   test-e2e:
     name: Test e2e
     runs-on: ubuntu-latest
