@@ -57,7 +57,6 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     error L1AtomicTokenBridgeCreator_RollupOwnershipMisconfig();
     error L1AtomicTokenBridgeCreator_ProxyAdminNotFound();
     error L1AtomicTokenBridgeCreator_L2FactoryCannotBeChanged();
-    error TestError();
 
     event OrbitTokenBridgeCreated(
         address indexed inbox,

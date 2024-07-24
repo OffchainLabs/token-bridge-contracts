@@ -67,7 +67,7 @@ jobs:
         run: yarn test
 
   test-contracts:
-    name: Test storage layout and signatures
+    name: Test storage layout, signatures and look for unused errors
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
