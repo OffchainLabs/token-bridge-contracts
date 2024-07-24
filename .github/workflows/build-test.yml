@@ -98,8 +98,11 @@ jobs:
       - name: Test function signatures
         run: yarn run test:signatures
 
-      - name: Test unused errors
-        run: yarn run test:unused:errors
+      - name: Run unused Solidity errors checker
+        uses: OffchainLabs/actions/check-unused-errors@unused-errors
+        with:
+          directory: './contracts'
+          exceptions_file: './test/unused-errors/exceptions.txt'
 
   test-e2e:
     name: Test e2e
