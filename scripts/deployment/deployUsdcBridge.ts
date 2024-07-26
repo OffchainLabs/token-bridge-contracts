@@ -1,20 +1,35 @@
-import { BigNumber, ethers, Wallet } from 'ethers'
+import { BigNumber, Wallet } from 'ethers'
+import { ethers } from 'hardhat'
 import {
-  IOwnable__factory,
+  IERC20__factory,
+  IFiatToken__factory,
+  IFiatTokenProxy__factory,
   L1GatewayRouter__factory,
   L1USDCGateway,
   L1USDCGateway__factory,
   L2GatewayRouter__factory,
   L2USDCGateway,
   L2USDCGateway__factory,
+  ProxyAdmin,
   ProxyAdmin__factory,
   TransparentUpgradeableProxy__factory,
-  UpgradeExecutor__factory,
 } from '../../build/types'
 import { JsonRpcProvider } from '@ethersproject/providers'
 import dotenv from 'dotenv'
 import { L1ToL2MessageGasEstimator } from '@arbitrum/sdk'
 import { getBaseFee } from '@arbitrum/sdk/dist/lib/utils/lib'
+import {
+  abi as SigCheckerAbi,
+  bytecode as SigCheckerBytecode,
+} from '@offchainlabs/stablecoin-evm/artifacts/hardhat/contracts/util/SignatureChecker.sol/SignatureChecker.json'
+import {
+  abi as UsdcAbi,
+  bytecode as UsdcBytecode,
+} from '@offchainlabs/stablecoin-evm/artifacts/hardhat/contracts/v2/FiatTokenV2_2.sol/FiatTokenV2_2.json'
+import {
+  abi as UsdcProxyAbi,
+  bytecode as UsdcProxyBytecode,
+} from '@offchainlabs/stablecoin-evm/artifacts/hardhat/contracts/v1/FiatTokenProxy.sol/FiatTokenProxy.json'
 
 dotenv.config()
 
@@ -23,21 +38,27 @@ main().then(() => console.log('Done.'))
 async function main() {
   const { deployerL1, deployerL2 } = await _loadWallets()
 
+  const proxyAdminL2 = await _deployL2ProxyAdmin(deployerL2)
+  console.log('L2 ProxyAdmin address: ', proxyAdminL2)
+
+  const bridgedUsdc = await _deployBridgedUsdc(deployerL2, proxyAdminL2)
+  console.log('Bridged USDC address: ', bridgedUsdc)
+
   /// create L2 USDC from Circle's repo, set the address in .env and load it here
-  const l2Usdc = process.env['BRIDGED_USDC_ADDRESS'] as string
+  // const l2Usdc = process.env['BRIDGED_USDC_ADDRESS'] as string
 
-  const { l1USDCCustomGateway, l2USDCCustomGateway } = await _deployGateways(
-    deployerL1,
-    deployerL2
-  )
+  // const { l1USDCCustomGateway, l2USDCCustomGateway } = await _deployGateways(
+  //   deployerL1,
+  //   deployerL2
+  // )
 
-  await _initializeGateways(
-    l1USDCCustomGateway,
-    l2USDCCustomGateway,
-    l2Usdc,
-    deployerL1,
-    deployerL2
-  )
+  // await _initializeGateways(
+  //   l1USDCCustomGateway,
+  //   l2USDCCustomGateway,
+  //   l2Usdc,
+  //   deployerL1,
+  //   deployerL2
+  // )
 }
 
 async function _loadWallets(): Promise<{
@@ -60,6 +81,106 @@ async function _loadWallets(): Promise<{
   const deployerL2 = new ethers.Wallet(childDeployerKey, childProvider)
 
   return { deployerL1, deployerL2 }
+}
+
+async function _deployL2ProxyAdmin(deployerL2Wallet: Wallet): Promise<string> {
+  const proxyAdminFac = await new ProxyAdmin__factory(deployerL2Wallet).deploy()
+  return (await proxyAdminFac.deployed()).address
+}
+
+async function _deployBridgedUsdc(
+  deployerL2Wallet: Wallet,
+  proxyAdminL2: string
+): Promise<string> {
+  /// create l2 usdc behind proxy
+  const l2UsdcLogic = await _deployUsdcLogic(deployerL2Wallet)
+  const l2UsdcProxyAddress = await _deployUsdcProxy(
+    deployerL2Wallet,
+    l2UsdcLogic.address,
+    proxyAdminL2
+  )
+
+  const l2UsdcFiatToken = IFiatToken__factory.connect(
+    l2UsdcProxyAddress,
+    deployerL2Wallet
+  )
+  const masterMinterL2 = deployerL2Wallet
+  await (
+    await l2UsdcFiatToken.initialize(
+      'USDC token',
+      'USDC.e',
+      'USD',
+      6,
+      masterMinterL2.address,
+      ethers.Wallet.createRandom().address,
+      ethers.Wallet.createRandom().address,
+      deployerL2Wallet.address
+    )
+  ).wait()
+  await (await l2UsdcFiatToken.initializeV2('USDC')).wait()
+  await (
+    await l2UsdcFiatToken.initializeV2_1(ethers.Wallet.createRandom().address)
+  ).wait()
+  await (await l2UsdcFiatToken.initializeV2_2([], 'USDC.e')).wait()
+  const l2Usdc = IERC20__factory.connect(
+    l2UsdcFiatToken.address,
+    deployerL2Wallet
+  )
+
+  return l2Usdc.address
+}
+
+async function _deployUsdcLogic(deployer: Wallet) {
+  /// deploy sig checker library
+  const sigCheckerFac = new ethers.ContractFactory(
+    SigCheckerAbi,
+    SigCheckerBytecode,
+    deployer
+  )
+  const sigCheckerLib = await sigCheckerFac.deploy()
+
+  // link library to usdc bytecode
+  const bytecodeWithPlaceholder: string = UsdcBytecode
+  const placeholder = '__$715109b5d747ea58b675c6ea3f0dba8c60$__'
+
+  const libAddressStripped = sigCheckerLib.address.replace(/^0x/, '')
+  const bridgedUsdcLogicBytecode = bytecodeWithPlaceholder
+    .split(placeholder)
+    .join(libAddressStripped)
+
+  // deploy bridged usdc logic
+  const bridgedUsdcLogicFactory = new ethers.ContractFactory(
+    UsdcAbi,
+    bridgedUsdcLogicBytecode,
+    deployer
+  )
+  const bridgedUsdcLogic = await bridgedUsdcLogicFactory.deploy()
+
+  return bridgedUsdcLogic
+}
+
+async function _deployUsdcProxy(
+  deployer: Wallet,
+  bridgedUsdcLogic: string,
+  proxyAdmin: string
+) {
+  /// deploy circle's proxy used for usdc
+  const usdcProxyFactory = new ethers.ContractFactory(
+    UsdcProxyAbi,
+    UsdcProxyBytecode,
+    deployer
+  )
+  const usdcProxy = await usdcProxyFactory.deploy(bridgedUsdcLogic)
+
+  /// set proxy admin
+  await (
+    await IFiatTokenProxy__factory.connect(
+      usdcProxy.address,
+      deployer
+    ).changeAdmin(proxyAdmin)
+  ).wait()
+
+  return usdcProxy.address
 }
 
 async function _deployGateways(
