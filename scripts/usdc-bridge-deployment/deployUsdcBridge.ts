@@ -42,6 +42,7 @@ dotenv.config()
 main().then(() => console.log('Done.'))
 
 async function main() {
+  _checkEnvVars()
   const { deployerL1, deployerL2, rollupOwner } = await _loadWallets()
 
   const proxyAdminL1 = await _deployProxyAdmin(deployerL1)
@@ -82,7 +83,13 @@ async function main() {
   )
   console.log('Usdc gateways initialized')
 
-  await _registerGateway(rollupOwner, deployerL2.provider!)
+  await _registerGateway(
+    rollupOwner,
+    deployerL2.provider!,
+    l1Router,
+    l1Usdc,
+    l1UsdcGateway.address
+  )
   console.log('Usdc gateway registered')
 }
 
@@ -96,9 +103,7 @@ async function _loadWallets(): Promise<{
   const childRpc = process.env['CHILD_RPC'] as string
   const childDeployerKey = process.env['CHILD_DEPLOYER_KEY'] as string
 
-  if (!parentRpc || !parentDeployerKey || !childRpc || !childDeployerKey) {
-    throw new Error('Missing env vars')
-  }
+
 
   const parentProvider = new JsonRpcProvider(parentRpc)
   const deployerL1 = new ethers.Wallet(parentDeployerKey, parentProvider)
@@ -282,8 +287,13 @@ async function _initializeGateways(
   ///// init logic
 }
 
-async function _registerGateway(rollupOwner: Wallet, childProvider: Provider) {
-  const l1RouterAddress = process.env['L1_ROUTER'] as string
+async function _registerGateway(
+  rollupOwner: Wallet,
+  childProvider: Provider,
+  l1RouterAddress: string,
+  l1UsdcAddress: string,
+  l1UsdcGatewayAddress: string
+) {
   const l1Router = L1GatewayRouter__factory.connect(
     l1RouterAddress,
     rollupOwner
@@ -300,9 +310,6 @@ async function _registerGateway(rollupOwner: Wallet, childProvider: Provider) {
   )
 
   /// prepare calldata for executor
-  const l1UsdcAddress = process.env['L1_USDC'] as string
-  const l1UsdcGatewayAddress = process.env['L1_USDC_GATEWAY'] as string
-
   const maxGas = BigNumber.from(500000)
   const gasPriceBid = BigNumber.from(200000000)
   let maxSubmissionCost = BigNumber.from(257600000000)
@@ -436,5 +443,31 @@ async function _registerNetworks(
   return {
     l1Network,
     l2Network,
+  }
+}
+
+/**
+ * Check if all required env vars are set
+ */
+function _checkEnvVars() {
+  const requiredEnvVars = [
+    'PARENT_RPC',
+    'PARENT_DEPLOYER_KEY',
+    'CHILD_RPC',
+    'CHILD_DEPLOYER_KEY',
+    'ROLLUP_OWNER_KEY',
+    'ROLLUP',
+    'L1_ROUTER',
+    'L2_ROUTER',
+    'INBOX',
+    'L1_USDC',
+    'ROLLUP_OWNER_KEY',
+    'ROLLUP',
+  ]
+
+  for (const envVar of requiredEnvVars) {
+    if (!process.env[envVar]) {
+      throw new Error(`Missing env var ${envVar}`)
+    }
   }
 }
