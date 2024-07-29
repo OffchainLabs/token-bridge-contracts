@@ -9,6 +9,7 @@ import {
   L1GatewayRouter__factory,
   L1USDCGateway,
   L1USDCGateway__factory,
+  L2GatewayRouter__factory,
   L2USDCGateway,
   L2USDCGateway__factory,
   ProxyAdmin,
@@ -33,11 +34,13 @@ import {
 import {
   addCustomNetwork,
   L1Network,
+  L1ToL2MessageGasEstimator,
   L1ToL2MessageStatus,
   L1TransactionReceipt,
   L2Network,
 } from '@arbitrum/sdk'
 import { RollupAdminLogic__factory } from '@arbitrum/sdk/dist/lib/abi/factories/RollupAdminLogic__factory'
+import { getBaseFee } from '@arbitrum/sdk/dist/lib/utils/lib'
 
 dotenv.config()
 
@@ -45,6 +48,7 @@ main().then(() => console.log('Done.'))
 
 async function main() {
   _checkEnvVars()
+
   const { deployerL1, deployerL2, rollupOwner } = await _loadWallets()
   console.log('Loaded deployer wallets')
 
@@ -93,6 +97,7 @@ async function main() {
     rollupOwner,
     deployerL2.provider!,
     l1Router,
+    l2Router,
     l1Usdc,
     l1UsdcGateway.address
   )
@@ -314,6 +319,7 @@ async function _registerGateway(
   rollupOwner: Wallet,
   childProvider: Provider,
   l1RouterAddress: string,
+  l2RouterAddress: string,
   l1UsdcAddress: string,
   l1UsdcGatewayAddress: string
 ) {
@@ -333,9 +339,29 @@ async function _registerGateway(
   )
 
   /// prepare calldata for executor
-  const maxGas = BigNumber.from(500000)
-  const gasPriceBid = BigNumber.from(200000000)
-  let maxSubmissionCost = BigNumber.from(257600000000)
+  const routerRegistrationData =
+    L2GatewayRouter__factory.createInterface().encodeFunctionData(
+      'setGateway',
+      [[l1UsdcAddress], [l1UsdcGatewayAddress]]
+    )
+
+  const l1ToL2MessageGasEstimate = new L1ToL2MessageGasEstimator(childProvider)
+  const retryableParams = await l1ToL2MessageGasEstimate.estimateAll(
+    {
+      from: l1RouterAddress,
+      to: l2RouterAddress,
+      l2CallValue: BigNumber.from(0),
+      excessFeeRefundAddress: rollupOwner.address,
+      callValueRefundAddress: rollupOwner.address,
+      data: routerRegistrationData,
+    },
+    await getBaseFee(rollupOwner.provider),
+    rollupOwner.provider
+  )
+
+  const maxGas = retryableParams.gasLimit
+  const gasPriceBid = retryableParams.maxFeePerGas.mul(3)
+  let maxSubmissionCost = retryableParams.maxSubmissionCost
   const registrationCalldata = l1Router.interface.encodeFunctionData(
     'setGateways',
     [
