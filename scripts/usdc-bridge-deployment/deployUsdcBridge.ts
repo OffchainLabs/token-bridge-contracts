@@ -1,9 +1,10 @@
-import { Wallet } from 'ethers'
+import { BigNumber, ContractTransaction, Wallet } from 'ethers'
 import { ethers } from 'hardhat'
 import {
   IERC20__factory,
   IFiatToken__factory,
   IFiatTokenProxy__factory,
+  L1GatewayRouter__factory,
   L1USDCGateway,
   L1USDCGateway__factory,
   L2USDCGateway,
@@ -11,8 +12,9 @@ import {
   ProxyAdmin,
   ProxyAdmin__factory,
   TransparentUpgradeableProxy__factory,
+  UpgradeExecutor__factory,
 } from '../../build/types'
-import { JsonRpcProvider } from '@ethersproject/providers'
+import { JsonRpcProvider, Provider } from '@ethersproject/providers'
 import dotenv from 'dotenv'
 import {
   abi as SigCheckerAbi,
@@ -26,13 +28,21 @@ import {
   abi as UsdcProxyAbi,
   bytecode as UsdcProxyBytecode,
 } from '@offchainlabs/stablecoin-evm/artifacts/hardhat/contracts/v1/FiatTokenProxy.sol/FiatTokenProxy.json'
+import {
+  addCustomNetwork,
+  L1Network,
+  L1ToL2MessageStatus,
+  L1TransactionReceipt,
+  L2Network,
+} from '@arbitrum/sdk'
+import { RollupAdminLogic__factory } from '@arbitrum/sdk/dist/lib/abi/factories/RollupAdminLogic__factory'
 
 dotenv.config()
 
 main().then(() => console.log('Done.'))
 
 async function main() {
-  const { deployerL1, deployerL2 } = await _loadWallets()
+  const { deployerL1, deployerL2, rollupOwner } = await _loadWallets()
 
   const proxyAdminL1 = await _deployProxyAdmin(deployerL1)
   console.log('L1 ProxyAdmin address: ', proxyAdminL1.address)
@@ -71,11 +81,15 @@ async function main() {
     deployerL2
   )
   console.log('Usdc gateways initialized')
+
+  await _registerGateway(rollupOwner, deployerL2.provider!)
+  console.log('Usdc gateway registered')
 }
 
 async function _loadWallets(): Promise<{
   deployerL1: Wallet
   deployerL2: Wallet
+  rollupOwner: Wallet
 }> {
   const parentRpc = process.env['PARENT_RPC'] as string
   const parentDeployerKey = process.env['PARENT_DEPLOYER_KEY'] as string
@@ -92,7 +106,13 @@ async function _loadWallets(): Promise<{
   const childProvider = new JsonRpcProvider(childRpc)
   const deployerL2 = new ethers.Wallet(childDeployerKey, childProvider)
 
-  return { deployerL1, deployerL2 }
+  const rollupOwnerKey = process.env['ROLLUP_OWNER_KEY'] as string
+  const rollupOwner = new ethers.Wallet(rollupOwnerKey, parentProvider)
+
+  const rollup = process.env['ROLLUP'] as string
+  await _registerNetworks(parentProvider, childProvider, rollup)
+
+  return { deployerL1, deployerL2, rollupOwner }
 }
 
 async function _deployProxyAdmin(deployer: Wallet): Promise<ProxyAdmin> {
@@ -260,4 +280,161 @@ async function _initializeGateways(
   ).wait()
 
   ///// init logic
+}
+
+async function _registerGateway(rollupOwner: Wallet, childProvider: Provider) {
+  const l1RouterAddress = process.env['L1_ROUTER'] as string
+  const l1Router = L1GatewayRouter__factory.connect(
+    l1RouterAddress,
+    rollupOwner
+  )
+
+  /// load upgrade executor
+  const routerOwnerAddress = await l1Router.owner()
+  if (!(await _isUpgradeExecutor(routerOwnerAddress, rollupOwner))) {
+    throw new Error('Router owner is expected to be an UpgradeExecutor')
+  }
+  const upgradeExecutor = UpgradeExecutor__factory.connect(
+    routerOwnerAddress,
+    rollupOwner
+  )
+
+  /// prepare calldata for executor
+  const l1UsdcAddress = process.env['L1_USDC'] as string
+  const l1UsdcGatewayAddress = process.env['L1_USDC_GATEWAY'] as string
+
+  const maxGas = BigNumber.from(500000)
+  const gasPriceBid = BigNumber.from(200000000)
+  let maxSubmissionCost = BigNumber.from(257600000000)
+  const registrationCalldata = l1Router.interface.encodeFunctionData(
+    'setGateways',
+    [
+      [l1UsdcAddress],
+      [l1UsdcGatewayAddress],
+      maxGas,
+      gasPriceBid,
+      maxSubmissionCost,
+    ]
+  )
+
+  /// execute the registration
+  const gwRegistrationTx = await upgradeExecutor.executeCall(
+    l1Router.address,
+    registrationCalldata,
+    {
+      value: maxGas.mul(gasPriceBid).add(maxSubmissionCost),
+    }
+  )
+  await _waitOnL2Msg(gwRegistrationTx, childProvider)
+}
+
+/**
+ * Check if owner is UpgardeExecutor by polling ADMIN_ROLE() and EXECUTOR_ROLE()
+ * @param routerOwnerAddress
+ * @param rollupOwner
+ * @returns
+ */
+async function _isUpgradeExecutor(
+  routerOwnerAddress: string,
+  rollupOwner: Wallet
+): Promise<boolean> {
+  const upgExecutor = UpgradeExecutor__factory.connect(
+    routerOwnerAddress,
+    rollupOwner
+  )
+  try {
+    await upgExecutor.ADMIN_ROLE()
+    await upgExecutor.EXECUTOR_ROLE()
+  } catch {
+    return false
+  }
+
+  return true
+}
+
+async function _waitOnL2Msg(tx: ContractTransaction, childProvider: Provider) {
+  const retryableReceipt = await tx.wait()
+  const l1TxReceipt = new L1TransactionReceipt(retryableReceipt)
+  const messages = await l1TxReceipt.getL1ToL2Messages(childProvider)
+
+  // 1 msg expected
+  const messageResult = await messages[0].waitForStatus()
+  const status = messageResult.status
+
+  if (status != L1ToL2MessageStatus.REDEEMED) {
+    throw new Error('L1->L2 message not redeemed')
+  }
+}
+
+async function _registerNetworks(
+  l1Provider: Provider,
+  l2Provider: Provider,
+  rollupAddress: string
+): Promise<{
+  l1Network: L1Network
+  l2Network: Omit<L2Network, 'tokenBridge'>
+}> {
+  const l1NetworkInfo = await l1Provider.getNetwork()
+  const l2NetworkInfo = await l2Provider.getNetwork()
+
+  const l1Network: L1Network = {
+    blockTime: 10,
+    chainID: l1NetworkInfo.chainId,
+    explorerUrl: '',
+    isCustom: true,
+    name: l1NetworkInfo.name,
+    partnerChainIDs: [l2NetworkInfo.chainId],
+    isArbitrum: false,
+  }
+
+  const rollup = RollupAdminLogic__factory.connect(rollupAddress, l1Provider)
+  const l2Network: L2Network = {
+    blockTime: 10,
+    partnerChainIDs: [],
+    chainID: l2NetworkInfo.chainId,
+    confirmPeriodBlocks: (await rollup.confirmPeriodBlocks()).toNumber(),
+    ethBridge: {
+      bridge: await rollup.bridge(),
+      inbox: await rollup.inbox(),
+      outbox: await rollup.outbox(),
+      rollup: rollup.address,
+      sequencerInbox: await rollup.sequencerInbox(),
+    },
+    explorerUrl: '',
+    isArbitrum: true,
+    isCustom: true,
+    name: 'OrbitChain',
+    partnerChainID: l1NetworkInfo.chainId,
+    retryableLifetimeSeconds: 7 * 24 * 60 * 60,
+    nitroGenesisBlock: 0,
+    nitroGenesisL1Block: 0,
+    depositTimeout: 900000,
+    tokenBridge: {
+      l1CustomGateway: '',
+      l1ERC20Gateway: '',
+      l1GatewayRouter: '',
+      l1MultiCall: '',
+      l1ProxyAdmin: '',
+      l1Weth: '',
+      l1WethGateway: '',
+      l2CustomGateway: '',
+      l2ERC20Gateway: '',
+      l2GatewayRouter: '',
+      l2Multicall: '',
+      l2ProxyAdmin: '',
+      l2Weth: '',
+      l2WethGateway: '',
+    },
+  }
+
+  // register - needed for retryables
+  addCustomNetwork({
+    customL1Network: l1Network,
+    customL2Network: l2Network,
+  })
+
+  return {
+    l1Network,
+    l2Network,
+  }
 }
