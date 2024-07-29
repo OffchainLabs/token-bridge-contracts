@@ -1,9 +1,11 @@
 import { BigNumber, ContractTransaction, Wallet } from 'ethers'
 import { ethers } from 'hardhat'
 import {
+  IBridge__factory,
   IERC20__factory,
   IFiatToken__factory,
   IFiatTokenProxy__factory,
+  IInboxBase__factory,
   L1GatewayRouter__factory,
   L1USDCGateway,
   L1USDCGateway__factory,
@@ -45,6 +47,9 @@ async function main() {
   _checkEnvVars()
   const { deployerL1, deployerL2, rollupOwner } = await _loadWallets()
 
+  const inbox = process.env['INBOX'] as string
+  await _registerNetworks(deployerL1.provider, deployerL2.provider, inbox)
+
   const proxyAdminL1 = await _deployProxyAdmin(deployerL1)
   console.log('L1 ProxyAdmin address: ', proxyAdminL1.address)
 
@@ -68,7 +73,6 @@ async function main() {
 
   const l1Router = process.env['L1_ROUTER'] as string
   const l2Router = process.env['L2_ROUTER'] as string
-  const inbox = process.env['INBOX'] as string
   const l1Usdc = process.env['L1_USDC'] as string
   await _initializeGateways(
     l1UsdcGateway,
@@ -103,8 +107,6 @@ async function _loadWallets(): Promise<{
   const childRpc = process.env['CHILD_RPC'] as string
   const childDeployerKey = process.env['CHILD_DEPLOYER_KEY'] as string
 
-
-
   const parentProvider = new JsonRpcProvider(parentRpc)
   const deployerL1 = new ethers.Wallet(parentDeployerKey, parentProvider)
 
@@ -113,9 +115,6 @@ async function _loadWallets(): Promise<{
 
   const rollupOwnerKey = process.env['ROLLUP_OWNER_KEY'] as string
   const rollupOwner = new ethers.Wallet(rollupOwnerKey, parentProvider)
-
-  const rollup = process.env['ROLLUP'] as string
-  await _registerNetworks(parentProvider, childProvider, rollup)
 
   return { deployerL1, deployerL2, rollupOwner }
 }
@@ -250,6 +249,9 @@ async function _deployChildChainUsdcGateway(
   return L2USDCGateway__factory.connect(tup.address, deployerL2)
 }
 
+/**
+ * Initialize gateways
+ */
 async function _initializeGateways(
   l1UsdcGateway: L1USDCGateway,
   l2UsdcGateway: L2USDCGateway,
@@ -287,6 +289,9 @@ async function _initializeGateways(
   ///// init logic
 }
 
+/**
+ * Set token to gateway mapping in the routers
+ */
 async function _registerGateway(
   rollupOwner: Wallet,
   childProvider: Provider,
@@ -337,9 +342,6 @@ async function _registerGateway(
 
 /**
  * Check if owner is UpgardeExecutor by polling ADMIN_ROLE() and EXECUTOR_ROLE()
- * @param routerOwnerAddress
- * @param rollupOwner
- * @returns
  */
 async function _isUpgradeExecutor(
   routerOwnerAddress: string,
@@ -359,6 +361,9 @@ async function _isUpgradeExecutor(
   return true
 }
 
+/**
+ * Wait for L1->L2 message to be redeemed
+ */
 async function _waitOnL2Msg(tx: ContractTransaction, childProvider: Provider) {
   const retryableReceipt = await tx.wait()
   const l1TxReceipt = new L1TransactionReceipt(retryableReceipt)
@@ -373,10 +378,17 @@ async function _waitOnL2Msg(tx: ContractTransaction, childProvider: Provider) {
   }
 }
 
+/**
+ * Register L1 and L2 networks in the SDK
+ * @param l1Provider
+ * @param l2Provider
+ * @param inboxAddress
+ * @returns
+ */
 async function _registerNetworks(
   l1Provider: Provider,
   l2Provider: Provider,
-  rollupAddress: string
+  inboxAddress: string
 ): Promise<{
   l1Network: L1Network
   l2Network: Omit<L2Network, 'tokenBridge'>
@@ -394,6 +406,10 @@ async function _registerNetworks(
     isArbitrum: false,
   }
 
+  const rollupAddress = await IBridge__factory.connect(
+    await IInboxBase__factory.connect(inboxAddress, l1Provider).bridge(),
+    l1Provider
+  ).rollup()
   const rollup = RollupAdminLogic__factory.connect(rollupAddress, l1Provider)
   const l2Network: L2Network = {
     blockTime: 10,
