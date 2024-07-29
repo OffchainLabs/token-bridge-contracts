@@ -46,9 +46,11 @@ main().then(() => console.log('Done.'))
 async function main() {
   _checkEnvVars()
   const { deployerL1, deployerL2, rollupOwner } = await _loadWallets()
+  console.log('Loaded deployer wallets')
 
   const inbox = process.env['INBOX'] as string
   await _registerNetworks(deployerL1.provider, deployerL2.provider, inbox)
+  console.log('SDK registration prepared')
 
   const proxyAdminL1 = await _deployProxyAdmin(deployerL1)
   console.log('L1 ProxyAdmin address: ', proxyAdminL1.address)
@@ -136,11 +138,14 @@ async function _deployBridgedUsdc(
     proxyAdminL2.address
   )
 
+  /// init usdc proxy
   const l2UsdcFiatToken = IFiatToken__factory.connect(
     l2UsdcProxyAddress,
     deployerL2Wallet
   )
   const masterMinterL2 = deployerL2Wallet
+  const pauserL2 = deployerL2Wallet
+  const blacklisterL2 = deployerL2Wallet
   await (
     await l2UsdcFiatToken.initialize(
       'USDC token',
@@ -148,8 +153,8 @@ async function _deployBridgedUsdc(
       'USD',
       6,
       masterMinterL2.address,
-      ethers.Wallet.createRandom().address,
-      ethers.Wallet.createRandom().address,
+      pauserL2.address,
+      blacklisterL2.address,
       deployerL2Wallet.address
     )
   ).wait()
@@ -158,11 +163,24 @@ async function _deployBridgedUsdc(
     await l2UsdcFiatToken.initializeV2_1(ethers.Wallet.createRandom().address)
   ).wait()
   await (await l2UsdcFiatToken.initializeV2_2([], 'USDC.e')).wait()
+
+  /// init usdc logic to dummy values
+  const l2UsdcLogicInit = IFiatToken__factory.connect(
+    l2UsdcLogic.address,
+    deployerL2Wallet
+  )
+  const DEAD = '0x000000000000000000000000000000000000dead'
+  await (
+    await l2UsdcLogicInit.initialize('', '', '', 0, DEAD, DEAD, DEAD, DEAD)
+  ).wait()
+  await (await l2UsdcLogicInit.initializeV2('')).wait()
+  await (await l2UsdcLogicInit.initializeV2_1(DEAD)).wait()
+  await (await l2UsdcLogicInit.initializeV2_2([], '')).wait()
+
   const l2Usdc = IERC20__factory.connect(
     l2UsdcFiatToken.address,
     deployerL2Wallet
   )
-
   return l2Usdc.address
 }
 
