@@ -1,13 +1,11 @@
-import { BigNumber, Wallet } from 'ethers'
+import { Wallet } from 'ethers'
 import { ethers } from 'hardhat'
 import {
   IERC20__factory,
   IFiatToken__factory,
   IFiatTokenProxy__factory,
-  L1GatewayRouter__factory,
   L1USDCGateway,
   L1USDCGateway__factory,
-  L2GatewayRouter__factory,
   L2USDCGateway,
   L2USDCGateway__factory,
   ProxyAdmin,
@@ -16,8 +14,6 @@ import {
 } from '../../build/types'
 import { JsonRpcProvider } from '@ethersproject/providers'
 import dotenv from 'dotenv'
-import { L1ToL2MessageGasEstimator } from '@arbitrum/sdk'
-import { getBaseFee } from '@arbitrum/sdk/dist/lib/utils/lib'
 import {
   abi as SigCheckerAbi,
   bytecode as SigCheckerBytecode,
@@ -262,4 +258,6 @@ async function _initializeGateways(
       ownerL2
     )
   ).wait()
+
+  ///// init logic
 }
