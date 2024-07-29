@@ -39,10 +39,10 @@ async function main() {
   const { deployerL1, deployerL2 } = await _loadWallets()
 
   const proxyAdminL1 = await _deployProxyAdmin(deployerL1)
-  console.log('L1 ProxyAdmin address: ', proxyAdminL1)
+  console.log('L1 ProxyAdmin address: ', proxyAdminL1.address)
 
   const proxyAdminL2 = await _deployProxyAdmin(deployerL2)
-  console.log('L2 ProxyAdmin address: ', proxyAdminL2)
+  console.log('L2 ProxyAdmin address: ', proxyAdminL2.address)
 
   const bridgedUsdc = await _deployBridgedUsdc(deployerL2, proxyAdminL2)
   console.log('Bridged USDC address: ', bridgedUsdc)
@@ -235,7 +235,7 @@ async function _initializeGateways(
   l1Router: string,
   l2Router: string,
   inbox: string,
-  l1USDC: string,
+  l1Usdc: string,
   l2Usdc: string,
   deployerL1: Wallet,
   deployerL2: Wallet
@@ -243,15 +243,11 @@ async function _initializeGateways(
   /// initialize L1 gateway
   const _l2CounterPart = l2UsdcGateway.address
   const _owner = deployerL1.address
+
   await (
-    await l1UsdcGateway.initialize(
-      _l2CounterPart,
-      l1Router,
-      inbox,
-      l1USDC,
-      l2Usdc,
-      _owner
-    )
+    await l1UsdcGateway
+      .connect(deployerL1)
+      .initialize(_l2CounterPart, l1Router, inbox, l1Usdc, l2Usdc, _owner)
   ).wait()
 
   /// initialize L2 gateway
@@ -261,7 +257,7 @@ async function _initializeGateways(
     await l2UsdcGateway.initialize(
       _l1Counterpart,
       l2Router,
-      l1USDC,
+      l1Usdc,
       l2Usdc,
       ownerL2
     )
