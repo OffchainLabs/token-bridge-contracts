@@ -3,10 +3,12 @@ import { ethers } from 'hardhat'
 import {
   IBridge__factory,
   IERC20__factory,
+  IERC20Bridge__factory,
   IFiatToken__factory,
   IFiatTokenProxy__factory,
   IInboxBase__factory,
   L1GatewayRouter__factory,
+  L1OrbitGatewayRouter__factory,
   L1USDCGateway,
   L1USDCGateway__factory,
   L2GatewayRouter__factory,
@@ -50,6 +52,8 @@ const REGISTRATION_TX_FILE = 'registerUsdcGatewayTx.json'
 main().then(() => console.log('Done.'))
 
 async function main() {
+  console.log('Starting USDC bridge deployment')
+
   _checkEnvVars()
 
   const { deployerL1, deployerL2 } = await _loadWallets()
@@ -100,6 +104,7 @@ async function main() {
   await _registerGateway(
     deployerL1.provider,
     deployerL2.provider,
+    inbox,
     l1Router,
     l2Router,
     l1Usdc,
@@ -108,7 +113,7 @@ async function main() {
   )
   if (ownerIsMultisig) {
     console.log(
-      'Multisig transaction prepared and stored in',
+      'Multisig transaction to register USDC gateway prepared and stored in',
       REGISTRATION_TX_FILE
     )
   } else {
@@ -326,16 +331,19 @@ async function _initializeGateways(
 async function _registerGateway(
   parentProvider: Provider,
   childProvider: Provider,
+  inbox: string,
   l1RouterAddress: string,
   l2RouterAddress: string,
   l1UsdcAddress: string,
   l1UsdcGatewayAddress: string,
   ownerIsMultisig: boolean
 ) {
-  const l1Router = L1GatewayRouter__factory.connect(
-    l1RouterAddress,
-    parentProvider
-  )
+  const isFeeToken =
+    (await _getFeeToken(inbox, parentProvider)) != ethers.constants.AddressZero
+
+  const l1Router = isFeeToken
+    ? L1OrbitGatewayRouter__factory.connect(l1RouterAddress, parentProvider)
+    : L1GatewayRouter__factory.connect(l1RouterAddress, parentProvider)
 
   /// load upgrade executor
   const routerOwnerAddress = await l1Router.owner()
@@ -360,8 +368,8 @@ async function _registerGateway(
       from: l1RouterAddress,
       to: l2RouterAddress,
       l2CallValue: BigNumber.from(0),
-      excessFeeRefundAddress: upgradeExecutor.address,
-      callValueRefundAddress: upgradeExecutor.address,
+      excessFeeRefundAddress: ethers.Wallet.createRandom().address,
+      callValueRefundAddress: ethers.Wallet.createRandom().address,
       data: routerRegistrationData,
     },
     await getBaseFee(parentProvider),
@@ -371,16 +379,30 @@ async function _registerGateway(
   const maxGas = retryableParams.gasLimit
   const gasPriceBid = retryableParams.maxFeePerGas.mul(3)
   let maxSubmissionCost = retryableParams.maxSubmissionCost
-  const registrationCalldata = l1Router.interface.encodeFunctionData(
-    'setGateways',
-    [
-      [l1UsdcAddress],
-      [l1UsdcGatewayAddress],
-      maxGas,
-      gasPriceBid,
-      maxSubmissionCost,
-    ]
-  )
+  const totalFee = maxGas.mul(gasPriceBid).add(maxSubmissionCost)
+
+  const registrationCalldata = isFeeToken
+    ? L1OrbitGatewayRouter__factory.createInterface().encodeFunctionData(
+        'setGateways(address[],address[],uint256,uint256,uint256,uint256)',
+        [
+          [l1UsdcAddress],
+          [l1UsdcGatewayAddress],
+          maxGas,
+          gasPriceBid,
+          maxSubmissionCost,
+          totalFee,
+        ]
+      )
+    : L1GatewayRouter__factory.createInterface().encodeFunctionData(
+        'setGateways(address[],address[],uint256,uint256,uint256)',
+        [
+          [l1UsdcAddress],
+          [l1UsdcGatewayAddress],
+          maxGas,
+          gasPriceBid,
+          maxSubmissionCost,
+        ]
+      )
 
   if (ownerIsMultisig) {
     // prepare multisig transaction
@@ -388,25 +410,49 @@ async function _registerGateway(
       'executeCall',
       [l1Router.address, registrationCalldata]
     )
-    const value = maxGas.mul(gasPriceBid).add(maxSubmissionCost)
     const to = upgradeExecutor.address
 
     // store the multisig transaction to file
     const multisigTx = {
       to,
-      value: value.toString(),
+      value: isFeeToken ? BigNumber.from(0).toString() : totalFee.toString(),
       data: upgExecutorData,
     }
     fs.writeFileSync(REGISTRATION_TX_FILE, JSON.stringify(multisigTx))
   } else {
-    // execute the registration
+    // load rollup owner (account with executor rights on the upgrade executor)
     const rollupOwnerKey = process.env['ROLLUP_OWNER_KEY'] as string
     const rollupOwner = new ethers.Wallet(rollupOwnerKey, parentProvider)
 
+    if (isFeeToken) {
+      // transfer the fee amount to upgrade executor
+      const feeToken = await _getFeeToken(inbox, parentProvider)
+      const feeTokenContract = IERC20__factory.connect(feeToken, rollupOwner)
+      await (
+        await feeTokenContract
+          .connect(rollupOwner)
+          .transfer(upgradeExecutor.address, totalFee)
+      ).wait()
+
+      // approve router to spend the fee token
+      await (
+        await upgradeExecutor
+          .connect(rollupOwner)
+          .executeCall(
+            feeToken,
+            feeTokenContract.interface.encodeFunctionData('approve', [
+              l1RouterAddress,
+              totalFee,
+            ])
+          )
+      ).wait()
+    }
+
+    // execute the registration
     const gwRegistrationTx = await upgradeExecutor
       .connect(rollupOwner)
       .executeCall(l1Router.address, registrationCalldata, {
-        value: maxGas.mul(gasPriceBid).add(maxSubmissionCost),
+        value: isFeeToken ? BigNumber.from(0) : totalFee,
       })
     await _waitOnL2Msg(gwRegistrationTx, childProvider)
   }
@@ -535,6 +581,29 @@ async function _registerNetworks(
 }
 
 /**
+ * Fetch fee token if it exists or return zero address
+ */
+async function _getFeeToken(
+  inbox: string,
+  provider: Provider
+): Promise<string> {
+  const bridge = await IInboxBase__factory.connect(inbox, provider).bridge()
+
+  let feeToken = ethers.constants.AddressZero
+
+  try {
+    feeToken = await IERC20Bridge__factory.connect(
+      bridge,
+      provider
+    ).nativeToken()
+  } catch {
+    // ignore
+  }
+
+  return feeToken
+}
+
+/**
  * Check if all required env vars are set
  */
 function _checkEnvVars() {
@@ -543,14 +612,11 @@ function _checkEnvVars() {
     'PARENT_DEPLOYER_KEY',
     'CHILD_RPC',
     'CHILD_DEPLOYER_KEY',
-    'ROLLUP_OWNER_KEY',
-    'ROLLUP',
     'L1_ROUTER',
     'L2_ROUTER',
     'INBOX',
     'L1_USDC',
     'ROLLUP_OWNER_KEY',
-    'ROLLUP',
   ]
 
   for (const envVar of requiredEnvVars) {
