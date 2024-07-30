@@ -41,15 +41,18 @@ import {
 } from '@arbitrum/sdk'
 import { RollupAdminLogic__factory } from '@arbitrum/sdk/dist/lib/abi/factories/RollupAdminLogic__factory'
 import { getBaseFee } from '@arbitrum/sdk/dist/lib/utils/lib'
+import fs from 'fs'
 
 dotenv.config()
+
+const REGISTRATION_TX_FILE = 'registerUsdcGatewayTx.json'
 
 main().then(() => console.log('Done.'))
 
 async function main() {
   _checkEnvVars()
 
-  const { deployerL1, deployerL2, rollupOwner } = await _loadWallets()
+  const { deployerL1, deployerL2 } = await _loadWallets()
   console.log('Loaded deployer wallets')
 
   const inbox = process.env['INBOX'] as string
@@ -93,21 +96,29 @@ async function main() {
   )
   console.log('Usdc gateways initialized')
 
+  const ownerIsMultisig = process.env['OWNER_IS_MULTISIG'] === 'true'
   await _registerGateway(
-    rollupOwner,
-    deployerL2.provider!,
+    deployerL1.provider,
+    deployerL2.provider,
     l1Router,
     l2Router,
     l1Usdc,
-    l1UsdcGateway.address
+    l1UsdcGateway.address,
+    ownerIsMultisig
   )
-  console.log('Usdc gateway registered')
+  if (ownerIsMultisig) {
+    console.log(
+      'Multisig transaction prepared and stored in',
+      REGISTRATION_TX_FILE
+    )
+  } else {
+    console.log('Usdc gateway registered')
+  }
 }
 
 async function _loadWallets(): Promise<{
   deployerL1: Wallet
   deployerL2: Wallet
-  rollupOwner: Wallet
 }> {
   const parentRpc = process.env['PARENT_RPC'] as string
   const parentDeployerKey = process.env['PARENT_DEPLOYER_KEY'] as string
@@ -120,10 +131,7 @@ async function _loadWallets(): Promise<{
   const childProvider = new JsonRpcProvider(childRpc)
   const deployerL2 = new ethers.Wallet(childDeployerKey, childProvider)
 
-  const rollupOwnerKey = process.env['ROLLUP_OWNER_KEY'] as string
-  const rollupOwner = new ethers.Wallet(rollupOwnerKey, parentProvider)
-
-  return { deployerL1, deployerL2, rollupOwner }
+  return { deployerL1, deployerL2 }
 }
 
 async function _deployProxyAdmin(deployer: Wallet): Promise<ProxyAdmin> {
@@ -316,26 +324,27 @@ async function _initializeGateways(
  * Set token to gateway mapping in the routers
  */
 async function _registerGateway(
-  rollupOwner: Wallet,
+  parentProvider: Provider,
   childProvider: Provider,
   l1RouterAddress: string,
   l2RouterAddress: string,
   l1UsdcAddress: string,
-  l1UsdcGatewayAddress: string
+  l1UsdcGatewayAddress: string,
+  ownerIsMultisig: boolean
 ) {
   const l1Router = L1GatewayRouter__factory.connect(
     l1RouterAddress,
-    rollupOwner
+    parentProvider
   )
 
   /// load upgrade executor
   const routerOwnerAddress = await l1Router.owner()
-  if (!(await _isUpgradeExecutor(routerOwnerAddress, rollupOwner))) {
+  if (!(await _isUpgradeExecutor(routerOwnerAddress, parentProvider))) {
     throw new Error('Router owner is expected to be an UpgradeExecutor')
   }
   const upgradeExecutor = UpgradeExecutor__factory.connect(
     routerOwnerAddress,
-    rollupOwner
+    parentProvider
   )
 
   /// prepare calldata for executor
@@ -351,12 +360,12 @@ async function _registerGateway(
       from: l1RouterAddress,
       to: l2RouterAddress,
       l2CallValue: BigNumber.from(0),
-      excessFeeRefundAddress: rollupOwner.address,
-      callValueRefundAddress: rollupOwner.address,
+      excessFeeRefundAddress: upgradeExecutor.address,
+      callValueRefundAddress: upgradeExecutor.address,
       data: routerRegistrationData,
     },
-    await getBaseFee(rollupOwner.provider),
-    rollupOwner.provider
+    await getBaseFee(parentProvider),
+    parentProvider
   )
 
   const maxGas = retryableParams.gasLimit
@@ -373,15 +382,34 @@ async function _registerGateway(
     ]
   )
 
-  /// execute the registration
-  const gwRegistrationTx = await upgradeExecutor.executeCall(
-    l1Router.address,
-    registrationCalldata,
-    {
-      value: maxGas.mul(gasPriceBid).add(maxSubmissionCost),
+  if (ownerIsMultisig) {
+    // prepare multisig transaction
+    const upgExecutorData = upgradeExecutor.interface.encodeFunctionData(
+      'executeCall',
+      [l1Router.address, registrationCalldata]
+    )
+    const value = maxGas.mul(gasPriceBid).add(maxSubmissionCost)
+    const to = upgradeExecutor.address
+
+    // store the multisig transaction to file
+    const multisigTx = {
+      to,
+      value: value.toString(),
+      data: upgExecutorData,
     }
-  )
-  await _waitOnL2Msg(gwRegistrationTx, childProvider)
+    fs.writeFileSync(REGISTRATION_TX_FILE, JSON.stringify(multisigTx))
+  } else {
+    // execute the registration
+    const rollupOwnerKey = process.env['ROLLUP_OWNER_KEY'] as string
+    const rollupOwner = new ethers.Wallet(rollupOwnerKey, parentProvider)
+
+    const gwRegistrationTx = await upgradeExecutor
+      .connect(rollupOwner)
+      .executeCall(l1Router.address, registrationCalldata, {
+        value: maxGas.mul(gasPriceBid).add(maxSubmissionCost),
+      })
+    await _waitOnL2Msg(gwRegistrationTx, childProvider)
+  }
 }
 
 /**
@@ -389,11 +417,11 @@ async function _registerGateway(
  */
 async function _isUpgradeExecutor(
   routerOwnerAddress: string,
-  rollupOwner: Wallet
+  provider: Provider
 ): Promise<boolean> {
   const upgExecutor = UpgradeExecutor__factory.connect(
     routerOwnerAddress,
-    rollupOwner
+    provider
   )
   try {
     await upgExecutor.ADMIN_ROLE()
