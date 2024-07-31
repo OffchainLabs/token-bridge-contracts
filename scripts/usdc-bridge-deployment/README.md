@@ -52,3 +52,21 @@ Script will do the following:
 - set minter role to L2 USDC gateway with max allowance
 
 Now new USDC gateways can be used to deposit/withdraw USDC. And everything is in place to support transtition to native USDC issuance, in case Circle and Orbit chain owner agree to it.
+
+## Transition to native USDC
+Once transition to native USDC is agreed on, following steps are required:
+- L1 gateway owner pauses deposits on parent chain by calling `pauseDeposits()`
+- L2 gateway owner pauses withdrawals on child chain by calling `pauseWithdrawals()`
+- master minter removes the minter role from the child chain gateway
+  - there should be no in-flight deposits when minter role is revoked. If there are any, they should be executed (can be done by anyone by claiming the failed retryable ticket which does the USDC depositing)
+  - if minter role is revoked before in-flight deposits are claimed, those funds can’t be minted. One option is to leave the gateway’s minter role, but decrease the allowance to match the total amount of unclaimed deposits 
+- L1 gateway owner sets Circle's account as burner on the parent chain gateway using `setBurner(address)` 
+- L1 gateway owner reads the total supply of USDC on the child chain, and then invokes `setBurnAmount(uint256)` on the parent child gateway where the amount matches the total supply
+  - in case there are unclaimed deposits which are claimable, their total amount should be added to the supply as those tokens shall eventually be minted by child chain gateway 
+- USDC masterMinter gives minter role with 0 allowance to L1 gateway, so the burn can be executed 
+- on the child chain, L2 gateway owner calls the `setUsdcOwnershipTransferrer(address)` to set the account (provided and controlled by Circle) which will be able to transfer the bridged USDC ownership and proxy admin
+- if not already owned by gateway, L2 USDC owner transfers ownership to gateway, and proxy admin transfers admin rights to gateway
+- Circle uses `usdcOwnershipTransferrer` account to trigger `transferUSDCRoles(address)` which will set caller as USDC proxy admin and will transfer USDC ownership to the provided address
+- Circle calls `burnLockedUSDC()` on the L1 gateway using `burner` account to burn the `burnAmount` of USDC
+  - remaining USDC will be cleared off when remaining in-flight USDC withdrawals are executed, if any
+  - L1 gateway owner is trusted to not frontrun this TX to modify the burning amount
