@@ -36,6 +36,10 @@ import {
   bytecode as UsdcProxyBytecode,
 } from '@offchainlabs/stablecoin-evm/artifacts/hardhat/contracts/v1/FiatTokenProxy.sol/FiatTokenProxy.json'
 import {
+  abi as MasterMinterAbi,
+  bytecode as MasterMinterBytecode,
+} from '@offchainlabs/stablecoin-evm/artifacts/hardhat/contracts/minting/MasterMinter.sol/MasterMinter.json'
+import {
   addCustomNetwork,
   L1Network,
   L1ToL2MessageGasEstimator,
@@ -148,12 +152,20 @@ async function _deployBridgedUsdc(
     proxyAdminL2.address
   )
 
+  /// deploy master minter
+  const masterMinterL2Fac = new ethers.ContractFactory(
+    MasterMinterAbi,
+    MasterMinterBytecode,
+    deployerL2Wallet
+  )
+  const masterMinterL2 = await masterMinterL2Fac.deploy(l2UsdcProxyAddress)
+
   /// init usdc proxy
   const l2UsdcFiatToken = IFiatToken__factory.connect(
     l2UsdcProxyAddress,
     deployerL2Wallet
   )
-  const masterMinterL2 = deployerL2Wallet
+
   const pauserL2 = deployerL2Wallet
   const blacklisterL2 = deployerL2Wallet
   const lostAndFound = deployerL2Wallet
