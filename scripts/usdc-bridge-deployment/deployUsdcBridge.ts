@@ -485,7 +485,37 @@ async function _registerGateway(
       )
 
   if (!process.env['ROLLUP_OWNER_KEY']) {
-    // prepare multisig transaction
+    // prepare multisig transaction(s)
+
+    const txs = []
+    if (isFeeToken) {
+      // prepare TX to transfer fee amount to upgrade executor
+      const feeTokenContract = IERC20__factory.connect(
+        await _getFeeToken(inbox, parentProvider),
+        parentProvider
+      )
+      const feeTransferData = feeTokenContract.interface.encodeFunctionData(
+        'transfer',
+        [upgradeExecutor.address, totalFee]
+      )
+      txs.push({
+        to: feeTokenContract.address,
+        value: BigNumber.from(0).toString(),
+        data: feeTransferData,
+      })
+
+      // prepare TX to approve router to spend the fee token
+      const approveData = feeTokenContract.interface.encodeFunctionData(
+        'approve',
+        [l1RouterAddress, totalFee]
+      )
+      txs.push({
+        to: upgradeExecutor.address,
+        value: BigNumber.from(0).toString(),
+        data: approveData,
+      })
+    }
+
     const upgExecutorData = upgradeExecutor.interface.encodeFunctionData(
       'executeCall',
       [l1Router.address, registrationCalldata]
@@ -493,12 +523,12 @@ async function _registerGateway(
     const to = upgradeExecutor.address
 
     // store the multisig transaction to file
-    const multisigTx = {
+    txs.push({
       to,
       value: isFeeToken ? BigNumber.from(0).toString() : totalFee.toString(),
       data: upgExecutorData,
-    }
-    fs.writeFileSync(REGISTRATION_TX_FILE, JSON.stringify(multisigTx))
+    })
+    fs.writeFileSync(REGISTRATION_TX_FILE, JSON.stringify(txs))
   } else {
     // load rollup owner (account with executor rights on the upgrade executor)
     const rollupOwnerKey = process.env['ROLLUP_OWNER_KEY'] as string
