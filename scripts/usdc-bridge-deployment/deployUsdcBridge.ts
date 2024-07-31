@@ -1,4 +1,4 @@
-import { BigNumber, ContractTransaction, Wallet } from 'ethers'
+import { BigNumber, Contract, ContractTransaction, Wallet } from 'ethers'
 import { ethers } from 'hardhat'
 import {
   IBridge__factory,
@@ -75,8 +75,11 @@ async function main() {
   const proxyAdminL2 = await _deployProxyAdmin(deployerL2)
   console.log('L2 ProxyAdmin deployed: ', proxyAdminL2.address)
 
-  const bridgedUsdc = await _deployBridgedUsdc(deployerL2, proxyAdminL2)
-  console.log('Bridged (L2) USDC deployed: ', bridgedUsdc)
+  const { l2Usdc, masterMinter } = await _deployBridgedUsdc(
+    deployerL2,
+    proxyAdminL2
+  )
+  console.log('Bridged (L2) USDC deployed: ', l2Usdc.address)
 
   const l1UsdcGateway = await _deployL1UsdcGateway(
     deployerL1,
@@ -92,7 +95,7 @@ async function main() {
     l1UsdcGateway,
     l2UsdcGateway,
     inbox,
-    bridgedUsdc,
+    l2Usdc.address,
     deployerL1,
     deployerL2
   )
@@ -113,7 +116,7 @@ async function main() {
     console.log('Usdc gateway registered')
   }
 
-  _addMinterRoleToL2Gateway(l2UsdcGateway, deployerL2, bridgedUsdc)
+  await _addMinterRoleToL2Gateway(l2UsdcGateway, deployerL2, masterMinter)
   console.log('Minter role with max allowance added to L2 gateway')
 }
 
@@ -143,7 +146,7 @@ async function _deployProxyAdmin(deployer: Wallet): Promise<ProxyAdmin> {
 async function _deployBridgedUsdc(
   deployerL2Wallet: Wallet,
   proxyAdminL2: ProxyAdmin
-): Promise<string> {
+) {
   /// create l2 usdc behind proxy
   const l2UsdcLogic = await _deployUsdcLogic(deployerL2Wallet)
   const l2UsdcProxyAddress = await _deployUsdcProxy(
@@ -158,7 +161,7 @@ async function _deployBridgedUsdc(
     MasterMinterBytecode,
     deployerL2Wallet
   )
-  const masterMinterL2 = await masterMinterL2Fac.deploy(l2UsdcProxyAddress)
+  const masterMinter = await masterMinterL2Fac.deploy(l2UsdcProxyAddress)
 
   /// init usdc proxy
   const l2UsdcFiatToken = IFiatToken__factory.connect(
@@ -175,7 +178,7 @@ async function _deployBridgedUsdc(
       'USDC.e',
       'USD',
       6,
-      masterMinterL2.address,
+      masterMinter.address,
       pauserL2.address,
       blacklisterL2.address,
       deployerL2Wallet.address
@@ -191,7 +194,7 @@ async function _deployBridgedUsdc(
     (await l2UsdcFiatToken.symbol()) != 'USDC.e' ||
     (await l2UsdcFiatToken.currency()) != 'USD' ||
     (await l2UsdcFiatToken.decimals()) != 6 ||
-    (await l2UsdcFiatToken.masterMinter()) != masterMinterL2.address ||
+    (await l2UsdcFiatToken.masterMinter()) != masterMinter.address ||
     (await l2UsdcFiatToken.pauser()) != pauserL2.address ||
     (await l2UsdcFiatToken.blacklister()) != blacklisterL2.address ||
     (await l2UsdcFiatToken.owner()) != deployerL2Wallet.address
@@ -233,7 +236,7 @@ async function _deployBridgedUsdc(
     deployerL2Wallet
   )
 
-  return l2Usdc.address
+  return { l2Usdc, masterMinter }
 }
 
 async function _deployUsdcLogic(deployer: Wallet) {
@@ -527,15 +530,18 @@ async function _registerGateway(
  */
 async function _addMinterRoleToL2Gateway(
   l2UsdcGateway: L2USDCGateway,
-  masterMinter: Wallet,
-  bridgedUsdc: string
+  masterMinterOwner: Wallet,
+  masterMinter: Contract
 ) {
-  const l2UsdcFiatToken = IFiatToken__factory.connect(bridgedUsdc, masterMinter)
   await (
-    await l2UsdcFiatToken.configureMinter(
-      l2UsdcGateway.address,
-      ethers.constants.MaxUint256
+    await masterMinter['configureController(address,address)'](
+      masterMinterOwner.address,
+      l2UsdcGateway.address
     )
+  ).wait()
+
+  await (
+    await masterMinter['configureMinter(uint256)'](ethers.constants.MaxUint256)
   ).wait()
 }
 
