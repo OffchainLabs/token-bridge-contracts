@@ -9,6 +9,8 @@ import {
   IInboxBase__factory,
   L1GatewayRouter__factory,
   L1OrbitGatewayRouter__factory,
+  L1OrbitUSDCGateway,
+  L1OrbitUSDCGateway__factory,
   L1USDCGateway,
   L1USDCGateway__factory,
   L2GatewayRouter__factory,
@@ -61,28 +63,32 @@ async function main() {
 
   const inbox = process.env['INBOX'] as string
   await _registerNetworks(deployerL1.provider, deployerL2.provider, inbox)
-  console.log('SDK registration prepared')
+  console.log('Networks registered in SDK')
 
   const proxyAdminL1 = await _deployProxyAdmin(deployerL1)
-  console.log('L1 ProxyAdmin address: ', proxyAdminL1.address)
+  console.log('L1 ProxyAdmin deployed: ', proxyAdminL1.address)
 
   const proxyAdminL2 = await _deployProxyAdmin(deployerL2)
-  console.log('L2 ProxyAdmin address: ', proxyAdminL2.address)
+  console.log('L2 ProxyAdmin deployed: ', proxyAdminL2.address)
 
   const bridgedUsdc = await _deployBridgedUsdc(deployerL2, proxyAdminL2)
-  console.log('Bridged USDC address: ', bridgedUsdc)
+  console.log('Bridged (L2) USDC deployed: ', bridgedUsdc)
 
+  const isFeeToken =
+    (await _getFeeToken(inbox, deployerL1.provider)) !=
+    ethers.constants.AddressZero
   const l1UsdcGateway = await _deployParentChainUsdcGateway(
     deployerL1,
-    proxyAdminL1
+    proxyAdminL1,
+    isFeeToken
   )
-  console.log('L1 USDC gateway address: ', l1UsdcGateway.address)
+  console.log('L1 USDC gateway deployed: ', l1UsdcGateway.address)
 
   const l2UsdcGateway = await _deployChildChainUsdcGateway(
     deployerL2,
     proxyAdminL2
   )
-  console.log('L2 USDC gateway address: ', l2UsdcGateway.address)
+  console.log('L2 USDC gateway deployed: ', l2UsdcGateway.address)
 
   const l1Router = process.env['L1_ROUTER'] as string
   const l2Router = process.env['L2_ROUTER'] as string
@@ -257,17 +263,20 @@ async function _deployUsdcProxy(
 
 async function _deployParentChainUsdcGateway(
   deployerL1: Wallet,
-  proxyAdmin: ProxyAdmin
-): Promise<L1USDCGateway> {
-  const l1USDCCustomGatewayFactory = await new L1USDCGateway__factory(
-    deployerL1
-  ).deploy()
-  const l1USDCCustomGatewayLogic = await l1USDCCustomGatewayFactory.deployed()
+  proxyAdmin: ProxyAdmin,
+  isFeeToken: boolean
+): Promise<L1USDCGateway | L1OrbitUSDCGateway> {
+  const l1UsdcGatewayFactory = isFeeToken
+    ? await new L1OrbitUSDCGateway__factory(deployerL1).deploy()
+    : await new L1USDCGateway__factory(deployerL1).deploy()
+  const l1UsdcGatewayLogic = await l1UsdcGatewayFactory.deployed()
   const tupFactory = await new TransparentUpgradeableProxy__factory(
     deployerL1
-  ).deploy(l1USDCCustomGatewayLogic.address, proxyAdmin.address, '0x')
+  ).deploy(l1UsdcGatewayLogic.address, proxyAdmin.address, '0x')
   const tup = await tupFactory.deployed()
-  return L1USDCGateway__factory.connect(tup.address, deployerL1)
+  return isFeeToken
+    ? L1OrbitUSDCGateway__factory.connect(tup.address, deployerL1)
+    : L1USDCGateway__factory.connect(tup.address, deployerL1)
 }
 
 async function _deployChildChainUsdcGateway(
