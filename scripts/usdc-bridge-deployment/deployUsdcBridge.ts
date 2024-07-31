@@ -125,6 +125,9 @@ async function main() {
   } else {
     console.log('Usdc gateway registered')
   }
+
+  _addMinterRoleToL2Gateway(l2UsdcGateway, deployerL2, bridgedUsdc)
+  console.log('Minter role with max allowance added to L2 gateway')
 }
 
 async function _loadWallets(): Promise<{
@@ -465,6 +468,24 @@ async function _registerGateway(
       })
     await _waitOnL2Msg(gwRegistrationTx, childProvider)
   }
+}
+
+/**
+ * Master minter (this script set it to deployer) adds minter role to L2 gateway
+ * with max allowance.
+ */
+async function _addMinterRoleToL2Gateway(
+  l2UsdcGateway: L2USDCGateway,
+  masterMinter: Wallet,
+  bridgedUsdc: string
+) {
+  const l2UsdcFiatToken = IFiatToken__factory.connect(bridgedUsdc, masterMinter)
+  await (
+    await l2UsdcFiatToken.configureMinter(
+      l2UsdcGateway.address,
+      ethers.constants.MaxUint256
+    )
+  ).wait()
 }
 
 /**
