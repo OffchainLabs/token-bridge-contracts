@@ -413,7 +413,7 @@ async function _registerGateway(
         ]
       )
 
-  if (ownerIsMultisig) {
+  if (ownerIsMultisig || !process.env['ROLLUP_OWNER_KEY']) {
     // prepare multisig transaction
     const upgExecutorData = upgradeExecutor.interface.encodeFunctionData(
       'executeCall',
@@ -625,7 +625,6 @@ function _checkEnvVars() {
     'L2_ROUTER',
     'INBOX',
     'L1_USDC',
-    'ROLLUP_OWNER_KEY',
   ]
 
   for (const envVar of requiredEnvVars) {
