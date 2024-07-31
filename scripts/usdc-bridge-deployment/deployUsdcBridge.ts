@@ -57,6 +57,20 @@ const REGISTRATION_TX_FILE = 'registerUsdcGatewayTx.json'
 
 main().then(() => console.log('Done.'))
 
+/**
+ * USDC bridge deployment script. Script will do the following:
+ * - load deployer wallets for L1 and L2
+ * - register L1 and L2 networks in SDK
+ * - deploy new L1 and L2 proxy admins
+ * - deploy bridged (L2) USDC using the Circle's implementation
+ * - init L2 USDC
+ * - deploy L1 USDC gateway
+ * - deploy L2 USDC gateway
+ * - init both gateways
+ * - if `ROLLUP_OWNER_KEY` is provided, register the gateway in the router through the UpgradeExecutor
+ * - if `ROLLUP_OWNER_KEY` is not provided, prepare calldata and store it in `registerUsdcGatewayTx.json` file
+ * - set minter role to L2 USDC gateway with max allowance
+ */
 async function main() {
   console.log('Starting USDC bridge deployment')
 
