@@ -74,17 +74,14 @@ async function main() {
   const bridgedUsdc = await _deployBridgedUsdc(deployerL2, proxyAdminL2)
   console.log('Bridged (L2) USDC deployed: ', bridgedUsdc)
 
-  const l1UsdcGateway = await _deployParentChainUsdcGateway(
+  const l1UsdcGateway = await _deployL1UsdcGateway(
     deployerL1,
     proxyAdminL1,
     inbox
   )
   console.log('L1 USDC gateway deployed: ', l1UsdcGateway.address)
 
-  const l2UsdcGateway = await _deployChildChainUsdcGateway(
-    deployerL2,
-    proxyAdminL2
-  )
+  const l2UsdcGateway = await _deployL2UsdcGateway(deployerL2, proxyAdminL2)
   console.log('L2 USDC gateway deployed: ', l2UsdcGateway.address)
 
   await _initializeGateways(
@@ -280,7 +277,7 @@ async function _deployUsdcProxy(
   return usdcProxy.address
 }
 
-async function _deployParentChainUsdcGateway(
+async function _deployL1UsdcGateway(
   deployerL1: Wallet,
   proxyAdmin: ProxyAdmin,
   inboxAddress: string
@@ -302,7 +299,7 @@ async function _deployParentChainUsdcGateway(
     : L1USDCGateway__factory.connect(tup.address, deployerL1)
 }
 
-async function _deployChildChainUsdcGateway(
+async function _deployL2UsdcGateway(
   deployerL2: Wallet,
   proxyAdmin: ProxyAdmin
 ): Promise<L2USDCGateway> {
