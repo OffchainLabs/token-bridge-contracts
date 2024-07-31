@@ -159,9 +159,10 @@ async function _deployBridgedUsdc(
   const masterMinterL2 = deployerL2Wallet
   const pauserL2 = deployerL2Wallet
   const blacklisterL2 = deployerL2Wallet
+  const lostAndFound = deployerL2Wallet
   await (
     await l2UsdcFiatToken.initialize(
-      'USDC token',
+      'USDC',
       'USDC.e',
       'USD',
       6,
@@ -172,17 +173,31 @@ async function _deployBridgedUsdc(
     )
   ).wait()
   await (await l2UsdcFiatToken.initializeV2('USDC')).wait()
-  await (
-    await l2UsdcFiatToken.initializeV2_1(ethers.Wallet.createRandom().address)
-  ).wait()
+  await (await l2UsdcFiatToken.initializeV2_1(lostAndFound.address)).wait()
   await (await l2UsdcFiatToken.initializeV2_2([], 'USDC.e')).wait()
+
+  /// verify initialization
+  if (
+    (await l2UsdcFiatToken.name()) != 'USDC' ||
+    (await l2UsdcFiatToken.symbol()) != 'USDC.e' ||
+    (await l2UsdcFiatToken.currency()) != 'USD' ||
+    (await l2UsdcFiatToken.decimals()) != 6 ||
+    (await l2UsdcFiatToken.masterMinter()) != masterMinterL2.address ||
+    (await l2UsdcFiatToken.pauser()) != pauserL2.address ||
+    (await l2UsdcFiatToken.blacklister()) != blacklisterL2.address ||
+    (await l2UsdcFiatToken.owner()) != deployerL2Wallet.address
+  ) {
+    throw new Error(
+      'Bridged USDC initialization was not successful, might have been frontrun'
+    )
+  }
 
   /// init usdc logic to dummy values
   const l2UsdcLogicInit = IFiatToken__factory.connect(
     l2UsdcLogic.address,
     deployerL2Wallet
   )
-  const DEAD = '0x000000000000000000000000000000000000dead'
+  const DEAD = '0x000000000000000000000000000000000000dEaD'
   await (
     await l2UsdcLogicInit.initialize('', '', '', 0, DEAD, DEAD, DEAD, DEAD)
   ).wait()
@@ -190,10 +205,25 @@ async function _deployBridgedUsdc(
   await (await l2UsdcLogicInit.initializeV2_1(DEAD)).wait()
   await (await l2UsdcLogicInit.initializeV2_2([], '')).wait()
 
+  /// verify logic initialization
+  if (
+    (await l2UsdcLogicInit.name()) != '' ||
+    (await l2UsdcLogicInit.symbol()) != '' ||
+    (await l2UsdcLogicInit.currency()) != '' ||
+    (await l2UsdcLogicInit.decimals()) != 0 ||
+    (await l2UsdcLogicInit.masterMinter()) != DEAD ||
+    (await l2UsdcLogicInit.pauser()) != DEAD ||
+    (await l2UsdcLogicInit.blacklister()) != DEAD ||
+    (await l2UsdcLogicInit.owner()) != DEAD
+  ) {
+    throw new Error('Bridged USDC logic initialization was not successful')
+  }
+
   const l2Usdc = IERC20__factory.connect(
     l2UsdcFiatToken.address,
     deployerL2Wallet
   )
+
   return l2Usdc.address
 }
 
@@ -325,7 +355,27 @@ async function _initializeGateways(
     )
   ).wait()
 
-  ///// init logic
+  ///// verify initialization
+  if (
+    (await l1UsdcGateway.router()) != l1Router ||
+    (await l1UsdcGateway.inbox()) != inbox ||
+    (await l1UsdcGateway.l1USDC()) != l1Usdc ||
+    (await l1UsdcGateway.l2USDC()) != l2Usdc ||
+    (await l1UsdcGateway.owner()) != _owner ||
+    (await l1UsdcGateway.counterpartGateway()) != _l2CounterPart
+  ) {
+    throw new Error('L1 USDC gateway initialization failed')
+  }
+
+  if (
+    (await l2UsdcGateway.counterpartGateway()) != _l1Counterpart ||
+    (await l2UsdcGateway.router()) != l2Router ||
+    (await l2UsdcGateway.l1USDC()) != l1Usdc ||
+    (await l2UsdcGateway.l2USDC()) != l2Usdc ||
+    (await l2UsdcGateway.owner()) != ownerL2
+  ) {
+    throw new Error('L2 USDC gateway initialization failed')
+  }
 }
 
 /**
