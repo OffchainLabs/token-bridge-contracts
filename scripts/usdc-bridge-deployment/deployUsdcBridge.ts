@@ -74,13 +74,10 @@ async function main() {
   const bridgedUsdc = await _deployBridgedUsdc(deployerL2, proxyAdminL2)
   console.log('Bridged (L2) USDC deployed: ', bridgedUsdc)
 
-  const isFeeToken =
-    (await _getFeeToken(inbox, deployerL1.provider)) !=
-    ethers.constants.AddressZero
   const l1UsdcGateway = await _deployParentChainUsdcGateway(
     deployerL1,
     proxyAdminL1,
-    isFeeToken
+    inbox
   )
   console.log('L1 USDC gateway deployed: ', l1UsdcGateway.address)
 
@@ -90,34 +87,23 @@ async function main() {
   )
   console.log('L2 USDC gateway deployed: ', l2UsdcGateway.address)
 
-  const l1Router = process.env['L1_ROUTER'] as string
-  const l2Router = process.env['L2_ROUTER'] as string
-  const l1Usdc = process.env['L1_USDC'] as string
   await _initializeGateways(
     l1UsdcGateway,
     l2UsdcGateway,
-    l1Router,
-    l2Router,
     inbox,
-    l1Usdc,
     bridgedUsdc,
     deployerL1,
     deployerL2
   )
   console.log('Usdc gateways initialized')
 
-  const ownerIsMultisig = process.env['OWNER_IS_MULTISIG'] === 'true'
   await _registerGateway(
     deployerL1.provider,
     deployerL2.provider,
     inbox,
-    l1Router,
-    l2Router,
-    l1Usdc,
-    l1UsdcGateway.address,
-    ownerIsMultisig
+    l1UsdcGateway.address
   )
-  if (ownerIsMultisig) {
+  if (!process.env['ROLLUP_OWNER_KEY']) {
     console.log(
       'Multisig transaction to register USDC gateway prepared and stored in',
       REGISTRATION_TX_FILE
@@ -267,8 +253,12 @@ async function _deployUsdcProxy(
 async function _deployParentChainUsdcGateway(
   deployerL1: Wallet,
   proxyAdmin: ProxyAdmin,
-  isFeeToken: boolean
+  inboxAddress: string
 ): Promise<L1USDCGateway | L1OrbitUSDCGateway> {
+  const isFeeToken =
+    (await _getFeeToken(inboxAddress, deployerL1.provider)) !=
+    ethers.constants.AddressZero
+
   const l1UsdcGatewayFactory = isFeeToken
     ? await new L1OrbitUSDCGateway__factory(deployerL1).deploy()
     : await new L1USDCGateway__factory(deployerL1).deploy()
@@ -301,16 +291,17 @@ async function _deployChildChainUsdcGateway(
  * Initialize gateways
  */
 async function _initializeGateways(
-  l1UsdcGateway: L1USDCGateway,
+  l1UsdcGateway: L1USDCGateway | L1OrbitUSDCGateway,
   l2UsdcGateway: L2USDCGateway,
-  l1Router: string,
-  l2Router: string,
   inbox: string,
-  l1Usdc: string,
   l2Usdc: string,
   deployerL1: Wallet,
   deployerL2: Wallet
 ) {
+  const l1Router = process.env['L1_ROUTER'] as string
+  const l2Router = process.env['L2_ROUTER'] as string
+  const l1Usdc = process.env['L1_USDC'] as string
+
   /// initialize L1 gateway
   const _l2CounterPart = l2UsdcGateway.address
   const _owner = deployerL1.address
@@ -338,20 +329,21 @@ async function _initializeGateways(
 }
 
 /**
- * Set token to gateway mapping in the routers
+ * Do the gateway registration if rollup owner key is provided.
+ * Otherwise prepare the TX payload and store it in a file.
  */
 async function _registerGateway(
   parentProvider: Provider,
   childProvider: Provider,
   inbox: string,
-  l1RouterAddress: string,
-  l2RouterAddress: string,
-  l1UsdcAddress: string,
-  l1UsdcGatewayAddress: string,
-  ownerIsMultisig: boolean
+  l1UsdcGatewayAddress: string
 ) {
   const isFeeToken =
     (await _getFeeToken(inbox, parentProvider)) != ethers.constants.AddressZero
+
+  const l1RouterAddress = process.env['L1_ROUTER'] as string
+  const l2RouterAddress = process.env['L2_ROUTER'] as string
+  const l1UsdcAddress = process.env['L1_USDC'] as string
 
   const l1Router = isFeeToken
     ? L1OrbitGatewayRouter__factory.connect(l1RouterAddress, parentProvider)
@@ -416,7 +408,7 @@ async function _registerGateway(
         ]
       )
 
-  if (ownerIsMultisig || !process.env['ROLLUP_OWNER_KEY']) {
+  if (!process.env['ROLLUP_OWNER_KEY']) {
     // prepare multisig transaction
     const upgExecutorData = upgradeExecutor.interface.encodeFunctionData(
       'executeCall',
