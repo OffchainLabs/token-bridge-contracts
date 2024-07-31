@@ -28,6 +28,7 @@
     "test:tokenbridge:deployment": "hardhat test test-e2e/tokenBridgeDeploymentTest.ts",
     "test:creation-code": "hardhat test test-e2e/creationCodeTest.ts",
     "blockscout:verify": "hardhat run ./scripts/orbitVerifyOnBlockscout.ts",
+    "deploy:usdc-token-bridge": "hardhat run scripts/usdc-bridge-deployment/deployUsdcBridge.ts",
     "typechain": "hardhat typechain",
     "deploy:tokenbridge": "hardhat run scripts/deploy_token_bridge_l1.ts --network mainnet",
     "gen:uml": "sol2uml ./contracts/tokenbridge/arbitrum,./contracts/tokenbridge/ethereum,./contracts/tokenbridge/libraries -o ./gatewayUML.svg",
