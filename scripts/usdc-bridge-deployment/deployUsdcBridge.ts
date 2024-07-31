@@ -1,6 +1,7 @@
 import { BigNumber, Contract, ContractTransaction, Wallet } from 'ethers'
 import { ethers } from 'hardhat'
 import {
+  ERC20__factory,
   IBridge__factory,
   IERC20__factory,
   IERC20Bridge__factory,
@@ -459,7 +460,14 @@ async function _registerGateway(
   const maxGas = retryableParams.gasLimit
   const gasPriceBid = retryableParams.maxFeePerGas.mul(3)
   let maxSubmissionCost = retryableParams.maxSubmissionCost
-  const totalFee = maxGas.mul(gasPriceBid).add(maxSubmissionCost)
+  let totalFee = maxGas.mul(gasPriceBid).add(maxSubmissionCost)
+  if (isFeeToken) {
+    totalFee = await _getPrescaledAmount(
+      await _getFeeToken(inbox, parentProvider),
+      parentProvider,
+      totalFee
+    )
+  }
 
   const registrationCalldata = isFeeToken
     ? L1OrbitGatewayRouter__factory.createInterface().encodeFunctionData(
@@ -754,4 +762,28 @@ function _checkEnvVars() {
       throw new Error(`Missing env var ${envVar}`)
     }
   }
+}
+
+async function _getPrescaledAmount(
+  nativeTokenAddress: string,
+  provider: Provider,
+  amount: BigNumber
+): Promise<BigNumber> {
+  const nativeToken = ERC20__factory.connect(nativeTokenAddress, provider)
+  const decimals = BigNumber.from(await nativeToken.decimals())
+  if (decimals.lt(BigNumber.from(18))) {
+    const scalingFactor = BigNumber.from(10).pow(
+      BigNumber.from(18).sub(decimals)
+    )
+    let prescaledAmount = amount.div(scalingFactor)
+    // round up if needed
+    if (prescaledAmount.mul(scalingFactor).lt(amount)) {
+      prescaledAmount = prescaledAmount.add(BigNumber.from(1))
+    }
+    return prescaledAmount
+  } else if (decimals.gt(BigNumber.from(18))) {
+    return amount.mul(BigNumber.from(10).pow(decimals.sub(BigNumber.from(18))))
+  }
+
+  return amount
 }
