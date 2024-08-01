@@ -29,6 +29,9 @@ import {IFiatToken, IFiatTokenProxy} from "../../libraries/IFiatToken.sol";
  *
  *         This contract is to be used on chains where ETH is the native token. If chain is using
  *         custom fee token then use L1OrbitUSDCGateway instead.
+ *
+ *         NOTE: before depositing funds, make sure that recipient address is not blacklisted on the child chain.
+ *               Also, make sure that USDC token itself is not paused. Otherwise funds might get stuck.
  */
 contract L1USDCGateway is L1ArbitrumExtendedGateway {
     address public l1USDC;
