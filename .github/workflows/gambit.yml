@@ -36,6 +36,9 @@ jobs:
       - name: Install packages
         run: yarn
 
+      - name: Verify solc Installation
+        run: solc --version
+
       - name: Run mutation tests
         run: |
           yarn test:mutation
