@@ -19,6 +19,11 @@ jobs:
           cache: 'yarn'
           cache-dependency-path: '**/yarn.lock'
 
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+
       - name: Install Gambit
         run: |
           wget -O gambit https://github.com/Certora/gambit/releases/download/v1.0.5/gambit-linux-v1.0.5
