@@ -1,0 +1,17 @@
+name: Gambit mutation testing
+
+on:
+  workflow_dispatch:
+
+jobs:
+  run-mutation-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Gambit
+        run: |
+          wget -O gambit https://github.com/Certora/gambit/releases/download/v1.0.5/gambit-linux-v1.0.5
+          chmod +x gambit
+          sudo mv gambit /usr/local/bin/
+
+      - name: Verify Gambit Installation
+        run: gambit --help
