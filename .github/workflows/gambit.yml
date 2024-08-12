@@ -16,3 +16,14 @@ jobs:
 
       - name: Verify Gambit Installation
         run: gambit --help
+
+      - name: Setup node/yarn
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          cache: 'yarn'
+          cache-dependency-path: '**/yarn.lock'
+
+      - name: Run mutation tests
+        run: |
+          yarn test:mutation
