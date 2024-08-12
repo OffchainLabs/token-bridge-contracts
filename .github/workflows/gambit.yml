@@ -28,6 +28,9 @@ jobs:
       - name: Verify Gambit Installation
         run: gambit --help
 
+      - name: Install packages
+        run: yarn
+
       - name: Run mutation tests
         run: |
           yarn test:mutation
