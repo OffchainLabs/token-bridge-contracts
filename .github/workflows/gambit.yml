@@ -8,6 +8,17 @@ jobs:
   run-mutation-tests:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Setup node/yarn
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          cache: 'yarn'
+          cache-dependency-path: '**/yarn.lock'
+
       - name: Install Gambit
         run: |
           wget -O gambit https://github.com/Certora/gambit/releases/download/v1.0.5/gambit-linux-v1.0.5
@@ -16,13 +27,6 @@ jobs:
 
       - name: Verify Gambit Installation
         run: gambit --help
-
-      - name: Setup node/yarn
-        uses: actions/setup-node@v3
-        with:
-          node-version: 18
-          cache: 'yarn'
-          cache-dependency-path: '**/yarn.lock'
 
       - name: Run mutation tests
         run: |
