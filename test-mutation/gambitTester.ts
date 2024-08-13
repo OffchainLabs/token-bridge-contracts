@@ -61,6 +61,11 @@ async function runMutationTesting() {
   console.log(
     `\n====== Done in ${((endTime - startTime) / (60 * 1000)).toFixed(2)} min`
   )
+
+  // Exit with non-zero if any mutants survived
+  if (results.some(result => result.status === MutantStatus.SURVIVED)) {
+    process.exit(1)
+  }
 }
 
 async function _generateMutants(): Promise<Mutant[]> {
