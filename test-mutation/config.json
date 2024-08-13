@@ -5,28 +5,6 @@
     "solc_remappings": [
       "@openzeppelin=../node_modules/@openzeppelin",
       "@arbitrum=../node_modules/@arbitrum"
-    ],
-    "num_mutants": 4,
-    "random_seed": true
-  },
-  {
-    "filename": "../contracts/tokenbridge/arbitrum/gateway/L2CustomGateway.sol",
-    "sourceroot": "..",
-    "solc_remappings": [
-      "@openzeppelin=../node_modules/@openzeppelin",
-      "@arbitrum=../node_modules/@arbitrum"
-    ],
-    "num_mutants": 4,
-    "random_seed": true
-  },
-  {
-    "filename": "../contracts/tokenbridge/arbitrum/gateway/L2ERC20Gateway.sol",
-    "sourceroot": "..",
-    "solc_remappings": [
-      "@openzeppelin=../node_modules/@openzeppelin",
-      "@arbitrum=../node_modules/@arbitrum"
-    ],
-    "num_mutants": 4,
-    "random_seed": true
+    ]
   }
 ]

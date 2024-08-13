@@ -42,8 +42,8 @@ jobs:
           solc-select install 0.8.16
           solc-select use 0.8.16
 
-      - name: Verify solc Installation
-        run: solc --version
+      - name: Set config file
+        run: cp ./test-mutation/config-templates/config-ci.json ./test-mutation/config.json
 
       - name: Run mutation tests
         run: |
