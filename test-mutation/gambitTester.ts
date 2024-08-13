@@ -46,7 +46,7 @@ async function runMutationTesting() {
   console.log('====== Generating mutants')
   const mutants: Mutant[] = await _generateMutants()
 
-  console.log('\n====== Test mutants')
+  console.log('\n====== Testing mutants')
   const results = await _testAllMutants(mutants)
 
   // Print summary
@@ -74,6 +74,9 @@ async function _generateMutants(): Promise<Mutant[]> {
     fs.readFileSync(`${GAMBIT_OUT}/gambit_results.json`, 'utf8')
   )
   console.log(`Generated ${mutants.length} mutants in ${GAMBIT_OUT}`)
+  console.log('----------------------------------------------')
+  console.log('Mutants overview:')
+  console.log(fs.readFileSync(`${GAMBIT_OUT}/mutants.log`, 'utf8'))
 
   return mutants
 }

@@ -1,10 +1,22 @@
 [
   {
-    "filename": "../contracts/tokenbridge/arbitrum/gateway/L2ArbitrumGateway.sol",
+    "filename": "../contracts/tokenbridge/ethereum/L1ArbitrumMessenger.sol",
     "sourceroot": "..",
     "solc_remappings": [
       "@openzeppelin=../node_modules/@openzeppelin",
       "@arbitrum=../node_modules/@arbitrum"
-    ]
+    ],
+    "num_mutants": 4,
+    "random_seed": true
+  },
+  {
+    "filename": "../contracts/tokenbridge/ethereum/gateway/L1ArbitrumExtendedGateway.sol",
+    "sourceroot": "..",
+    "solc_remappings": [
+      "@openzeppelin=../node_modules/@openzeppelin",
+      "@arbitrum=../node_modules/@arbitrum"
+    ],
+    "num_mutants": 4,
+    "random_seed": true
   }
 ]
