@@ -36,6 +36,12 @@ jobs:
       - name: Install packages
         run: yarn
 
+      - name: Install solc-select
+        run: |
+          pip install solc-select
+          solc-select install 0.8.16
+          solc-select use 0.8.16
+
       - name: Verify solc Installation
         run: solc --version
 
