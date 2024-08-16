@@ -5,9 +5,11 @@ import os from 'os'
 import * as path from 'path'
 import * as fs from 'fs'
 import * as fsExtra from 'fs-extra'
+import { readdir } from 'node:fs/promises'
 
 const GAMBIT_OUT = 'gambit_out/'
-const TEST_TIMES = [
+const CONTRACTS_DIR = 'contracts'
+const TEST_ITEMS = [
   'contracts',
   'foundry.toml',
   'remappings.txt',
@@ -104,7 +106,7 @@ async function _testMutant(mutant: Mutant): Promise<TestResult> {
   await fsExtra.ensureDir(testDirectory)
 
   // copy necessary files
-  for (const item of TEST_TIMES) {
+  for (const item of TEST_ITEMS) {
     const sourcePath = path.join(__dirname, '..', item)
     const destPath = path.join(testDirectory, item)
     await fsExtra.copy(sourcePath, destPath)
@@ -185,4 +187,40 @@ function _printResults(results: TestResult[]) {
   console.log(`Total Mutants: ${totalCount}`)
   console.log(`Killed: ${killedCount} (${killedPercentage}%)`)
   console.log(`Survived: ${survivedCount} (${survivedPercentage}%)`)
+}
+
+async function _generateConfigForGithubCI() {
+  const solidityDirs = [
+    path.join(__dirname, '../contracts/tokenbridge/ethereum'),
+    path.join(__dirname, '../contracts/tokenbridge/arbitrum'),
+    path.join(__dirname, '../contracts/tokenbridge/libraries'),
+  ]
+  const solidityFiles = await _findSolidityFiles(solidityDirs)
+
+  console.log(solidityFiles)
+}
+
+async function _findSolidityFiles(directories: string[]): Promise<string[]> {
+  const solidityFiles: string[] = []
+
+  async function exploreDirectory(dir: string): Promise<void> {
+    const entries = await fs.promises.readdir(dir, { withFileTypes: true })
+
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name)
+      if (entry.isDirectory()) {
+        // Recursively explore subdirectory
+        await exploreDirectory(fullPath)
+      } else if (entry.isFile() && path.extname(fullPath) === '.sol') {
+        // If it's a .sol file, add to the list
+        solidityFiles.push(fullPath)
+      }
+    }
+  }
+
+  for (const directory of directories) {
+    await exploreDirectory(directory)
+  }
+
+  return solidityFiles
 }
