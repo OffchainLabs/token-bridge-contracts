@@ -10,7 +10,7 @@ This doc describes how to deploy USDC bridge compatible with both Arbitrum's tok
 
 ## Assumptions
 
-It is assumed there is already USDC token deployed and used on the parent chain. If not, follow the instructions in the Circle's `stablecoin-evm` repo to deploy one.
+It is assumed there is already USDC token deployed and used on the parent chain.
 
 Also, it is assumed the standard Orbit chain ownership system is used, ie. UpgradeExecutor is the owner of the ownable contracts and there is an EOA or multisig which has executor role on the UpgradeExecutor.
 
@@ -70,11 +70,9 @@ Once transition to native USDC is agreed on, following steps are required:
 - L1 gateway owner pauses deposits on parent chain by calling `pauseDeposits()`
 - L2 gateway owner pauses withdrawals on child chain by calling `pauseWithdrawals()`
 - master minter removes the minter role from the child chain gateway
-  - there should be no in-flight deposits when minter role is revoked. If there are any, they should be executed (can be done by anyone by claiming the failed retryable ticket which does the USDC depositing)
-  - if minter role is revoked before in-flight deposits are claimed, those funds can’t be minted. One option is to leave the gateway’s minter role, but decrease the allowance to match the total amount of unclaimed deposits
+  - NOTE: there should be no in-flight deposits when minter role is revoked. If there are any, they should be finalized first. That can be done by anyone by claiming the claimable failed retryable tickets which do the USDC depositing
 - L1 gateway owner sets Circle's account as burner on the parent chain gateway using `setBurner(address)`
 - L1 gateway owner reads the total supply of USDC on the child chain, and then invokes `setBurnAmount(uint256)` on the parent child gateway where the amount matches the total supply
-  - in case there are unclaimed deposits which are claimable (ie. destination is not blacklisted), their total amount should be added to the supply as those tokens shall eventually be minted by child chain gateway
 - USDC masterMinter gives minter role with 0 allowance to L1 gateway, so the burn can be executed
 - on the child chain, L2 gateway owner calls the `setUsdcOwnershipTransferrer(address)` to set the account (provided and controlled by Circle) which will be able to transfer the bridged USDC ownership and proxy admin
 - if not already owned by gateway, L2 USDC owner transfers ownership to gateway, and proxy admin transfers admin rights to gateway
