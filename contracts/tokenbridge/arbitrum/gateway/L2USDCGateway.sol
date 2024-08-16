@@ -22,6 +22,9 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
  *         - withdrawals can be paused by the owner
  *         - owner can set an "transferrer" account which will be able to transfer USDC ownership
  *         - transferrer can transfer USDC owner and proxyAdmin
+ *
+ *         NOTE: before withdrawing funds, make sure that recipient address is not blacklisted on the parent chain.
+ *               Also, make sure that USDC token itself is not paused. Otherwise funds might get stuck.
  */
 contract L2USDCGateway is L2ArbitrumGateway {
     using SafeERC20 for IERC20;
