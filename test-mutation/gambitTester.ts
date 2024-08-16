@@ -5,10 +5,8 @@ import os from 'os'
 import * as path from 'path'
 import * as fs from 'fs'
 import * as fsExtra from 'fs-extra'
-import { readdir } from 'node:fs/promises'
 
 const GAMBIT_OUT = 'gambit_out/'
-const CONTRACTS_DIR = 'contracts'
 const TEST_ITEMS = [
   'contracts',
   'foundry.toml',
@@ -44,6 +42,8 @@ runMutationTesting().catch(error => {
 
 async function runMutationTesting() {
   const startTime = Date.now()
+
+  await _generateConfigForGithubCI()
 
   console.log('====== Generating mutants')
   const mutants: Mutant[] = await _generateMutants()
@@ -189,6 +189,12 @@ function _printResults(results: TestResult[]) {
   console.log(`Survived: ${survivedCount} (${survivedPercentage}%)`)
 }
 
+////////////////////////////////////////////////////////////////////
+
+//        GAMBIT CONFIG GENERATION
+
+////////////////////////////////////////////////////////////////////
+
 async function _generateConfigForGithubCI() {
   const solidityDirs = [
     path.join(__dirname, '../contracts/tokenbridge/ethereum'),
@@ -197,7 +203,26 @@ async function _generateConfigForGithubCI() {
   ]
   const solidityFiles = await _findSolidityFiles(solidityDirs)
 
-  console.log(solidityFiles)
+  // Construct the JSON array
+  const jsonConfig = solidityFiles.map(file => ({
+    filename: file,
+    sourceroot: '..',
+    solc_remappings: [
+      '@openzeppelin=../node_modules/@openzeppelin',
+      '@arbitrum=../node_modules/@arbitrum',
+    ],
+    num_mutants: 4,
+    random_seed: true,
+  }))
+
+  // Write the result to a JSON file
+  const outputFilePath = path.join(__dirname, 'config_for_github_ci.json')
+  await fs.promises.writeFile(
+    outputFilePath,
+    JSON.stringify(jsonConfig, null, 2),
+    'utf-8'
+  )
+  console.log(`Generated JSON file: ${outputFilePath}`)
 }
 
 async function _findSolidityFiles(directories: string[]): Promise<string[]> {
@@ -212,8 +237,8 @@ async function _findSolidityFiles(directories: string[]): Promise<string[]> {
         // Recursively explore subdirectory
         await exploreDirectory(fullPath)
       } else if (entry.isFile() && path.extname(fullPath) === '.sol') {
-        // If it's a .sol file, add to the list
-        solidityFiles.push(fullPath)
+        const relativePath = path.relative(__dirname, fullPath)
+        solidityFiles.push(relativePath)
       }
     }
   }
