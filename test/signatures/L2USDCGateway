@@ -1,0 +1,22 @@
+{
+  "calculateL2TokenAddress(address)": "a7e28d48",
+  "counterpartGateway()": "2db09c1c",
+  "exitNum()": "015234ab",
+  "finalizeInboundTransfer(address,address,address,uint256,bytes)": "2e567b36",
+  "getOutboundCalldata(address,address,address,uint256,bytes)": "a0c76a96",
+  "initialize(address,address,address,address,address)": "1459457a",
+  "l1USDC()": "a6f73669",
+  "l2USDC()": "29e96f9e",
+  "outboundTransfer(address,address,uint256,bytes)": "7b3a3c8b",
+  "outboundTransfer(address,address,uint256,uint256,uint256,bytes)": "d2ce7d65",
+  "owner()": "8da5cb5b",
+  "pauseWithdrawals()": "56bb54a7",
+  "postUpgradeInit()": "95fcea78",
+  "router()": "f887ea40",
+  "setOwner(address)": "13af4035",
+  "setUsdcOwnershipTransferrer(address)": "54d3a598",
+  "transferUSDCRoles(address)": "c689fc34",
+  "unpauseWithdrawals()": "e4c4be58",
+  "usdcOwnershipTransferrer()": "77403988",
+  "withdrawalsPaused()": "e9f2838e"
+}

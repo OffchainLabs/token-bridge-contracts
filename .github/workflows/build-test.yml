@@ -118,7 +118,6 @@ jobs:
           no-token-bridge: true
           no-l3-token-bridge: true
           token-bridge-branch: '${{ github.head_ref }}'
-          nitro-testnode-ref: node-18
 
       - name: Setup node/yarn
         uses: actions/setup-node@v3
@@ -142,6 +141,9 @@ jobs:
       - name: Verify creation code generation
         run: yarn test:creation-code
 
+      - name: Test e2e orbit token bridge actions
+        run: yarn hardhat test test-e2e/orbitTokenBridge.ts
+
   test-e2e-custom-fee-token:
     name: Test e2e on custom fee token chain
     runs-on: ubuntu-latest
@@ -157,7 +159,6 @@ jobs:
           no-token-bridge: true
           no-l3-token-bridge: true
           token-bridge-branch: '${{ github.head_ref }}'
-          nitro-testnode-ref: node-18
 
       - name: Setup node/yarn
         uses: actions/setup-node@v3
@@ -200,7 +201,6 @@ jobs:
           no-l3-token-bridge: true
           token-bridge-branch: '${{ github.head_ref }}'
           nitro-contracts-branch: 'develop'
-          nitro-testnode-ref: 'non18-decimal-token-node-18'
 
       - name: Setup node/yarn
         uses: actions/setup-node@v3

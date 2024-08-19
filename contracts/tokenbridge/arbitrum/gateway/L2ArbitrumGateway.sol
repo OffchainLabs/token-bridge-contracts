@@ -137,7 +137,7 @@ abstract contract L2ArbitrumGateway is L2ArbitrumMessenger, TokenGateway {
         uint256, /* _maxGas */
         uint256, /* _gasPriceBid */
         bytes calldata _data
-    ) public payable override returns (bytes memory res) {
+    ) public payable virtual override returns (bytes memory res) {
         // This function is set as public and virtual so that subclasses can override
         // it and add custom validation for callers (ie only whitelisted users)
 
@@ -163,7 +163,7 @@ abstract contract L2ArbitrumGateway is L2ArbitrumMessenger, TokenGateway {
         {
             address l2Token = calculateL2TokenAddress(_l1Token);
             require(l2Token.isContract(), "TOKEN_NOT_DEPLOYED");
-            require(IArbToken(l2Token).l1Address() == _l1Token, "NOT_EXPECTED_L1_TOKEN");
+            require(_isValidTokenAddress(_l1Token, l2Token), "NOT_EXPECTED_L1_TOKEN");
 
             _amount = outboundEscrowTransfer(l2Token, _from, _amount);
             id = triggerWithdrawal(_l1Token, _from, _to, _amount, _extraData);
@@ -252,33 +252,14 @@ abstract contract L2ArbitrumGateway is L2ArbitrumMessenger, TokenGateway {
             );
             if (shouldHalt) return;
         }
-        // ignores gatewayData if token already deployed
 
-        {
-            // validate if L1 address supplied matches that of the expected L2 address
-            (bool success, bytes memory _l1AddressData) = expectedAddress.staticcall(
-                abi.encodeWithSelector(IArbToken.l1Address.selector)
-            );
-
-            bool shouldWithdraw;
-            if (!success || _l1AddressData.length < 32) {
-                shouldWithdraw = true;
-            } else {
-                // we do this in the else branch since we want to avoid reverts
-                // and `toAddress` reverts if _l1AddressData has a short length
-                // `_l1AddressData` should be 12 bytes of padding then 20 bytes for the address
-                address expectedL1Address = BytesLib.toAddress(_l1AddressData, 12);
-                if (expectedL1Address != _token) {
-                    shouldWithdraw = true;
-                }
-            }
-
-            if (shouldWithdraw) {
-                // we don't need the return value from triggerWithdrawal since this is forcing
-                // a withdrawal back to the L1 instead of composing with a L2 dapp
-                triggerWithdrawal(_token, address(this), _from, _amount, "");
-                return;
-            }
+        // validate if L1 address supplied matches that of the expected L2 address
+        bool shouldWithdraw = !_isValidTokenAddress(_token, expectedAddress);
+        if (shouldWithdraw) {
+            // we don't need the return value from triggerWithdrawal since this is forcing
+            // a withdrawal back to the L1 instead of composing with a L2 dapp
+            triggerWithdrawal(_token, address(this), _from, _amount, "");
+            return;
         }
 
         inboundEscrowTransfer(expectedAddress, _to, _amount);
@@ -296,4 +277,34 @@ abstract contract L2ArbitrumGateway is L2ArbitrumMessenger, TokenGateway {
         uint256 _amount,
         bytes memory gatewayData
     ) internal virtual returns (bool shouldHalt);
+
+    /**
+     * @notice Check if expected token address matches the provided one
+     * @param _l1Address provided address of L1 token
+     * @param _expectedL2Address address of L2 gateway expects
+     * @return true if addresses match, false otherwise
+     */
+    function _isValidTokenAddress(address _l1Address, address _expectedL2Address)
+        internal
+        view
+        virtual
+        returns (bool)
+    {
+        (bool success, bytes memory _l1AddressData) =
+            _expectedL2Address.staticcall(abi.encodeWithSelector(IArbToken.l1Address.selector));
+
+        if (!success || _l1AddressData.length < 32) {
+            return false;
+        } else {
+            // we do this in the else branch since we want to avoid reverts
+            // and `toAddress` reverts if _l1AddressData has a short length
+            // `_l1AddressData` should be 12 bytes of padding then 20 bytes for the address
+            address expectedL1Address = BytesLib.toAddress(_l1AddressData, 12);
+            if (expectedL1Address != _l1Address) {
+                return false;
+            }
+        }
+
+        return true;
+    }
 }

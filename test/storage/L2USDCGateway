@@ -1,0 +1,10 @@
+| Name                     | Type    | Slot | Offset | Bytes | Contract                                                               |
+|--------------------------|---------|------|--------|-------|------------------------------------------------------------------------|
+| counterpartGateway       | address | 0    | 0      | 20    | contracts/tokenbridge/arbitrum/gateway/L2USDCGateway.sol:L2USDCGateway |
+| router                   | address | 1    | 0      | 20    | contracts/tokenbridge/arbitrum/gateway/L2USDCGateway.sol:L2USDCGateway |
+| exitNum                  | uint256 | 2    | 0      | 32    | contracts/tokenbridge/arbitrum/gateway/L2USDCGateway.sol:L2USDCGateway |
+| l1USDC                   | address | 3    | 0      | 20    | contracts/tokenbridge/arbitrum/gateway/L2USDCGateway.sol:L2USDCGateway |
+| l2USDC                   | address | 4    | 0      | 20    | contracts/tokenbridge/arbitrum/gateway/L2USDCGateway.sol:L2USDCGateway |
+| owner                    | address | 5    | 0      | 20    | contracts/tokenbridge/arbitrum/gateway/L2USDCGateway.sol:L2USDCGateway |
+| usdcOwnershipTransferrer | address | 6    | 0      | 20    | contracts/tokenbridge/arbitrum/gateway/L2USDCGateway.sol:L2USDCGateway |
+| withdrawalsPaused        | bool    | 6    | 20     | 1     | contracts/tokenbridge/arbitrum/gateway/L2USDCGateway.sol:L2USDCGateway |

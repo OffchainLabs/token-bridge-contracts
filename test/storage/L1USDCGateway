@@ -1,0 +1,12 @@
+| Name               | Type                                                          | Slot | Offset | Bytes | Contract                                                               |
+|--------------------|---------------------------------------------------------------|------|--------|-------|------------------------------------------------------------------------|
+| counterpartGateway | address                                                       | 0    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1USDCGateway.sol:L1USDCGateway |
+| router             | address                                                       | 1    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1USDCGateway.sol:L1USDCGateway |
+| inbox              | address                                                       | 2    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1USDCGateway.sol:L1USDCGateway |
+| redirectedExits    | mapping(bytes32 => struct L1ArbitrumExtendedGateway.ExitData) | 3    | 0      | 32    | contracts/tokenbridge/ethereum/gateway/L1USDCGateway.sol:L1USDCGateway |
+| l1USDC             | address                                                       | 4    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1USDCGateway.sol:L1USDCGateway |
+| l2USDC             | address                                                       | 5    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1USDCGateway.sol:L1USDCGateway |
+| owner              | address                                                       | 6    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1USDCGateway.sol:L1USDCGateway |
+| burner             | address                                                       | 7    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1USDCGateway.sol:L1USDCGateway |
+| depositsPaused     | bool                                                          | 7    | 20     | 1     | contracts/tokenbridge/ethereum/gateway/L1USDCGateway.sol:L1USDCGateway |
+| burnAmount         | uint256                                                       | 8    | 0      | 32    | contracts/tokenbridge/ethereum/gateway/L1USDCGateway.sol:L1USDCGateway |
