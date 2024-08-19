@@ -67,7 +67,7 @@ jobs:
         run: yarn test
 
   test-contracts:
-    name: Test storage layout and signatures
+    name: Test storage layout, signatures and look for unused errors
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -98,6 +98,12 @@ jobs:
       - name: Test function signatures
         run: yarn run test:signatures
 
+      - name: Run unused Solidity errors checker
+        uses: OffchainLabs/actions/check-unused-errors@main
+        with:
+          directory: './contracts'
+          exceptions_file: './test/unused-errors/exceptions.txt'
+
   test-e2e:
     name: Test e2e
     runs-on: ubuntu-latest
@@ -112,7 +118,6 @@ jobs:
           no-token-bridge: true
           no-l3-token-bridge: true
           token-bridge-branch: '${{ github.head_ref }}'
-          nitro-testnode-ref: node-18
 
       - name: Setup node/yarn
         uses: actions/setup-node@v3
@@ -136,6 +141,9 @@ jobs:
       - name: Verify creation code generation
         run: yarn test:creation-code
 
+      - name: Test e2e orbit token bridge actions
+        run: yarn hardhat test test-e2e/orbitTokenBridge.ts
+
   test-e2e-custom-fee-token:
     name: Test e2e on custom fee token chain
     runs-on: ubuntu-latest
@@ -151,7 +159,6 @@ jobs:
           no-token-bridge: true
           no-l3-token-bridge: true
           token-bridge-branch: '${{ github.head_ref }}'
-          nitro-testnode-ref: node-18
 
       - name: Setup node/yarn
         uses: actions/setup-node@v3
@@ -194,7 +201,6 @@ jobs:
           no-l3-token-bridge: true
           token-bridge-branch: '${{ github.head_ref }}'
           nitro-contracts-branch: 'develop'
-          nitro-testnode-ref: 'non18-decimal-token-node-18'
 
       - name: Setup node/yarn
         uses: actions/setup-node@v3

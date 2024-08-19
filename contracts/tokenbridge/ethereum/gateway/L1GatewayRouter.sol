@@ -294,10 +294,11 @@ contract L1GatewayRouter is
      *      - a contract in construction
      *      - an address where a contract will be created
      *      - an address where a contract lived, but was destroyed
+     *    The msg.sender that calls this method, or its L2 alias if it has code in L1, will be set to the callValueRefundAddress;
+     *    this means it can cancel the retryable ticket if its auto-redeem fails, and also that it receives the l2 callvalue refund.
      * @param _token L1 address of ERC20
      * @param _refundTo Account, or its L2 alias if it have code in L1, to be credited with excess gas refund in L2
-     * @param _to Account to be credited with the tokens in the L2 (can be the user's L2 account or a contract), not subject to L2 aliasing
-                  This account, or its L2 alias if it have code in L1, will also be able to cancel the retryable ticket and receive callvalue refund
+     * @param _to Account to be credited with the tokens in the L2 (can be an EOA or a contract), not subject to L2 aliasing.
      * @param _amount Token Amount
      * @param _maxGas Max gas deducted from user's L2 balance to cover L2 execution
      * @param _gasPriceBid Gas price for L2 execution
