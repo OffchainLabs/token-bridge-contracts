@@ -42,5 +42,4 @@ jobs:
         run: yarn prepare:mutation:ci-config
 
       - name: Run mutation tests
-        run: |
-          yarn test:mutation
+        run: yarn test:mutation
