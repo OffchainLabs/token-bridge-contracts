@@ -30,9 +30,6 @@ jobs:
           chmod +x gambit
           sudo mv gambit /usr/local/bin/
 
-      - name: Verify Gambit Installation
-        run: gambit --help
-
       - name: Install packages
         run: yarn
 
@@ -42,8 +39,8 @@ jobs:
           solc-select install 0.8.16
           solc-select use 0.8.16
 
-      - name: Set config file
-        run: cp ./test-mutation/config-templates/config-ci.json ./test-mutation/config.json
+      - name: Prepare config file
+        run: yarn prepare:mutation:ci-config
 
       - name: Run mutation tests
         run: |
