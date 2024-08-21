@@ -7,7 +7,8 @@ import * as fs from 'fs'
 import * as fsExtra from 'fs-extra'
 
 const GAMBIT_OUT = 'gambit_out/'
-const TEST_TIMES = [
+
+const TEST_ITEMS = [
   'contracts',
   'foundry.toml',
   'remappings.txt',
@@ -46,7 +47,7 @@ async function runMutationTesting() {
   console.log('====== Generating mutants')
   const mutants: Mutant[] = await _generateMutants()
 
-  console.log('\n====== Test mutants')
+  console.log('\n====== Testing mutants')
   const results = await _testAllMutants(mutants)
 
   // Print summary
@@ -61,6 +62,11 @@ async function runMutationTesting() {
   console.log(
     `\n====== Done in ${((endTime - startTime) / (60 * 1000)).toFixed(2)} min`
   )
+
+  // Exit with non-zero if any mutants survived
+  if (results.some(result => result.status === MutantStatus.SURVIVED)) {
+    process.exit(1)
+  }
 }
 
 async function _generateMutants(): Promise<Mutant[]> {
@@ -69,6 +75,9 @@ async function _generateMutants(): Promise<Mutant[]> {
     fs.readFileSync(`${GAMBIT_OUT}/gambit_results.json`, 'utf8')
   )
   console.log(`Generated ${mutants.length} mutants in ${GAMBIT_OUT}`)
+  console.log('----------------------------------------------')
+  console.log('Mutants overview:')
+  console.log(fs.readFileSync(`${GAMBIT_OUT}/mutants.log`, 'utf8'))
 
   return mutants
 }
@@ -96,7 +105,7 @@ async function _testMutant(mutant: Mutant): Promise<TestResult> {
   await fsExtra.ensureDir(testDirectory)
 
   // copy necessary files
-  for (const item of TEST_TIMES) {
+  for (const item of TEST_ITEMS) {
     const sourcePath = path.join(__dirname, '..', item)
     const destPath = path.join(testDirectory, item)
     await fsExtra.copy(sourcePath, destPath)
