@@ -1,7 +1,7 @@
 import * as path from 'path'
 import * as fs from 'fs'
 
-const NUM_OF_MUTANTS_PER_FILE = 3
+const NUM_OF_MUTANTS_PER_FILE = 4
 const CONFIG_FOR_CI_FILE = 'config_for_github_ci.json'
 
 genGambitConfigForCI().catch(error => {
