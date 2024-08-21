@@ -7,6 +7,9 @@ import * as fs from 'fs'
 import * as fsExtra from 'fs-extra'
 
 const GAMBIT_OUT = 'gambit_out/'
+const NUM_OF_MUTANTS_PER_FILE = 3
+const CONFIG_FOR_CI_FILE = 'config_for_github_ci.json'
+
 const TEST_ITEMS = [
   'contracts',
   'foundry.toml',
@@ -211,12 +214,12 @@ async function _generateConfigForGithubCI() {
       '@openzeppelin=../node_modules/@openzeppelin',
       '@arbitrum=../node_modules/@arbitrum',
     ],
-    num_mutants: 4,
+    num_mutants: NUM_OF_MUTANTS_PER_FILE,
     random_seed: true,
   }))
 
   // Write the result to a JSON file
-  const outputFilePath = path.join(__dirname, 'config_for_github_ci.json')
+  const outputFilePath = path.join(__dirname, CONFIG_FOR_CI_FILE)
   await fs.promises.writeFile(
     outputFilePath,
     JSON.stringify(jsonConfig, null, 2),
