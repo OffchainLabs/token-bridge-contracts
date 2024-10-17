@@ -929,6 +929,14 @@
     "@openzeppelin/contracts" "4.7.3"
     "@openzeppelin/contracts-upgradeable" "4.7.3"
 
+"@offchainlabs/upgrade-executor@^1.1.1":
+  version "1.1.1"
+  resolved "https://registry.yarnpkg.com/@offchainlabs/upgrade-executor/-/upgrade-executor-1.1.1.tgz#ae3dfe4a183d88c0c3fd3b39ab6dd6508b371b53"
+  integrity sha512-/hnUblMbzXS4asPdTSWjFUn/N5+E71dVfDW1314j/r/847OIy1VHZDFhw+fOlUGL5/qrZu2UV34oZAwwrRV4tg==
+  dependencies:
+    "@openzeppelin/contracts" "4.7.3"
+    "@openzeppelin/contracts-upgradeable" "4.7.3"
+
 "@openzeppelin/contracts-upgradeable@4.5.2":
   version "4.5.2"
   resolved "https://registry.yarnpkg.com/@openzeppelin/contracts-upgradeable/-/contracts-upgradeable-4.5.2.tgz#90d9e47bacfd8693bfad0ac8a394645575528d05"

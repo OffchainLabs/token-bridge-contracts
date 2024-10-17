@@ -45,7 +45,7 @@
   "dependencies": {
     "@arbitrum/nitro-contracts": "1.1.1",
     "@offchainlabs/stablecoin-evm": "1.0.0-orbit-alpha.2",
-    "@offchainlabs/upgrade-executor": "1.1.0-beta.0",
+    "@offchainlabs/upgrade-executor": "^1.1.1",
     "@openzeppelin/contracts": "4.8.3",
     "@openzeppelin/contracts-upgradeable": "4.8.3"
   },
