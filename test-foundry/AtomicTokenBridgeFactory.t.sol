@@ -7,12 +7,10 @@ import "forge-std/Test.sol";
 import "../contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol";
 import "../contracts/tokenbridge/arbitrum/L2AtomicTokenBridgeFactory.sol";
 import "../contracts/tokenbridge/libraries/AddressAliasHelper.sol";
-
 import {L1TokenBridgeRetryableSender} from
     "../contracts/tokenbridge/ethereum/L1TokenBridgeRetryableSender.sol";
 import {TestWETH9} from "../contracts/tokenbridge/test/TestWETH9.sol";
 import {Multicall2} from "../contracts/rpc-utils/MulticallV2.sol";
-
 import {TransparentUpgradeableProxy} from
     "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
@@ -138,8 +136,9 @@ contract AtomicTokenBridgeCreatorTest is Test {
             L1OrbitGatewayRouter(address(new L1OrbitGatewayRouter())),
             L1OrbitERC20Gateway(address(new L1OrbitERC20Gateway())),
             L1OrbitCustomGateway(address(new L1OrbitCustomGateway())),
-            IUpgradeExecutor(address(new UpgradeExecutor()))
+            _deployUpgradeExecutor()
         );
+
         l2TokenBridgeFactoryTemplate = address(new L2AtomicTokenBridgeFactory());
         l2RouterTemplate = address(new L2GatewayRouter());
         l2StandardGatewayTemplate = address(new L2ERC20Gateway());
@@ -261,6 +260,30 @@ contract AtomicTokenBridgeCreatorTest is Test {
             assertTrue(l2ue.code.length > 0, "l2ue code");
             assertEq(l2mc, 0x6466F88A4E3B536892e706258c1079D0a880d7Cb, "l2mc");
             assertTrue(l2mc.code.length > 0, "l2mc code");
+        }
+    }
+
+    function _deployUpgradeExecutor() internal returns (IUpgradeExecutor executor) {
+        bytes memory bytecode = _getBytecode(
+            "/node_modules/@offchainlabs/upgrade-executor/build/contracts/src/UpgradeExecutor.sol/UpgradeExecutor.json"
+        );
+
+        address addr;
+        assembly {
+            addr := create(0, add(bytecode, 0x20), mload(bytecode))
+        }
+        require(addr != address(0), "bytecode deployment failed");
+
+        executor = IUpgradeExecutor(addr);
+    }
+
+    function _getBytecode(bytes memory path) internal returns (bytes memory) {
+        string memory readerBytecodeFilePath = string(abi.encodePacked(vm.projectRoot(), path));
+        string memory json = vm.readFile(readerBytecodeFilePath);
+        try vm.parseJsonBytes(json, ".bytecode.object") returns (bytes memory bytecode) {
+            return bytecode;
+        } catch {
+            return vm.parseJsonBytes(json, ".bytecode");
         }
     }
 }
