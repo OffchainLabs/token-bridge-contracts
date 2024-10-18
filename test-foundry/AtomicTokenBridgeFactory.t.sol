@@ -53,7 +53,7 @@ contract MockInbox is Test {
         return address(this);
     }
 
-    function hasRole(bytes32, address) external view returns (bool) {
+    function hasRole(bytes32, address) external pure returns (bool) {
         return true;
     }
 
@@ -61,7 +61,7 @@ contract MockInbox is Test {
         return address(this);
     }
 
-    function calculateRetryableSubmissionFee(uint256, uint256) external view returns (uint256) {
+    function calculateRetryableSubmissionFee(uint256, uint256) external pure returns (uint256) {
         return 0;
     }
 
@@ -103,6 +103,7 @@ contract MockInbox is Test {
             }
         }
         vm.stopPrank();
+        return 0;
     }
 }
 
