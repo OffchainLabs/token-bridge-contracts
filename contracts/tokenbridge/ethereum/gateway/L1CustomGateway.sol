@@ -46,7 +46,7 @@ contract L1CustomGateway is L1ArbitrumExtendedGateway, ICustomGateway {
     // @dev deprecated in place of transient storage
     uint256 private __status;
 
-    // Use transient storage for reentrancy check
+    // @dev use transient storage for reentrancy check
     uint256 private transient reentrancyStatus;
 
     modifier nonReentrant() {
