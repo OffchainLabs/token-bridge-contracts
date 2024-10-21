@@ -47,6 +47,7 @@ const config = {
       {
         version: '0.8.28',
         settings: {
+          evmVersion: 'cancun',
           optimizer: {
             enabled: true,
             runs: 100,
