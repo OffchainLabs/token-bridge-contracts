@@ -36,15 +36,6 @@ const config = {
         },
       },
       {
-        version: '0.8.16',
-        settings: {
-          optimizer: {
-            enabled: true,
-            runs: 100,
-          },
-        },
-      },
-      {
         version: '0.8.28',
         settings: {
           evmVersion: 'cancun',
