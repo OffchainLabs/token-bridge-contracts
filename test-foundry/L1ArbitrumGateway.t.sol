@@ -215,7 +215,7 @@ abstract contract L1ArbitrumGatewayTest is Test {
 contract L1ArbitrumGatewayMock is L1ArbitrumGateway {
     function calculateL2TokenAddress(address x)
         public
-        view
+        pure
         override(ITokenGateway, TokenGateway)
         returns (address)
     {

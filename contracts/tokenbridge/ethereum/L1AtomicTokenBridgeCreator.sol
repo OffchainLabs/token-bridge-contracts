@@ -26,10 +26,7 @@ import {
     ProxyAdmin
 } from "../arbitrum/L2AtomicTokenBridgeFactory.sol";
 import {CreationCodeHelper} from "../libraries/CreationCodeHelper.sol";
-import {
-    IUpgradeExecutor,
-    UpgradeExecutor
-} from "@offchainlabs/upgrade-executor/src/UpgradeExecutor.sol";
+import {IUpgradeExecutor} from "@offchainlabs/upgrade-executor/src/IUpgradeExecutor.sol";
 import {AddressAliasHelper} from "../libraries/AddressAliasHelper.sol";
 import {IInbox, IBridge, IOwnable} from "@arbitrum/nitro-contracts/src/bridge/IInbox.sol";
 import {ArbMulticall2} from "../../rpc-utils/MulticallV2.sol";
@@ -205,7 +202,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         address upgradeExecutor = IInbox(inbox).bridge().rollup().owner();
         if (
             !IAccessControlUpgradeable(upgradeExecutor).hasRole(
-                UpgradeExecutor(upgradeExecutor).EXECUTOR_ROLE(), rollupOwner
+                IUpgradeExecutor(upgradeExecutor).EXECUTOR_ROLE(), rollupOwner
             )
         ) {
             revert L1AtomicTokenBridgeCreator_RollupOwnershipMisconfig();

@@ -23,10 +23,7 @@ import {L1WethGateway} from "contracts/tokenbridge/ethereum/gateway/L1WethGatewa
 import {L1OrbitGatewayRouter} from "contracts/tokenbridge/ethereum/gateway/L1OrbitGatewayRouter.sol";
 import {L1OrbitERC20Gateway} from "contracts/tokenbridge/ethereum/gateway/L1OrbitERC20Gateway.sol";
 import {L1OrbitCustomGateway} from "contracts/tokenbridge/ethereum/gateway/L1OrbitCustomGateway.sol";
-import {
-    IUpgradeExecutor,
-    UpgradeExecutor
-} from "@offchainlabs/upgrade-executor/src/UpgradeExecutor.sol";
+import {IUpgradeExecutor} from "@offchainlabs/upgrade-executor/src/IUpgradeExecutor.sol";
 import {Inbox, IInboxBase} from "lib/nitro-contracts/src/bridge/Inbox.sol";
 import {ERC20Inbox} from "lib/nitro-contracts/src/bridge/ERC20Inbox.sol";
 import {IOutbox} from "lib/nitro-contracts/src/bridge/IOutbox.sol";
@@ -123,7 +120,7 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
     function test_createTokenBridge_checkL1Router() public {
         // prepare
         _setTemplates();
-        (RollupProxy rollup, Inbox inbox, ProxyAdmin pa, UpgradeExecutor upgExecutor) =
+        (RollupProxy rollup, Inbox inbox, ProxyAdmin pa, IUpgradeExecutor upgExecutor) =
             _createRollup();
         _createTokenBridge(rollup, inbox, upgExecutor);
 
@@ -159,7 +156,7 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
     function test_createTokenBridge_checkL1StandardGateway() public {
         // prepare
         _setTemplates();
-        (RollupProxy rollup, Inbox inbox, ProxyAdmin pa, UpgradeExecutor upgExecutor) =
+        (RollupProxy rollup, Inbox inbox, ProxyAdmin pa, IUpgradeExecutor upgExecutor) =
             _createRollup();
         _createTokenBridge(rollup, inbox, upgExecutor);
 
@@ -222,7 +219,7 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
     function test_createTokenBridge_checkL1CustomGateway() public {
         // prepare
         _setTemplates();
-        (RollupProxy rollup, Inbox inbox, ProxyAdmin pa, UpgradeExecutor upgExecutor) =
+        (RollupProxy rollup, Inbox inbox, ProxyAdmin pa, IUpgradeExecutor upgExecutor) =
             _createRollup();
         _createTokenBridge(rollup, inbox, upgExecutor);
 
@@ -264,7 +261,7 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
     function test_createTokenBridge_checkL1WethGateway() public {
         // prepare
         _setTemplates();
-        (RollupProxy rollup, Inbox inbox, ProxyAdmin pa, UpgradeExecutor upgExecutor) =
+        (RollupProxy rollup, Inbox inbox, ProxyAdmin pa, IUpgradeExecutor upgExecutor) =
             _createRollup();
         _createTokenBridge(rollup, inbox, upgExecutor);
 
@@ -304,7 +301,7 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
     function test_createTokenBridge_DeployerIsRefunded() public {
         // prepare
         _setTemplates();
-        (RollupProxy rollup, Inbox inbox, ProxyAdmin pa, UpgradeExecutor upgExecutor) =
+        (RollupProxy rollup, Inbox inbox, ProxyAdmin pa, IUpgradeExecutor upgExecutor) =
             _createRollup();
 
         uint256 deployerBalanceBefore = deployer.balance;
@@ -323,7 +320,7 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
         ERC20Inbox _inbox;
         ERC20 _nativeToken;
         {
-            (RollupProxy rollup, ERC20Inbox inbox,, UpgradeExecutor upgExecutor, ERC20 nativeToken)
+            (RollupProxy rollup, ERC20Inbox inbox,, IUpgradeExecutor upgExecutor, ERC20 nativeToken)
             = _createERC20Rollup(18);
 
             // mock owner() => upgExecutor
@@ -428,7 +425,7 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
         ERC20Inbox _inbox;
         ERC20 _nativeToken;
         {
-            (RollupProxy rollup, ERC20Inbox inbox,, UpgradeExecutor upgExecutor, ERC20 nativeToken)
+            (RollupProxy rollup, ERC20Inbox inbox,, IUpgradeExecutor upgExecutor, ERC20 nativeToken)
             = _createERC20Rollup(decimals);
 
             // mock owner() => upgExecutor
@@ -560,7 +557,7 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
     function test_createTokenBridge_revert_RollupOwnershipMisconfig() public {
         // prepare
         _setTemplates();
-        (RollupProxy rollup, Inbox inbox,, UpgradeExecutor upgExecutor) = _createRollup();
+        (RollupProxy rollup, Inbox inbox,, IUpgradeExecutor upgExecutor) = _createRollup();
 
         // mock owner() => upgExecutor
         vm.mockCall(
@@ -585,7 +582,7 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
     function test_getRouter() public {
         // prepare
         _setTemplates();
-        (RollupProxy rollup, Inbox inbox,, UpgradeExecutor upgExecutor) = _createRollup();
+        (RollupProxy rollup, Inbox inbox,, IUpgradeExecutor upgExecutor) = _createRollup();
 
         {
             // mock owner() => upgExecutor
@@ -622,7 +619,7 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
     }
 
     function test_setDeployment() public {
-        (RollupProxy rollup, Inbox inbox,, UpgradeExecutor upgExecutor) = _createRollup();
+        (RollupProxy rollup, Inbox inbox,, IUpgradeExecutor upgExecutor) = _createRollup();
 
         // mock owner() => upgExecutor
         vm.mockCall(
@@ -699,7 +696,7 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
     }
 
     function test_setDeployment_revert_OnlyRollupOwner() public {
-        (RollupProxy rollup, Inbox inbox,, UpgradeExecutor upgExecutor) = _createRollup();
+        (RollupProxy rollup, Inbox inbox,, IUpgradeExecutor upgExecutor) = _createRollup();
 
         // mock owner() => upgExecutor
         vm.mockCall(
@@ -744,7 +741,7 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
             new L1OrbitGatewayRouter(),
             new L1OrbitERC20Gateway(),
             new L1OrbitCustomGateway(),
-            new UpgradeExecutor()
+            _deployUpgradeExecutor()
         );
 
         vm.expectEmit(true, true, true, true);
@@ -820,7 +817,7 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
             new L1OrbitGatewayRouter(),
             new L1OrbitERC20Gateway(),
             new L1OrbitCustomGateway(),
-            new UpgradeExecutor()
+            _deployUpgradeExecutor()
         );
 
         vm.expectRevert("Ownable: caller is not the owner");
@@ -849,7 +846,7 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
             new L1OrbitGatewayRouter(),
             new L1OrbitERC20Gateway(),
             new L1OrbitCustomGateway(),
-            new UpgradeExecutor()
+            _deployUpgradeExecutor()
         );
 
         address originalL2Factory = makeAddr("originalL2Factory");
@@ -895,11 +892,11 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
 
     function _createRollup()
         internal
-        returns (RollupProxy rollup, Inbox inbox, ProxyAdmin pa, UpgradeExecutor upgExecutor)
+        returns (RollupProxy rollup, Inbox inbox, ProxyAdmin pa, IUpgradeExecutor upgExecutor)
     {
         pa = new ProxyAdmin();
         rollup = new RollupProxy();
-        upgExecutor = new UpgradeExecutor();
+        upgExecutor = _deployUpgradeExecutor();
 
         Bridge bridge =
             Bridge(address(new TransparentUpgradeableProxy(address(new Bridge()), address(pa), "")));
@@ -920,13 +917,13 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
             RollupProxy rollup,
             ERC20Inbox inbox,
             ProxyAdmin pa,
-            UpgradeExecutor upgExecutor,
+            IUpgradeExecutor upgExecutor,
             ERC20 nativeToken
         )
     {
         pa = new ProxyAdmin();
         rollup = new RollupProxy();
-        upgExecutor = new UpgradeExecutor();
+        upgExecutor = _deployUpgradeExecutor();
 
         ERC20Bridge bridge = ERC20Bridge(
             address(new TransparentUpgradeableProxy(address(new ERC20Bridge()), address(pa), ""))
@@ -951,7 +948,7 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
         bridge.setDelayedInbox(address(inbox), true);
     }
 
-    function _createTokenBridge(RollupProxy rollup, Inbox inbox, UpgradeExecutor upgExecutor)
+    function _createTokenBridge(RollupProxy rollup, Inbox inbox, IUpgradeExecutor upgExecutor)
         internal
     {
         // mock owner() => upgExecutor
@@ -987,7 +984,7 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
             new L1OrbitGatewayRouter(),
             new L1OrbitERC20Gateway(),
             new L1OrbitCustomGateway(),
-            new UpgradeExecutor()
+            _deployUpgradeExecutor()
         );
 
         vm.prank(deployer);
@@ -1004,6 +1001,30 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
             makeAddr("_l1Multicall"),
             1000
         );
+    }
+
+    function _deployUpgradeExecutor() internal returns (IUpgradeExecutor executor) {
+        bytes memory bytecode = _getBytecode(
+            "/node_modules/@offchainlabs/upgrade-executor/build/contracts/src/UpgradeExecutor.sol/UpgradeExecutor.json"
+        );
+
+        address addr;
+        assembly {
+            addr := create(0, add(bytecode, 0x20), mload(bytecode))
+        }
+        require(addr != address(0), "bytecode deployment failed");
+
+        executor = IUpgradeExecutor(addr);
+    }
+
+    function _getBytecode(bytes memory path) internal returns (bytes memory) {
+        string memory readerBytecodeFilePath = string(abi.encodePacked(vm.projectRoot(), path));
+        string memory json = vm.readFile(readerBytecodeFilePath);
+        try vm.parseJsonBytes(json, ".bytecode.object") returns (bytes memory bytecode) {
+            return bytecode;
+        } catch {
+            return vm.parseJsonBytes(json, ".bytecode");
+        }
     }
 
     ////
