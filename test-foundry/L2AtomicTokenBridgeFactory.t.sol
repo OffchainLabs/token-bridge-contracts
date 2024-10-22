@@ -424,7 +424,7 @@ contract L2AtomicTokenBridgeFactoryTest is Test {
 
         address expectedMulticallAddress = Create2.computeAddress(
             keccak256(abi.encodePacked(bytes("L2MC"), block.chainid, address(this))),
-            keccak256(type(ArbMulticall2).creationCode),
+            keccak256(CreationCodeHelper.getCreationCodeFor(runtimeCode.multicall)),
             address(l2Factory)
         );
 
