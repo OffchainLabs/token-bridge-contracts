@@ -7,4 +7,4 @@
 | cloneableProxyHash   | bytes32                                                       | 4    | 0      | 32    | contracts/tokenbridge/ethereum/gateway/L1OrbitERC20Gateway.sol:L1OrbitERC20Gateway |
 | l2BeaconProxyFactory | address                                                       | 5    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1OrbitERC20Gateway.sol:L1OrbitERC20Gateway |
 | whitelist            | address                                                       | 6    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1OrbitERC20Gateway.sol:L1OrbitERC20Gateway |
-| _status              | uint256                                                       | 7    | 0      | 32    | contracts/tokenbridge/ethereum/gateway/L1OrbitERC20Gateway.sol:L1OrbitERC20Gateway |
+| __status             | uint256                                                       | 7    | 0      | 32    | contracts/tokenbridge/ethereum/gateway/L1OrbitERC20Gateway.sol:L1OrbitERC20Gateway |

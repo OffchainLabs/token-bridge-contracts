@@ -7,12 +7,10 @@ import "forge-std/Test.sol";
 import "../contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol";
 import "../contracts/tokenbridge/arbitrum/L2AtomicTokenBridgeFactory.sol";
 import "../contracts/tokenbridge/libraries/AddressAliasHelper.sol";
-
 import {L1TokenBridgeRetryableSender} from
     "../contracts/tokenbridge/ethereum/L1TokenBridgeRetryableSender.sol";
 import {TestWETH9} from "../contracts/tokenbridge/test/TestWETH9.sol";
 import {Multicall2} from "../contracts/rpc-utils/MulticallV2.sol";
-
 import {TransparentUpgradeableProxy} from
     "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
@@ -55,7 +53,7 @@ contract MockInbox is Test {
         return address(this);
     }
 
-    function hasRole(bytes32, address) external view returns (bool) {
+    function hasRole(bytes32, address) external pure returns (bool) {
         return true;
     }
 
@@ -63,7 +61,7 @@ contract MockInbox is Test {
         return address(this);
     }
 
-    function calculateRetryableSubmissionFee(uint256, uint256) external view returns (uint256) {
+    function calculateRetryableSubmissionFee(uint256, uint256) external pure returns (uint256) {
         return 0;
     }
 
@@ -105,6 +103,7 @@ contract MockInbox is Test {
             }
         }
         vm.stopPrank();
+        return 0;
     }
 }
 
@@ -138,8 +137,9 @@ contract AtomicTokenBridgeCreatorTest is Test {
             L1OrbitGatewayRouter(address(new L1OrbitGatewayRouter())),
             L1OrbitERC20Gateway(address(new L1OrbitERC20Gateway())),
             L1OrbitCustomGateway(address(new L1OrbitCustomGateway())),
-            IUpgradeExecutor(address(new UpgradeExecutor()))
+            _deployUpgradeExecutor()
         );
+
         l2TokenBridgeFactoryTemplate = address(new L2AtomicTokenBridgeFactory());
         l2RouterTemplate = address(new L2GatewayRouter());
         l2StandardGatewayTemplate = address(new L2ERC20Gateway());
@@ -219,13 +219,13 @@ contract AtomicTokenBridgeCreatorTest is Test {
         {
             (address l1r, address l1sgw, address l1cgw, address l1wgw, address l1w) =
                 factory.inboxToL1Deployment(address(inbox));
-            assertEq(l1r, 0xcB37BCa7042A10FfA75Ff95Ad8B361A13bbAA63A, "l1r");
+            assertEq(l1r, 0xb458B5E13BEf3ca7C4a87bF7368D3Fe9E7a631DE, "l1r");
             assertTrue(l1r.code.length > 0, "l1r code");
-            assertEq(l1sgw, 0x013b54d88f76fb9D05b8382747beb1B4Df313507, "l1sgw");
+            assertEq(l1sgw, 0x75b043aA7C73F9c3eC8D3A1A635a39b30E93cf2f, "l1sgw");
             assertTrue(l1sgw.code.length > 0, "l1sgw code");
-            assertEq(l1cgw, 0xf8663294698E0623de82B9791906454A2036575F, "l1cgw");
+            assertEq(l1cgw, 0x5Edd3097a2a1fE878E61efB2F3FFA41BDD58803E, "l1cgw");
             assertTrue(l1cgw.code.length > 0, "l1cgw code");
-            assertEq(l1wgw, 0x79eF26bE05C5643D5AdC81B8c7e49b0898A74428, "l1wgw");
+            assertEq(l1wgw, 0x9062A6901a9E0285dcd67d14046412be48db143f, "l1wgw");
             assertTrue(l1wgw.code.length > 0, "l1wgw code");
             assertEq(l1w, 0x96d3F6c20EEd2697647F543fE6C08bC2Fbf39758, "l1w");
             assertTrue(l1w.code.length > 0, "l1w code");
@@ -243,24 +243,48 @@ contract AtomicTokenBridgeCreatorTest is Test {
                 address l2mc
             ) = factory.inboxToL2Deployment(address(inbox));
 
-            assertEq(l2r, 0xdB4050B663976d45E810B7C0E3B8B25564bD620d, "l2r");
+            assertEq(l2r, 0xcf35298BFB982476a85201Eb144F7099761744Ee, "l2r");
             assertTrue(l2r.code.length > 0, "l2r code");
-            assertEq(l2sgw, 0x25F753b06E1e092292e6773E119D00BEe5A1b8D4, "l2sgw");
+            assertEq(l2sgw, 0x48d1FE88d96c0Cb40B0ddD660a0dd7edE13517C9, "l2sgw");
             assertTrue(l2sgw.code.length > 0, "l2sgw code");
-            assertEq(l2cgw, 0x4Ca25428D90D0813EC134b5160eb6301909B4A9B, "l2cgw");
+            assertEq(l2cgw, 0x7C8118742fB20e0A786C5C21cbf7c59c412130bD, "l2cgw");
             assertTrue(l2cgw.code.length > 0, "l2cgw code");
-            assertEq(l2wgw, 0x29B1Fa62Af163E550Cb4173BE58787fa2d6456fF, "l2wgw");
+            assertEq(l2wgw, 0x05d35724540FD8E4149933065f53431dfDcF4e80, "l2wgw");
             assertTrue(l2wgw.code.length > 0, "l2wgw code");
-            assertEq(l2w, 0x7C9c18AE0EeA13600496D1222E8Ec22738b29C61, "l2w");
+            assertEq(l2w, 0x9bd4C8C3D644D8036a09726A5044d09cB33a1E3e, "l2w");
             assertTrue(l2w.code.length > 0, "l2w code");
-            assertEq(l2pa, 0xf789F48Bc2c9ee6E98E564E6383B394ba6F9378c, "l2pa");
+            assertEq(l2pa, 0x5C8fEE06019d8E1E1EF424C867f8A40885214aFB, "l2pa");
             assertTrue(l2pa.code.length > 0, "l2pa code");
-            assertEq(l2bpf, 0x9446B15B1128aD326Ccf310a68F2FFB652D31934, "l2bpf");
+            assertEq(l2bpf, 0xa744250a6CA35F6DB35B001AC5aa1E76A7D312CE, "l2bpf");
             assertTrue(l2bpf.code.length > 0, "l2bpf code");
-            assertEq(l2ue, 0xC85c71251E9354Cd6a8992BC02d968B04F4b55e6, "l2ue");
+            assertEq(l2ue, 0x297eA477216C8E118278cB1D91D2A1dE761460f6, "l2ue");
             assertTrue(l2ue.code.length > 0, "l2ue code");
-            assertEq(l2mc, 0x6466F88A4E3B536892e706258c1079D0a880d7Cb, "l2mc");
+            assertEq(l2mc, 0xfb61c207b20a581FA4559f90C1C50eb356c3BE10, "l2mc");
             assertTrue(l2mc.code.length > 0, "l2mc code");
+        }
+    }
+
+    function _deployUpgradeExecutor() internal returns (IUpgradeExecutor executor) {
+        bytes memory bytecode = _getBytecode(
+            "/node_modules/@offchainlabs/upgrade-executor/build/contracts/src/UpgradeExecutor.sol/UpgradeExecutor.json"
+        );
+
+        address addr;
+        assembly {
+            addr := create(0, add(bytecode, 0x20), mload(bytecode))
+        }
+        require(addr != address(0), "bytecode deployment failed");
+
+        executor = IUpgradeExecutor(addr);
+    }
+
+    function _getBytecode(bytes memory path) internal returns (bytes memory) {
+        string memory readerBytecodeFilePath = string(abi.encodePacked(vm.projectRoot(), path));
+        string memory json = vm.readFile(readerBytecodeFilePath);
+        try vm.parseJsonBytes(json, ".bytecode.object") returns (bytes memory bytecode) {
+            return bytecode;
+        } catch {
+            return vm.parseJsonBytes(json, ".bytecode");
         }
     }
 }
