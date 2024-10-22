@@ -7,4 +7,4 @@
 | l1ToL2Token        | mapping(address => address)                                   | 4    | 0      | 32    | contracts/tokenbridge/ethereum/gateway/L1ReverseCustomGateway.sol:L1ReverseCustomGateway |
 | owner              | address                                                       | 5    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1ReverseCustomGateway.sol:L1ReverseCustomGateway |
 | whitelist          | address                                                       | 6    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1ReverseCustomGateway.sol:L1ReverseCustomGateway |
-| _status            | uint256                                                       | 7    | 0      | 32    | contracts/tokenbridge/ethereum/gateway/L1ReverseCustomGateway.sol:L1ReverseCustomGateway |
+| __status           | uint256                                                       | 7    | 0      | 32    | contracts/tokenbridge/ethereum/gateway/L1ReverseCustomGateway.sol:L1ReverseCustomGateway |
