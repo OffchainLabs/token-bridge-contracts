@@ -71,6 +71,9 @@ main().then(() => console.log('Done.'))
  * - if `ROLLUP_OWNER_KEY` is provided, register the gateway in the router through the UpgradeExecutor
  * - if `ROLLUP_OWNER_KEY` is not provided, prepare calldata and store it in `registerUsdcGatewayTx.json` file
  * - set minter role to L2 USDC gateway with max allowance
+ *
+ * Note: Same implementation is used for bridged EURC (Circle's euro stablecoin). The only difference is in the
+ * name/symbol/currency of the L2 token deployment.
  */
 async function main() {
   console.log('Starting USDC bridge deployment')
@@ -184,14 +187,18 @@ async function _deployBridgedUsdc(
     deployerL2Wallet
   )
 
+  const tokenName = process.env['L2_TOKEN_NAME'] as string
+  const tokenSymbol = process.env['L2_TOKEN_SYMBOL'] as string
+  const tokenCurrency = process.env['L2_TOKEN_CURRENCY'] as string
+
   const pauserL2 = deployerL2Wallet
   const blacklisterL2 = deployerL2Wallet
   const lostAndFound = deployerL2Wallet
   await (
     await l2UsdcFiatToken.initialize(
-      'USDC',
-      'USDC.e',
-      'USD',
+      tokenName,
+      tokenSymbol,
+      tokenCurrency,
       6,
       masterMinter.address,
       pauserL2.address,
@@ -199,15 +206,16 @@ async function _deployBridgedUsdc(
       deployerL2Wallet.address
     )
   ).wait()
-  await (await l2UsdcFiatToken.initializeV2('USDC')).wait()
+
+  await (await l2UsdcFiatToken.initializeV2(tokenName)).wait()
   await (await l2UsdcFiatToken.initializeV2_1(lostAndFound.address)).wait()
-  await (await l2UsdcFiatToken.initializeV2_2([], 'USDC.e')).wait()
+  await (await l2UsdcFiatToken.initializeV2_2([], tokenSymbol)).wait()
 
   /// verify initialization
   if (
-    (await l2UsdcFiatToken.name()) != 'USDC' ||
-    (await l2UsdcFiatToken.symbol()) != 'USDC.e' ||
-    (await l2UsdcFiatToken.currency()) != 'USD' ||
+    (await l2UsdcFiatToken.name()) != tokenName ||
+    (await l2UsdcFiatToken.symbol()) != tokenSymbol ||
+    (await l2UsdcFiatToken.currency()) != tokenCurrency ||
     (await l2UsdcFiatToken.decimals()) != 6 ||
     (await l2UsdcFiatToken.masterMinter()) != masterMinter.address ||
     (await l2UsdcFiatToken.pauser()) != pauserL2.address ||
@@ -755,6 +763,9 @@ function _checkEnvVars() {
     'L2_ROUTER',
     'INBOX',
     'L1_USDC',
+    'L2_TOKEN_NAME',
+    'L2_TOKEN_SYMBOL',
+    'L2_TOKEN_CURRENCY',
   ]
 
   for (const envVar of requiredEnvVars) {
