@@ -36,7 +36,16 @@ CHILD_DEPLOYER_KEY=
 L1_ROUTER=
 L2_ROUTER=
 INBOX=
+
+## USDC (or EURC) address on the parent chain
 L1_USDC=
+
+## Naming params for the bridged token which is deployed to child chain. Values should be adjusted based on the parent chain and currency used
+## Circle's naming guideline: https://brand.circle.com/d/M9z54TaEwsWL/stablecoins#/-/usdc-brand-guide/usdc-naming-guidelines
+L2_TOKEN_NAME='USDC'
+L2_TOKEN_SYMBOL='USDC.e'
+L2_TOKEN_CURRENCY='USD'
+
 ## OPTIONAL arg. If set, script will register the gateway, otherwise it will store TX payload in a file
 ROLLUP_OWNER_KEY=
 ```
@@ -80,3 +89,7 @@ Once transition to native USDC is agreed on, following steps are required:
 - Circle calls `burnLockedUSDC()` on the L1 gateway using `burner` account to burn the `burnAmount` of USDC
   - remaining USDC will be cleared off when remaining in-flight USDC withdrawals are executed, if any
   - L1 gateway owner is trusted to not frontrun this TX to modify the burning amount
+
+## EURC deployment
+
+Circle also offers EURC stablecoin. This same standard implementation is applicable for EURC. There is no need to change anything, except to adjust the .env vars to provide EURC parent chain address instead of the USDC address and adjust the token naming vars (name, symbol, currency).
