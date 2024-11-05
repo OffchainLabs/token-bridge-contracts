@@ -295,19 +295,11 @@ contract L1ForceOnlyReverseCustomGatewayTest is L1ReverseCustomGatewayTest {
         );
     }
 
-    function test_registerTokenToL2_CustomRefund(address, address) public virtual override {
-        0; // N/A
-    }
+    function test_registerTokenToL2_CustomRefund(address, address) public virtual override {}
 
-    function test_registerTokenToL2_UpdateToSameAddress(address, address) public virtual override {
-        0; // N/A
-    }
+    function test_registerTokenToL2_UpdateToSameAddress(address, address) public virtual override {}
 
-    function test_registerTokenToL2_revert_NoUpdateToDifferentAddress() public virtual override {
-        0; // N/A
-    }
+    function test_registerTokenToL2_revert_NoUpdateToDifferentAddress() public virtual override {}
 
-    function test_registerTokenToL2_revert_NotArbEnabled() public virtual override {
-        0; // N/A
-    }
+    function test_registerTokenToL2_revert_NotArbEnabled() public virtual override {}
 }

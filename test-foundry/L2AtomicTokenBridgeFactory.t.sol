@@ -17,11 +17,13 @@ import {L2ERC20Gateway} from "contracts/tokenbridge/arbitrum/gateway/L2ERC20Gate
 import {L2CustomGateway} from "contracts/tokenbridge/arbitrum/gateway/L2CustomGateway.sol";
 import {L2WethGateway} from "contracts/tokenbridge/arbitrum/gateway/L2WethGateway.sol";
 import {CreationCodeHelper} from "contracts/tokenbridge/libraries/CreationCodeHelper.sol";
-import {UpgradeExecutor} from "@offchainlabs/upgrade-executor/src/UpgradeExecutor.sol";
+import {IUpgradeExecutor} from "@offchainlabs/upgrade-executor/src/IUpgradeExecutor.sol";
 import {ArbMulticall2} from "contracts/rpc-utils/MulticallV2.sol";
 import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 import {TransparentUpgradeableProxy} from
     "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {IAccessControlUpgradeable} from
+    "@openzeppelin/contracts-upgradeable/access/IAccessControlUpgradeable.sol";
 
 contract L2AtomicTokenBridgeFactoryTest is Test {
     L2AtomicTokenBridgeFactory public l2Factory;
@@ -57,7 +59,7 @@ contract L2AtomicTokenBridgeFactoryTest is Test {
         customGateway = address(new L2CustomGateway());
         wethGateway = address(new L2WethGateway());
         weth = address(new aeWETH());
-        upgradeExecutor = address(new UpgradeExecutor());
+        upgradeExecutor = address(_deployUpgradeExecutor());
         multicall = address(new ArbMulticall2());
 
         /// bytecode which is sent via retryable
@@ -377,23 +379,25 @@ contract L2AtomicTokenBridgeFactoryTest is Test {
             expectedProxyAdminAddress
         );
 
-        bytes32 executorRole = UpgradeExecutor(expectedL2UpgExecutorAddress).EXECUTOR_ROLE();
-        bytes32 adminRole = UpgradeExecutor(expectedL2UpgExecutorAddress).ADMIN_ROLE();
+        bytes32 executorRole = IUpgradeExecutor(expectedL2UpgExecutorAddress).EXECUTOR_ROLE();
+        bytes32 adminRole = IUpgradeExecutor(expectedL2UpgExecutorAddress).ADMIN_ROLE();
 
         assertEq(
-            UpgradeExecutor(expectedL2UpgExecutorAddress).hasRole(
+            IAccessControlUpgradeable(expectedL2UpgExecutorAddress).hasRole(
                 executorRole, aliasedL1UpgradeExecutor
             ),
             true,
             "Wrong executor role"
         );
         assertEq(
-            UpgradeExecutor(expectedL2UpgExecutorAddress).hasRole(executorRole, rollupOwner),
+            IAccessControlUpgradeable(expectedL2UpgExecutorAddress).hasRole(
+                executorRole, rollupOwner
+            ),
             true,
             "Wrong executor role"
         );
         assertEq(
-            UpgradeExecutor(expectedL2UpgExecutorAddress).hasRole(
+            IAccessControlUpgradeable(expectedL2UpgExecutorAddress).hasRole(
                 adminRole, expectedL2UpgExecutorAddress
             ),
             true,
@@ -407,7 +411,9 @@ contract L2AtomicTokenBridgeFactoryTest is Test {
             address(l2Factory)
         );
         assertEq(
-            UpgradeExecutor(expectedL2UpgExecutorLogicAddress).hasRole(adminRole, ADDRESS_DEAD),
+            IAccessControlUpgradeable(expectedL2UpgExecutorLogicAddress).hasRole(
+                adminRole, ADDRESS_DEAD
+            ),
             true,
             "Wrong admin role"
         );
@@ -418,7 +424,7 @@ contract L2AtomicTokenBridgeFactoryTest is Test {
 
         address expectedMulticallAddress = Create2.computeAddress(
             keccak256(abi.encodePacked(bytes("L2MC"), block.chainid, address(this))),
-            keccak256(type(ArbMulticall2).creationCode),
+            keccak256(CreationCodeHelper.getCreationCodeFor(runtimeCode.multicall)),
             address(l2Factory)
         );
 
@@ -508,5 +514,29 @@ contract L2AtomicTokenBridgeFactoryTest is Test {
             ),
             address(l2Factory)
         );
+    }
+
+    function _deployUpgradeExecutor() internal returns (IUpgradeExecutor executor) {
+        bytes memory bytecode = _getBytecode(
+            "/node_modules/@offchainlabs/upgrade-executor/build/contracts/src/UpgradeExecutor.sol/UpgradeExecutor.json"
+        );
+
+        address addr;
+        assembly {
+            addr := create(0, add(bytecode, 0x20), mload(bytecode))
+        }
+        require(addr != address(0), "bytecode deployment failed");
+
+        executor = IUpgradeExecutor(addr);
+    }
+
+    function _getBytecode(bytes memory path) internal returns (bytes memory) {
+        string memory readerBytecodeFilePath = string(abi.encodePacked(vm.projectRoot(), path));
+        string memory json = vm.readFile(readerBytecodeFilePath);
+        try vm.parseJsonBytes(json, ".bytecode.object") returns (bytes memory bytecode) {
+            return bytecode;
+        } catch {
+            return vm.parseJsonBytes(json, ".bytecode");
+        }
     }
 }

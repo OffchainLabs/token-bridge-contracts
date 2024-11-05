@@ -12,7 +12,7 @@ import fs from 'fs'
 
 const LOCALHOST_L2_RPC = 'http://127.0.0.1:8547'
 
-const AE_WETH_EXPECTED_CONSTRUCTOR_SIZE = 348
+const AE_WETH_EXPECTED_CONSTRUCTOR_SIZE = 290
 const UPGRADE_EXECUTOR_EXPECTED_CONSTRUCTOR_SIZE = 242
 
 let provider: JsonRpcProvider
@@ -114,7 +114,14 @@ describe('creationCodeTest', () => {
   })
 
   it('aeWETH constructor has expected size', async function () {
-    const constructorBytecode = await _getConstructorBytecode('aeWETH')
+    const artifact = await hre.artifacts.readArtifact('aeWETH')
+    const creationCode = artifact.bytecode.substring(2)
+    const runtimeCode = artifact.deployedBytecode.substring(2)
+
+    const constructorBytecode = await _getConstructorBytecode(
+      creationCode,
+      runtimeCode
+    )
     const constructorBytecodeLength = _lengthInBytes(constructorBytecode)
 
     expect(constructorBytecodeLength).to.be.eq(
@@ -123,7 +130,18 @@ describe('creationCodeTest', () => {
   })
 
   it('UpgradeExecutor constructor has expected size', async function () {
-    const constructorBytecode = await _getConstructorBytecode('@offchainlabs/upgrade-executor/src/UpgradeExecutor.sol:UpgradeExecutor')
+    const bytecodePath = path.join(
+      __dirname,
+      '../node_modules/@offchainlabs/upgrade-executor/build/contracts/src/UpgradeExecutor.sol/UpgradeExecutor.json'
+    )
+    const artifact = JSON.parse(fs.readFileSync(bytecodePath, 'utf-8'))
+    const creationCode = artifact.bytecode.substring(2)
+    const runtimeCode = artifact.deployedBytecode.substring(2)
+
+    const constructorBytecode = await _getConstructorBytecode(
+      creationCode,
+      runtimeCode
+    )
     const constructorBytecodeLength = _lengthInBytes(constructorBytecode)
 
     expect(constructorBytecodeLength).to.be.eq(
@@ -171,13 +189,10 @@ async function _getTokenBridgeCreator(
  * @param contractName
  * @returns
  */
-async function _getConstructorBytecode(contractName: string): Promise<string> {
-  const artifact = await hre.artifacts.readArtifact(contractName)
-
-  // remove '0x'
-  const creationCode = artifact.bytecode.substring(2)
-  const runtimeCode = artifact.deployedBytecode.substring(2)
-
+async function _getConstructorBytecode(
+  creationCode: string,
+  runtimeCode: string
+): Promise<string> {
   if (!creationCode.includes(runtimeCode)) {
     throw new Error(
       `Error while extracting constructor bytecode for contract ${contractName}.`
