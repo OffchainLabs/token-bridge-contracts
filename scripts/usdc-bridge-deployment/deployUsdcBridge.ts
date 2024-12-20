@@ -384,22 +384,30 @@ async function _initializeGateways(
 
   ///// verify initialization
   if (
-    (await l1UsdcGateway.router()) != l1Router ||
-    (await l1UsdcGateway.inbox()) != inbox ||
-    (await l1UsdcGateway.l1USDC()) != l1Usdc ||
-    (await l1UsdcGateway.l2USDC()) != l2Usdc ||
-    (await l1UsdcGateway.owner()) != _owner ||
-    (await l1UsdcGateway.counterpartGateway()) != _l2CounterPart
+    (await l1UsdcGateway.counterpartGateway()).toLowerCase() !=
+    _l2CounterPart.toLowerCase()
+  ) {
+    console.log('_l2CounterPart')
+  }
+  if (
+    (await l1UsdcGateway.router()).toLowerCase() != l1Router.toLowerCase() ||
+    (await l1UsdcGateway.inbox()).toLowerCase() != inbox.toLowerCase() ||
+    (await l1UsdcGateway.l1USDC()).toLowerCase() != l1Usdc.toLowerCase() ||
+    (await l1UsdcGateway.l2USDC()).toLowerCase() != l2Usdc.toLowerCase() ||
+    (await l1UsdcGateway.owner()).toLowerCase() != _owner.toLowerCase() ||
+    (await l1UsdcGateway.counterpartGateway()).toLowerCase() !=
+      _l2CounterPart.toLowerCase()
   ) {
     throw new Error('L1 USDC gateway initialization failed')
   }
 
   if (
-    (await l2UsdcGateway.counterpartGateway()) != _l1Counterpart ||
-    (await l2UsdcGateway.router()) != l2Router ||
-    (await l2UsdcGateway.l1USDC()) != l1Usdc ||
-    (await l2UsdcGateway.l2USDC()) != l2Usdc ||
-    (await l2UsdcGateway.owner()) != ownerL2
+    (await l2UsdcGateway.counterpartGateway()).toLowerCase() !=
+      _l1Counterpart.toLowerCase() ||
+    (await l2UsdcGateway.router()).toLowerCase() != l2Router.toLowerCase() ||
+    (await l2UsdcGateway.l1USDC()).toLowerCase() != l1Usdc.toLowerCase() ||
+    (await l2UsdcGateway.l2USDC()).toLowerCase() != l2Usdc.toLowerCase() ||
+    (await l2UsdcGateway.owner()).toLowerCase() != ownerL2.toLowerCase()
   ) {
     throw new Error('L2 USDC gateway initialization failed')
   }
@@ -459,7 +467,7 @@ async function _registerGateway(
 
   const maxGas = retryableParams.gasLimit
   const gasPriceBid = retryableParams.maxFeePerGas.mul(3)
-  let maxSubmissionCost = retryableParams.maxSubmissionCost
+  const maxSubmissionCost = retryableParams.maxSubmissionCost
   let totalFee = maxGas.mul(gasPriceBid).add(maxSubmissionCost)
   if (isFeeToken) {
     totalFee = await _getPrescaledAmount(
