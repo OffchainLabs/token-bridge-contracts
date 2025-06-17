@@ -108,6 +108,7 @@ const registerNetworks = async (
 
   const rollup = RollupAdminLogic__factory.connect(rollupAddress, l1Provider)
   const l2Network: L2Network = {
+    blockTime: 10, // customize on orbit chain's demand
     chainID: l2NetworkInfo.chainId,
     confirmPeriodBlocks: (await rollup.confirmPeriodBlocks()).toNumber(),
     ethBridge: {
@@ -122,6 +123,7 @@ const registerNetworks = async (
     isCustom: true,
     name: 'OrbitChain',
     partnerChainID: l1NetworkInfo.chainId,
+    partnerChainIDs: [l1Network.chainID], // customize on orbit chain's demand
     retryableLifetimeSeconds: 7 * 24 * 60 * 60,
     nitroGenesisBlock: 0,
     nitroGenesisL1Block: 0,
