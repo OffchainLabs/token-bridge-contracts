@@ -507,6 +507,19 @@ export const deployL1TokenBridgeCreator = async (
   await l1Multicall.deployed()
 
   console.log(i++);
+  console.log({
+    'l1Templates': l1Templates,
+    'l2TokenBridgeFactoryOnL1.address': l2TokenBridgeFactoryOnL1.address,
+    'l2GatewayRouterOnL1.address': l2GatewayRouterOnL1.address,
+    'l2StandardGatewayAddressOnL1.address': l2StandardGatewayAddressOnL1.address,
+    'l2CustomGatewayAddressOnL1.address': l2CustomGatewayAddressOnL1.address,
+    'l2WethGatewayAddressOnL1.address': l2WethGatewayAddressOnL1.address,
+    'l2WethAddressOnL1.address': l2WethAddressOnL1.address,
+    'l2MulticallAddressOnL1.address': l2MulticallAddressOnL1.address,
+    'l1WethAddress': l1WethAddress,
+    'l1Multicall.address': l1Multicall.address,
+    'gasLimitForL2FactoryDeployment': gasLimitForL2FactoryDeployment,
+  })
   await (
     await l1TokenBridgeCreator.setTemplates(
       l1Templates,
@@ -522,6 +535,8 @@ export const deployL1TokenBridgeCreator = async (
       gasLimitForL2FactoryDeployment
     )
   ).wait()
+  console.log(i++);
+
 
   ///// verify contracts
   if (verifyContracts) {
