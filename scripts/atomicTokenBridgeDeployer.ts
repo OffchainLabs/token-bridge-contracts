@@ -227,40 +227,53 @@ export const deployL1TokenBridgeCreator = async (
   gasLimitForL2FactoryDeployment: BigNumber,
   verifyContracts = false
 ) => {
+  let i = 1;
   /// deploy creator behind proxy
+  console.log(i++);
   const l2MulticallAddressOnL1Fac = await new ArbMulticall2__factory(
     l1Deployer
   ).deploy()
+  console.log(i++);
   const l2MulticallAddressOnL1 = await l2MulticallAddressOnL1Fac.deployed()
 
+  console.log(i++);
   const l1TokenBridgeCreatorProxyAdmin = await new ProxyAdmin__factory(
     l1Deployer
   ).deploy()
+  console.log(i++);
   await l1TokenBridgeCreatorProxyAdmin.deployed()
 
+  console.log(i++);
   const l1TokenBridgeCreatorLogic =
     await new L1AtomicTokenBridgeCreator__factory(l1Deployer).deploy()
+  console.log(i++);
   await l1TokenBridgeCreatorLogic.deployed()
 
+  console.log(i++);
   const l1TokenBridgeCreatorProxy =
     await new TransparentUpgradeableProxy__factory(l1Deployer).deploy(
       l1TokenBridgeCreatorLogic.address,
       l1TokenBridgeCreatorProxyAdmin.address,
       '0x'
     )
+  console.log(i++);
   await l1TokenBridgeCreatorProxy.deployed()
 
+  console.log(i++);
   const l1TokenBridgeCreator = L1AtomicTokenBridgeCreator__factory.connect(
     l1TokenBridgeCreatorProxy.address,
     l1Deployer
   )
 
   /// deploy retryable sender behind proxy
+  console.log(i++);
   const retryableSenderLogic = await new L1TokenBridgeRetryableSender__factory(
     l1Deployer
   ).deploy()
+  console.log(i++);
   await retryableSenderLogic.deployed()
 
+  console.log(i++);
   const retryableSenderProxy = await new TransparentUpgradeableProxy__factory(
     l1Deployer
   ).deploy(
@@ -268,22 +281,29 @@ export const deployL1TokenBridgeCreator = async (
     l1TokenBridgeCreatorProxyAdmin.address,
     '0x'
   )
+  console.log(i++);
   await retryableSenderProxy.deployed()
 
+  console.log(i++);
   const retryableSender = L1TokenBridgeRetryableSender__factory.connect(
     retryableSenderProxy.address,
     l1Deployer
   )
 
   // initialize retryable sender logic contract
+  console.log(i++);
   await (await retryableSenderLogic.initialize()).wait()
 
   /// init creator
+  console.log(i++);
   await (await l1TokenBridgeCreator.initialize(retryableSender.address)).wait()
 
   /// deploy L1 logic contracts. Initialize them with dummy data
+  console.log(i++);
   const routerTemplate = await new L1GatewayRouter__factory(l1Deployer).deploy()
+  console.log(i++);
   await routerTemplate.deployed()
+  console.log(i++);
   await (
     await routerTemplate.initialize(
       ADDRESS_DEAD,
@@ -294,10 +314,13 @@ export const deployL1TokenBridgeCreator = async (
     )
   ).wait()
 
+  console.log(i++);
   const standardGatewayTemplate = await new L1ERC20Gateway__factory(
     l1Deployer
   ).deploy()
+  console.log(i++);
   await standardGatewayTemplate.deployed()
+  console.log(i++);
   await (
     await standardGatewayTemplate.initialize(
       ADDRESS_DEAD,
@@ -308,10 +331,13 @@ export const deployL1TokenBridgeCreator = async (
     )
   ).wait()
 
+  console.log(i++);
   const customGatewayTemplate = await new L1CustomGateway__factory(
     l1Deployer
   ).deploy()
+  console.log(i++);
   await customGatewayTemplate.deployed()
+  console.log(i++);
   await (
     await customGatewayTemplate.initialize(
       ADDRESS_DEAD,
@@ -321,10 +347,13 @@ export const deployL1TokenBridgeCreator = async (
     )
   ).wait()
 
+  console.log(i++);
   const wethGatewayTemplate = await new L1WethGateway__factory(
     l1Deployer
   ).deploy()
+  console.log(i++);
   await wethGatewayTemplate.deployed()
+  console.log(i++);
   await (
     await wethGatewayTemplate.initialize(
       ADDRESS_DEAD,
@@ -335,10 +364,13 @@ export const deployL1TokenBridgeCreator = async (
     )
   ).wait()
 
+  console.log(i++);
   const feeTokenBasedRouterTemplate = await new L1OrbitGatewayRouter__factory(
     l1Deployer
   ).deploy()
+  console.log(i++);
   await feeTokenBasedRouterTemplate.deployed()
+  console.log(i++);
   await (
     await feeTokenBasedRouterTemplate.initialize(
       ADDRESS_DEAD,
@@ -349,9 +381,12 @@ export const deployL1TokenBridgeCreator = async (
     )
   ).wait()
 
+  console.log(i++);
   const feeTokenBasedStandardGatewayTemplate =
     await new L1OrbitERC20Gateway__factory(l1Deployer).deploy()
+  console.log(i++);
   await feeTokenBasedStandardGatewayTemplate.deployed()
+  console.log(i++);
   await (
     await feeTokenBasedStandardGatewayTemplate.initialize(
       ADDRESS_DEAD,
@@ -362,9 +397,12 @@ export const deployL1TokenBridgeCreator = async (
     )
   ).wait()
 
+  console.log(i++);
   const feeTokenBasedCustomGatewayTemplate =
     await new L1OrbitCustomGateway__factory(l1Deployer).deploy()
+  console.log(i++);
   await feeTokenBasedCustomGatewayTemplate.deployed()
+  console.log(i++);
   await (
     await feeTokenBasedCustomGatewayTemplate.initialize(
       ADDRESS_DEAD,
@@ -374,12 +412,15 @@ export const deployL1TokenBridgeCreator = async (
     )
   ).wait()
 
+  console.log(i++);
   const upgradeExecutorFactory = new ethers.ContractFactory(
     UpgradeExecutorABI,
     UpgradeExecutorBytecode,
     l1Deployer
   )
+  console.log(i++);
   const upgradeExecutor = await upgradeExecutorFactory.deploy()
+  console.log(i++);
   await upgradeExecutor.deployed()
 
   const l1Templates = {
@@ -396,22 +437,30 @@ export const deployL1TokenBridgeCreator = async (
   }
 
   /// deploy L2 contracts as placeholders on L1. Initialize them with dummy data
+  console.log(i++);
   const l2TokenBridgeFactoryOnL1 =
     await new L2AtomicTokenBridgeFactory__factory(l1Deployer).deploy()
+  console.log(i++);
   await l2TokenBridgeFactoryOnL1.deployed()
 
+  console.log(i++);
   const l2GatewayRouterOnL1 = await new L2GatewayRouter__factory(
     l1Deployer
   ).deploy()
+  console.log(i++);
   await l2GatewayRouterOnL1.deployed()
+  console.log(i++);
   await (
     await l2GatewayRouterOnL1.initialize(ADDRESS_DEAD, ADDRESS_DEAD)
   ).wait()
 
+  console.log(i++);
   const l2StandardGatewayAddressOnL1 = await new L2ERC20Gateway__factory(
     l1Deployer
   ).deploy()
+  console.log(i++);
   await l2StandardGatewayAddressOnL1.deployed()
+  console.log(i++);
   await (
     await l2StandardGatewayAddressOnL1.initialize(
       ADDRESS_DEAD,
@@ -420,18 +469,24 @@ export const deployL1TokenBridgeCreator = async (
     )
   ).wait()
 
+  console.log(i++);
   const l2CustomGatewayAddressOnL1 = await new L2CustomGateway__factory(
     l1Deployer
   ).deploy()
+  console.log(i++);
   await l2CustomGatewayAddressOnL1.deployed()
+  console.log(i++);
   await (
     await l2CustomGatewayAddressOnL1.initialize(ADDRESS_DEAD, ADDRESS_DEAD)
   ).wait()
 
+  console.log(i++);
   const l2WethGatewayAddressOnL1 = await new L2WethGateway__factory(
     l1Deployer
   ).deploy()
+  console.log(i++);
   await l2WethGatewayAddressOnL1.deployed()
+  console.log(i++);
   await (
     await l2WethGatewayAddressOnL1.initialize(
       ADDRESS_DEAD,
@@ -441,12 +496,17 @@ export const deployL1TokenBridgeCreator = async (
     )
   ).wait()
 
+  console.log(i++);
   const l2WethAddressOnL1 = await new AeWETH__factory(l1Deployer).deploy()
+  console.log(i++);
   await l2WethAddressOnL1.deployed()
 
+  console.log(i++);
   const l1Multicall = await new Multicall2__factory(l1Deployer).deploy()
+  console.log(i++);
   await l1Multicall.deployed()
 
+  console.log(i++);
   await (
     await l1TokenBridgeCreator.setTemplates(
       l1Templates,

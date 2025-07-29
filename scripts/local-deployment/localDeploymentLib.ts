@@ -85,24 +85,29 @@ export const setupTokenBridgeInLocalEnv = async () => {
   // prerequisite - deploy L1 creator and set templates
   console.log('Deploying L1TokenBridgeCreator')
 
+  let i = 1;
   let l1Weth = process.env['PARENT_WETH_OVERRIDE']
   if (l1Weth === undefined || l1Weth === '') {
+    console.log('A', i++);
     const l1WethContract = await new TestWETH9__factory(parentDeployer).deploy(
       'WETH',
       'WETH'
     )
+    console.log('A', i++);
     await l1WethContract.deployed()
 
     l1Weth = l1WethContract.address
   }
 
   //// run retryable estimate for deploying L2 factory
+  console.log('A', i++);
   const deployFactoryGasParams = await getEstimateForDeployingFactory(
     parentDeployer,
     childDeployer.provider!
   )
   const gasLimitForL2FactoryDeployment = deployFactoryGasParams.gasLimit
 
+  console.log('A', i++);
   const { l1TokenBridgeCreator, retryableSender } =
     await deployL1TokenBridgeCreator(
       parentDeployer,
@@ -117,6 +122,7 @@ export const setupTokenBridgeInLocalEnv = async () => {
     '\nCreating token bridge for rollup',
     coreL2Network.ethBridge.rollup
   )
+  console.log('A', i++);
   const { l1Deployment, l2Deployment, l1MultiCall, l1ProxyAdmin } =
     await createTokenBridge(
       parentDeployer,
@@ -128,11 +134,13 @@ export const setupTokenBridgeInLocalEnv = async () => {
 
   // register weth gateway if it exists
   if (l1Deployment.wethGateway !== ethers.constants.AddressZero) {
+    console.log('A', i++);
     const upExecAddress = await IOwnable__factory.connect(
       coreL2Network.ethBridge.rollup,
       parentDeployer
     ).owner()
 
+    console.log('A', i++);
     await registerGateway(
       new Wallet(rollupOwnerKey, parentDeployer.provider!),
       childDeployer.provider!,
