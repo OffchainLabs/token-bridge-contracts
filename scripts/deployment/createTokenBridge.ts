@@ -72,24 +72,24 @@ export const createTokenBridgeOnTargetChain = async () => {
       envVars.rollupOwner
     )
 
-  const l2Network = {
+  const l2Network: ArbitrumNetwork = {
     ...corel2Network,
     tokenBridge: {
-      l1CustomGateway: l1Deployment.customGateway,
-      l1ERC20Gateway: l1Deployment.standardGateway,
-      l1GatewayRouter: l1Deployment.router,
-      l1MultiCall: l1MultiCall,
-      l1ProxyAdmin: l1ProxyAdmin,
-      l1Weth: l1Deployment.weth,
-      l1WethGateway: l1Deployment.wethGateway,
+      parentCustomGateway: l1Deployment.customGateway,
+      parentErc20Gateway: l1Deployment.standardGateway,
+      parentGatewayRouter: l1Deployment.router,
+      parentMultiCall: l1MultiCall,
+      parentProxyAdmin: l1ProxyAdmin,
+      parentWeth: l1Deployment.weth,
+      parentWethGateway: l1Deployment.wethGateway,
 
-      l2CustomGateway: l2Deployment.customGateway,
-      l2ERC20Gateway: l2Deployment.standardGateway,
-      l2GatewayRouter: l2Deployment.router,
-      l2Multicall: l2Deployment.multicall,
-      l2ProxyAdmin: l2Deployment.proxyAdmin,
-      l2Weth: l2Deployment.weth,
-      l2WethGateway: l2Deployment.wethGateway,
+      childCustomGateway: l2Deployment.customGateway,
+      childErc20Gateway: l2Deployment.standardGateway,
+      childGatewayRouter: l2Deployment.router,
+      childMultiCall: l2Deployment.multicall,
+      childProxyAdmin: l2Deployment.proxyAdmin,
+      childWeth: l2Deployment.weth,
+      childWethGateway: l2Deployment.wethGateway,
     },
   }
 
