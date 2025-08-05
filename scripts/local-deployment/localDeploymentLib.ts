@@ -1,6 +1,6 @@
 import { BigNumber, Wallet, ethers } from 'ethers'
 import { JsonRpcProvider } from '@ethersproject/providers'
-import { L1Network, L2Network, addCustomNetwork } from '@arbitrum/sdk'
+import { ArbitrumNetwork, registerCustomArbitrumNetwork } from '@arbitrum/sdk'
 import { Bridge__factory } from '@arbitrum/sdk/dist/lib/abi/factories/Bridge__factory'
 import { RollupAdminLogic__factory } from '@arbitrum/sdk/dist/lib/abi/factories/RollupAdminLogic__factory'
 import { execSync } from 'child_process'
@@ -75,28 +75,12 @@ export const setupTokenBridgeInLocalEnv = async () => {
   )
 
   /// register networks
-  const { l1Network, l2Network: coreL2Network } = await getLocalNetworks(
+  const { l2Network: coreL2Network } = await getLocalNetwork(
     parentRpc,
     childRpc,
     rollupAddress
   )
-  const _l1Network = l1Network as L2Network
-  const ethLocal: L1Network = {
-    blockTime: 10,
-    chainID: _l1Network.partnerChainID,
-    explorerUrl: '',
-    isCustom: true,
-    name: 'EthLocal',
-    partnerChainIDs: [_l1Network.chainID],
-    isArbitrum: false,
-  }
-  addCustomNetwork({
-    customL1Network: ethLocal,
-    customL2Network: _l1Network,
-  })
-  addCustomNetwork({
-    customL2Network: coreL2Network,
-  })
+  registerCustomArbitrumNetwork(coreL2Network)
 
   // prerequisite - deploy L1 creator and set templates
   console.log('Deploying L1TokenBridgeCreator')
@@ -159,24 +143,24 @@ export const setupTokenBridgeInLocalEnv = async () => {
     )
   }
 
-  const l2Network: L2Network = {
+  const l2Network: ArbitrumNetwork = {
     ...coreL2Network,
     tokenBridge: {
-      l1CustomGateway: l1Deployment.customGateway,
-      l1ERC20Gateway: l1Deployment.standardGateway,
-      l1GatewayRouter: l1Deployment.router,
-      l1MultiCall: l1MultiCall,
-      l1ProxyAdmin: l1ProxyAdmin,
-      l1Weth: l1Deployment.weth,
-      l1WethGateway: l1Deployment.wethGateway,
+      parentCustomGateway: l1Deployment.customGateway,
+      parentErc20Gateway: l1Deployment.standardGateway,
+      parentGatewayRouter: l1Deployment.router,
+      parentMultiCall: l1MultiCall,
+      parentProxyAdmin: l1ProxyAdmin,
+      parentWeth: l1Deployment.weth,
+      parentWethGateway: l1Deployment.wethGateway,
 
-      l2CustomGateway: l2Deployment.customGateway,
-      l2ERC20Gateway: l2Deployment.standardGateway,
-      l2GatewayRouter: l2Deployment.router,
-      l2Multicall: l2Deployment.multicall,
-      l2ProxyAdmin: l2Deployment.proxyAdmin,
-      l2Weth: l2Deployment.weth,
-      l2WethGateway: l2Deployment.wethGateway,
+      childCustomGateway: l2Deployment.customGateway,
+      childErc20Gateway: l2Deployment.standardGateway,
+      childGatewayRouter: l2Deployment.router,
+      childMultiCall: l2Deployment.multicall,
+      childProxyAdmin: l2Deployment.proxyAdmin,
+      childWeth: l2Deployment.weth,
+      childWethGateway: l2Deployment.wethGateway,
     },
   }
 
@@ -184,20 +168,18 @@ export const setupTokenBridgeInLocalEnv = async () => {
   const retryableSenderAddress = retryableSender.address
 
   return {
-    l1Network,
     l2Network,
     l1TokenBridgeCreatorAddress,
     retryableSenderAddress,
   }
 }
 
-export const getLocalNetworks = async (
+export const getLocalNetwork = async (
   l1Url: string,
   l2Url: string,
   rollupAddress?: string
 ): Promise<{
-  l1Network: L1Network | L2Network
-  l2Network: L2Network
+  l2Network: ArbitrumNetwork
 }> => {
   const l1Provider = new JsonRpcProvider(l1Url)
   const l2Provider = new JsonRpcProvider(l2Url)
@@ -219,46 +201,6 @@ export const getLocalNetworks = async (
     inbox: string
     ['sequencer-inbox']: string
     rollup: string
-  }
-
-  const l1Network: L1Network | L2Network = {
-    partnerChainID: 1337,
-    partnerChainIDs: [l2NetworkInfo.chainId],
-    isArbitrum: true,
-    confirmPeriodBlocks: 20,
-    retryableLifetimeSeconds: 7 * 24 * 60 * 60,
-    nitroGenesisBlock: 0,
-    nitroGenesisL1Block: 0,
-    depositTimeout: 900000,
-    chainID: 412346,
-    explorerUrl: '',
-    isCustom: true,
-    name: 'ArbLocal',
-    blockTime: 0.25,
-    ethBridge: {
-      bridge: l2Data.bridge,
-      inbox: l2Data.inbox,
-      outbox: '',
-      rollup: l2Data.rollup,
-      sequencerInbox: l2Data['sequencer-inbox'],
-    },
-    tokenBridge: {
-      l1CustomGateway: '',
-      l1ERC20Gateway: '',
-      l1GatewayRouter: '',
-      l1MultiCall: '',
-      l1ProxyAdmin: '',
-      l1Weth: '',
-      l1WethGateway: '',
-
-      l2CustomGateway: '',
-      l2ERC20Gateway: '',
-      l2GatewayRouter: '',
-      l2Multicall: '',
-      l2ProxyAdmin: '',
-      l2Weth: '',
-      l2WethGateway: '',
-    },
   }
 
   /// get L3 info
@@ -298,10 +240,9 @@ export const getLocalNetworks = async (
   const bridge = Bridge__factory.connect(data.bridge, l1Provider)
   const outboxAddr = await bridge.allowedOutboxList(0)
 
-  const l2Network: L2Network = {
-    partnerChainID: l1NetworkInfo.chainId,
-    partnerChainIDs: [],
-    chainID: l2NetworkInfo.chainId,
+  const l2Network: ArbitrumNetwork = {
+    parentChainId: l1NetworkInfo.chainId,
+    chainId: l2NetworkInfo.chainId,
     confirmPeriodBlocks: 20,
     ethBridge: {
       bridge: data.bridge,
@@ -310,35 +251,12 @@ export const getLocalNetworks = async (
       rollup: data.rollup,
       sequencerInbox: data['sequencer-inbox'],
     },
-    explorerUrl: '',
-    isArbitrum: true,
     isCustom: true,
-    blockTime: 0.25,
     name: 'OrbitLocal',
     retryableLifetimeSeconds: 7 * 24 * 60 * 60,
-    nitroGenesisBlock: 0,
-    nitroGenesisL1Block: 0,
-    depositTimeout: 900000,
-    tokenBridge: {
-      l1CustomGateway: '',
-      l1ERC20Gateway: '',
-      l1GatewayRouter: '',
-      l1MultiCall: '',
-      l1ProxyAdmin: '',
-      l1Weth: '',
-      l1WethGateway: '',
-
-      l2CustomGateway: '',
-      l2ERC20Gateway: '',
-      l2GatewayRouter: '',
-      l2Multicall: '',
-      l2ProxyAdmin: '',
-      l2Weth: '',
-      l2WethGateway: '',
-    },
+    isTestnet: true
   }
   return {
-    l1Network,
     l2Network,
   }
 }
