@@ -254,7 +254,7 @@ export const getLocalNetwork = async (
     isCustom: true,
     name: 'OrbitLocal',
     retryableLifetimeSeconds: 7 * 24 * 60 * 60,
-    isTestnet: false
+    isTestnet: true
   }
   return {
     l2Network,
