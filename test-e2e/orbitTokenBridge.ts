@@ -479,20 +479,8 @@ describe('orbitTokenBridge', () => {
     )
 
     // approve fee amount
-    const valueForGateway = nativeToken
-      ? await _getScaledAmount(
-          nativeToken.address,
-          gwRetryableParams.deposit,
-          nativeToken.provider!
-        )
-      : gwRetryableParams.deposit
-    const valueForRouter = nativeToken
-      ? await _getScaledAmount(
-          nativeToken.address,
-          routerRetryableParams.deposit,
-          nativeToken.provider!
-        )
-      : routerRetryableParams.deposit
+    const valueForGateway = gwRetryableParams.deposit
+    const valueForRouter = routerRetryableParams.deposit
     const registrationFee = valueForGateway.add(valueForRouter).mul(2)
     if (nativeToken) {
       await (
