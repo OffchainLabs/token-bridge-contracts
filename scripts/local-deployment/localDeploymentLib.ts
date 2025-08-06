@@ -12,6 +12,7 @@ import {
 } from '../atomicTokenBridgeDeployer'
 import {
   ERC20__factory,
+  IERC20Bridge__factory,
   IOwnable__factory,
   TestWETH9__factory,
 } from '../../build/types'
@@ -240,7 +241,14 @@ export const getLocalNetwork = async (
   const bridge = Bridge__factory.connect(data.bridge, l1Provider)
   const outboxAddr = await bridge.allowedOutboxList(0)
 
+  let nativeToken: string | undefined = undefined
+  try {
+    nativeToken = await IERC20Bridge__factory.connect(data.bridge, l1Provider).nativeToken()
+  }
+  catch {}
+
   const l2Network: ArbitrumNetwork = {
+    nativeToken,
     parentChainId: l1NetworkInfo.chainId,
     chainId: l2NetworkInfo.chainId,
     confirmPeriodBlocks: 20,
