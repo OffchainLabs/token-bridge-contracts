@@ -3,7 +3,6 @@ import { setupTokenBridgeInLocalEnv } from './localDeploymentLib'
 
 async function main() {
   const {
-    l1Network,
     l2Network,
     l1TokenBridgeCreatorAddress: l1TokenBridgeCreator,
     retryableSenderAddress: retryableSender,
@@ -13,7 +12,7 @@ async function main() {
   fs.writeFileSync(
     NETWORK_FILE,
     JSON.stringify(
-      { l1Network, l2Network, l1TokenBridgeCreator, retryableSender },
+      { l2Network, l1TokenBridgeCreator, retryableSender },
       null,
       2
     )

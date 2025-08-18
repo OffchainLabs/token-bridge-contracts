@@ -41,12 +41,11 @@ import {
   bytecode as MasterMinterBytecode,
 } from '@offchainlabs/stablecoin-evm/artifacts/hardhat/contracts/minting/MasterMinter.sol/MasterMinter.json'
 import {
-  addCustomNetwork,
-  L1Network,
-  L1ToL2MessageGasEstimator,
-  L1ToL2MessageStatus,
-  L1TransactionReceipt,
-  L2Network,
+  registerCustomArbitrumNetwork,
+  ParentToChildMessageGasEstimator,
+  ParentToChildMessageStatus,
+  ParentTransactionReceipt,
+  ArbitrumNetwork
 } from '@arbitrum/sdk'
 import { RollupAdminLogic__factory } from '@arbitrum/sdk/dist/lib/abi/factories/RollupAdminLogic__factory'
 import { getBaseFee } from '@arbitrum/sdk/dist/lib/utils/lib'
@@ -451,7 +450,7 @@ async function _registerGateway(
       [[l1UsdcAddress], [l1UsdcGatewayAddress]]
     )
 
-  const l1ToL2MessageGasEstimate = new L1ToL2MessageGasEstimator(childProvider)
+  const l1ToL2MessageGasEstimate = new ParentToChildMessageGasEstimator(childProvider)
   const retryableParams = await l1ToL2MessageGasEstimate.estimateAll(
     {
       from: l1RouterAddress,
@@ -479,7 +478,7 @@ async function _registerGateway(
 
   const registrationCalldata = isFeeToken
     ? L1OrbitGatewayRouter__factory.createInterface().encodeFunctionData(
-        'setGateways(address[],address[],uint256,uint256,uint256,uint256)',
+        'setGateways',
         [
           [l1UsdcAddress],
           [l1UsdcGatewayAddress],
@@ -490,7 +489,7 @@ async function _registerGateway(
         ]
       )
     : L1GatewayRouter__factory.createInterface().encodeFunctionData(
-        'setGateways(address[],address[],uint256,uint256,uint256)',
+        'setGateways',
         [
           [l1UsdcAddress],
           [l1UsdcGatewayAddress],
@@ -631,14 +630,14 @@ async function _isUpgradeExecutor(
  */
 async function _waitOnL2Msg(tx: ContractTransaction, childProvider: Provider) {
   const retryableReceipt = await tx.wait()
-  const l1TxReceipt = new L1TransactionReceipt(retryableReceipt)
-  const messages = await l1TxReceipt.getL1ToL2Messages(childProvider)
+  const l1TxReceipt = new ParentTransactionReceipt(retryableReceipt)
+  const messages = await l1TxReceipt.getParentToChildMessages(childProvider)
 
   // 1 msg expected
   const messageResult = await messages[0].waitForStatus()
   const status = messageResult.status
 
-  if (status != L1ToL2MessageStatus.REDEEMED) {
+  if (status != ParentToChildMessageStatus.REDEEMED) {
     throw new Error('L1->L2 message not redeemed')
   }
 }
@@ -655,31 +654,19 @@ async function _registerNetworks(
   l2Provider: Provider,
   inboxAddress: string
 ): Promise<{
-  l1Network: L1Network
-  l2Network: Omit<L2Network, 'tokenBridge'>
+  l2Network: ArbitrumNetwork
 }> {
   const l1NetworkInfo = await l1Provider.getNetwork()
   const l2NetworkInfo = await l2Provider.getNetwork()
-
-  const l1Network: L1Network = {
-    blockTime: 10,
-    chainID: l1NetworkInfo.chainId,
-    explorerUrl: '',
-    isCustom: true,
-    name: l1NetworkInfo.name,
-    partnerChainIDs: [l2NetworkInfo.chainId],
-    isArbitrum: false,
-  }
 
   const rollupAddress = await IBridge__factory.connect(
     await IInboxBase__factory.connect(inboxAddress, l1Provider).bridge(),
     l1Provider
   ).rollup()
   const rollup = RollupAdminLogic__factory.connect(rollupAddress, l1Provider)
-  const l2Network: L2Network = {
-    blockTime: 10,
-    partnerChainIDs: [],
-    chainID: l2NetworkInfo.chainId,
+  const l2Network: ArbitrumNetwork = {
+    isTestnet: false,
+    chainId: l2NetworkInfo.chainId,
     confirmPeriodBlocks: (await rollup.confirmPeriodBlocks()).toNumber(),
     ethBridge: {
       bridge: await rollup.bridge(),
@@ -688,41 +675,16 @@ async function _registerNetworks(
       rollup: rollup.address,
       sequencerInbox: await rollup.sequencerInbox(),
     },
-    explorerUrl: '',
-    isArbitrum: true,
     isCustom: true,
     name: 'OrbitChain',
-    partnerChainID: l1NetworkInfo.chainId,
+    parentChainId: l1NetworkInfo.chainId,
     retryableLifetimeSeconds: 7 * 24 * 60 * 60,
-    nitroGenesisBlock: 0,
-    nitroGenesisL1Block: 0,
-    depositTimeout: 900000,
-    tokenBridge: {
-      l1CustomGateway: '',
-      l1ERC20Gateway: '',
-      l1GatewayRouter: '',
-      l1MultiCall: '',
-      l1ProxyAdmin: '',
-      l1Weth: '',
-      l1WethGateway: '',
-      l2CustomGateway: '',
-      l2ERC20Gateway: '',
-      l2GatewayRouter: '',
-      l2Multicall: '',
-      l2ProxyAdmin: '',
-      l2Weth: '',
-      l2WethGateway: '',
-    },
   }
 
   // register - needed for retryables
-  addCustomNetwork({
-    customL1Network: l1Network,
-    customL2Network: l2Network,
-  })
+  registerCustomArbitrumNetwork(l2Network)
 
   return {
-    l1Network,
     l2Network,
   }
 }

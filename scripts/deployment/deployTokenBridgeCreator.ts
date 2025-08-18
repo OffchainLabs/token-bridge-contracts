@@ -1,5 +1,5 @@
 import { JsonRpcProvider } from '@ethersproject/providers'
-import { L1Network, L2Network, addCustomNetwork } from '@arbitrum/sdk'
+import { ArbitrumNetwork, registerCustomArbitrumNetwork } from '@arbitrum/sdk'
 import { RollupAdminLogic__factory } from '@arbitrum/sdk/dist/lib/abi/factories/RollupAdminLogic__factory'
 import {
   deployL1TokenBridgeCreator,
@@ -90,25 +90,15 @@ const registerNetworks = async (
   l2Provider: JsonRpcProvider,
   rollupAddress: string
 ): Promise<{
-  l1Network: L1Network
-  l2Network: Omit<L2Network, 'tokenBridge'>
+  l2Network: ArbitrumNetwork
 }> => {
   const l1NetworkInfo = await l1Provider.getNetwork()
   const l2NetworkInfo = await l2Provider.getNetwork()
 
-  const l1Network: L1Network = {
-    blockTime: 10,
-    chainID: l1NetworkInfo.chainId,
-    explorerUrl: '',
-    isCustom: true,
-    name: l1NetworkInfo.name,
-    partnerChainIDs: [l2NetworkInfo.chainId],
-    isArbitrum: false,
-  }
-
   const rollup = RollupAdminLogic__factory.connect(rollupAddress, l1Provider)
-  const l2Network: L2Network = {
-    chainID: l2NetworkInfo.chainId,
+  const l2Network: ArbitrumNetwork = {
+    isTestnet: false,
+    chainId: l2NetworkInfo.chainId,
     confirmPeriodBlocks: (await rollup.confirmPeriodBlocks()).toNumber(),
     ethBridge: {
       bridge: await rollup.bridge(),
@@ -117,41 +107,16 @@ const registerNetworks = async (
       rollup: rollup.address,
       sequencerInbox: await rollup.sequencerInbox(),
     },
-    explorerUrl: '',
-    isArbitrum: true,
     isCustom: true,
     name: 'OrbitChain',
-    partnerChainID: l1NetworkInfo.chainId,
+    parentChainId: l1NetworkInfo.chainId,
     retryableLifetimeSeconds: 7 * 24 * 60 * 60,
-    nitroGenesisBlock: 0,
-    nitroGenesisL1Block: 0,
-    depositTimeout: 900000,
-    tokenBridge: {
-      l1CustomGateway: '',
-      l1ERC20Gateway: '',
-      l1GatewayRouter: '',
-      l1MultiCall: '',
-      l1ProxyAdmin: '',
-      l1Weth: '',
-      l1WethGateway: '',
-      l2CustomGateway: '',
-      l2ERC20Gateway: '',
-      l2GatewayRouter: '',
-      l2Multicall: '',
-      l2ProxyAdmin: '',
-      l2Weth: '',
-      l2WethGateway: '',
-    },
   }
 
   // register - needed for retryables
-  addCustomNetwork({
-    customL1Network: l1Network,
-    customL2Network: l2Network,
-  })
+  registerCustomArbitrumNetwork(l2Network)
 
   return {
-    l1Network,
     l2Network,
   }
 }
