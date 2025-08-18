@@ -33,18 +33,18 @@ import {
 } from '@offchainlabs/upgrade-executor/build/contracts/src/UpgradeExecutor.sol/UpgradeExecutor.json'
 import { JsonRpcProvider } from '@ethersproject/providers'
 import {
-  L1ToL2MessageGasEstimator,
-  L1ToL2MessageStatus,
-  L1TransactionReceipt,
+  ParentToChildMessageGasEstimator,
+  ParentToChildMessageStatus,
+  ParentTransactionReceipt,
+  ParentContractCallTransactionReceipt
 } from '@arbitrum/sdk'
 import { exit } from 'process'
 import { getBaseFee } from '@arbitrum/sdk/dist/lib/utils/lib'
 import { RollupAdminLogic__factory } from '@arbitrum/sdk/dist/lib/abi/factories/RollupAdminLogic__factory'
 import { ContractVerifier } from './contractVerifier'
 import { OmitTyped } from '@arbitrum/sdk/dist/lib/utils/types'
-import { L1ToL2MessageGasParams } from '@arbitrum/sdk/dist/lib/message/L1ToL2MessageCreator'
-import { L1ContractCallTransactionReceipt } from '@arbitrum/sdk/dist/lib/message/L1Transaction'
 import { _getScaledAmount } from './local-deployment/localDeploymentLib'
+import { ParentToChildMessageGasParams } from '@arbitrum/sdk/dist/lib/message/ParentToChildMessageCreator'
 
 /**
  * Dummy non-zero address which is provided to logic contracts initializers
@@ -168,25 +168,25 @@ export const createTokenBridge = async (
   console.log('Deployment TX:', receipt.transactionHash)
 
   /// wait for execution of both tickets
-  const l1TxReceipt = new L1TransactionReceipt(receipt)
-  const messages = await l1TxReceipt.getL1ToL2Messages(l2Provider)
+  const l1TxReceipt = new ParentTransactionReceipt(receipt)
+  const messages = await l1TxReceipt.getParentToChildMessages(l2Provider)
   const messageResults = await Promise.all(
     messages.map(message => message.waitForStatus())
   )
 
   // if both tickets are not redeemed log it and exit
   if (
-    messageResults[0].status !== L1ToL2MessageStatus.REDEEMED ||
-    messageResults[1].status !== L1ToL2MessageStatus.REDEEMED
+    messageResults[0].status !== ParentToChildMessageStatus.REDEEMED ||
+    messageResults[1].status !== ParentToChildMessageStatus.REDEEMED
   ) {
     console.log(
       `Retryable ticket (ID ${messages[0].retryableCreationId}) status: ${
-        L1ToL2MessageStatus[messageResults[0].status]
+        ParentToChildMessageStatus[messageResults[0].status]
       }`
     )
     console.log(
       `Retryable ticket (ID ${messages[1].retryableCreationId}) status: ${
-        L1ToL2MessageStatus[messageResults[1].status]
+        ParentToChildMessageStatus[messageResults[1].status]
       }`
     )
     exit()
@@ -195,7 +195,7 @@ export const createTokenBridge = async (
   /// pick up L2 factory address from 1st ticket
   const l2AtomicTokenBridgeFactory =
     L2AtomicTokenBridgeFactory__factory.connect(
-      messageResults[0].l2TxReceipt.contractAddress,
+      messageResults[0].childTxReceipt.contractAddress,
       l2Provider
     )
   console.log('L2AtomicTokenBridgeFactory', l2AtomicTokenBridgeFactory.address)
@@ -603,7 +603,7 @@ export const registerGateway = async (
 
   const executorAddress = await l1Executor.getAddress()
 
-  const buildCall = (params: OmitTyped<L1ToL2MessageGasParams, 'deposit'>) => {
+  const buildCall = (params: OmitTyped<ParentToChildMessageGasParams, 'deposit'>) => {
     const routerCalldata =
       L1GatewayRouter__factory.createInterface().encodeFunctionData(
         'setGateways',
@@ -628,13 +628,13 @@ export const registerGateway = async (
     }
   }
 
-  const estimator = new L1ToL2MessageGasEstimator(l2Provider)
+  const estimator = new ParentToChildMessageGasEstimator(l2Provider)
   const txRequest = await estimator.populateFunctionParams(
     buildCall,
     l1Executor.provider!
   )
 
-  const receipt = new L1ContractCallTransactionReceipt(
+  const receipt = new ParentContractCallTransactionReceipt(
     await (
       await l1Executor.sendTransaction({
         to: txRequest.to,
@@ -645,12 +645,12 @@ export const registerGateway = async (
   )
 
   // wait for execution of ticket
-  const message = (await receipt.getL1ToL2Messages(l2Provider))[0]
+  const message = (await receipt.getParentToChildMessages(l2Provider))[0]
   const messageResult = await message.waitForStatus()
-  if (messageResult.status !== L1ToL2MessageStatus.REDEEMED) {
+  if (messageResult.status !== ParentToChildMessageStatus.REDEEMED) {
     console.log(
       `Retryable ticket (ID ${message.retryableCreationId}) status: ${
-        L1ToL2MessageStatus[messageResult.status]
+        ParentToChildMessageStatus[messageResult.status]
       }`
     )
     exit()
@@ -663,7 +663,7 @@ export const getEstimateForDeployingFactory = async (
 ) => {
   //// run retryable estimate for deploying L2 factory
   const l1DeployerAddress = await l1Deployer.getAddress()
-  const l1ToL2MsgGasEstimate = new L1ToL2MessageGasEstimator(l2Provider)
+  const l1ToL2MsgGasEstimate = new ParentToChildMessageGasEstimator(l2Provider)
   const deployFactoryGasParams = await l1ToL2MsgGasEstimate.estimateAll(
     {
       from: ethers.Wallet.createRandom().address,

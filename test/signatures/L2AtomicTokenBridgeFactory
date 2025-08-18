@@ -1,3 +1,7 @@
-{
-  "deployL2Contracts((bytes,bytes,bytes,bytes,bytes,bytes,bytes),address,address,address,address,address,address,address,address)": "b1c7a870"
-}
+
+╭--------------------------------------------------------------------------------------------------------------------------------+------------╮
+| Method                                                                                                                         | Identifier |
++=============================================================================================================================================+
+| deployL2Contracts((bytes,bytes,bytes,bytes,bytes,bytes,bytes),address,address,address,address,address,address,address,address) | b1c7a870   |
+╰--------------------------------------------------------------------------------------------------------------------------------+------------╯
+
