@@ -285,7 +285,7 @@ if (process.env['INTERFACE_TESTER_SOLC_VERSION']) {
     'contracts/tokenbridge/test/InterfaceCompatibilityTester.sol': {
       version: process.env['INTERFACE_TESTER_SOLC_VERSION'],
     },
-  }
+  } as typeof config.solidity.overrides
 }
 
 module.exports = config
