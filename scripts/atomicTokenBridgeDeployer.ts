@@ -1,4 +1,14 @@
-import { BigNumber, Signer, Wallet, ethers } from 'ethers'
+import { ethers } from 'hardhat'
+import {
+  BigNumber,
+  Contract,
+  ContractFactory,
+  Overrides,
+  Signer,
+  Wallet,
+} from 'ethers'
+import { Interface, hexZeroPad, defaultAbiCoder } from 'ethers/lib/utils'
+import { Provider, Log } from '@ethersproject/providers'
 import {
   L1CustomGateway__factory,
   L1ERC20Gateway__factory,
@@ -24,8 +34,8 @@ import {
   ArbMulticall2__factory,
   Multicall2__factory,
   IInboxProxyAdmin__factory,
-  ERC20__factory,
   UpgradeExecutor__factory,
+  L1TokenBridgeRetryableSender,
 } from '../build/types'
 import {
   abi as UpgradeExecutorABI,
@@ -36,7 +46,7 @@ import {
   ParentToChildMessageGasEstimator,
   ParentToChildMessageStatus,
   ParentTransactionReceipt,
-  ParentContractCallTransactionReceipt
+  ParentContractCallTransactionReceipt,
 } from '@arbitrum/sdk'
 import { exit } from 'process'
 import { getBaseFee } from '@arbitrum/sdk/dist/lib/utils/lib'
@@ -45,11 +55,119 @@ import { ContractVerifier } from './contractVerifier'
 import { OmitTyped } from '@arbitrum/sdk/dist/lib/utils/types'
 import { _getScaledAmount } from './local-deployment/localDeploymentLib'
 import { ParentToChildMessageGasParams } from '@arbitrum/sdk/dist/lib/message/ParentToChildMessageCreator'
+import {
+  concat,
+  getCreate2Address,
+  hexDataLength,
+  keccak256,
+} from 'ethers/lib/utils'
 
 /**
  * Dummy non-zero address which is provided to logic contracts initializers
  */
 const ADDRESS_DEAD = '0x000000000000000000000000000000000000dEaD'
+
+/**
+ * Types
+ */
+export type DeployTokenBridgeCreatorResult = {
+  parentTokenBridgeCreator: L1AtomicTokenBridgeCreator
+  retryableSender: L1TokenBridgeRetryableSender
+}
+
+/**
+ * @notice Deploys a contract using the provided factory class and signer.
+ * @dev Supports optional contract verification and deployment via CREATE2.
+ * @param FactoryClass - The contract factory class to use for deployment.
+ * @param signer - The signer to deploy the contract.
+ * @param constructorArgs - Arguments for the contract constructor.
+ * @param verify - Whether to verify the contract after deployment.
+ * @param useCreate2 - Whether to use CREATE2 for deployment.
+ * @param overrides - Optional transaction overrides.
+ * @return The deployed contract instance.
+ */
+export async function deployContract(
+  FactoryClass: new (signer: Signer) => ContractFactory,
+  signer: Signer,
+  constructorArgs: any[] = [],
+  verify = true,
+  useCreate2 = false,
+  overrides?: Overrides
+): Promise<Contract> {
+  const factory = new FactoryClass(signer)
+
+  const deploymentArgs = [...constructorArgs]
+  if (overrides) {
+    deploymentArgs.push(overrides)
+  }
+
+  let contract: Contract
+  if (useCreate2) {
+    contract = await create2(
+      factory,
+      constructorArgs,
+      ethers.constants.HashZero,
+      overrides
+    )
+  } else {
+    contract = await factory.deploy(...deploymentArgs)
+    await contract.deployTransaction.wait()
+  }
+
+  const contractName = FactoryClass.name.replace('__factory', '')
+
+  console.log(
+    `* ${contractName} created at address: ${
+      contract.address
+    } ${constructorArgs.join(' ')}`
+  )
+
+  /*
+  if (verify) {
+    await verifyContract(
+      signer,
+      contractName,
+      contract.address,
+      constructorArgs
+    )
+  }
+  */
+
+  return contract
+}
+
+/**
+ * @notice Initializes a contract by calling its `initialize` function with the provided arguments.
+ * @dev If the contract is already initialized, logs a message and does not throw.
+ * @param contract The contract instance to initialize.
+ * @param initializationArgs Arguments to pass to the contract's `initialize` function.
+ * @throws If initialization fails for reasons other than the contract being already initialized.
+ */
+export async function initializeContract(
+  contract: Contract,
+  initializationArgs: any[] = []
+): Promise<void> {
+  const contractName = contract.constructor.name.replace('__factory', '')
+
+  try {
+    await (await contract.initialize(...initializationArgs)).wait()
+    console.log(`   => Initialized successfully`)
+  } catch (error: any) {
+    // Revert reason will be in `error.error.reason`
+    if (
+      error.error &&
+      error.error.reason &&
+      [
+        'execution reverted: ALREADY_INIT',
+        'execution reverted: Initializable: contract is already initialized',
+      ].includes(error.error.reason)
+    ) {
+      console.log(`   => Already initialized`)
+    } else {
+      throw error
+    }
+  }
+}
 
 /**
  * Use already deployed L1TokenBridgeCreator to create and init token bridge contracts.
@@ -65,7 +183,7 @@ const ADDRESS_DEAD = '0x000000000000000000000000000000000000dEaD'
  */
 export const createTokenBridge = async (
   l1Signer: Signer,
-  l2Provider: ethers.providers.Provider,
+  l2Provider: Provider,
   l1TokenBridgeCreator: L1AtomicTokenBridgeCreator,
   rollupAddress: string,
   rollupOwnerAddress: string
@@ -100,23 +218,23 @@ export const createTokenBridge = async (
   const gasEstimateToDeployContracts =
     await l2FactoryTemplate.estimateGas.deployL2Contracts(
       l2Code,
-      ethers.Wallet.createRandom().address,
-      ethers.Wallet.createRandom().address,
-      ethers.Wallet.createRandom().address,
-      ethers.Wallet.createRandom().address,
-      ethers.Wallet.createRandom().address,
-      ethers.Wallet.createRandom().address,
-      ethers.Wallet.createRandom().address,
-      ethers.Wallet.createRandom().address
+      Wallet.createRandom().address,
+      Wallet.createRandom().address,
+      Wallet.createRandom().address,
+      Wallet.createRandom().address,
+      Wallet.createRandom().address,
+      Wallet.createRandom().address,
+      Wallet.createRandom().address,
+      Wallet.createRandom().address
     )
   const maxGasForContracts = gasEstimateToDeployContracts.mul(2)
   const maxSubmissionCostForContracts =
     deployFactoryGasParams.maxSubmissionCost.mul(2)
 
-  let retryableFeeForFactory = maxSubmissionCostForFactory.add(
+  const retryableFeeForFactory = maxSubmissionCostForFactory.add(
     maxGasForFactory.mul(gasPrice)
   )
-  let retryableFeeForContracts = maxSubmissionCostForContracts.add(
+  const retryableFeeForContracts = maxSubmissionCostForContracts.add(
     maxGasForContracts.mul(gasPrice)
   )
 
@@ -130,12 +248,12 @@ export const createTokenBridge = async (
   const feeToken = await _getFeeToken(inbox, l1Signer.provider!)
   if (feeToken != ethers.constants.AddressZero) {
     // scale the retryable fees to the fee token decimals denomination
-    let scaledRetryableFeeForFactory = await _getScaledAmount(
+    const scaledRetryableFeeForFactory = await _getScaledAmount(
       feeToken,
       retryableFeeForFactory,
       l1Signer.provider!
     )
-    let scaledRetryableFeeForContracts = await _getScaledAmount(
+    const scaledRetryableFeeForContracts = await _getScaledAmount(
       feeToken,
       retryableFeeForContracts,
       l1Signer.provider!
@@ -215,254 +333,380 @@ export const createTokenBridge = async (
 }
 
 /**
- * Deploy token bridge creator contract to base chain and set all the templates
- * @param l1Deployer
- * @param l2Provider
- * @param l1WethAddress
- * @returns
+ * @notice Deploys the TokenBridgeCreator and all required template contracts on the parent chain.
+ *
+ * This function deploys and initializes all necessary contracts for the TokenBridgeCreator on the parent chain.
+ * It also configures the TokenBridgeCreator with the deployed templates.
+ *
+ * @param parentChainDeployer - The signer used to deploy contracts on the parent chain.
+ * @param parentWethAddress - The address of the WETH token on the parent chain.
+ * @param gasLimitForFactoryDeploymentOnChildChain - The gas limit to use for deploying the factory on the child chain.
+ * @param verifyContracts - Optional. If true, contract verification will be performed after deployment. Defaults to false.
+ * @param useCreate2 - Optional. If true, contracts will be deployed using CREATE2 for deterministic addresses. Defaults to false.
+ *
+ * @returns An object containing the deployed parentTokenBridgeCreator and retryableSender contract instances.
  */
-export const deployL1TokenBridgeCreator = async (
-  l1Deployer: Signer,
-  l1WethAddress: string,
-  gasLimitForL2FactoryDeployment: BigNumber,
-  verifyContracts = false
-) => {
-  /// deploy creator behind proxy
-  const l2MulticallAddressOnL1Fac = await new ArbMulticall2__factory(
-    l1Deployer
-  ).deploy()
-  const l2MulticallAddressOnL1 = await l2MulticallAddressOnL1Fac.deployed()
-
-  const l1TokenBridgeCreatorProxyAdmin = await new ProxyAdmin__factory(
-    l1Deployer
-  ).deploy()
-  await l1TokenBridgeCreatorProxyAdmin.deployed()
-
-  const l1TokenBridgeCreatorLogic =
-    await new L1AtomicTokenBridgeCreator__factory(l1Deployer).deploy()
-  await l1TokenBridgeCreatorLogic.deployed()
-
-  const l1TokenBridgeCreatorProxy =
-    await new TransparentUpgradeableProxy__factory(l1Deployer).deploy(
-      l1TokenBridgeCreatorLogic.address,
-      l1TokenBridgeCreatorProxyAdmin.address,
-      '0x'
-    )
-  await l1TokenBridgeCreatorProxy.deployed()
-
-  const l1TokenBridgeCreator = L1AtomicTokenBridgeCreator__factory.connect(
-    l1TokenBridgeCreatorProxy.address,
-    l1Deployer
+export const deployTokenBridgeCreatorOnParentChain = async (
+  parentChainDeployer: Signer,
+  parentWethAddress: string,
+  gasLimitForFactoryDeploymentOnChildChain: BigNumber,
+  verifyContracts = false,
+  useCreate2 = false
+): Promise<DeployTokenBridgeCreatorResult> => {
+  //
+  // Parent chain helper contracts
+  //
+  // Multicall2
+  const parentMulticall2 = await deployContract(
+    Multicall2__factory,
+    parentChainDeployer,
+    [],
+    verifyContracts,
+    useCreate2
   )
 
-  /// deploy retryable sender behind proxy
-  const retryableSenderLogic = await new L1TokenBridgeRetryableSender__factory(
-    l1Deployer
-  ).deploy()
-  await retryableSenderLogic.deployed()
-
-  const retryableSenderProxy = await new TransparentUpgradeableProxy__factory(
-    l1Deployer
-  ).deploy(
-    retryableSenderLogic.address,
-    l1TokenBridgeCreatorProxyAdmin.address,
-    '0x'
+  //
+  // Parent chain TokenBridge contracts
+  // (for Arbitrum and ETH-based chains)
+  //
+  // Gateway router (initialized with dummy data)
+  const parentGatewayRouterTemplate = await deployContract(
+    L1GatewayRouter__factory,
+    parentChainDeployer,
+    [],
+    verifyContracts,
+    useCreate2
   )
-  await retryableSenderProxy.deployed()
+  await initializeContract(parentGatewayRouterTemplate, [
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+  ])
 
+  // ERC-20 Gateway (initialized with dummy data)
+  const parentErc20GatewayTemplate = await deployContract(
+    L1ERC20Gateway__factory,
+    parentChainDeployer,
+    [],
+    verifyContracts,
+    useCreate2
+  )
+  await initializeContract(parentErc20GatewayTemplate, [
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+    hexZeroPad('0x01', 32),
+    ADDRESS_DEAD,
+  ])
+
+  // Generic-custom Gateway (initialized with dummy data)
+  const parentCustomGatewayTemplate = await deployContract(
+    L1CustomGateway__factory,
+    parentChainDeployer,
+    [],
+    verifyContracts,
+    useCreate2
+  )
+  await initializeContract(parentCustomGatewayTemplate, [
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+  ])
+
+  // WETH Gateway (initialized with dummy data)
+  const parentWethGatewayTemplate = await deployContract(
+    L1WethGateway__factory,
+    parentChainDeployer,
+    [],
+    verifyContracts,
+    useCreate2
+  )
+  await initializeContract(parentWethGatewayTemplate, [
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+  ])
+
+  //
+  // Parent chain TokenBridge contracts
+  // (for Custom Gas Token chains)
+  //
+  // Gateway router (initialized with dummy data)
+  const parentGatewayRouterOrbitTemplate = await deployContract(
+    L1OrbitGatewayRouter__factory,
+    parentChainDeployer,
+    [],
+    verifyContracts,
+    useCreate2
+  )
+  await initializeContract(parentGatewayRouterOrbitTemplate, [
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+  ])
+
+  // ERC-20 Gateway (initialized with dummy data)
+  const parentErc20GatewayOrbitTemplate = await deployContract(
+    L1OrbitERC20Gateway__factory,
+    parentChainDeployer,
+    [],
+    verifyContracts,
+    useCreate2
+  )
+  await initializeContract(parentErc20GatewayOrbitTemplate, [
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+    hexZeroPad('0x01', 32),
+    ADDRESS_DEAD,
+  ])
+
+  // Generic-custom Gateway (initialized with dummy data)
+  const parentCustomGatewayOrbitTemplate = await deployContract(
+    L1OrbitCustomGateway__factory,
+    parentChainDeployer,
+    [],
+    verifyContracts,
+    useCreate2
+  )
+  await initializeContract(parentCustomGatewayOrbitTemplate, [
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+  ])
+
+  //
+  // Upgrade Executor
+  // (Deployed using ABI and bytecode from @offchainlabs/upgrade-executor)
+  //
+  const upgradeExecutorTemplate = await deployContract(
+    UpgradeExecutor__factory,
+    parentChainDeployer,
+    [],
+    verifyContracts,
+    useCreate2
+  )
+  await initializeContract(upgradeExecutorTemplate, [
+    ADDRESS_DEAD,
+    [ADDRESS_DEAD],
+  ])
+
+  //
+  // ProxyAdmin
+  //
+  const parentTokenBridgeCreatorProxyAdmin = await deployContract(
+    ProxyAdmin__factory,
+    parentChainDeployer,
+    [],
+    verifyContracts,
+    useCreate2
+  )
+
+  //
+  // Retryable sender
+  //
+  // RetryableSender logic contract
+  // Note: this contract is initialized when the TokenBridgeCreator logic contract is initialized
+  const retryableSenderLogic = await deployContract(
+    L1TokenBridgeRetryableSender__factory,
+    parentChainDeployer,
+    [],
+    verifyContracts,
+    useCreate2
+  )
+
+  // RetryableSender proxy
+  // Note: this proxy is initialized when the TokenBridgeCreator is initialized
+  const retryableSenderProxy = await deployContract(
+    TransparentUpgradeableProxy__factory,
+    parentChainDeployer,
+    [
+      retryableSenderLogic.address,
+      parentTokenBridgeCreatorProxyAdmin.address,
+      '0x',
+    ],
+    verifyContracts,
+    useCreate2
+  )
+
+  // RetryableSender contract instance
   const retryableSender = L1TokenBridgeRetryableSender__factory.connect(
     retryableSenderProxy.address,
-    l1Deployer
+    parentChainDeployer
   )
 
-  // initialize retryable sender logic contract
-  await (await retryableSenderLogic.initialize()).wait()
-
-  /// init creator
-  await (await l1TokenBridgeCreator.initialize(retryableSender.address)).wait()
-
-  /// deploy L1 logic contracts. Initialize them with dummy data
-  const routerTemplate = await new L1GatewayRouter__factory(l1Deployer).deploy()
-  await routerTemplate.deployed()
-  await (
-    await routerTemplate.initialize(
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD
-    )
-  ).wait()
-
-  const standardGatewayTemplate = await new L1ERC20Gateway__factory(
-    l1Deployer
-  ).deploy()
-  await standardGatewayTemplate.deployed()
-  await (
-    await standardGatewayTemplate.initialize(
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ethers.utils.hexZeroPad('0x01', 32),
-      ADDRESS_DEAD
-    )
-  ).wait()
-
-  const customGatewayTemplate = await new L1CustomGateway__factory(
-    l1Deployer
-  ).deploy()
-  await customGatewayTemplate.deployed()
-  await (
-    await customGatewayTemplate.initialize(
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD
-    )
-  ).wait()
-
-  const wethGatewayTemplate = await new L1WethGateway__factory(
-    l1Deployer
-  ).deploy()
-  await wethGatewayTemplate.deployed()
-  await (
-    await wethGatewayTemplate.initialize(
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD
-    )
-  ).wait()
-
-  const feeTokenBasedRouterTemplate = await new L1OrbitGatewayRouter__factory(
-    l1Deployer
-  ).deploy()
-  await feeTokenBasedRouterTemplate.deployed()
-  await (
-    await feeTokenBasedRouterTemplate.initialize(
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD
-    )
-  ).wait()
-
-  const feeTokenBasedStandardGatewayTemplate =
-    await new L1OrbitERC20Gateway__factory(l1Deployer).deploy()
-  await feeTokenBasedStandardGatewayTemplate.deployed()
-  await (
-    await feeTokenBasedStandardGatewayTemplate.initialize(
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ethers.utils.hexZeroPad('0x01', 32),
-      ADDRESS_DEAD
-    )
-  ).wait()
-
-  const feeTokenBasedCustomGatewayTemplate =
-    await new L1OrbitCustomGateway__factory(l1Deployer).deploy()
-  await feeTokenBasedCustomGatewayTemplate.deployed()
-  await (
-    await feeTokenBasedCustomGatewayTemplate.initialize(
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD
-    )
-  ).wait()
-
-  const upgradeExecutorFactory = new ethers.ContractFactory(
-    UpgradeExecutorABI,
-    UpgradeExecutorBytecode,
-    l1Deployer
+  //
+  // Parent chain TokenBridgeCreator
+  //
+  // TokenBridgeCreator logic contract
+  const parentTokenBridgeCreatorLogic = await deployContract(
+    L1AtomicTokenBridgeCreator__factory,
+    parentChainDeployer,
+    [],
+    verifyContracts,
+    useCreate2
   )
-  const upgradeExecutor = await upgradeExecutorFactory.deploy()
-  await upgradeExecutor.deployed()
+  await initializeContract(parentTokenBridgeCreatorLogic, [
+    retryableSenderLogic.address,
+  ])
 
-  const l1Templates = {
-    routerTemplate: routerTemplate.address,
-    standardGatewayTemplate: standardGatewayTemplate.address,
-    customGatewayTemplate: customGatewayTemplate.address,
-    wethGatewayTemplate: wethGatewayTemplate.address,
-    feeTokenBasedRouterTemplate: feeTokenBasedRouterTemplate.address,
+  // TokenBridgeCreator proxy
+  const parentTokenBridgeCreatorProxy = await deployContract(
+    TransparentUpgradeableProxy__factory,
+    parentChainDeployer,
+    [
+      parentTokenBridgeCreatorLogic.address,
+      parentTokenBridgeCreatorProxyAdmin.address,
+      '0x',
+    ],
+    verifyContracts,
+    useCreate2
+  )
+
+  // TokenBridgeCreator contract instance
+  const parentTokenBridgeCreator = L1AtomicTokenBridgeCreator__factory.connect(
+    parentTokenBridgeCreatorProxy.address,
+    parentChainDeployer
+  )
+  await initializeContract(parentTokenBridgeCreator, [retryableSender.address])
+
+  //
+  // Child chain helper contracts
+  //
+  // ArbMulticall
+  const childArbMulticall = await deployContract(
+    ArbMulticall2__factory,
+    parentChainDeployer,
+    [],
+    verifyContracts,
+    useCreate2
+  )
+
+  //
+  // Child chain TokenBridge contracts
+  // (deployed on the parent chain as templates)
+  //
+  // Gateway router (initialized with dummy data)
+  const childGatewayRouterTemplate = await deployContract(
+    L2GatewayRouter__factory,
+    parentChainDeployer,
+    [],
+    verifyContracts,
+    useCreate2
+  )
+  await initializeContract(childGatewayRouterTemplate, [
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+  ])
+
+  // ERC-20 Gateway (initialized with dummy data)
+  const childErc20GatewayTemplate = await deployContract(
+    L2ERC20Gateway__factory,
+    parentChainDeployer,
+    [],
+    verifyContracts,
+    useCreate2
+  )
+  await initializeContract(childErc20GatewayTemplate, [
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+  ])
+
+  // Generic-custom Gateway (initialized with dummy data)
+  const childCustomGatewayTemplate = await deployContract(
+    L2CustomGateway__factory,
+    parentChainDeployer,
+    [],
+    verifyContracts,
+    useCreate2
+  )
+  await initializeContract(childCustomGatewayTemplate, [
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+  ])
+
+  // WETH Gateway (initialized with dummy data)
+  const childWethGatewayTemplate = await deployContract(
+    L2WethGateway__factory,
+    parentChainDeployer,
+    [],
+    verifyContracts,
+    useCreate2
+  )
+  await initializeContract(childWethGatewayTemplate, [
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+  ])
+
+  // WETH token contract
+  const childWeth = await deployContract(
+    AeWETH__factory,
+    parentChainDeployer,
+    [],
+    verifyContracts,
+    useCreate2
+  )
+  await initializeContract(childWeth, [
+    'WethTemplate',
+    'WETHT',
+    18,
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+  ])
+
+  // TokenBridge factory
+  const childTokenBridgeFactory = await deployContract(
+    L2AtomicTokenBridgeFactory__factory,
+    parentChainDeployer,
+    [],
+    verifyContracts,
+    useCreate2
+  )
+
+  //
+  // Set templates on TokenBridgeCreator
+  //
+  const parentChainTemplates = {
+    routerTemplate: parentGatewayRouterTemplate.address,
+    standardGatewayTemplate: parentErc20GatewayTemplate.address,
+    customGatewayTemplate: parentCustomGatewayTemplate.address,
+    wethGatewayTemplate: parentWethGatewayTemplate.address,
+    feeTokenBasedRouterTemplate: parentGatewayRouterOrbitTemplate.address,
     feeTokenBasedStandardGatewayTemplate:
-      feeTokenBasedStandardGatewayTemplate.address,
+      parentErc20GatewayOrbitTemplate.address,
     feeTokenBasedCustomGatewayTemplate:
-      feeTokenBasedCustomGatewayTemplate.address,
-    upgradeExecutor: upgradeExecutor.address,
+      parentCustomGatewayOrbitTemplate.address,
+    upgradeExecutor: upgradeExecutorTemplate.address,
   }
 
-  /// deploy L2 contracts as placeholders on L1. Initialize them with dummy data
-  const l2TokenBridgeFactoryOnL1 =
-    await new L2AtomicTokenBridgeFactory__factory(l1Deployer).deploy()
-  await l2TokenBridgeFactoryOnL1.deployed()
-
-  const l2GatewayRouterOnL1 = await new L2GatewayRouter__factory(
-    l1Deployer
-  ).deploy()
-  await l2GatewayRouterOnL1.deployed()
   await (
-    await l2GatewayRouterOnL1.initialize(ADDRESS_DEAD, ADDRESS_DEAD)
-  ).wait()
-
-  const l2StandardGatewayAddressOnL1 = await new L2ERC20Gateway__factory(
-    l1Deployer
-  ).deploy()
-  await l2StandardGatewayAddressOnL1.deployed()
-  await (
-    await l2StandardGatewayAddressOnL1.initialize(
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD
+    await parentTokenBridgeCreator.setTemplates(
+      parentChainTemplates,
+      childTokenBridgeFactory.address,
+      childGatewayRouterTemplate.address,
+      childErc20GatewayTemplate.address,
+      childCustomGatewayTemplate.address,
+      childWethGatewayTemplate.address,
+      childWeth.address,
+      childArbMulticall.address,
+      parentWethAddress,
+      parentMulticall2.address,
+      gasLimitForFactoryDeploymentOnChildChain
     )
   ).wait()
 
-  const l2CustomGatewayAddressOnL1 = await new L2CustomGateway__factory(
-    l1Deployer
-  ).deploy()
-  await l2CustomGatewayAddressOnL1.deployed()
-  await (
-    await l2CustomGatewayAddressOnL1.initialize(ADDRESS_DEAD, ADDRESS_DEAD)
-  ).wait()
-
-  const l2WethGatewayAddressOnL1 = await new L2WethGateway__factory(
-    l1Deployer
-  ).deploy()
-  await l2WethGatewayAddressOnL1.deployed()
-  await (
-    await l2WethGatewayAddressOnL1.initialize(
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD
-    )
-  ).wait()
-
-  const l2WethAddressOnL1 = await new AeWETH__factory(l1Deployer).deploy()
-  await l2WethAddressOnL1.deployed()
-
-  const l1Multicall = await new Multicall2__factory(l1Deployer).deploy()
-  await l1Multicall.deployed()
-
-  await (
-    await l1TokenBridgeCreator.setTemplates(
-      l1Templates,
-      l2TokenBridgeFactoryOnL1.address,
-      l2GatewayRouterOnL1.address,
-      l2StandardGatewayAddressOnL1.address,
-      l2CustomGatewayAddressOnL1.address,
-      l2WethGatewayAddressOnL1.address,
-      l2WethAddressOnL1.address,
-      l2MulticallAddressOnL1.address,
-      l1WethAddress,
-      l1Multicall.address,
-      gasLimitForL2FactoryDeployment
-    )
-  ).wait()
-
+  /*
   ///// verify contracts
   if (verifyContracts) {
     console.log('\n\n Start contract verification \n\n')
@@ -470,7 +714,7 @@ export const deployL1TokenBridgeCreator = async (
       (await l1Deployer.provider!.getNetwork()).chainId,
       process.env.ARBISCAN_API_KEY!
     )
-    const abi = ethers.utils.defaultAbiCoder
+    const abi = defaultAbiCoder
 
     await l1Verifier.verifyWithAddress(
       'l1TokenBridgeCreatorProxyAdmin',
@@ -574,13 +818,14 @@ export const deployL1TokenBridgeCreator = async (
     await new Promise(resolve => setTimeout(resolve, 2000))
     console.log('\n\n Contract verification done \n\n')
   }
+    */
 
-  return { l1TokenBridgeCreator, retryableSender }
+  return { parentTokenBridgeCreator, retryableSender }
 }
 
 export const registerGateway = async (
   l1Executor: Signer,
-  l2Provider: ethers.providers.Provider,
+  l2Provider: Provider,
   upgradeExecutor: string,
   gatewayRouter: string,
   tokens: string[],
@@ -603,7 +848,9 @@ export const registerGateway = async (
 
   const executorAddress = await l1Executor.getAddress()
 
-  const buildCall = (params: OmitTyped<ParentToChildMessageGasParams, 'deposit'>) => {
+  const buildCall = (
+    params: OmitTyped<ParentToChildMessageGasParams, 'deposit'>
+  ) => {
     const routerCalldata =
       L1GatewayRouter__factory.createInterface().encodeFunctionData(
         'setGateways',
@@ -659,14 +906,14 @@ export const registerGateway = async (
 
 export const getEstimateForDeployingFactory = async (
   l1Deployer: Signer,
-  l2Provider: ethers.providers.Provider
+  l2Provider: Provider
 ) => {
   //// run retryable estimate for deploying L2 factory
   const l1DeployerAddress = await l1Deployer.getAddress()
   const l1ToL2MsgGasEstimate = new ParentToChildMessageGasEstimator(l2Provider)
   const deployFactoryGasParams = await l1ToL2MsgGasEstimate.estimateAll(
     {
-      from: ethers.Wallet.createRandom().address,
+      from: Wallet.createRandom().address,
       to: ethers.constants.AddressZero,
       l2CallValue: BigNumber.from(0),
       excessFeeRefundAddress: l1DeployerAddress,
@@ -688,8 +935,8 @@ export const getSigner = (provider: JsonRpcProvider, key?: string) => {
 }
 
 export const getParsedLogs = (
-  logs: ethers.providers.Log[],
-  iface: ethers.utils.Interface,
+  logs: Log[],
+  iface: Interface,
   eventName: string
 ) => {
   const eventFragment = iface.getEvent(eventName)
@@ -701,10 +948,7 @@ export const getParsedLogs = (
   return parsedLogs
 }
 
-const _getFeeToken = async (
-  inbox: string,
-  l1Provider: ethers.providers.Provider
-) => {
+const _getFeeToken = async (inbox: string, l1Provider: Provider) => {
   const bridge = await IInbox__factory.connect(inbox, l1Provider).bridge()
 
   let feeToken = ethers.constants.AddressZero
@@ -723,4 +967,56 @@ const _getFeeToken = async (
 
 export function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+/**
+ * @notice Deploys a contract using the CREATE2 opcode for deterministic address generation.
+ * @dev The Create2 factory address can be overridden by the CREATE2_FACTORY environment variable.
+ *      Default factory: https://github.com/Arachnid/deterministic-deployment-proxy/
+ *
+ * @param fac The contract factory used to generate the deployment bytecode.
+ * @param deploymentArgs The arguments to pass to the contract constructor.
+ * @param salt The 32-byte salt used for CREATE2 address calculation. Defaults to HashZero.
+ * @param overrides Optional transaction overrides.
+ * @return The deployed contract instance at the deterministic address.
+ */
+export async function create2(
+  fac: ContractFactory,
+  deploymentArgs: Array<any>,
+  salt = ethers.constants.HashZero,
+  overrides?: Overrides
+): Promise<Contract> {
+  if (hexDataLength(salt) !== 32) {
+    throw new Error('Salt must be a 32-byte hex string')
+  }
+
+  const DEFAULT_FACTORY = '0x4e59b44847b379578588920cA78FbF26c0B4956C'
+  const FACTORY = process.env.CREATE2_FACTORY ?? DEFAULT_FACTORY
+  if ((await fac.signer.provider!.getCode(FACTORY)).length <= 2) {
+    throw new Error(
+      `Factory contract not deployed at address: ${FACTORY}${
+        FACTORY.toLowerCase() === DEFAULT_FACTORY.toLowerCase()
+          ? '\n(For deployment instructions, see https://github.com/Arachnid/deterministic-deployment-proxy/ )'
+          : ''
+      }`
+    )
+  }
+  const data = fac.getDeployTransaction(...deploymentArgs).data
+  if (!data) {
+    throw new Error('No deploy data found for contract factory')
+  }
+
+  const address = getCreate2Address(FACTORY, salt, keccak256(data))
+  if ((await fac.signer.provider!.getCode(address)).length > 2) {
+    return fac.attach(address)
+  }
+
+  const tx = await fac.signer.sendTransaction({
+    to: FACTORY,
+    data: concat([salt, data]),
+    ...overrides,
+  })
+  await tx.wait()
+
+  return fac.attach(address)
 }
