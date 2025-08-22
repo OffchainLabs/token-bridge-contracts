@@ -147,7 +147,6 @@ export async function initializeContract(
   contract: Contract,
   initializationArgs: any[] = []
 ): Promise<void> {
-
   try {
     await (await contract.initialize(...initializationArgs)).wait()
     console.log(`   => Initialized successfully`)
