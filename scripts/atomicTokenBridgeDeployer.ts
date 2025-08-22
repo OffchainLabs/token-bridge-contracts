@@ -609,7 +609,11 @@ export const deployTokenBridgeCreatorOnParentChain = async (
   // (Deployed using ABI and bytecode from @offchainlabs/upgrade-executor)
   //
   const upgradeExecutorTemplate = await deployContract(
-    UpgradeExecutor__factory,
+    class UpgradeExecutorFactory extends ContractFactory {
+      constructor(signer: Signer) {
+        super(UpgradeExecutorABI, UpgradeExecutorBytecode, signer)
+      }
+    },
     parentChainDeployer,
     [],
     verifyContracts,
