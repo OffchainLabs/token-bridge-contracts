@@ -2,7 +2,7 @@ import { JsonRpcProvider } from '@ethersproject/providers'
 import { ArbitrumNetwork, registerCustomArbitrumNetwork } from '@arbitrum/sdk'
 import { RollupAdminLogic__factory } from '@arbitrum/sdk/dist/lib/abi/factories/RollupAdminLogic__factory'
 import {
-  deployL1TokenBridgeCreator,
+  deployTokenBridgeCreatorOnParentChain,
   getEstimateForDeployingFactory,
   getSigner,
 } from '../atomicTokenBridgeDeployer'
@@ -74,15 +74,16 @@ export const deployTokenBridgeCreator = async () => {
   }
 
   // deploy L1 creator and set templates
-  const { l1TokenBridgeCreator, retryableSender } =
-    await deployL1TokenBridgeCreator(
+  const { parentTokenBridgeCreator, retryableSender } =
+    await deployTokenBridgeCreatorOnParentChain(
       l1Deployer,
       envVars.baseChainWeth,
       gasLimitForL2FactoryDeployment,
+      true,
       true
     )
 
-  return { l1TokenBridgeCreator, retryableSender }
+  return { parentTokenBridgeCreator, retryableSender }
 }
 
 const registerNetworks = async (
@@ -123,11 +124,11 @@ const registerNetworks = async (
 
 async function main() {
   console.log('Deploying token bridge creator...')
-  const { l1TokenBridgeCreator, retryableSender } =
+  const { parentTokenBridgeCreator, retryableSender } =
     await deployTokenBridgeCreator()
 
   console.log('Token bridge creator deployed!')
-  console.log('L1TokenBridgeCreator:', l1TokenBridgeCreator.address)
+  console.log('L1TokenBridgeCreator:', parentTokenBridgeCreator.address)
   console.log('L1TokenBridgeRetryableSender:', retryableSender.address, '\n')
 }
 
