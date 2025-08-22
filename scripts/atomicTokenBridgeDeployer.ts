@@ -147,7 +147,6 @@ export async function initializeContract(
   contract: Contract,
   initializationArgs: any[] = []
 ): Promise<void> {
-  const contractName = contract.constructor.name.replace('__factory', '')
 
   try {
     await (await contract.initialize(...initializationArgs)).wait()
