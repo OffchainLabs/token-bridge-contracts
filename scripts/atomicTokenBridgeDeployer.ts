@@ -75,6 +75,125 @@ export type DeployTokenBridgeCreatorResult = {
   retryableSender: L1TokenBridgeRetryableSender
 }
 
+export type VerificationRequest = {
+  signer: Signer
+  contractName: string
+  contractAddress: string
+  constructorArguments: any[]
+}
+
+// Global verification queue
+let verificationQueue: VerificationRequest[] = []
+
+// Helper function to encode constructor arguments based on their types
+function abiEncodeConstructorArguments(args: any[]): string {
+  if (args.length === 0) return ''
+
+  // Infer types from the arguments
+  const types: string[] = args.map(arg => {
+    if (typeof arg === 'string' && arg.match(/^0x[a-fA-F0-9]{40}$/)) {
+      return 'address'
+    } else if (typeof arg === 'string' && arg.match(/^0x[a-fA-F0-9]*$/)) {
+      return 'bytes'
+    } else if (typeof arg === 'string') {
+      return 'string'
+    } else if (typeof arg === 'number' || BigNumber.isBigNumber(arg)) {
+      return 'uint256'
+    } else if (typeof arg === 'boolean') {
+      return 'bool'
+    } else if (Array.isArray(arg)) {
+      // For arrays, detect the inner type from first element
+      if (arg.length > 0) {
+        const innerType =
+          typeof arg[0] === 'string' && arg[0].match(/^0x[a-fA-F0-9]{40}$/)
+            ? 'address'
+            : 'string'
+        return `${innerType}[]`
+      }
+      return 'string[]' // fallback
+    }
+    return 'bytes32' // fallback for unknown types
+  })
+
+  const abi = defaultAbiCoder
+  return abi.encode(types, args)
+}
+
+// Queues a contract for verification
+export function queueContractForVerification(
+  signer: Signer,
+  contractName: string,
+  contractAddress: string,
+  constructorArguments: any[] = []
+): void {
+  verificationQueue.push({
+    signer,
+    contractName,
+    contractAddress,
+    constructorArguments,
+  })
+}
+
+// Executes all queued contract verifications
+export async function verifyAllQueuedContracts(): Promise<void> {
+  if (verificationQueue.length === 0) {
+    return
+  }
+
+  if (!process.env.ARBISCAN_API_KEY) {
+    console.warn('ARBISCAN_API_KEY is not set. Skipping contract verification.')
+    verificationQueue = [] // Clear queue
+    return
+  }
+
+  console.log()
+  console.log(`=== Verification of contracts ===`)
+
+  for (let i = 0; i < verificationQueue.length; i++) {
+    const request = verificationQueue[i]
+    await verifyContract(
+      request.signer,
+      request.contractName,
+      request.contractAddress,
+      request.constructorArguments
+    )
+
+    // Add a small delay between verifications to avoid rate limiting
+    if (i < verificationQueue.length - 1) {
+      await new Promise(resolve => setTimeout(resolve, 1000))
+    }
+  }
+
+  // Clear the queue after processing
+  verificationQueue = []
+
+  // Allow a few seconds for all pending verifications to complete
+  await new Promise(resolve => setTimeout(resolve, 3000))
+}
+
+// Verifies a contract using the `ContractVerifier`
+async function verifyContract(
+  signer: Signer,
+  contractName: string,
+  contractAddress: string,
+  constructorArguments: any[] = []
+): Promise<void> {
+  const contractVerifier = new ContractVerifier(
+    (await signer.provider!.getNetwork()).chainId,
+    process.env.ARBISCAN_API_KEY!
+  )
+
+  // Encode constructor arguments if provided
+  const encodedConstructorArgs =
+    abiEncodeConstructorArguments(constructorArguments)
+
+  await contractVerifier.verifyWithAddress(
+    contractName,
+    contractAddress,
+    encodedConstructorArgs
+  )
+}
+
 /**
  * @notice Deploys a contract using the provided factory class and signer.
  * @dev Supports optional contract verification and deployment via CREATE2.
@@ -122,16 +241,14 @@ export async function deployContract(
     } ${constructorArgs.join(' ')}`
   )
 
-  /*
   if (verify) {
-    await verifyContract(
+    queueContractForVerification(
       signer,
       contractName,
       contract.address,
       constructorArgs
     )
   }
-  */
 
   return contract
 }
@@ -144,12 +261,15 @@ export async function deployContract(
  * @throws If initialization fails for reasons other than the contract being already initialized.
  */
 export async function initializeContract(
+  contractName: string,
   contract: Contract,
   initializationArgs: any[] = []
 ): Promise<void> {
   try {
     await (await contract.initialize(...initializationArgs)).wait()
-    console.log(`   => Initialized successfully`)
+    console.log(
+      ` => ${contractName} at ${contract.address} initialized successfully`
+    )
   } catch (error: any) {
     // Revert reason will be in `error.error.reason`
     if (
@@ -160,7 +280,9 @@ export async function initializeContract(
         'execution reverted: Initializable: contract is already initialized',
       ].includes(error.error.reason)
     ) {
-      console.log(`   => Already initialized`)
+      console.log(
+        ` => ${contractName} at ${contract.address} already initialized`
+      )
     } else {
       throw error
     }
@@ -375,7 +497,7 @@ export const deployTokenBridgeCreatorOnParentChain = async (
     verifyContracts,
     useCreate2
   )
-  await initializeContract(parentGatewayRouterTemplate, [
+  await initializeContract('L1GatewayRouter', parentGatewayRouterTemplate, [
     ADDRESS_DEAD,
     ADDRESS_DEAD,
     ADDRESS_DEAD,
@@ -391,7 +513,7 @@ export const deployTokenBridgeCreatorOnParentChain = async (
     verifyContracts,
     useCreate2
   )
-  await initializeContract(parentErc20GatewayTemplate, [
+  await initializeContract('L1ERC20Gateway', parentErc20GatewayTemplate, [
     ADDRESS_DEAD,
     ADDRESS_DEAD,
     ADDRESS_DEAD,
@@ -407,7 +529,7 @@ export const deployTokenBridgeCreatorOnParentChain = async (
     verifyContracts,
     useCreate2
   )
-  await initializeContract(parentCustomGatewayTemplate, [
+  await initializeContract('L1CustomGateway', parentCustomGatewayTemplate, [
     ADDRESS_DEAD,
     ADDRESS_DEAD,
     ADDRESS_DEAD,
@@ -422,7 +544,7 @@ export const deployTokenBridgeCreatorOnParentChain = async (
     verifyContracts,
     useCreate2
   )
-  await initializeContract(parentWethGatewayTemplate, [
+  await initializeContract('L1WethGateway', parentWethGatewayTemplate, [
     ADDRESS_DEAD,
     ADDRESS_DEAD,
     ADDRESS_DEAD,
@@ -442,13 +564,11 @@ export const deployTokenBridgeCreatorOnParentChain = async (
     verifyContracts,
     useCreate2
   )
-  await initializeContract(parentGatewayRouterOrbitTemplate, [
-    ADDRESS_DEAD,
-    ADDRESS_DEAD,
-    ADDRESS_DEAD,
-    ADDRESS_DEAD,
-    ADDRESS_DEAD,
-  ])
+  await initializeContract(
+    'L1OrbitGatewayRouter',
+    parentGatewayRouterOrbitTemplate,
+    [ADDRESS_DEAD, ADDRESS_DEAD, ADDRESS_DEAD, ADDRESS_DEAD, ADDRESS_DEAD]
+  )
 
   // ERC-20 Gateway (initialized with dummy data)
   const parentErc20GatewayOrbitTemplate = await deployContract(
@@ -458,13 +578,17 @@ export const deployTokenBridgeCreatorOnParentChain = async (
     verifyContracts,
     useCreate2
   )
-  await initializeContract(parentErc20GatewayOrbitTemplate, [
-    ADDRESS_DEAD,
-    ADDRESS_DEAD,
-    ADDRESS_DEAD,
-    hexZeroPad('0x01', 32),
-    ADDRESS_DEAD,
-  ])
+  await initializeContract(
+    'L1OrbitERC20Gateway',
+    parentErc20GatewayOrbitTemplate,
+    [
+      ADDRESS_DEAD,
+      ADDRESS_DEAD,
+      ADDRESS_DEAD,
+      hexZeroPad('0x01', 32),
+      ADDRESS_DEAD,
+    ]
+  )
 
   // Generic-custom Gateway (initialized with dummy data)
   const parentCustomGatewayOrbitTemplate = await deployContract(
@@ -474,12 +598,11 @@ export const deployTokenBridgeCreatorOnParentChain = async (
     verifyContracts,
     useCreate2
   )
-  await initializeContract(parentCustomGatewayOrbitTemplate, [
-    ADDRESS_DEAD,
-    ADDRESS_DEAD,
-    ADDRESS_DEAD,
-    ADDRESS_DEAD,
-  ])
+  await initializeContract(
+    'L1OrbitCustomGateway',
+    parentCustomGatewayOrbitTemplate,
+    [ADDRESS_DEAD, ADDRESS_DEAD, ADDRESS_DEAD, ADDRESS_DEAD]
+  )
 
   //
   // Upgrade Executor
@@ -496,7 +619,7 @@ export const deployTokenBridgeCreatorOnParentChain = async (
     verifyContracts,
     useCreate2
   )
-  await initializeContract(upgradeExecutorTemplate, [
+  await initializeContract('UpgradeExecutor', upgradeExecutorTemplate, [
     ADDRESS_DEAD,
     [ADDRESS_DEAD],
   ])
@@ -556,9 +679,11 @@ export const deployTokenBridgeCreatorOnParentChain = async (
     verifyContracts,
     useCreate2
   )
-  await initializeContract(parentTokenBridgeCreatorLogic, [
-    retryableSenderLogic.address,
-  ])
+  await initializeContract(
+    'L1AtomicTokenBridgeCreator',
+    parentTokenBridgeCreatorLogic,
+    [retryableSenderLogic.address]
+  )
 
   // TokenBridgeCreator proxy
   const parentTokenBridgeCreatorProxy = await deployContract(
@@ -578,7 +703,11 @@ export const deployTokenBridgeCreatorOnParentChain = async (
     parentTokenBridgeCreatorProxy.address,
     parentChainDeployer
   )
-  await initializeContract(parentTokenBridgeCreator, [retryableSender.address])
+  await initializeContract(
+    'L1AtomicTokenBridgeCreator',
+    parentTokenBridgeCreator,
+    [retryableSender.address]
+  )
 
   //
   // Child chain helper contracts
@@ -604,7 +733,7 @@ export const deployTokenBridgeCreatorOnParentChain = async (
     verifyContracts,
     useCreate2
   )
-  await initializeContract(childGatewayRouterTemplate, [
+  await initializeContract('L2GatewayRouter', childGatewayRouterTemplate, [
     ADDRESS_DEAD,
     ADDRESS_DEAD,
   ])
@@ -617,7 +746,7 @@ export const deployTokenBridgeCreatorOnParentChain = async (
     verifyContracts,
     useCreate2
   )
-  await initializeContract(childErc20GatewayTemplate, [
+  await initializeContract('L2ERC20Gateway', childErc20GatewayTemplate, [
     ADDRESS_DEAD,
     ADDRESS_DEAD,
     ADDRESS_DEAD,
@@ -631,7 +760,7 @@ export const deployTokenBridgeCreatorOnParentChain = async (
     verifyContracts,
     useCreate2
   )
-  await initializeContract(childCustomGatewayTemplate, [
+  await initializeContract('L2CustomGateway', childCustomGatewayTemplate, [
     ADDRESS_DEAD,
     ADDRESS_DEAD,
   ])
@@ -644,7 +773,7 @@ export const deployTokenBridgeCreatorOnParentChain = async (
     verifyContracts,
     useCreate2
   )
-  await initializeContract(childWethGatewayTemplate, [
+  await initializeContract('L2WethGateway', childWethGatewayTemplate, [
     ADDRESS_DEAD,
     ADDRESS_DEAD,
     ADDRESS_DEAD,
@@ -659,7 +788,7 @@ export const deployTokenBridgeCreatorOnParentChain = async (
     verifyContracts,
     useCreate2
   )
-  await initializeContract(childWeth, [
+  await initializeContract('AeWETH', childWeth, [
     'WethTemplate',
     'WETHT',
     18,
@@ -708,119 +837,10 @@ export const deployTokenBridgeCreatorOnParentChain = async (
     )
   ).wait()
 
-  /*
-  ///// verify contracts
+  // Verify contracts
   if (verifyContracts) {
-    console.log('\n\n Start contract verification \n\n')
-    const l1Verifier = new ContractVerifier(
-      (await l1Deployer.provider!.getNetwork()).chainId,
-      process.env.ARBISCAN_API_KEY!
-    )
-    const abi = defaultAbiCoder
-
-    await l1Verifier.verifyWithAddress(
-      'l1TokenBridgeCreatorProxyAdmin',
-      l1TokenBridgeCreatorProxyAdmin.address
-    )
-    await l1Verifier.verifyWithAddress(
-      'l1TokenBridgeCreatorLogic',
-      l1TokenBridgeCreatorLogic.address,
-      abi.encode(['address'], [l2MulticallAddressOnL1.address])
-    )
-    await l1Verifier.verifyWithAddress(
-      'l1TokenBridgeCreatorProxy',
-      l1TokenBridgeCreatorProxy.address,
-      abi.encode(
-        ['address', 'address', 'bytes'],
-        [
-          l1TokenBridgeCreatorLogic.address,
-          l1TokenBridgeCreatorProxyAdmin.address,
-          '0x',
-        ]
-      )
-    )
-    await l1Verifier.verifyWithAddress(
-      'retryableSenderLogic',
-      retryableSenderLogic.address
-    )
-    await l1Verifier.verifyWithAddress(
-      'retryableSenderProxy',
-      retryableSenderProxy.address,
-      abi.encode(
-        ['address', 'address', 'bytes'],
-        [
-          retryableSenderLogic.address,
-          l1TokenBridgeCreatorProxyAdmin.address,
-          '0x',
-        ]
-      )
-    )
-    await l1Verifier.verifyWithAddress('routerTemplate', routerTemplate.address)
-    await l1Verifier.verifyWithAddress(
-      'standardGatewayTemplate',
-      standardGatewayTemplate.address
-    )
-    await l1Verifier.verifyWithAddress(
-      'customGatewayTemplate',
-      customGatewayTemplate.address
-    )
-    await l1Verifier.verifyWithAddress(
-      'wethGatewayTemplate',
-      wethGatewayTemplate.address
-    )
-    await l1Verifier.verifyWithAddress(
-      'feeTokenBasedRouterTemplate',
-      feeTokenBasedRouterTemplate.address
-    )
-    await l1Verifier.verifyWithAddress(
-      'feeTokenBasedStandardGatewayTemplate',
-      feeTokenBasedStandardGatewayTemplate.address
-    )
-    await l1Verifier.verifyWithAddress(
-      'feeTokenBasedCustomGatewayTemplate',
-      feeTokenBasedCustomGatewayTemplate.address
-    )
-    await l1Verifier.verifyWithAddress(
-      'upgradeExecutor',
-      upgradeExecutor.address,
-      '',
-      20000
-    )
-    await l1Verifier.verifyWithAddress(
-      'l2TokenBridgeFactoryOnL1',
-      l2TokenBridgeFactoryOnL1.address
-    )
-    await l1Verifier.verifyWithAddress(
-      'l2GatewayRouterOnL1',
-      l2GatewayRouterOnL1.address
-    )
-    await l1Verifier.verifyWithAddress(
-      'l2StandardGatewayAddressOnL1',
-      l2StandardGatewayAddressOnL1.address
-    )
-    await l1Verifier.verifyWithAddress(
-      'l2CustomGatewayAddressOnL1',
-      l2CustomGatewayAddressOnL1.address
-    )
-    await l1Verifier.verifyWithAddress(
-      'l2WethGatewayAddressOnL1',
-      l2WethGatewayAddressOnL1.address
-    )
-    await l1Verifier.verifyWithAddress(
-      'l2WethAddressOnL1',
-      l2WethAddressOnL1.address
-    )
-    await l1Verifier.verifyWithAddress(
-      'l2MulticallAddressOnL1',
-      l2MulticallAddressOnL1.address
-    )
-
-    await l1Verifier.verifyWithAddress('l1Multicall', l1Multicall.address)
-
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    console.log('\n\n Contract verification done \n\n')
+    await verifyAllQueuedContracts()
   }
-    */
 
   return { parentTokenBridgeCreator, retryableSender }
 }
