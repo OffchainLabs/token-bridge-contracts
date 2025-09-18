@@ -91,9 +91,10 @@ contract L1ERC20Gateway is L1ArbitrumExtendedGateway {
         address _router,
         address _inbox,
         bytes32 _cloneableProxyHash,
-        address _l2BeaconProxyFactory
+        address _l2BeaconProxyFactory,
+        YieldBearingConfig memory _yieldBearingConfig
     ) public {
-        L1ArbitrumGateway._initialize(_l2Counterpart, _router, _inbox);
+        L1ArbitrumGateway._initialize(_l2Counterpart, _router, _inbox, _yieldBearingConfig);
         require(_cloneableProxyHash != bytes32(0), "INVALID_PROXYHASH");
         require(_l2BeaconProxyFactory != address(0), "INVALID_BEACON");
         cloneableProxyHash = _cloneableProxyHash;

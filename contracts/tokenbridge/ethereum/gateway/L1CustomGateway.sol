@@ -96,9 +96,10 @@ contract L1CustomGateway is L1ArbitrumExtendedGateway, ICustomGateway {
         address _l1Counterpart,
         address _l1Router,
         address _inbox,
-        address _owner
+        address _owner,
+        YieldBearingConfig memory _yieldBearingConfig
     ) public {
-        L1ArbitrumGateway._initialize(_l1Counterpart, _l1Router, _inbox);
+        L1ArbitrumGateway._initialize(_l1Counterpart, _l1Router, _inbox, _yieldBearingConfig);
         owner = _owner;
         // disable whitelist by default
         whitelist = address(0);

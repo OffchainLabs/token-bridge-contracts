@@ -29,6 +29,8 @@ import "../../libraries/gateway/GatewayMessageHandler.sol";
 import "../../libraries/gateway/TokenGateway.sol";
 import "../../libraries/ITransferAndCall.sol";
 import "../../libraries/ERC165.sol";
+import "../../libraries/MasterVaultFactory.sol";
+import "../../libraries/IMasterVault.sol";
 
 /**
  * @title Common interface for gatways on L1 messaging to Arbitrum.
@@ -42,7 +44,18 @@ abstract contract L1ArbitrumGateway is
     using SafeERC20 for IERC20;
     using Address for address;
 
+    error BadVaultFactory();
+    error BadVaultCodeHash();
+
+    // considering moving this struct to different common file
+    struct YieldBearingConfig {
+        address token;
+        address masterVaultFactory;
+        bool isYieldBearingGateway; // could be redundant
+    }
+
     address public override inbox;
+    address public masterVault;
 
     event DepositInitiated(
         address l1Token,
@@ -84,13 +97,25 @@ abstract contract L1ArbitrumGateway is
     function _initialize(
         address _l2Counterpart,
         address _router,
-        address _inbox
+        address _inbox,
+        YieldBearingConfig memory _yieldBearingConfig
     ) internal {
         TokenGateway._initialize(_l2Counterpart, _router);
         // L1 gateway must have a router
         require(_router != address(0), "BAD_ROUTER");
         require(_inbox != address(0), "BAD_INBOX");
         inbox = _inbox;
+
+        _initializeYieldBearing(_yieldBearingConfig);
+    }
+
+    function _initializeYieldBearing(YieldBearingConfig memory _config) internal {
+        if (_config.isYieldBearingGateway) {
+            if (_config.masterVaultFactory == address(0)) revert BadVaultFactory();
+            if (_config.token == address(0)) revert BadVaultCodeHash();
+
+            masterVault = MasterVaultFactory(_config.masterVaultFactory).deployVault(_config.token);
+        }
     }
 
     /**
@@ -126,7 +151,7 @@ abstract contract L1ArbitrumGateway is
     }
 
     function getExternalCall(
-        uint256, /* _exitNum */
+        uint256 /* _exitNum */,
         address _initialDestination,
         bytes memory _initialData
     ) public view virtual returns (address target, bytes memory data) {
@@ -142,7 +167,12 @@ abstract contract L1ArbitrumGateway is
         uint256 _amount
     ) internal virtual {
         // this method is virtual since different subclasses can handle escrow differently
-        IERC20(_l1Token).safeTransfer(_dest, _amount);
+        if (masterVault != address(0)) {
+            // todo: approve shares to master vault
+            IMasterVault(masterVault).withdraw(_amount, _dest);
+        } else {
+            IERC20(_l1Token).safeTransfer(_dest, _amount);
+        }
     }
 
     /**
@@ -151,7 +181,7 @@ abstract contract L1ArbitrumGateway is
     function createOutboundTxCustomRefund(
         address _refundTo,
         address _from,
-        uint256, /* _tokenAmount */
+        uint256 /* _tokenAmount */,
         uint256 _maxGas,
         uint256 _gasPriceBid,
         uint256 _maxSubmissionCost,
@@ -298,10 +328,17 @@ abstract contract L1ArbitrumGateway is
     ) internal virtual returns (uint256 amountReceived) {
         // this method is virtual since different subclasses can handle escrow differently
         // user funds are escrowed on the gateway using this function
+
         uint256 prevBalance = IERC20(_l1Token).balanceOf(address(this));
         IERC20(_l1Token).safeTransferFrom(_from, address(this), _amount);
         uint256 postBalance = IERC20(_l1Token).balanceOf(address(this));
-        return postBalance - prevBalance;
+        amountReceived = postBalance - prevBalance;
+
+        if (masterVault != address(0)) {
+            address subVault = IMasterVault(masterVault).getSubVault();
+            IERC20(_l1Token).safeApprove(subVault, amountReceived);
+            amountReceived = IMasterVault(masterVault).deposit(amountReceived);
+        }
     }
 
     function getOutboundCalldata(
@@ -329,13 +366,9 @@ abstract contract L1ArbitrumGateway is
         return outboundCalldata;
     }
 
-    function supportsInterface(bytes4 interfaceId)
-        public
-        view
-        virtual
-        override(ERC165, IERC165)
-        returns (bool)
-    {
+    function supportsInterface(
+        bytes4 interfaceId
+    ) public view virtual override(ERC165, IERC165) returns (bool) {
         // registering interfaces that is added after arb-bridge-peripherals >1.0.11
         // using function selector instead of single function interfaces to reduce bloat
         return
@@ -357,15 +390,13 @@ abstract contract L1ArbitrumGateway is
      * @return callHookData Calldata for extra call in inboundEscrowAndCall on L2
      * @return tokenTotalFeeAmount Amount of fees to be deposited in native token to cover for retryable ticket cost (used only in ERC20-based rollups, otherwise 0)
      */
-    function _parseUserEncodedData(bytes memory data)
+    function _parseUserEncodedData(
+        bytes memory data
+    )
         internal
         pure
         virtual
-        returns (
-            uint256 maxSubmissionCost,
-            bytes memory callHookData,
-            uint256 tokenTotalFeeAmount
-        )
+        returns (uint256 maxSubmissionCost, bytes memory callHookData, uint256 tokenTotalFeeAmount)
     {
         (maxSubmissionCost, callHookData) = abi.decode(data, (uint256, bytes));
     }
