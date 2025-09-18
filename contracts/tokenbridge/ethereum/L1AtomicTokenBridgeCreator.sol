@@ -43,6 +43,8 @@ import {TransparentUpgradeableProxy} from
     "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {IAccessControlUpgradeable} from
     "@openzeppelin/contracts-upgradeable/access/IAccessControlUpgradeable.sol";
+import {MasterVaultFactory} from "../libraries/vault/MasterVaultFactory.sol";
+import {L1ArbitrumGateway} from "./gateway/L1ArbitrumGateway.sol";
 
 /**
  * @title Layer1 token bridge creator
@@ -80,6 +82,12 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         L1OrbitERC20Gateway feeTokenBasedStandardGatewayTemplate;
         L1OrbitCustomGateway feeTokenBasedCustomGatewayTemplate;
         IUpgradeExecutor upgradeExecutor;
+        MasterVaultFactory masterVaultFactory;
+    }
+
+    struct YieldBearingGatewayConfig {
+        bool enableYieldBearing;
+        address underlyingToken;
     }
 
     // use separate mapping to allow appending to the struct in the future
@@ -195,6 +203,27 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         uint256 maxGasForContracts,
         uint256 gasPriceBid
     ) external payable {
+        YieldBearingGatewayConfig memory emptyConfig;
+        _createTokenBridge(inbox, rollupOwner, maxGasForContracts, gasPriceBid, emptyConfig);
+    }
+
+    function createTokenBridge(
+        address inbox,
+        address rollupOwner,
+        uint256 maxGasForContracts,
+        uint256 gasPriceBid,
+        YieldBearingGatewayConfig memory yieldBearingConfig
+    ) external payable {
+        _createTokenBridge(inbox, rollupOwner, maxGasForContracts, gasPriceBid, yieldBearingConfig);
+    }
+
+    function _createTokenBridge(
+        address inbox,
+        address rollupOwner,
+        uint256 maxGasForContracts,
+        uint256 gasPriceBid,
+        YieldBearingGatewayConfig memory yieldBearingConfig
+    ) internal {
         // templates have to be in place
         if (address(l1Templates.routerTemplate) == address(0)) {
             revert L1AtomicTokenBridgeCreator_TemplatesNotSet();
@@ -277,13 +306,33 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                     )
                 );
 
-                standardGateway.initialize(
-                    l2Deployment.standardGateway,
-                    l1Deployment.router,
-                    inbox,
-                    keccak256(type(ClonableBeaconProxy).creationCode),
-                    l2Deployment.beaconProxyFactory
-                );
+                if (
+                    yieldBearingConfig.enableYieldBearing &&
+                    yieldBearingConfig.underlyingToken != address(0)
+                ) {
+                    L1ArbitrumGateway.YieldBearingConfig memory config = L1ArbitrumGateway
+                        .YieldBearingConfig({
+                            token: yieldBearingConfig.underlyingToken,
+                            masterVaultFactory: address(l1Templates.masterVaultFactory),
+                            isYieldBearingGateway: true
+                        });
+                    standardGateway.initialize(
+                        l2Deployment.standardGateway,
+                        l1Deployment.router,
+                        inbox,
+                        keccak256(type(ClonableBeaconProxy).creationCode),
+                        l2Deployment.beaconProxyFactory,
+                        config
+                    );
+                } else {
+                    standardGateway.initialize(
+                        l2Deployment.standardGateway,
+                        l1Deployment.router,
+                        inbox,
+                        keccak256(type(ClonableBeaconProxy).creationCode),
+                        l2Deployment.beaconProxyFactory
+                    );
+                }
 
                 l1Deployment.standardGateway = address(standardGateway);
             }
@@ -300,9 +349,31 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                     )
                 );
 
-                customGateway.initialize(
-                    l2Deployment.customGateway, l1Deployment.router, inbox, upgradeExecutor
-                );
+                if (
+                    yieldBearingConfig.enableYieldBearing &&
+                    yieldBearingConfig.underlyingToken != address(0)
+                ) {
+                    L1ArbitrumGateway.YieldBearingConfig memory config = L1ArbitrumGateway
+                        .YieldBearingConfig({
+                            token: yieldBearingConfig.underlyingToken,
+                            masterVaultFactory: address(l1Templates.masterVaultFactory),
+                            isYieldBearingGateway: true
+                        });
+                    customGateway.initialize(
+                        l2Deployment.customGateway,
+                        l1Deployment.router,
+                        inbox,
+                        upgradeExecutor,
+                        config
+                    );
+                } else {
+                    customGateway.initialize(
+                        l2Deployment.customGateway,
+                        l1Deployment.router,
+                        inbox,
+                        upgradeExecutor
+                    );
+                }
 
                 l1Deployment.customGateway = address(customGateway);
             }
