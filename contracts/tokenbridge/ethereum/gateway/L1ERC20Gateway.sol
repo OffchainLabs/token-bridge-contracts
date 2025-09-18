@@ -86,6 +86,7 @@ contract L1ERC20Gateway is L1ArbitrumExtendedGateway {
         super.finalizeInboundTransfer(_token, _from, _to, _amount, _data);
     }
 
+    // todo: have only one initialize function
     function initialize(
         address _l2Counterpart,
         address _router,
@@ -94,6 +95,25 @@ contract L1ERC20Gateway is L1ArbitrumExtendedGateway {
         address _l2BeaconProxyFactory
     ) public {
         L1ArbitrumGateway._initialize(_l2Counterpart, _router, _inbox);
+        require(_cloneableProxyHash != bytes32(0), "INVALID_PROXYHASH");
+        require(_l2BeaconProxyFactory != address(0), "INVALID_BEACON");
+        cloneableProxyHash = _cloneableProxyHash;
+        l2BeaconProxyFactory = _l2BeaconProxyFactory;
+        // disable whitelist by default
+        whitelist = address(0);
+        // reentrancy guard
+        _status = _NOT_ENTERED;
+    }
+
+    function initialize(
+        address _l2Counterpart,
+        address _router,
+        address _inbox,
+        bytes32 _cloneableProxyHash,
+        address _l2BeaconProxyFactory,
+        YieldBearingConfig memory _yieldBearingConfig
+    ) public {
+        L1ArbitrumGateway._initialize(_l2Counterpart, _router, _inbox, _yieldBearingConfig);
         require(_cloneableProxyHash != bytes32(0), "INVALID_PROXYHASH");
         require(_l2BeaconProxyFactory != address(0), "INVALID_BEACON");
         cloneableProxyHash = _cloneableProxyHash;

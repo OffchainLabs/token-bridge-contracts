@@ -92,6 +92,7 @@ contract L1CustomGateway is L1ArbitrumExtendedGateway, ICustomGateway {
         super.finalizeInboundTransfer(_token, _from, _to, _amount, _data);
     }
 
+    // todo: have only one initialize function
     function initialize(
         address _l1Counterpart,
         address _l1Router,
@@ -99,6 +100,21 @@ contract L1CustomGateway is L1ArbitrumExtendedGateway, ICustomGateway {
         address _owner
     ) public {
         L1ArbitrumGateway._initialize(_l1Counterpart, _l1Router, _inbox);
+        owner = _owner;
+        // disable whitelist by default
+        whitelist = address(0);
+        // reentrancy guard
+        _status = _NOT_ENTERED;
+    }
+
+    function initialize(
+        address _l1Counterpart,
+        address _l1Router,
+        address _inbox,
+        address _owner,
+        YieldBearingConfig memory _yieldBearingConfig
+    ) public {
+        L1ArbitrumGateway._initialize(_l1Counterpart, _l1Router, _inbox, _yieldBearingConfig);
         owner = _owner;
         // disable whitelist by default
         whitelist = address(0);
