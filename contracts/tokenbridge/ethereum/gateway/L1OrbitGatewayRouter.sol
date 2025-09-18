@@ -2,11 +2,11 @@
 
 pragma solidity ^0.8.0;
 
-import { L1GatewayRouter } from "./L1GatewayRouter.sol";
-import { IERC20Inbox } from "../L1ArbitrumMessenger.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import { IERC20Bridge } from "../../libraries/IERC20Bridge.sol";
+import {L1GatewayRouter} from "./L1GatewayRouter.sol";
+import {IERC20Inbox} from "../L1ArbitrumMessenger.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC20Bridge} from "../../libraries/IERC20Bridge.sol";
 
 /**
  * @title Handles deposits from L1 into L2 in ERC20-based rollups where custom token is used to pay for fees. Tokens are routed to their appropriate L1 gateway.
@@ -31,14 +31,9 @@ contract L1OrbitGatewayRouter is L1GatewayRouter {
         uint256 _maxSubmissionCost,
         uint256 _feeAmount
     ) external onlyOwner returns (uint256) {
-        return
-            _setDefaultGateway(
-                newL1DefaultGateway,
-                _maxGas,
-                _gasPriceBid,
-                _maxSubmissionCost,
-                _feeAmount
-            );
+        return _setDefaultGateway(
+            newL1DefaultGateway, _maxGas, _gasPriceBid, _maxSubmissionCost, _feeAmount
+        );
     }
 
     /**
@@ -81,15 +76,9 @@ contract L1OrbitGatewayRouter is L1GatewayRouter {
         address _creditBackAddress,
         uint256 _feeAmount
     ) public returns (uint256) {
-        return
-            _setGatewayWithCreditBack(
-                _gateway,
-                _maxGas,
-                _gasPriceBid,
-                _maxSubmissionCost,
-                _creditBackAddress,
-                _feeAmount
-            );
+        return _setGatewayWithCreditBack(
+            _gateway, _maxGas, _gasPriceBid, _maxSubmissionCost, _creditBackAddress, _feeAmount
+        );
     }
 
     /**
@@ -110,16 +99,9 @@ contract L1OrbitGatewayRouter is L1GatewayRouter {
         uint256 _maxSubmissionCost,
         uint256 _feeAmount
     ) external onlyOwner returns (uint256) {
-        return
-            _setGateways(
-                _token,
-                _gateway,
-                _maxGas,
-                _gasPriceBid,
-                _maxSubmissionCost,
-                msg.sender,
-                _feeAmount
-            );
+        return _setGateways(
+            _token, _gateway, _maxGas, _gasPriceBid, _maxSubmissionCost, msg.sender, _feeAmount
+        );
     }
 
     function _createRetryable(
@@ -145,67 +127,66 @@ contract L1OrbitGatewayRouter is L1GatewayRouter {
             }
         }
 
-        return
-            IERC20Inbox(_inbox).createRetryableTicket(
-                _to,
-                _l2CallValue,
-                _maxSubmissionCost,
-                _refundTo,
-                _user,
-                _maxGas,
-                _gasPriceBid,
-                _totalFeeAmount,
-                _data
-            );
+        return IERC20Inbox(_inbox).createRetryableTicket(
+            _to,
+            _l2CallValue,
+            _maxSubmissionCost,
+            _refundTo,
+            _user,
+            _maxGas,
+            _gasPriceBid,
+            _totalFeeAmount,
+            _data
+        );
     }
 
     /**
      * @notice Revert 'setGateway' entrypoint which doesn't have total amount of token fees as an argument.
      */
-    function setGateway(
-        address,
-        uint256,
-        uint256,
-        uint256,
-        address
-    ) public payable override returns (uint256) {
+    function setGateway(address, uint256, uint256, uint256, address)
+        public
+        payable
+        override
+        returns (uint256)
+    {
         revert("NOT_SUPPORTED_IN_ORBIT");
     }
 
     /**
      * @notice Revert 'setDefaultGateway' entrypoint which doesn't have total amount of token fees as an argument.
      */
-    function setDefaultGateway(
-        address,
-        uint256,
-        uint256,
-        uint256
-    ) external payable override onlyOwner returns (uint256) {
+    function setDefaultGateway(address, uint256, uint256, uint256)
+        external
+        payable
+        override
+        onlyOwner
+        returns (uint256)
+    {
         revert("NOT_SUPPORTED_IN_ORBIT");
     }
 
     /**
      * @notice Revert 'setGateway' entrypoint which doesn't have total amount of token fees as an argument.
      */
-    function setGateway(
-        address,
-        uint256,
-        uint256,
-        uint256
-    ) external payable override returns (uint256) {
+    function setGateway(address, uint256, uint256, uint256)
+        external
+        payable
+        override
+        returns (uint256)
+    {
         revert("NOT_SUPPORTED_IN_ORBIT");
     }
 
     /**
      * @notice Revert 'setGateways' entrypoint which doesn't have total amount of token fees as an argument.
      */
-    function setGateways(
-        address[] memory,
-        address[] memory,
-        uint256,
-        uint256,
-        uint256
-    ) external payable override onlyOwner returns (uint256) {
+    function setGateways(address[] memory, address[] memory, uint256, uint256, uint256)
+        external
+        payable
+        override
+        onlyOwner
+        returns (uint256)
+    {
         revert("NOT_SUPPORTED_IN_ORBIT");
     }
 }

@@ -2,11 +2,11 @@
 
 pragma solidity ^0.8.0;
 
-import { L1CustomGateway } from "./L1CustomGateway.sol";
-import { IERC20Inbox } from "../L1ArbitrumMessenger.sol";
-import { IERC20Bridge } from "../../libraries/IERC20Bridge.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {L1CustomGateway} from "./L1CustomGateway.sol";
+import {IERC20Inbox} from "../L1ArbitrumMessenger.sol";
+import {IERC20Bridge} from "../../libraries/IERC20Bridge.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
  * @title Gateway for "custom" bridging functionality in an ERC20-based rollup.
@@ -31,15 +31,9 @@ contract L1OrbitCustomGateway is L1CustomGateway {
         uint256 _maxSubmissionCost,
         uint256 _feeAmount
     ) external returns (uint256) {
-        return
-            registerTokenToL2(
-                _l2Address,
-                _maxGas,
-                _gasPriceBid,
-                _maxSubmissionCost,
-                msg.sender,
-                _feeAmount
-            );
+        return registerTokenToL2(
+            _l2Address, _maxGas, _gasPriceBid, _maxSubmissionCost, msg.sender, _feeAmount
+        );
     }
 
     /**
@@ -60,15 +54,9 @@ contract L1OrbitCustomGateway is L1CustomGateway {
         address _creditBackAddress,
         uint256 _feeAmount
     ) public returns (uint256) {
-        return
-            _registerTokenToL2(
-                _l2Address,
-                _maxGas,
-                _gasPriceBid,
-                _maxSubmissionCost,
-                _creditBackAddress,
-                _feeAmount
-            );
+        return _registerTokenToL2(
+            _l2Address, _maxGas, _gasPriceBid, _maxSubmissionCost, _creditBackAddress, _feeAmount
+        );
     }
 
     /**
@@ -90,39 +78,32 @@ contract L1OrbitCustomGateway is L1CustomGateway {
         uint256 _maxSubmissionCost,
         uint256 _feeAmount
     ) external onlyOwner returns (uint256) {
-        return
-            _forceRegisterTokenToL2(
-                _l1Addresses,
-                _l2Addresses,
-                _maxGas,
-                _gasPriceBid,
-                _maxSubmissionCost,
-                _feeAmount
-            );
+        return _forceRegisterTokenToL2(
+            _l1Addresses, _l2Addresses, _maxGas, _gasPriceBid, _maxSubmissionCost, _feeAmount
+        );
     }
 
     /**
      * @notice Revert 'registerTokenToL2' entrypoint which doesn't have total amount of token fees as an argument.
      */
-    function registerTokenToL2(
-        address,
-        uint256,
-        uint256,
-        uint256,
-        address
-    ) public payable override returns (uint256) {
+    function registerTokenToL2(address, uint256, uint256, uint256, address)
+        public
+        payable
+        override
+        returns (uint256)
+    {
         revert("NOT_SUPPORTED_IN_ORBIT");
     }
 
     /**
      * @notice Revert 'registerTokenToL2' entrypoint which doesn't have total amount of token fees as an argument.
      */
-    function registerTokenToL2(
-        address,
-        uint256,
-        uint256,
-        uint256
-    ) external payable override returns (uint256) {
+    function registerTokenToL2(address, uint256, uint256, uint256)
+        external
+        payable
+        override
+        returns (uint256)
+    {
         revert("NOT_SUPPORTED_IN_ORBIT");
     }
 
@@ -143,16 +124,10 @@ contract L1OrbitCustomGateway is L1CustomGateway {
         internal
         pure
         override
-        returns (
-            uint256 maxSubmissionCost,
-            bytes memory callHookData,
-            uint256 tokenTotalFeeAmount
-        )
+        returns (uint256 maxSubmissionCost, bytes memory callHookData, uint256 tokenTotalFeeAmount)
     {
-        (maxSubmissionCost, callHookData, tokenTotalFeeAmount) = abi.decode(
-            data,
-            (uint256, bytes, uint256)
-        );
+        (maxSubmissionCost, callHookData, tokenTotalFeeAmount) =
+            abi.decode(data, (uint256, bytes, uint256));
     }
 
     function _initiateDeposit(
@@ -165,21 +140,20 @@ contract L1OrbitCustomGateway is L1CustomGateway {
         uint256 tokenTotalFeeAmount,
         bytes memory _data
     ) internal override returns (uint256) {
-        return
-            sendTxToL2CustomRefund(
-                inbox,
-                counterpartGateway,
-                _refundTo,
-                _from,
-                tokenTotalFeeAmount,
-                0,
-                L2GasParams({
-                    _maxSubmissionCost: _maxSubmissionCost,
-                    _maxGas: _maxGas,
-                    _gasPriceBid: _gasPriceBid
-                }),
-                _data
-            );
+        return sendTxToL2CustomRefund(
+            inbox,
+            counterpartGateway,
+            _refundTo,
+            _from,
+            tokenTotalFeeAmount,
+            0,
+            L2GasParams({
+                _maxSubmissionCost: _maxSubmissionCost,
+                _maxGas: _maxGas,
+                _gasPriceBid: _gasPriceBid
+            }),
+            _data
+        );
     }
 
     function _createRetryable(
@@ -203,24 +177,21 @@ contract L1OrbitCustomGateway is L1CustomGateway {
             if (inboxNativeTokenBalance < _totalFeeAmount) {
                 address transferFrom = isRouter(msg.sender) ? _user : msg.sender;
                 IERC20(nativeFeeToken).safeTransferFrom(
-                    transferFrom,
-                    _inbox,
-                    _totalFeeAmount - inboxNativeTokenBalance
+                    transferFrom, _inbox, _totalFeeAmount - inboxNativeTokenBalance
                 );
             }
         }
 
-        return
-            IERC20Inbox(_inbox).createRetryableTicket(
-                _to,
-                _l2CallValue,
-                _maxSubmissionCost,
-                _refundTo,
-                _user,
-                _maxGas,
-                _gasPriceBid,
-                _totalFeeAmount,
-                _data
-            );
+        return IERC20Inbox(_inbox).createRetryableTicket(
+            _to,
+            _l2CallValue,
+            _maxSubmissionCost,
+            _refundTo,
+            _user,
+            _maxGas,
+            _gasPriceBid,
+            _totalFeeAmount,
+            _data
+        );
     }
 }

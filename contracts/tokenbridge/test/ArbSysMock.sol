@@ -2,6 +2,7 @@ pragma solidity ^0.8.0;
 
 contract ArbSysMock {
     event ArbSysL2ToL1Tx(address from, address to, uint256 value, bytes data);
+
     uint256 counter;
 
     function sendTxToL1(address destination, bytes calldata calldataForL1)

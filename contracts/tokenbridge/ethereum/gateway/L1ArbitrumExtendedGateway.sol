@@ -23,11 +23,9 @@ import "../../libraries/ITransferAndCall.sol";
 import "./L1ArbitrumGateway.sol";
 
 interface ITradeableExitReceiver {
-    function onExitTransfer(
-        address sender,
-        uint256 exitNum,
-        bytes calldata data
-    ) external returns (bool);
+    function onExitTransfer(address sender, uint256 exitNum, bytes calldata data)
+        external
+        returns (bool);
 }
 
 abstract contract L1ArbitrumExtendedGateway is L1ArbitrumGateway {
@@ -70,7 +68,7 @@ abstract contract L1ArbitrumExtendedGateway is L1ArbitrumGateway {
     ) external {
         // the initial data doesn't make a difference when transfering you exit
         // since the L2 bridge gives a unique exit ID to each exit
-        (address expectedSender, ) = getExternalCall(_exitNum, _initialDestination, "");
+        (address expectedSender,) = getExternalCall(_exitNum, _initialDestination, "");
 
         // if you want to transfer your exit, you must be the current destination
         require(msg.sender == expectedSender, "NOT_EXPECTED_SENDER");
@@ -82,20 +80,13 @@ abstract contract L1ArbitrumExtendedGateway is L1ArbitrumGateway {
         if (_data.length > 0) {
             require(_newDestination.isContract(), "TO_NOT_CONTRACT");
             bool success = ITradeableExitReceiver(_newDestination).onExitTransfer(
-                expectedSender,
-                _exitNum,
-                _data
+                expectedSender, _exitNum, _data
             );
             require(success, "TRANSFER_HOOK_FAIL");
         }
 
         emit WithdrawRedirected(
-            expectedSender,
-            _newDestination,
-            _exitNum,
-            _newData,
-            _data,
-            _data.length > 0
+            expectedSender, _newDestination, _exitNum, _newData, _data, _data.length > 0
         );
     }
 

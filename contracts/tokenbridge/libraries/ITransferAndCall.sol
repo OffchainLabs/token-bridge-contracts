@@ -5,11 +5,9 @@ pragma solidity >0.6.0 <0.9.0;
 import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 
 interface ITransferAndCall is IERC20Upgradeable {
-    function transferAndCall(
-        address to,
-        uint256 value,
-        bytes memory data
-    ) external returns (bool success);
+    function transferAndCall(address to, uint256 value, bytes memory data)
+        external
+        returns (bool success);
 
     event Transfer(address indexed from, address indexed to, uint256 value, bytes data);
 }
@@ -18,9 +16,5 @@ interface ITransferAndCall is IERC20Upgradeable {
  * @notice note that implementation of ITransferAndCallReceiver is not expected to return a success bool
  */
 interface ITransferAndCallReceiver {
-    function onTokenTransfer(
-        address _sender,
-        uint256 _value,
-        bytes memory _data
-    ) external;
+    function onTokenTransfer(address _sender, uint256 _value, bytes memory _data) external;
 }

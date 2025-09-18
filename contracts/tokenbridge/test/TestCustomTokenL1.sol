@@ -6,7 +6,7 @@ import "../libraries/aeERC20.sol";
 import "../ethereum/ICustomToken.sol";
 import "../ethereum/gateway/L1CustomGateway.sol";
 import "../ethereum/gateway/L1GatewayRouter.sol";
-import { IERC20Bridge } from "../libraries/IERC20Bridge.sol";
+import {IERC20Bridge} from "../libraries/IERC20Bridge.sol";
 import "@openzeppelin/contracts/utils/Context.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -67,20 +67,19 @@ contract TestCustomTokenL1 is aeERC20, ICustomToken {
     }
 
     function mint() external {
-        _mint(msg.sender, 50000000);
+        _mint(msg.sender, 50_000_000);
     }
 
-    function transferFrom(
-        address sender,
-        address recipient,
-        uint256 amount
-    ) public virtual override(IERC20Upgradeable, ERC20Upgradeable, ICustomToken) returns (bool) {
+    function transferFrom(address sender, address recipient, uint256 amount)
+        public
+        virtual
+        override(IERC20Upgradeable, ERC20Upgradeable, ICustomToken)
+        returns (bool)
+    {
         return ERC20Upgradeable.transferFrom(sender, recipient, amount);
     }
 
-    function balanceOf(
-        address account
-    )
+    function balanceOf(address account)
         public
         view
         virtual
@@ -111,7 +110,7 @@ contract TestCustomTokenL1 is aeERC20, ICustomToken {
         bool prev = shouldRegisterGateway;
         shouldRegisterGateway = true;
 
-        IL1CustomGateway(gateway).registerTokenToL2{ value: valueForGateway }(
+        IL1CustomGateway(gateway).registerTokenToL2{value: valueForGateway}(
             l2CustomTokenAddress,
             maxGasForCustomGateway,
             gasPriceBid,
@@ -119,12 +118,8 @@ contract TestCustomTokenL1 is aeERC20, ICustomToken {
             creditBackAddress
         );
 
-        IGatewayRouter2(router).setGateway{ value: valueForRouter }(
-            gateway,
-            maxGasForRouter,
-            gasPriceBid,
-            maxSubmissionCostForRouter,
-            creditBackAddress
+        IGatewayRouter2(router).setGateway{value: valueForRouter}(
+            gateway, maxGasForRouter, gasPriceBid, maxSubmissionCostForRouter, creditBackAddress
         );
 
         shouldRegisterGateway = prev;
@@ -159,9 +154,7 @@ contract TestOrbitCustomTokenL1 is TestCustomTokenL1 {
             address nativeToken = IERC20Bridge(bridge).nativeToken();
 
             IERC20(nativeToken).safeTransferFrom(
-                msg.sender,
-                address(this),
-                valueForGateway + valueForRouter
+                msg.sender, address(this), valueForGateway + valueForRouter
             );
             IERC20(nativeToken).approve(router, valueForRouter);
             IERC20(nativeToken).approve(gateway, valueForGateway);
@@ -205,24 +198,30 @@ contract MintableTestCustomTokenL1 is L1MintableToken, TestCustomTokenL1 {
         _;
     }
 
-    function bridgeMint(
-        address account,
-        uint256 amount
-    ) public override(L1MintableToken) onlyGateway {
+    function bridgeMint(address account, uint256 amount)
+        public
+        override(L1MintableToken)
+        onlyGateway
+    {
         _mint(account, amount);
     }
 
-    function balanceOf(
-        address account
-    ) public view virtual override(TestCustomTokenL1, ICustomToken) returns (uint256 amount) {
+    function balanceOf(address account)
+        public
+        view
+        virtual
+        override(TestCustomTokenL1, ICustomToken)
+        returns (uint256 amount)
+    {
         return super.balanceOf(account);
     }
 
-    function transferFrom(
-        address sender,
-        address recipient,
-        uint256 amount
-    ) public virtual override(TestCustomTokenL1, ICustomToken) returns (bool) {
+    function transferFrom(address sender, address recipient, uint256 amount)
+        public
+        virtual
+        override(TestCustomTokenL1, ICustomToken)
+        returns (bool)
+    {
         return super.transferFrom(sender, recipient, amount);
     }
 }
@@ -230,24 +229,28 @@ contract MintableTestCustomTokenL1 is L1MintableToken, TestCustomTokenL1 {
 contract ReverseTestCustomTokenL1 is L1ReverseToken, MintableTestCustomTokenL1 {
     constructor(address _gateway, address _router) MintableTestCustomTokenL1(_gateway, _router) {}
 
-    function bridgeBurn(
-        address account,
-        uint256 amount
-    ) public override(L1ReverseToken) onlyGateway {
+    function bridgeBurn(address account, uint256 amount)
+        public
+        override(L1ReverseToken)
+        onlyGateway
+    {
         _burn(account, amount);
     }
 
-    function balanceOf(
-        address account
-    ) public view override(MintableTestCustomTokenL1, ICustomToken) returns (uint256 amount) {
+    function balanceOf(address account)
+        public
+        view
+        override(MintableTestCustomTokenL1, ICustomToken)
+        returns (uint256 amount)
+    {
         return super.balanceOf(account);
     }
 
-    function transferFrom(
-        address sender,
-        address recipient,
-        uint256 amount
-    ) public override(MintableTestCustomTokenL1, ICustomToken) returns (bool) {
+    function transferFrom(address sender, address recipient, uint256 amount)
+        public
+        override(MintableTestCustomTokenL1, ICustomToken)
+        returns (bool)
+    {
         return super.transferFrom(sender, recipient, amount);
     }
 }

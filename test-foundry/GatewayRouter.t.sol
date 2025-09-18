@@ -3,8 +3,8 @@
 pragma solidity ^0.8.0;
 
 import "forge-std/Test.sol";
-import { GatewayRouter } from "contracts/tokenbridge/libraries/gateway/GatewayRouter.sol";
-import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {GatewayRouter} from "contracts/tokenbridge/libraries/gateway/GatewayRouter.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 abstract contract GatewayRouterTest is Test {
     GatewayRouter public router;
@@ -12,7 +12,7 @@ abstract contract GatewayRouterTest is Test {
 
     // retryable params
     uint256 public maxSubmissionCost;
-    uint256 public maxGas = 1000000000;
+    uint256 public maxGas = 1_000_000_000;
     uint256 public gasPriceBid = 3;
     uint256 public retryableCost;
     address public creditBackAddress = makeAddr("creditBackAddress");

@@ -81,11 +81,7 @@ abstract contract L1ArbitrumGateway is
         // this has no other logic since the current upgrade doesn't require this logic
     }
 
-    function _initialize(
-        address _l2Counterpart,
-        address _router,
-        address _inbox
-    ) internal {
+    function _initialize(address _l2Counterpart, address _router, address _inbox) internal {
         TokenGateway._initialize(_l2Counterpart, _router);
         // L1 gateway must have a router
         require(_router != address(0), "BAD_ROUTER");
@@ -109,9 +105,8 @@ abstract contract L1ArbitrumGateway is
         bytes calldata _data
     ) public payable virtual override onlyCounterpartGateway {
         // this function is marked as virtual so superclasses can override it to add modifiers
-        (uint256 exitNum, bytes memory callHookData) = GatewayMessageHandler.parseToL1GatewayMsg(
-            _data
-        );
+        (uint256 exitNum, bytes memory callHookData) =
+            GatewayMessageHandler.parseToL1GatewayMsg(_data);
 
         if (callHookData.length != 0) {
             // callHookData should always be 0 since inboundEscrowAndCall is disabled
@@ -119,7 +114,7 @@ abstract contract L1ArbitrumGateway is
         }
 
         // we ignore the returned data since the callHook feature is now disabled
-        (_to, ) = getExternalCall(exitNum, _to, callHookData);
+        (_to,) = getExternalCall(exitNum, _to, callHookData);
         inboundEscrowTransfer(_token, _to, _amount);
 
         emit WithdrawalFinalized(_token, _from, _to, exitNum, _amount);
@@ -136,11 +131,10 @@ abstract contract L1ArbitrumGateway is
         data = _initialData;
     }
 
-    function inboundEscrowTransfer(
-        address _l1Token,
-        address _dest,
-        uint256 _amount
-    ) internal virtual {
+    function inboundEscrowTransfer(address _l1Token, address _dest, uint256 _amount)
+        internal
+        virtual
+    {
         // this method is virtual since different subclasses can handle escrow differently
         IERC20(_l1Token).safeTransfer(_dest, _amount);
     }
@@ -162,21 +156,20 @@ abstract contract L1ArbitrumGateway is
 
         // msg.value is sent, but 0 is set to the L2 call value
         // the eth sent is used to pay for the tx's gas
-        return
-            sendTxToL2CustomRefund(
-                inbox,
-                counterpartGateway,
-                _refundTo,
-                _from,
-                msg.value, // we forward the L1 call value to the inbox
-                0, // l2 call value 0 by default
-                L2GasParams({
-                    _maxSubmissionCost: _maxSubmissionCost,
-                    _maxGas: _maxGas,
-                    _gasPriceBid: _gasPriceBid
-                }),
-                _outboundCalldata
-            );
+        return sendTxToL2CustomRefund(
+            inbox,
+            counterpartGateway,
+            _refundTo,
+            _from,
+            msg.value, // we forward the L1 call value to the inbox
+            0, // l2 call value 0 by default
+            L2GasParams({
+                _maxSubmissionCost: _maxSubmissionCost,
+                _maxGas: _maxGas,
+                _gasPriceBid: _gasPriceBid
+            }),
+            _outboundCalldata
+        );
     }
 
     /**
@@ -190,16 +183,9 @@ abstract contract L1ArbitrumGateway is
         uint256 _maxSubmissionCost,
         bytes memory _outboundCalldata
     ) internal returns (uint256) {
-        return
-            createOutboundTxCustomRefund(
-                _from,
-                _from,
-                _tokenAmount,
-                _maxGas,
-                _gasPriceBid,
-                _maxSubmissionCost,
-                _outboundCalldata
-            );
+        return createOutboundTxCustomRefund(
+            _from, _from, _tokenAmount, _maxGas, _gasPriceBid, _maxSubmissionCost, _outboundCalldata
+        );
     }
 
     /**
@@ -291,11 +277,11 @@ abstract contract L1ArbitrumGateway is
         return abi.encode(seqNum);
     }
 
-    function outboundEscrowTransfer(
-        address _l1Token,
-        address _from,
-        uint256 _amount
-    ) internal virtual returns (uint256 amountReceived) {
+    function outboundEscrowTransfer(address _l1Token, address _from, uint256 _amount)
+        internal
+        virtual
+        returns (uint256 amountReceived)
+    {
         // this method is virtual since different subclasses can handle escrow differently
         // user funds are escrowed on the gateway using this function
         uint256 prevBalance = IERC20(_l1Token).balanceOf(address(this));
@@ -338,9 +324,8 @@ abstract contract L1ArbitrumGateway is
     {
         // registering interfaces that is added after arb-bridge-peripherals >1.0.11
         // using function selector instead of single function interfaces to reduce bloat
-        return
-            interfaceId == this.outboundTransferCustomRefund.selector ||
-            super.supportsInterface(interfaceId);
+        return interfaceId == this.outboundTransferCustomRefund.selector
+            || super.supportsInterface(interfaceId);
     }
 
     /**
@@ -361,11 +346,7 @@ abstract contract L1ArbitrumGateway is
         internal
         pure
         virtual
-        returns (
-            uint256 maxSubmissionCost,
-            bytes memory callHookData,
-            uint256 tokenTotalFeeAmount
-        )
+        returns (uint256 maxSubmissionCost, bytes memory callHookData, uint256 tokenTotalFeeAmount)
     {
         (maxSubmissionCost, callHookData) = abi.decode(data, (uint256, bytes));
     }
@@ -391,15 +372,8 @@ abstract contract L1ArbitrumGateway is
         uint256, // tokenTotalFeeAmount - amount of fees to be deposited in native token to cover for retryable ticket cost (used only in ERC20-based rollups)
         bytes memory _data
     ) internal virtual returns (uint256) {
-        return
-            createOutboundTxCustomRefund(
-                _refundTo,
-                _from,
-                _amount,
-                _maxGas,
-                _gasPriceBid,
-                _maxSubmissionCost,
-                _data
-            );
+        return createOutboundTxCustomRefund(
+            _refundTo, _from, _amount, _maxGas, _gasPriceBid, _maxSubmissionCost, _data
+        );
     }
 }

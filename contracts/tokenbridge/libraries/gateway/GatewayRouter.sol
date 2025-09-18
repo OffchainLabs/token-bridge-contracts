@@ -44,11 +44,9 @@ abstract contract GatewayRouter is TokenGateway, IGatewayRouter {
         // this has no other logic since the current upgrade doesn't require this logic
     }
 
-    function _initialize(
-        address _counterpartGateway,
-        address _router,
-        address _defaultGateway
-    ) internal {
+    function _initialize(address _counterpartGateway, address _router, address _defaultGateway)
+        internal
+    {
         // if you are a router, you can't have a router
         require(_router == address(0), "BAD_ROUTER");
         TokenGateway._initialize(_counterpartGateway, _router);
@@ -77,21 +75,13 @@ abstract contract GatewayRouter is TokenGateway, IGatewayRouter {
         // this function is kept instead of delegating to outboundTransferCustomRefund to allow
         // compatibility with older gateways that did not implement outboundTransferCustomRefund
         address gateway = getGateway(_token);
-        bytes memory gatewayData = GatewayMessageHandler.encodeFromRouterToGateway(
-            msg.sender,
-            _data
-        );
+        bytes memory gatewayData =
+            GatewayMessageHandler.encodeFromRouterToGateway(msg.sender, _data);
 
         emit TransferRouted(_token, msg.sender, _to, gateway);
-        return
-            ITokenGateway(gateway).outboundTransfer{ value: msg.value }(
-                _token,
-                _to,
-                _amount,
-                _maxGas,
-                _gasPriceBid,
-                gatewayData
-            );
+        return ITokenGateway(gateway).outboundTransfer{value: msg.value}(
+            _token, _to, _amount, _maxGas, _gasPriceBid, gatewayData
+        );
     }
 
     function getOutboundCalldata(

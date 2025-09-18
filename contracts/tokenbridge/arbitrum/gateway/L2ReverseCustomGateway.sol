@@ -36,19 +36,19 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 contract L2ReverseCustomGateway is L2CustomGateway {
     using SafeERC20 for IERC20;
 
-    function inboundEscrowTransfer(
-        address _l2Token,
-        address _dest,
-        uint256 _amount
-    ) internal virtual override {
+    function inboundEscrowTransfer(address _l2Token, address _dest, uint256 _amount)
+        internal
+        virtual
+        override
+    {
         IERC20(_l2Token).safeTransfer(_dest, _amount);
     }
 
-    function outboundEscrowTransfer(
-        address _l2Token,
-        address _from,
-        uint256 _amount
-    ) internal override returns (uint256) {
+    function outboundEscrowTransfer(address _l2Token, address _from, uint256 _amount)
+        internal
+        override
+        returns (uint256)
+    {
         uint256 prevBalance = IERC20(_l2Token).balanceOf(address(this));
         // as in the normal custom gateway, in the reverse custom gateway we check
         // for the balances of tokens to ensure that inflationary / deflationary changes in the amount

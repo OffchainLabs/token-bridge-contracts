@@ -38,10 +38,7 @@ abstract contract L2ArbitrumGateway is L2ArbitrumMessenger, TokenGateway {
     uint256 public exitNum;
 
     event DepositFinalized(
-        address indexed l1Token,
-        address indexed _from,
-        address indexed _to,
-        uint256 _amount
+        address indexed l1Token, address indexed _from, address indexed _to, uint256 _amount
     );
 
     event WithdrawalInitiated(
@@ -85,14 +82,13 @@ abstract contract L2ArbitrumGateway is L2ArbitrumMessenger, TokenGateway {
 
         // exitNum incremented after being included in _outboundCalldata
         exitNum++;
-        return
-            sendTxToL1(
-                // default to sending no callvalue to the L1
-                0,
-                _from,
-                counterpartGateway,
-                _outboundCalldata
-            );
+        return sendTxToL1(
+            // default to sending no callvalue to the L1
+            0,
+            _from,
+            counterpartGateway,
+            _outboundCalldata
+        );
     }
 
     function getOutboundCalldata(
@@ -114,12 +110,11 @@ abstract contract L2ArbitrumGateway is L2ArbitrumMessenger, TokenGateway {
         return outboundCalldata;
     }
 
-    function outboundTransfer(
-        address _l1Token,
-        address _to,
-        uint256 _amount,
-        bytes calldata _data
-    ) public payable returns (bytes memory) {
+    function outboundTransfer(address _l1Token, address _to, uint256 _amount, bytes calldata _data)
+        public
+        payable
+        returns (bytes memory)
+    {
         return outboundTransfer(_l1Token, _to, _amount, 0, 0, _data);
     }
 
@@ -182,19 +177,17 @@ abstract contract L2ArbitrumGateway is L2ArbitrumMessenger, TokenGateway {
         uint256 currExitNum = exitNum;
         // unique id used to identify the L2 to L1 tx
         uint256 id = createOutboundTx(
-            _from,
-            _amount,
-            getOutboundCalldata(_l1Token, _from, _to, _amount, _data)
+            _from, _amount, getOutboundCalldata(_l1Token, _from, _to, _amount, _data)
         );
         emit WithdrawalInitiated(_l1Token, _from, _to, id, currExitNum, _amount);
         return id;
     }
 
-    function outboundEscrowTransfer(
-        address _l2Token,
-        address _from,
-        uint256 _amount
-    ) internal virtual returns (uint256 amountBurnt) {
+    function outboundEscrowTransfer(address _l2Token, address _from, uint256 _amount)
+        internal
+        virtual
+        returns (uint256 amountBurnt)
+    {
         // this method is virtual since different subclasses can handle escrow differently
         // user funds are escrowed on the gateway using this function
         // burns L2 tokens in order to release escrowed L1 tokens
@@ -204,11 +197,10 @@ abstract contract L2ArbitrumGateway is L2ArbitrumMessenger, TokenGateway {
         return _amount;
     }
 
-    function inboundEscrowTransfer(
-        address _l2Address,
-        address _dest,
-        uint256 _amount
-    ) internal virtual {
+    function inboundEscrowTransfer(address _l2Address, address _dest, uint256 _amount)
+        internal
+        virtual
+    {
         // this method is virtual since different subclasses can handle escrow differently
         IArbToken(_l2Address).bridgeMint(_dest, _amount);
     }
@@ -231,8 +223,8 @@ abstract contract L2ArbitrumGateway is L2ArbitrumMessenger, TokenGateway {
         uint256 _amount,
         bytes calldata _data
     ) external payable override onlyCounterpartGateway {
-        (bytes memory gatewayData, bytes memory callHookData) = GatewayMessageHandler
-            .parseFromL1GatewayMsg(_data);
+        (bytes memory gatewayData, bytes memory callHookData) =
+            GatewayMessageHandler.parseFromL1GatewayMsg(_data);
 
         if (callHookData.length != 0) {
             // callHookData should always be 0 since inboundEscrowAndCall is disabled
@@ -242,14 +234,8 @@ abstract contract L2ArbitrumGateway is L2ArbitrumMessenger, TokenGateway {
         address expectedAddress = calculateL2TokenAddress(_token);
 
         if (!expectedAddress.isContract()) {
-            bool shouldHalt = handleNoContract(
-                _token,
-                expectedAddress,
-                _from,
-                _to,
-                _amount,
-                gatewayData
-            );
+            bool shouldHalt =
+                handleNoContract(_token, expectedAddress, _from, _to, _amount, gatewayData);
             if (shouldHalt) return;
         }
 
