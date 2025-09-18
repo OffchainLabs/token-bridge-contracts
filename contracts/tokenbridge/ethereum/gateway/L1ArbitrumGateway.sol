@@ -29,6 +29,8 @@ import "../../libraries/gateway/GatewayMessageHandler.sol";
 import "../../libraries/gateway/TokenGateway.sol";
 import "../../libraries/ITransferAndCall.sol";
 import "../../libraries/ERC165.sol";
+import { MasterVaultFactory } from "../../libraries/vault/MasterVaultFactory.sol";
+import { IMasterVault } from "../../libraries/vault/IMasterVault.sol";
 
 /**
  * @title Common interface for gatways on L1 messaging to Arbitrum.
@@ -42,7 +44,18 @@ abstract contract L1ArbitrumGateway is
     using SafeERC20 for IERC20;
     using Address for address;
 
+    error BadVaultFactory();
+    error BadVaultCodeHash();
+
+    // considering moving this struct to different common file
+    struct YieldBearingConfig {
+        address token;
+        address masterVaultFactory;
+        bool isYieldBearingGateway; // could be redundant
+    }
+
     address public override inbox;
+    address public masterVault;
 
     event DepositInitiated(
         address l1Token,
@@ -81,6 +94,7 @@ abstract contract L1ArbitrumGateway is
         // this has no other logic since the current upgrade doesn't require this logic
     }
 
+
     function _initialize(
         address _l2Counterpart,
         address _router,
@@ -91,6 +105,25 @@ abstract contract L1ArbitrumGateway is
         require(_router != address(0), "BAD_ROUTER");
         require(_inbox != address(0), "BAD_INBOX");
         inbox = _inbox;
+    }
+
+    function _initialize(
+        address _l2Counterpart,
+        address _router,
+        address _inbox,
+        YieldBearingConfig memory _yieldBearingConfig
+    ) internal {
+        _initialize(_l2Counterpart, _router, _inbox);
+        _initializeYieldBearing(_yieldBearingConfig);
+    }
+
+    function _initializeYieldBearing(YieldBearingConfig memory _config) internal {
+        if (_config.isYieldBearingGateway) {
+            if (_config.masterVaultFactory == address(0)) revert BadVaultFactory();
+            if (_config.token == address(0)) revert BadVaultCodeHash();
+
+            masterVault = MasterVaultFactory(_config.masterVaultFactory).deployVault(_config.token);
+        }
     }
 
     /**
@@ -142,7 +175,12 @@ abstract contract L1ArbitrumGateway is
         uint256 _amount
     ) internal virtual {
         // this method is virtual since different subclasses can handle escrow differently
-        IERC20(_l1Token).safeTransfer(_dest, _amount);
+        if (masterVault != address(0)) {
+            // todo: approve shares to master vault
+            IMasterVault(masterVault).withdraw(_amount, _dest);
+        } else {
+            IERC20(_l1Token).safeTransfer(_dest, _amount);
+        }
     }
 
     /**
@@ -301,7 +339,13 @@ abstract contract L1ArbitrumGateway is
         uint256 prevBalance = IERC20(_l1Token).balanceOf(address(this));
         IERC20(_l1Token).safeTransferFrom(_from, address(this), _amount);
         uint256 postBalance = IERC20(_l1Token).balanceOf(address(this));
-        return postBalance - prevBalance;
+        amountReceived = postBalance - prevBalance;
+
+        if (masterVault != address(0)) {
+            address subVault = IMasterVault(masterVault).getSubVault();
+            IERC20(_l1Token).safeApprove(subVault, amountReceived);
+            amountReceived = IMasterVault(masterVault).deposit(amountReceived);
+        }
     }
 
     function getOutboundCalldata(
