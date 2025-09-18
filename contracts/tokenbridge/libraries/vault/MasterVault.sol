@@ -62,6 +62,7 @@ contract MasterVault is IMasterVault, Ownable {
     }
 
     function setSubVault(address _subVault) external override onlyOwner {
+        // todo: need to make sure we transfer funds here
         subVault = _subVault;
         emit SubVaultSet(_subVault);
     }
