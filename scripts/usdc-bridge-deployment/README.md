@@ -61,7 +61,7 @@ Script will do the following:
 - if `ROLLUP_OWNER_KEY` is not provided, prepare calldata and store it in `registerUsdcGatewayTx.json` file
 - set minter role to L2 USDC gateway with max allowance
 
-Now new USDC gateways can be used to deposit/withdraw USDC. And everything is in place to support transtition to native USDC issuance, in case Circle and Orbit chain owner agree to it.
+Now new USDC gateways can be used to deposit/withdraw USDC. And everything is in place to support transition to native USDC issuance, in case Circle and Orbit chain owner agree to it.
 
 ## Transition to native USDC
 
