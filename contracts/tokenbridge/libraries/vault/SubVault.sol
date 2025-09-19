@@ -6,6 +6,8 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
+
+// todo: we may want to leave this contract out of the feature and push it off to the chain owners to implement
 /// @dev this is an `abstruct` contract that is used to create a sub vault by bridge owner
 /// bridge owner must set the master vault address
 /// it is up to the owner to implement sub-strategies for this vault

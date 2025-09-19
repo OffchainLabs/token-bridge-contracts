@@ -12,54 +12,39 @@ contract MasterVaultFactory {
     error VaultDeploymentFailed();
     error ZeroAddress();
 
-    function deployVault(address token) external returns (address vault) {
+    function deployVault(address token) public returns (address vault) {
         if (token == address(0)) {
             revert ZeroAddress();
         }
 
         address gateway = msg.sender;
-        bytes32 salt = _getSalt(token, gateway);
 
         bytes memory bytecode = abi.encodePacked(
             type(MasterVault).creationCode,
-            abi.encode(token, gateway, gateway)
+            abi.encode(token)
         );
 
-        vault = Create2.deploy(0, salt, bytecode);
-
-        if (vault == address(0)) {
-            revert VaultDeploymentFailed();
-        }
+        vault = Create2.deploy(0, bytes32(0), bytecode);
 
         emit VaultDeployed(token, gateway, vault);
     }
 
     function calculateVaultAddress(
-        address token,
-        address gateway
-    ) external view returns (address) {
-        bytes32 salt = _getSalt(token, gateway);
+        address token
+    ) public view returns (address) {
         bytes32 bytecodeHash = keccak256(
-            abi.encodePacked(type(MasterVault).creationCode, abi.encode(token, gateway, gateway))
+            abi.encodePacked(type(MasterVault).creationCode, abi.encode(token))
         );
-        return Create2.computeAddress(salt, bytecodeHash);
+        return Create2.computeAddress(bytes32(0), bytecodeHash);
     }
 
     function getVault(
-        address token,
-        address gateway
-    ) external view returns (address) {
-        bytes32 salt = _getSalt(token, gateway);
-        bytes32 bytecodeHash = keccak256(
-            abi.encodePacked(type(MasterVault).creationCode, abi.encode(token, gateway, gateway))
-        );
-        return Create2.computeAddress(salt, bytecodeHash);
-    }
-
-    function _getSalt(
-        address token,
-        address gateway
-        ) internal view returns (bytes32) {
-        return keccak256(abi.encodePacked(token, gateway, gateway, block.chainid));
+        address token
+    ) external returns (address) {
+        address vault = calculateVaultAddress(token);
+        if (vault.code.length == 0) {
+            return deployVault(token);
+        }
+        return vault;
     }
 }

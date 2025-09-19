@@ -47,15 +47,8 @@ abstract contract L1ArbitrumGateway is
     error BadVaultFactory();
     error BadVaultCodeHash();
 
-    // considering moving this struct to different common file
-    struct YieldBearingConfig {
-        address token;
-        address masterVaultFactory;
-        bool isYieldBearingGateway; // could be redundant
-    }
-
     address public override inbox;
-    address public masterVault;
+    address public masterVaultFactory;
 
     event DepositInitiated(
         address l1Token,
@@ -94,36 +87,18 @@ abstract contract L1ArbitrumGateway is
         // this has no other logic since the current upgrade doesn't require this logic
     }
 
-
     function _initialize(
         address _l2Counterpart,
         address _router,
-        address _inbox
+        address _inbox,
+        address _masterVaultFactory
     ) internal {
         TokenGateway._initialize(_l2Counterpart, _router);
         // L1 gateway must have a router
         require(_router != address(0), "BAD_ROUTER");
         require(_inbox != address(0), "BAD_INBOX");
         inbox = _inbox;
-    }
-
-    function _initialize(
-        address _l2Counterpart,
-        address _router,
-        address _inbox,
-        YieldBearingConfig memory _yieldBearingConfig
-    ) internal {
-        _initialize(_l2Counterpart, _router, _inbox);
-        _initializeYieldBearing(_yieldBearingConfig);
-    }
-
-    function _initializeYieldBearing(YieldBearingConfig memory _config) internal {
-        if (_config.isYieldBearingGateway) {
-            if (_config.masterVaultFactory == address(0)) revert BadVaultFactory();
-            if (_config.token == address(0)) revert BadVaultCodeHash();
-
-            masterVault = MasterVaultFactory(_config.masterVaultFactory).deployVault(_config.token);
-        }
+        masterVaultFactory = _masterVaultFactory;
     }
 
     /**
@@ -175,9 +150,10 @@ abstract contract L1ArbitrumGateway is
         uint256 _amount
     ) internal virtual {
         // this method is virtual since different subclasses can handle escrow differently
-        if (masterVault != address(0)) {
-            // todo: approve shares to master vault
-            IMasterVault(masterVault).withdraw(_amount, _dest);
+        address _masterVaultFactory = masterVaultFactory;
+        if (_masterVaultFactory != address(0)) {
+            // todo: do we want to unwrap here or just transfer vault shares?
+            address masterVault = MasterVaultFactory(masterVaultFactory).getVault(_l1Token);
         } else {
             IERC20(_l1Token).safeTransfer(_dest, _amount);
         }
@@ -341,9 +317,12 @@ abstract contract L1ArbitrumGateway is
         uint256 postBalance = IERC20(_l1Token).balanceOf(address(this));
         amountReceived = postBalance - prevBalance;
 
-        if (masterVault != address(0)) {
-            address subVault = IMasterVault(masterVault).getSubVault();
-            IERC20(_l1Token).safeApprove(subVault, amountReceived);
+        address _masterVaultFactory = masterVaultFactory;
+        if (_masterVaultFactory != address(0)) {
+            address masterVault = MasterVaultFactory(masterVaultFactory).getVault(_l1Token);
+            // todo: decide whether we want the master vault to act like its own vault, or whether it is just a pointer to the real vault
+            // this affects which address gets approved
+            // somewhat related to deciding whether we want to auto unwrap on withdrawals
             amountReceived = IMasterVault(masterVault).deposit(amountReceived);
         }
     }

@@ -8,6 +8,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IERC4626 } from "lib/forge-std/src/interfaces/IERC4626.sol";
 
+// todo: make this more like a 4626 vault, erc20 shares + deposit + withdraw
 contract MasterVault is IMasterVault, Ownable {
     using SafeERC20 for IERC20;
 
@@ -30,6 +31,8 @@ contract MasterVault is IMasterVault, Ownable {
         _;
     }
 
+    // todo: remove gateway and owner params
+    // factory can transfer ownership to upgrade executor
     constructor(address _token, address _gateway, address _owner) Ownable() {
         if (_token == address(0) || _gateway == address(0) || _owner == address(0)) {
             revert ZeroAddress();
@@ -62,6 +65,7 @@ contract MasterVault is IMasterVault, Ownable {
     }
 
     function setSubVault(address _subVault) external override onlyOwner {
+        // todo: need to make sure we transfer funds here
         subVault = _subVault;
         emit SubVaultSet(_subVault);
     }
