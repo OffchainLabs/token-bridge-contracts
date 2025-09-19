@@ -270,6 +270,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                     address(l1Templates.masterVaultFactory),
                     proxyAdmin
                 );
+                MasterVaultFactory(l1Deployment.masterVaultFactory).initialize(upgradeExecutor);
             }
 
             // l1 router deployment block
