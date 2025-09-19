@@ -2,15 +2,16 @@
 
 pragma solidity ^0.8.0;
 
-import { GatewayRouterTest } from "./GatewayRouter.t.sol";
-import { L1GatewayRouter } from "contracts/tokenbridge/ethereum/gateway/L1GatewayRouter.sol";
-import { L2GatewayRouter } from "contracts/tokenbridge/arbitrum/gateway/L2GatewayRouter.sol";
-import { L1ERC20Gateway } from "contracts/tokenbridge/ethereum/gateway/L1ERC20Gateway.sol";
-import { L1CustomGateway } from "contracts/tokenbridge/ethereum/gateway/L1CustomGateway.sol";
-import { InboxMock } from "contracts/tokenbridge/test/InboxMock.sol";
-import { IERC165 } from "contracts/tokenbridge/libraries/IERC165.sol";
-import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import { ERC20PresetMinterPauser } from "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetMinterPauser.sol";
+import {GatewayRouterTest} from "./GatewayRouter.t.sol";
+import {L1GatewayRouter} from "contracts/tokenbridge/ethereum/gateway/L1GatewayRouter.sol";
+import {L2GatewayRouter} from "contracts/tokenbridge/arbitrum/gateway/L2GatewayRouter.sol";
+import {L1ERC20Gateway} from "contracts/tokenbridge/ethereum/gateway/L1ERC20Gateway.sol";
+import {L1CustomGateway} from "contracts/tokenbridge/ethereum/gateway/L1CustomGateway.sol";
+import {InboxMock} from "contracts/tokenbridge/test/InboxMock.sol";
+import {IERC165} from "contracts/tokenbridge/libraries/IERC165.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {ERC20PresetMinterPauser} from
+    "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetMinterPauser.sol";
 
 contract L1GatewayRouterTest is GatewayRouterTest {
     L1GatewayRouter public l1Router;
@@ -28,7 +29,7 @@ contract L1GatewayRouterTest is GatewayRouterTest {
         l1Router = L1GatewayRouter(address(router));
         l1Router.initialize(owner, defaultGateway, address(0), counterpartGateway, inbox);
 
-        maxSubmissionCost = 50000;
+        maxSubmissionCost = 50_000;
         retryableCost = maxSubmissionCost + maxGas * gasPriceBid;
 
         vm.deal(owner, 100 ether);
@@ -77,12 +78,8 @@ contract L1GatewayRouterTest is GatewayRouterTest {
         gateways[0] = address(1);
 
         vm.prank(owner);
-        l1Router.setGateways{ value: retryableCost }(
-            tokens,
-            gateways,
-            maxGas,
-            gasPriceBid,
-            maxSubmissionCost
+        l1Router.setGateways{value: retryableCost}(
+            tokens, gateways, maxGas, gasPriceBid, maxSubmissionCost
         );
 
         address gateway = router.getGateway(token);
@@ -98,12 +95,8 @@ contract L1GatewayRouterTest is GatewayRouterTest {
         gateways[0] = address(new L1ERC20Gateway());
 
         vm.prank(owner);
-        l1Router.setGateways{ value: retryableCost }(
-            tokens,
-            gateways,
-            maxGas,
-            gasPriceBid,
-            maxSubmissionCost
+        l1Router.setGateways{value: retryableCost}(
+            tokens, gateways, maxGas, gasPriceBid, maxSubmissionCost
         );
 
         address gateway = router.getGateway(token);
@@ -138,25 +131,19 @@ contract L1GatewayRouterTest is GatewayRouterTest {
             0,
             maxGas,
             abi.encodeWithSelector(
-                L2GatewayRouter.setDefaultGateway.selector,
-                newDefaultGatewayCounterpart
+                L2GatewayRouter.setDefaultGateway.selector, newDefaultGatewayCounterpart
             )
         );
 
         // set it
         vm.prank(owner);
-        uint256 seqNum = l1Router.setDefaultGateway{ value: retryableCost }(
-            address(newL1DefaultGateway),
-            maxGas,
-            gasPriceBid,
-            maxSubmissionCost
+        uint256 seqNum = l1Router.setDefaultGateway{value: retryableCost}(
+            address(newL1DefaultGateway), maxGas, gasPriceBid, maxSubmissionCost
         );
 
         /// checks
         assertEq(
-            l1Router.defaultGateway(),
-            address(newL1DefaultGateway),
-            "Invalid newL1DefaultGateway"
+            l1Router.defaultGateway(), address(newL1DefaultGateway), "Invalid newL1DefaultGateway"
         );
 
         assertEq(seqNum, 0, "Invalid seqNum");
@@ -186,18 +173,13 @@ contract L1GatewayRouterTest is GatewayRouterTest {
 
         // set it
         vm.prank(owner);
-        uint256 seqNum = l1Router.setDefaultGateway{ value: retryableCost }(
-            newL1DefaultGateway,
-            maxGas,
-            gasPriceBid,
-            maxSubmissionCost
+        uint256 seqNum = l1Router.setDefaultGateway{value: retryableCost}(
+            newL1DefaultGateway, maxGas, gasPriceBid, maxSubmissionCost
         );
 
         /// checks
         assertEq(
-            l1Router.defaultGateway(),
-            address(newL1DefaultGateway),
-            "Invalid newL1DefaultGateway"
+            l1Router.defaultGateway(), address(newL1DefaultGateway), "Invalid newL1DefaultGateway"
         );
 
         assertEq(seqNum, 0, "Invalid seqNum");
@@ -220,7 +202,7 @@ contract L1GatewayRouterTest is GatewayRouterTest {
 
         // register token to gateway
         vm.prank(address(customToken));
-        customGateway.registerTokenToL2{ value: retryableCost }(
+        customGateway.registerTokenToL2{value: retryableCost}(
             makeAddr("tokenL2Address"),
             maxGas,
             gasPriceBid,
@@ -253,11 +235,8 @@ contract L1GatewayRouterTest is GatewayRouterTest {
 
         // set gateway
         vm.prank(address(customToken));
-        uint256 seqNum = l1Router.setGateway{ value: retryableCost }(
-            address(customGateway),
-            maxGas,
-            gasPriceBid,
-            maxSubmissionCost
+        uint256 seqNum = l1Router.setGateway{value: retryableCost}(
+            address(customGateway), maxGas, gasPriceBid, maxSubmissionCost
         );
 
         ///// checks
@@ -288,12 +267,8 @@ contract L1GatewayRouterTest is GatewayRouterTest {
 
         // register token to gateway
         vm.prank(address(customToken));
-        customGateway.registerTokenToL2{ value: retryableCost }(
-            makeAddr("tokenL2Address"),
-            maxGas,
-            gasPriceBid,
-            maxSubmissionCost,
-            creditBackAddress
+        customGateway.registerTokenToL2{value: retryableCost}(
+            makeAddr("tokenL2Address"), maxGas, gasPriceBid, maxSubmissionCost, creditBackAddress
         );
 
         // expect events
@@ -321,12 +296,8 @@ contract L1GatewayRouterTest is GatewayRouterTest {
 
         // set gateway
         vm.prank(address(customToken));
-        uint256 seqNum = l1Router.setGateway{ value: retryableCost }(
-            address(customGateway),
-            maxGas,
-            gasPriceBid,
-            maxSubmissionCost,
-            creditBackAddress
+        uint256 seqNum = l1Router.setGateway{value: retryableCost}(
+            address(customGateway), maxGas, gasPriceBid, maxSubmissionCost, creditBackAddress
         );
 
         ///// checks
@@ -351,12 +322,8 @@ contract L1GatewayRouterTest is GatewayRouterTest {
 
         vm.prank(nonArbEnabledToken);
         vm.expectRevert("NOT_ARB_ENABLED");
-        l1Router.setGateway{ value: 400000 }(
-            makeAddr("gateway"),
-            100000,
-            3,
-            200,
-            makeAddr("creditback")
+        l1Router.setGateway{value: 400_000}(
+            makeAddr("gateway"), 100_000, 3, 200, makeAddr("creditback")
         );
     }
 
@@ -369,12 +336,8 @@ contract L1GatewayRouterTest is GatewayRouterTest {
 
         vm.prank(token);
         vm.expectRevert("NOT_TO_CONTRACT");
-        l1Router.setGateway{ value: retryableCost }(
-            gatewayNotContract,
-            maxGas,
-            gasPriceBid,
-            maxSubmissionCost,
-            creditBackAddress
+        l1Router.setGateway{value: retryableCost}(
+            gatewayNotContract, maxGas, gasPriceBid, maxSubmissionCost, creditBackAddress
         );
     }
 
@@ -383,39 +346,26 @@ contract L1GatewayRouterTest is GatewayRouterTest {
         address initialGateway = address(new L1CustomGateway());
         address l2Counterpart = makeAddr("l2Counterpart");
         L1CustomGateway(initialGateway).initialize(
-            l2Counterpart,
-            address(l1Router),
-            address(inbox),
-            owner
+            l2Counterpart, address(l1Router), address(inbox), owner
         );
 
         // create token
         address token = address(new ERC20("X", "Y"));
         vm.deal(address(token), 100 ether);
         vm.mockCall(
-            address(token),
-            abi.encodeWithSignature("isArbitrumEnabled()"),
-            abi.encode(uint8(0xb1))
+            address(token), abi.encodeWithSignature("isArbitrumEnabled()"), abi.encode(uint8(0xb1))
         );
 
         // register token to gateway
         vm.prank(token);
-        L1CustomGateway(initialGateway).registerTokenToL2{ value: retryableCost }(
-            makeAddr("tokenL2Address"),
-            maxGas,
-            gasPriceBid,
-            maxSubmissionCost,
-            creditBackAddress
+        L1CustomGateway(initialGateway).registerTokenToL2{value: retryableCost}(
+            makeAddr("tokenL2Address"), maxGas, gasPriceBid, maxSubmissionCost, creditBackAddress
         );
 
         // initially set gateway for token
         vm.prank(address(token));
-        l1Router.setGateway{ value: retryableCost }(
-            initialGateway,
-            maxGas,
-            gasPriceBid,
-            maxSubmissionCost,
-            creditBackAddress
+        l1Router.setGateway{value: retryableCost}(
+            initialGateway, maxGas, gasPriceBid, maxSubmissionCost, creditBackAddress
         );
         assertEq(l1Router.l1TokenToGateway(token), initialGateway, "Initial gateway not set");
 
@@ -424,12 +374,8 @@ contract L1GatewayRouterTest is GatewayRouterTest {
 
         vm.prank(token);
         vm.expectRevert("NO_UPDATE_TO_DIFFERENT_ADDR");
-        l1Router.setGateway{ value: retryableCost }(
-            newGateway,
-            maxGas,
-            gasPriceBid,
-            maxSubmissionCost,
-            creditBackAddress
+        l1Router.setGateway{value: retryableCost}(
+            newGateway, maxGas, gasPriceBid, maxSubmissionCost, creditBackAddress
         );
     }
 
@@ -444,12 +390,8 @@ contract L1GatewayRouterTest is GatewayRouterTest {
 
         vm.prank(token);
         vm.expectRevert("TOKEN_NOT_HANDLED_BY_GATEWAY");
-        l1Router.setGateway{ value: retryableCost }(
-            address(gateway),
-            maxGas,
-            gasPriceBid,
-            maxSubmissionCost,
-            creditBackAddress
+        l1Router.setGateway{value: retryableCost}(
+            address(gateway), maxGas, gasPriceBid, maxSubmissionCost, creditBackAddress
         );
     }
 
@@ -467,22 +409,17 @@ contract L1GatewayRouterTest is GatewayRouterTest {
         /// init all
         for (uint256 i = 0; i < 2; i++) {
             L1CustomGateway(gateways[i]).initialize(
-                l2Counterpart,
-                address(l1Router),
-                address(inbox),
-                owner
+                l2Counterpart, address(l1Router), address(inbox), owner
             );
 
             vm.mockCall(
-                tokens[i],
-                abi.encodeWithSignature("isArbitrumEnabled()"),
-                abi.encode(uint8(0xb1))
+                tokens[i], abi.encodeWithSignature("isArbitrumEnabled()"), abi.encode(uint8(0xb1))
             );
 
             // register tokens to gateways
             vm.deal(tokens[i], 100 ether);
             vm.prank(tokens[i]);
-            L1CustomGateway(gateways[i]).registerTokenToL2{ value: retryableCost }(
+            L1CustomGateway(gateways[i]).registerTokenToL2{value: retryableCost}(
                 makeAddr("tokenL2Address"),
                 maxGas,
                 gasPriceBid,
@@ -517,12 +454,8 @@ contract L1GatewayRouterTest is GatewayRouterTest {
 
         /// set gateways
         vm.prank(owner);
-        uint256 seqNum = l1Router.setGateways{ value: retryableCost }(
-            tokens,
-            gateways,
-            maxGas,
-            gasPriceBid,
-            maxSubmissionCost
+        uint256 seqNum = l1Router.setGateways{value: retryableCost}(
+            tokens, gateways, maxGas, gasPriceBid, maxSubmissionCost
         );
 
         ///// checks
@@ -542,12 +475,8 @@ contract L1GatewayRouterTest is GatewayRouterTest {
         /// set gateways
         vm.prank(owner);
         vm.expectRevert("WRONG_LENGTH");
-        l1Router.setGateways{ value: retryableCost }(
-            tokens,
-            gateways,
-            maxGas,
-            gasPriceBid,
-            maxSubmissionCost
+        l1Router.setGateways{value: retryableCost}(
+            tokens, gateways, maxGas, gasPriceBid, maxSubmissionCost
         );
     }
 
@@ -556,39 +485,26 @@ contract L1GatewayRouterTest is GatewayRouterTest {
         address initialGateway = address(new L1CustomGateway());
         address l2Counterpart = makeAddr("l2Counterpart");
         L1CustomGateway(initialGateway).initialize(
-            l2Counterpart,
-            address(l1Router),
-            address(inbox),
-            owner
+            l2Counterpart, address(l1Router), address(inbox), owner
         );
 
         // create token
         address token = address(new ERC20("X", "Y"));
         vm.deal(address(token), 100 ether);
         vm.mockCall(
-            address(token),
-            abi.encodeWithSignature("isArbitrumEnabled()"),
-            abi.encode(uint8(0xb1))
+            address(token), abi.encodeWithSignature("isArbitrumEnabled()"), abi.encode(uint8(0xb1))
         );
 
         // register token to gateway
         vm.prank(token);
-        L1CustomGateway(initialGateway).registerTokenToL2{ value: retryableCost }(
-            makeAddr("tokenL2Address"),
-            maxGas,
-            gasPriceBid,
-            maxSubmissionCost,
-            creditBackAddress
+        L1CustomGateway(initialGateway).registerTokenToL2{value: retryableCost}(
+            makeAddr("tokenL2Address"), maxGas, gasPriceBid, maxSubmissionCost, creditBackAddress
         );
 
         // initially set gateway for token
         vm.prank(address(token));
-        l1Router.setGateway{ value: retryableCost }(
-            initialGateway,
-            maxGas,
-            gasPriceBid,
-            maxSubmissionCost,
-            creditBackAddress
+        l1Router.setGateway{value: retryableCost}(
+            initialGateway, maxGas, gasPriceBid, maxSubmissionCost, creditBackAddress
         );
         assertEq(l1Router.l1TokenToGateway(token), initialGateway, "Initial gateway not set");
 
@@ -620,12 +536,8 @@ contract L1GatewayRouterTest is GatewayRouterTest {
 
         /// set gateways
         vm.prank(owner);
-        uint256 seqNum = l1Router.setGateways{ value: retryableCost }(
-            _tokenArr,
-            _gatewayArr,
-            maxGas,
-            gasPriceBid,
-            maxSubmissionCost
+        uint256 seqNum = l1Router.setGateways{value: retryableCost}(
+            _tokenArr, _gatewayArr, maxGas, gasPriceBid, maxSubmissionCost
         );
 
         ///// checks
@@ -636,7 +548,7 @@ contract L1GatewayRouterTest is GatewayRouterTest {
 
     function test_setGateways_revert_notOwner() public {
         vm.expectRevert("ONLY_OWNER");
-        l1Router.setGateways{ value: 1000 }(new address[](1), new address[](1), 100, 8, 10);
+        l1Router.setGateways{value: 1000}(new address[](1), new address[](1), 100, 8, 10);
     }
 
     function test_setOwner(address newOwner) public {
@@ -690,16 +602,13 @@ contract L1GatewayRouterTest is GatewayRouterTest {
 
         // set default gateway
         vm.prank(owner);
-        l1Router.setDefaultGateway{ value: retryableCost }(
-            address(defaultGateway),
-            maxGas,
-            gasPriceBid,
-            maxSubmissionCost
+        l1Router.setDefaultGateway{value: retryableCost}(
+            address(defaultGateway), maxGas, gasPriceBid, maxSubmissionCost
         );
 
         // create token
         ERC20PresetMinterPauser token = new ERC20PresetMinterPauser("X", "Y");
-        token.mint(user, 10000);
+        token.mint(user, 10_000);
         vm.prank(user);
         token.approve(defaultGateway, 103);
 
@@ -718,13 +627,8 @@ contract L1GatewayRouterTest is GatewayRouterTest {
 
         /// deposit it
         vm.prank(user);
-        l1Router.outboundTransfer{ value: retryableCost }(
-            address(token),
-            to,
-            amount,
-            maxGas,
-            gasPriceBid,
-            userEncodedData
+        l1Router.outboundTransfer{value: retryableCost}(
+            address(token), to, amount, maxGas, gasPriceBid, userEncodedData
         );
 
         // check tokens are escrowed
@@ -733,9 +637,7 @@ contract L1GatewayRouterTest is GatewayRouterTest {
 
         uint256 l1GatewayBalanceAfter = token.balanceOf(address(defaultGateway));
         assertEq(
-            l1GatewayBalanceAfter - l1GatewayBalanceBefore,
-            amount,
-            "Wrong defaultGateway balance"
+            l1GatewayBalanceAfter - l1GatewayBalanceBefore, amount, "Wrong defaultGateway balance"
         );
     }
 
@@ -751,16 +653,13 @@ contract L1GatewayRouterTest is GatewayRouterTest {
 
         // set default gateway
         vm.prank(owner);
-        l1Router.setDefaultGateway{ value: retryableCost }(
-            address(defaultGateway),
-            maxGas,
-            gasPriceBid,
-            maxSubmissionCost
+        l1Router.setDefaultGateway{value: retryableCost}(
+            address(defaultGateway), maxGas, gasPriceBid, maxSubmissionCost
         );
 
         // create token
         ERC20PresetMinterPauser token = new ERC20PresetMinterPauser("X", "Y");
-        token.mint(user, 10000);
+        token.mint(user, 10_000);
         vm.prank(user);
         token.approve(defaultGateway, 103);
 
@@ -780,14 +679,8 @@ contract L1GatewayRouterTest is GatewayRouterTest {
 
         /// deposit it
         vm.prank(user);
-        l1Router.outboundTransferCustomRefund{ value: retryableCost }(
-            address(token),
-            refundTo,
-            to,
-            amount,
-            maxGas,
-            gasPriceBid,
-            userEncodedData
+        l1Router.outboundTransferCustomRefund{value: retryableCost}(
+            address(token), refundTo, to, amount, maxGas, gasPriceBid, userEncodedData
         );
 
         // check tokens are escrowed
@@ -796,9 +689,7 @@ contract L1GatewayRouterTest is GatewayRouterTest {
 
         uint256 l1GatewayBalanceAfter = token.balanceOf(address(defaultGateway));
         assertEq(
-            l1GatewayBalanceAfter - l1GatewayBalanceBefore,
-            amount,
-            "Wrong defaultGateway balance"
+            l1GatewayBalanceAfter - l1GatewayBalanceBefore, amount, "Wrong defaultGateway balance"
         );
     }
 
@@ -806,10 +697,7 @@ contract L1GatewayRouterTest is GatewayRouterTest {
     // Event declarations
     ////
     event TransferRouted(
-        address indexed token,
-        address indexed _userFrom,
-        address indexed _userTo,
-        address gateway
+        address indexed token, address indexed _userFrom, address indexed _userTo, address gateway
     );
     event GatewaySet(address indexed l1Token, address indexed gateway);
     event DefaultGatewayUpdated(address newDefaultGateway);

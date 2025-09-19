@@ -496,9 +496,7 @@ contract L1OrbitCustomGatewayTest is L1CustomGatewayTest {
         );
     }
 
-    function test_registerTokenToL2_InboxPartiallyPrefunded()
-        public
-    {
+    function test_registerTokenToL2_InboxPartiallyPrefunded() public {
         address l1Token = makeAddr("l1Token");
         address l2Token = makeAddr("l2Token");
         vm.deal(l1Token, 100 ether);

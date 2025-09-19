@@ -53,12 +53,11 @@ contract L2GatewayRouter is GatewayRouter, L2ArbitrumMessenger {
         }
     }
 
-    function outboundTransfer(
-        address _l1Token,
-        address _to,
-        uint256 _amount,
-        bytes calldata _data
-    ) public payable returns (bytes memory) {
+    function outboundTransfer(address _l1Token, address _to, uint256 _amount, bytes calldata _data)
+        public
+        payable
+        returns (bytes memory)
+    {
         return outboundTransfer(_l1Token, _to, _amount, 0, 0, _data);
     }
 

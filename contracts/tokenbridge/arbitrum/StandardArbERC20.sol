@@ -32,6 +32,7 @@ contract StandardArbERC20 is IArbToken, L2GatewayToken, Cloneable {
         bool ignoreName;
         bool ignoreSymbol;
     }
+
     ERC20Getters private availableGetters;
 
     /**
@@ -41,10 +42,8 @@ contract StandardArbERC20 is IArbToken, L2GatewayToken, Cloneable {
      * @param _data encoded symbol/name/decimal data for initial deploy
      */
     function bridgeInit(address _l1Address, bytes memory _data) public virtual {
-        (bytes memory name_, bytes memory symbol_, bytes memory decimals_) = abi.decode(
-            _data,
-            (bytes, bytes, bytes)
-        );
+        (bytes memory name_, bytes memory symbol_, bytes memory decimals_) =
+            abi.decode(_data, (bytes, bytes, bytes));
         // what if decode reverts? shouldn't as this is encoded by L1 contract
 
         /*

@@ -54,30 +54,29 @@ contract L1WethGateway is L1ArbitrumExtendedGateway {
         uint256 _maxSubmissionCost,
         bytes memory _outboundCalldata
     ) internal override returns (uint256) {
-        return
-            sendTxToL2CustomRefund(
-                inbox,
-                counterpartGateway,
-                _refundTo,
-                _from,
-                // msg.value does not include weth withdrawn from user, we need to add in that amount
-                msg.value + _tokenAmount,
-                // send token amount to L2 as call value
-                _tokenAmount,
-                L2GasParams({
-                    _maxSubmissionCost: _maxSubmissionCost,
-                    _maxGas: _maxGas,
-                    _gasPriceBid: _gasPriceBid
-                }),
-                _outboundCalldata
-            );
+        return sendTxToL2CustomRefund(
+            inbox,
+            counterpartGateway,
+            _refundTo,
+            _from,
+            // msg.value does not include weth withdrawn from user, we need to add in that amount
+            msg.value + _tokenAmount,
+            // send token amount to L2 as call value
+            _tokenAmount,
+            L2GasParams({
+                _maxSubmissionCost: _maxSubmissionCost,
+                _maxGas: _maxGas,
+                _gasPriceBid: _gasPriceBid
+            }),
+            _outboundCalldata
+        );
     }
 
-    function outboundEscrowTransfer(
-        address _l1Token,
-        address _from,
-        uint256 _amount
-    ) internal override returns (uint256) {
+    function outboundEscrowTransfer(address _l1Token, address _from, uint256 _amount)
+        internal
+        override
+        returns (uint256)
+    {
         IERC20(_l1Token).safeTransferFrom(_from, address(this), _amount);
         IWETH9(_l1Token).withdraw(_amount);
         // the weth token doesn't contain any special behaviour that changes the amount
@@ -85,12 +84,11 @@ contract L1WethGateway is L1ArbitrumExtendedGateway {
         return _amount;
     }
 
-    function inboundEscrowTransfer(
-        address _l1Token,
-        address _dest,
-        uint256 _amount
-    ) internal override {
-        IWETH9(_l1Token).deposit{ value: _amount }();
+    function inboundEscrowTransfer(address _l1Token, address _dest, uint256 _amount)
+        internal
+        override
+    {
+        IWETH9(_l1Token).deposit{value: _amount}();
         IERC20(_l1Token).safeTransfer(_dest, _amount);
     }
 

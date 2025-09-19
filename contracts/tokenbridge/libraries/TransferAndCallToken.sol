@@ -17,11 +17,12 @@ abstract contract TransferAndCallToken is ERC20Upgradeable, ITransferAndCall {
      * @param _value The amount to be transferred.
      * @param _data The extra data to be passed to the receiving contract.
      */
-    function transferAndCall(
-        address _to,
-        uint256 _value,
-        bytes memory _data
-    ) public virtual override returns (bool success) {
+    function transferAndCall(address _to, uint256 _value, bytes memory _data)
+        public
+        virtual
+        override
+        returns (bool success)
+    {
         super.transfer(_to, _value);
         emit Transfer(msg.sender, _to, _value, _data);
         if (isContract(_to)) {
@@ -32,11 +33,7 @@ abstract contract TransferAndCallToken is ERC20Upgradeable, ITransferAndCall {
 
     // PRIVATE
 
-    function contractFallback(
-        address _to,
-        uint256 _value,
-        bytes memory _data
-    ) private {
+    function contractFallback(address _to, uint256 _value, bytes memory _data) private {
         ITransferAndCallReceiver receiver = ITransferAndCallReceiver(_to);
         receiver.onTokenTransfer(msg.sender, _value, _data);
     }

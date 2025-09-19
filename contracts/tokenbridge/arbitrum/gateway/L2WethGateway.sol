@@ -29,12 +29,9 @@ contract L2WethGateway is L2ArbitrumGateway {
     address public l1Weth;
     address public l2Weth;
 
-    function initialize(
-        address _l1Counterpart,
-        address _router,
-        address _l1Weth,
-        address _l2Weth
-    ) public {
+    function initialize(address _l1Counterpart, address _router, address _l1Weth, address _l2Weth)
+        public
+    {
         L2ArbitrumGateway._initialize(_l1Counterpart, _router);
         require(_l1Weth != address(0), "INVALID_L1WETH");
         require(_l2Weth != address(0), "INVALID_L2WETH");
@@ -77,30 +74,28 @@ contract L2WethGateway is L2ArbitrumGateway {
         return l2Weth;
     }
 
-    function inboundEscrowTransfer(
-        address _l2TokenAddress,
-        address _dest,
-        uint256 _amount
-    ) internal override {
-        IWETH9(_l2TokenAddress).deposit{ value: _amount }();
+    function inboundEscrowTransfer(address _l2TokenAddress, address _dest, uint256 _amount)
+        internal
+        override
+    {
+        IWETH9(_l2TokenAddress).deposit{value: _amount}();
         IERC20(_l2TokenAddress).safeTransfer(_dest, _amount);
     }
 
-    function createOutboundTx(
-        address _from,
-        uint256 _tokenAmount,
-        bytes memory _outboundCalldata
-    ) internal override returns (uint256) {
+    function createOutboundTx(address _from, uint256 _tokenAmount, bytes memory _outboundCalldata)
+        internal
+        override
+        returns (uint256)
+    {
         // exitNum incremented after being included in _outboundCalldata
         exitNum++;
-        return
-            sendTxToL1(
-                // we send the amount of weth withdrawn as callvalue to the L1 gateway
-                _tokenAmount,
-                _from,
-                counterpartGateway,
-                _outboundCalldata
-            );
+        return sendTxToL1(
+            // we send the amount of weth withdrawn as callvalue to the L1 gateway
+            _tokenAmount,
+            _from,
+            counterpartGateway,
+            _outboundCalldata
+        );
     }
 
     receive() external payable {}

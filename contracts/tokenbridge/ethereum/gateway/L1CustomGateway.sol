@@ -18,7 +18,7 @@
 
 pragma solidity ^0.8.0;
 
-import { ArbitrumEnabledToken } from "../ICustomToken.sol";
+import {ArbitrumEnabledToken} from "../ICustomToken.sol";
 import "./L1ArbitrumExtendedGateway.sol";
 import "../../arbitrum/gateway/L2CustomGateway.sol";
 import "../../libraries/gateway/ICustomGateway.sol";
@@ -33,6 +33,7 @@ import "../../libraries/Whitelist.sol";
 contract L1CustomGateway is L1ArbitrumExtendedGateway, ICustomGateway {
     using Address for address;
     // stores addresses of L2 tokens to be used
+
     mapping(address => address) public override l1ToL2Token;
     // owner is able to force add custom mappings
     address public owner;
@@ -69,16 +70,9 @@ contract L1CustomGateway is L1ArbitrumExtendedGateway, ICustomGateway {
         uint256 _gasPriceBid,
         bytes calldata _data
     ) public payable override nonReentrant returns (bytes memory res) {
-        return
-            super.outboundTransferCustomRefund(
-                _l1Token,
-                _refundTo,
-                _to,
-                _amount,
-                _maxGas,
-                _gasPriceBid,
-                _data
-            );
+        return super.outboundTransferCustomRefund(
+            _l1Token, _refundTo, _to, _amount, _maxGas, _gasPriceBid, _data
+        );
     }
 
     function finalizeInboundTransfer(
@@ -92,12 +86,9 @@ contract L1CustomGateway is L1ArbitrumExtendedGateway, ICustomGateway {
         super.finalizeInboundTransfer(_token, _from, _to, _amount, _data);
     }
 
-    function initialize(
-        address _l1Counterpart,
-        address _l1Router,
-        address _inbox,
-        address _owner
-    ) public {
+    function initialize(address _l1Counterpart, address _l1Router, address _inbox, address _owner)
+        public
+    {
         L1ArbitrumGateway._initialize(_l1Counterpart, _l1Router, _inbox);
         owner = _owner;
         // disable whitelist by default
@@ -155,15 +146,9 @@ contract L1CustomGateway is L1ArbitrumExtendedGateway, ICustomGateway {
         uint256 _maxSubmissionCost,
         address _creditBackAddress
     ) public payable virtual returns (uint256) {
-        return
-            _registerTokenToL2(
-                _l2Address,
-                _maxGas,
-                _gasPriceBid,
-                _maxSubmissionCost,
-                _creditBackAddress,
-                msg.value
-            );
+        return _registerTokenToL2(
+            _l2Address, _maxGas, _gasPriceBid, _maxSubmissionCost, _creditBackAddress, msg.value
+        );
     }
 
     function _registerTokenToL2(
@@ -197,23 +182,20 @@ contract L1CustomGateway is L1ArbitrumExtendedGateway, ICustomGateway {
         emit TokenSet(l1Addresses[0], l2Addresses[0]);
 
         bytes memory _data = abi.encodeWithSelector(
-            L2CustomGateway.registerTokenFromL1.selector,
-            l1Addresses,
-            l2Addresses
+            L2CustomGateway.registerTokenFromL1.selector, l1Addresses, l2Addresses
         );
 
-        return
-            sendTxToL2(
-                inbox,
-                counterpartGateway,
-                _creditBackAddress,
-                _feeAmount,
-                0,
-                _maxSubmissionCost,
-                _maxGas,
-                _gasPriceBid,
-                _data
-            );
+        return sendTxToL2(
+            inbox,
+            counterpartGateway,
+            _creditBackAddress,
+            _feeAmount,
+            0,
+            _maxSubmissionCost,
+            _maxGas,
+            _gasPriceBid,
+            _data
+        );
     }
 
     function setOwner(address newOwner) external onlyOwner {
@@ -238,15 +220,9 @@ contract L1CustomGateway is L1ArbitrumExtendedGateway, ICustomGateway {
         uint256 _gasPriceBid,
         uint256 _maxSubmissionCost
     ) external payable virtual onlyOwner returns (uint256) {
-        return
-            _forceRegisterTokenToL2(
-                _l1Addresses,
-                _l2Addresses,
-                _maxGas,
-                _gasPriceBid,
-                _maxSubmissionCost,
-                msg.value
-            );
+        return _forceRegisterTokenToL2(
+            _l1Addresses, _l2Addresses, _maxGas, _gasPriceBid, _maxSubmissionCost, msg.value
+        );
     }
 
     function _forceRegisterTokenToL2(
@@ -267,22 +243,19 @@ contract L1CustomGateway is L1ArbitrumExtendedGateway, ICustomGateway {
         }
 
         bytes memory _data = abi.encodeWithSelector(
-            L2CustomGateway.registerTokenFromL1.selector,
-            _l1Addresses,
-            _l2Addresses
+            L2CustomGateway.registerTokenFromL1.selector, _l1Addresses, _l2Addresses
         );
 
-        return
-            sendTxToL2(
-                inbox,
-                counterpartGateway,
-                msg.sender,
-                _feeAmount,
-                0,
-                _maxSubmissionCost,
-                _maxGas,
-                _gasPriceBid,
-                _data
-            );
+        return sendTxToL2(
+            inbox,
+            counterpartGateway,
+            msg.sender,
+            _feeAmount,
+            0,
+            _maxSubmissionCost,
+            _maxGas,
+            _gasPriceBid,
+            _data
+        );
     }
 }

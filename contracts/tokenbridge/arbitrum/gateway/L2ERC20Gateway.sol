@@ -27,11 +27,9 @@ import "../../libraries/ClonableBeaconProxy.sol";
 contract L2ERC20Gateway is L2ArbitrumGateway {
     address public beaconProxyFactory;
 
-    function initialize(
-        address _l1Counterpart,
-        address _router,
-        address _beaconProxyFactory
-    ) public {
+    function initialize(address _l1Counterpart, address _router, address _beaconProxyFactory)
+        public
+    {
         L2ArbitrumGateway._initialize(_l1Counterpart, _router);
         require(_beaconProxyFactory != address(0), "INVALID_BEACON");
         beaconProxyFactory = _beaconProxyFactory;
@@ -52,11 +50,9 @@ contract L2ERC20Gateway is L2ArbitrumGateway {
         returns (address)
     {
         // this method is marked virtual to be overriden in subclasses used in testing
-        return
-            BeaconProxyFactory(beaconProxyFactory).calculateExpectedAddress(
-                address(this),
-                getUserSalt(l1ERC20)
-            );
+        return BeaconProxyFactory(beaconProxyFactory).calculateExpectedAddress(
+            address(this), getUserSalt(l1ERC20)
+        );
     }
 
     function cloneableProxyHash() public view returns (bytes32) {

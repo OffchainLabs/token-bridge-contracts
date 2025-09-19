@@ -4,7 +4,8 @@
 pragma solidity ^0.8.0;
 
 import "./ERC20Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/draft-IERC20PermitUpgradeable.sol";
+import
+    "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/draft-IERC20PermitUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/cryptography/ECDSAUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/cryptography/EIP712Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/CountersUpgradeable.sol";
@@ -29,10 +30,9 @@ abstract contract ERC20PermitUpgradeable is
     mapping(address => CountersUpgradeable.Counter) private _nonces;
 
     // solhint-disable-next-line var-name-mixedcase
-    bytes32 private constant _PERMIT_TYPEHASH =
-        keccak256(
-            "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"
-        );
+    bytes32 private constant _PERMIT_TYPEHASH = keccak256(
+        "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"
+    );
     /**
      * @dev In previous versions `_PERMIT_TYPEHASH` was declared as `immutable`.
      * However, to ensure consistency with the upgradeable transpiler, we will continue

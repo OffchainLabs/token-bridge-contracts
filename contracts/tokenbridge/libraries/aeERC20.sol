@@ -32,11 +32,10 @@ contract aeERC20 is ERC20PermitUpgradeable, TransferAndCallToken {
         // override the constructor if you don't wish to use the initialize method
     }
 
-    function _initialize(
-        string memory name_,
-        string memory symbol_,
-        uint8 decimals_
-    ) internal initializer {
+    function _initialize(string memory name_, string memory symbol_, uint8 decimals_)
+        internal
+        initializer
+    {
         __ERC20Permit_init(name_);
         __ERC20_init(name_, symbol_);
         _setupDecimals(decimals_);

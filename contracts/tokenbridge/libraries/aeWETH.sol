@@ -33,17 +33,14 @@ contract aeWETH is L2GatewayToken, IWETH9 {
         L2GatewayToken._initialize(name_, symbol_, decimals_, l2Gateway_, l1Address_);
     }
 
-    function bridgeMint(
-        address, /* account */
-        uint256 /* amount */
-    ) external virtual override {
+    function bridgeMint(address, /* account */ uint256 /* amount */ ) external virtual override {
         // we want weth to always be fully collaterized
         revert("NO_BRIDGE_MINT");
     }
 
     function bridgeBurn(address account, uint256 amount) external virtual override onlyGateway {
         _burn(account, amount);
-        (bool success, ) = msg.sender.call{ value: amount }("");
+        (bool success,) = msg.sender.call{value: amount}("");
         require(success, "FAIL_TRANSFER");
     }
 
@@ -61,7 +58,7 @@ contract aeWETH is L2GatewayToken, IWETH9 {
 
     function withdrawTo(address account, uint256 amount) public {
         _burn(msg.sender, amount);
-        (bool success, ) = account.call{ value: amount }("");
+        (bool success,) = account.call{value: amount}("");
         require(success, "FAIL_TRANSFER");
     }
 

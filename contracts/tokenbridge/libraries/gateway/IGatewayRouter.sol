@@ -30,10 +30,7 @@ interface IGatewayRouter is ITokenGateway {
     function defaultGateway() external view returns (address gateway);
 
     event TransferRouted(
-        address indexed token,
-        address indexed _userFrom,
-        address indexed _userTo,
-        address gateway
+        address indexed token, address indexed _userFrom, address indexed _userTo, address gateway
     );
 
     event GatewaySet(address indexed l1Token, address indexed gateway);

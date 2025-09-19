@@ -76,6 +76,6 @@ contract ReverseTestArbCustomToken is aeERC20, IArbToken, ReverseArbToken {
     function someWackyCustomStuff() public {}
 
     function mint() external {
-        _mint(msg.sender, 50000000);
+        _mint(msg.sender, 50_000_000);
     }
 }

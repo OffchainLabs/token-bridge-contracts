@@ -20,7 +20,7 @@ pragma solidity ^0.8.0;
 
 import "../../libraries/Whitelist.sol";
 
-import { ArbitrumEnabledToken } from "../ICustomToken.sol";
+import {ArbitrumEnabledToken} from "../ICustomToken.sol";
 import "../L1ArbitrumMessenger.sol";
 import "../../libraries/gateway/GatewayRouter.sol";
 import "../../arbitrum/gateway/L2GatewayRouter.sol";
@@ -68,14 +68,9 @@ contract L1GatewayRouter is
         uint256 _gasPriceBid,
         uint256 _maxSubmissionCost
     ) external payable virtual onlyOwner returns (uint256) {
-        return
-            _setDefaultGateway(
-                newL1DefaultGateway,
-                _maxGas,
-                _gasPriceBid,
-                _maxSubmissionCost,
-                msg.value
-            );
+        return _setDefaultGateway(
+            newL1DefaultGateway, _maxGas, _gasPriceBid, _maxSubmissionCost, msg.value
+        );
     }
 
     function _setDefaultGateway(
@@ -95,25 +90,22 @@ contract L1GatewayRouter is
             l2NewDefaultGateway = TokenGateway(newL1DefaultGateway).counterpartGateway();
         }
 
-        bytes memory data = abi.encodeWithSelector(
-            L2GatewayRouter.setDefaultGateway.selector,
-            l2NewDefaultGateway
-        );
+        bytes memory data =
+            abi.encodeWithSelector(L2GatewayRouter.setDefaultGateway.selector, l2NewDefaultGateway);
 
-        return
-            sendTxToL2(
-                inbox,
-                counterpartGateway,
-                msg.sender,
-                feeAmount,
-                0,
-                L2GasParams({
-                    _maxSubmissionCost: _maxSubmissionCost,
-                    _maxGas: _maxGas,
-                    _gasPriceBid: _gasPriceBid
-                }),
-                data
-            );
+        return sendTxToL2(
+            inbox,
+            counterpartGateway,
+            msg.sender,
+            feeAmount,
+            0,
+            L2GasParams({
+                _maxSubmissionCost: _maxSubmissionCost,
+                _maxGas: _maxGas,
+                _gasPriceBid: _gasPriceBid
+            }),
+            data
+        );
     }
 
     function setOwner(address newOwner) external onlyOwner {
@@ -155,15 +147,9 @@ contract L1GatewayRouter is
         uint256 _maxSubmissionCost,
         address _creditBackAddress
     ) public payable virtual override returns (uint256) {
-        return
-            _setGatewayWithCreditBack(
-                _gateway,
-                _maxGas,
-                _gasPriceBid,
-                _maxSubmissionCost,
-                _creditBackAddress,
-                msg.value
-            );
+        return _setGatewayWithCreditBack(
+            _gateway, _maxGas, _gasPriceBid, _maxSubmissionCost, _creditBackAddress, msg.value
+        );
     }
 
     function _setGatewayWithCreditBack(
@@ -175,8 +161,7 @@ contract L1GatewayRouter is
         uint256 feeAmount
     ) internal returns (uint256) {
         require(
-            ArbitrumEnabledToken(msg.sender).isArbitrumEnabled() == uint8(0xb1),
-            "NOT_ARB_ENABLED"
+            ArbitrumEnabledToken(msg.sender).isArbitrumEnabled() == uint8(0xb1), "NOT_ARB_ENABLED"
         );
 
         require(_gateway.isContract(), "NOT_TO_CONTRACT");
@@ -193,16 +178,15 @@ contract L1GatewayRouter is
         address[] memory _gatewayArr = new address[](1);
         _gatewayArr[0] = _gateway;
 
-        return
-            _setGateways(
-                _tokenArr,
-                _gatewayArr,
-                _maxGas,
-                _gasPriceBid,
-                _maxSubmissionCost,
-                _creditBackAddress,
-                feeAmount
-            );
+        return _setGateways(
+            _tokenArr,
+            _gatewayArr,
+            _maxGas,
+            _gasPriceBid,
+            _maxSubmissionCost,
+            _creditBackAddress,
+            feeAmount
+        );
     }
 
     function setGateways(
@@ -214,16 +198,9 @@ contract L1GatewayRouter is
     ) external payable virtual onlyOwner returns (uint256) {
         // it is assumed that token and gateway are both contracts
         // require(_token[i].isContract() && _gateway[i].isContract(), "NOT_CONTRACT");
-        return
-            _setGateways(
-                _token,
-                _gateway,
-                _maxGas,
-                _gasPriceBid,
-                _maxSubmissionCost,
-                msg.sender,
-                msg.value
-            );
+        return _setGateways(
+            _token, _gateway, _maxGas, _gasPriceBid, _maxSubmissionCost, msg.sender, msg.value
+        );
     }
 
     function _setGateways(
@@ -253,26 +230,22 @@ contract L1GatewayRouter is
             }
         }
 
-        bytes memory data = abi.encodeWithSelector(
-            L2GatewayRouter.setGateway.selector,
-            _token,
-            _gateway
-        );
+        bytes memory data =
+            abi.encodeWithSelector(L2GatewayRouter.setGateway.selector, _token, _gateway);
 
-        return
-            sendTxToL2(
-                inbox,
-                counterpartGateway,
-                _creditBackAddress,
-                feeAmount,
-                0,
-                L2GasParams({
-                    _maxSubmissionCost: _maxSubmissionCost,
-                    _maxGas: _maxGas,
-                    _gasPriceBid: _gasPriceBid
-                }),
-                data
-            );
+        return sendTxToL2(
+            inbox,
+            counterpartGateway,
+            _creditBackAddress,
+            feeAmount,
+            0,
+            L2GasParams({
+                _maxSubmissionCost: _maxSubmissionCost,
+                _maxGas: _maxGas,
+                _gasPriceBid: _gasPriceBid
+            }),
+            data
+        );
     }
 
     function outboundTransfer(
@@ -315,23 +288,14 @@ contract L1GatewayRouter is
         bytes calldata _data
     ) public payable override returns (bytes memory) {
         address gateway = getGateway(_token);
-        bytes memory gatewayData = GatewayMessageHandler.encodeFromRouterToGateway(
-            msg.sender,
-            _data
-        );
+        bytes memory gatewayData =
+            GatewayMessageHandler.encodeFromRouterToGateway(msg.sender, _data);
 
         emit TransferRouted(_token, msg.sender, _to, gateway);
         // here we use `IL1ArbitrumGateway` since we don't assume all ITokenGateway implements `outboundTransferCustomRefund`
-        return
-            IL1ArbitrumGateway(gateway).outboundTransferCustomRefund{ value: msg.value }(
-                _token,
-                _refundTo,
-                _to,
-                _amount,
-                _maxGas,
-                _gasPriceBid,
-                gatewayData
-            );
+        return IL1ArbitrumGateway(gateway).outboundTransferCustomRefund{value: msg.value}(
+            _token, _refundTo, _to, _amount, _maxGas, _gasPriceBid, gatewayData
+        );
     }
 
     modifier onlyCounterpartGateway() override {
@@ -348,8 +312,7 @@ contract L1GatewayRouter is
     {
         // registering interfaces that is added after arb-bridge-peripherals >1.0.11
         // using function selector instead of single function interfaces to reduce bloat
-        return
-            interfaceId == this.outboundTransferCustomRefund.selector ||
-            super.supportsInterface(interfaceId);
+        return interfaceId == this.outboundTransferCustomRefund.selector
+            || super.supportsInterface(interfaceId);
     }
 }

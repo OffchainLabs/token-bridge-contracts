@@ -43,19 +43,18 @@ abstract contract L1ArbitrumMessenger {
         bytes memory _data
     ) internal returns (uint256) {
         // alternative function entry point when struggling with the stack size
-        return
-            sendTxToL2CustomRefund(
-                _inbox,
-                _to,
-                _refundTo,
-                _user,
-                _l1CallValue,
-                _l2CallValue,
-                _l2GasParams._maxSubmissionCost,
-                _l2GasParams._maxGas,
-                _l2GasParams._gasPriceBid,
-                _data
-            );
+        return sendTxToL2CustomRefund(
+            _inbox,
+            _to,
+            _refundTo,
+            _user,
+            _l1CallValue,
+            _l2CallValue,
+            _l2GasParams._maxSubmissionCost,
+            _l2GasParams._maxGas,
+            _l2GasParams._gasPriceBid,
+            _data
+        );
     }
 
     function sendTxToL2(
@@ -68,18 +67,17 @@ abstract contract L1ArbitrumMessenger {
         bytes memory _data
     ) internal returns (uint256) {
         // alternative function entry point when struggling with the stack size
-        return
-            sendTxToL2(
-                _inbox,
-                _to,
-                _user,
-                _l1CallValue,
-                _l2CallValue,
-                _l2GasParams._maxSubmissionCost,
-                _l2GasParams._maxGas,
-                _l2GasParams._gasPriceBid,
-                _data
-            );
+        return sendTxToL2(
+            _inbox,
+            _to,
+            _user,
+            _l1CallValue,
+            _l2CallValue,
+            _l2GasParams._maxSubmissionCost,
+            _l2GasParams._maxGas,
+            _l2GasParams._gasPriceBid,
+            _data
+        );
     }
 
     function sendTxToL2CustomRefund(
@@ -121,19 +119,18 @@ abstract contract L1ArbitrumMessenger {
         uint256 _gasPriceBid,
         bytes memory _data
     ) internal returns (uint256) {
-        return
-            sendTxToL2CustomRefund(
-                _inbox,
-                _to,
-                _user,
-                _user,
-                _l1CallValue,
-                _l2CallValue,
-                _maxSubmissionCost,
-                _maxGas,
-                _gasPriceBid,
-                _data
-            );
+        return sendTxToL2CustomRefund(
+            _inbox,
+            _to,
+            _user,
+            _user,
+            _l1CallValue,
+            _l2CallValue,
+            _maxSubmissionCost,
+            _maxGas,
+            _gasPriceBid,
+            _data
+        );
     }
 
     function getBridge(address _inbox) internal view returns (IBridge) {
@@ -175,17 +172,9 @@ abstract contract L1ArbitrumMessenger {
         uint256 _gasPriceBid,
         bytes memory _data
     ) internal virtual returns (uint256) {
-        return
-            IInbox(_inbox).createRetryableTicket{ value: _totalFeeAmount }(
-                _to,
-                _l2CallValue,
-                _maxSubmissionCost,
-                _refundTo,
-                _user,
-                _maxGas,
-                _gasPriceBid,
-                _data
-            );
+        return IInbox(_inbox).createRetryableTicket{value: _totalFeeAmount}(
+            _to, _l2CallValue, _maxSubmissionCost, _refundTo, _user, _maxGas, _gasPriceBid, _data
+        );
     }
 }
 
