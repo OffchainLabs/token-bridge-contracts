@@ -86,14 +86,16 @@ contract L1ERC20Gateway is L1ArbitrumExtendedGateway {
         super.finalizeInboundTransfer(_token, _from, _to, _amount, _data);
     }
 
+    // todo: update initializers for orbit versions of gateways as well
     function initialize(
         address _l2Counterpart,
         address _router,
         address _inbox,
         bytes32 _cloneableProxyHash,
-        address _l2BeaconProxyFactory
+        address _l2BeaconProxyFactory,
+        address _masterVaultFactory
     ) public {
-        L1ArbitrumGateway._initialize(_l2Counterpart, _router, _inbox);
+        L1ArbitrumGateway._initialize(_l2Counterpart, _router, _inbox, _masterVaultFactory);
         require(_cloneableProxyHash != bytes32(0), "INVALID_PROXYHASH");
         require(_l2BeaconProxyFactory != address(0), "INVALID_BEACON");
         cloneableProxyHash = _cloneableProxyHash;

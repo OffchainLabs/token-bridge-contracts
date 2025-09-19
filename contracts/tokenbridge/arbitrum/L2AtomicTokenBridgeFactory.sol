@@ -305,6 +305,7 @@ library OrbitSalts {
     bytes internal constant L1_STANDARD_GATEWAY = bytes("L1SGW");
     bytes internal constant L1_CUSTOM_GATEWAY = bytes("L1CGW");
     bytes internal constant L1_WETH_GATEWAY = bytes("L1WGW");
+    bytes internal constant MASTER_VAULT_FACTORY = bytes("MVF");
 
     bytes internal constant L2_PROXY_ADMIN = bytes("L2PA");
     bytes internal constant L2_ROUTER = bytes("L2R");

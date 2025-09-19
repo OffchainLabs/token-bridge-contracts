@@ -43,6 +43,8 @@ import {TransparentUpgradeableProxy} from
     "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {IAccessControlUpgradeable} from
     "@openzeppelin/contracts-upgradeable/access/IAccessControlUpgradeable.sol";
+import {MasterVaultFactory} from "../libraries/vault/MasterVaultFactory.sol";
+import {L1ArbitrumGateway} from "./gateway/L1ArbitrumGateway.sol";
 
 /**
  * @title Layer1 token bridge creator
@@ -80,6 +82,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         L1OrbitERC20Gateway feeTokenBasedStandardGatewayTemplate;
         L1OrbitCustomGateway feeTokenBasedCustomGatewayTemplate;
         IUpgradeExecutor upgradeExecutor;
+        MasterVaultFactory masterVaultFactory;
     }
 
     // use separate mapping to allow appending to the struct in the future
@@ -193,7 +196,8 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         address inbox,
         address rollupOwner,
         uint256 maxGasForContracts,
-        uint256 gasPriceBid
+        uint256 gasPriceBid,
+        bool isYieldBearingBridge
     ) external payable {
         // templates have to be in place
         if (address(l1Templates.routerTemplate) == address(0)) {
@@ -255,6 +259,15 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
 
         // if resend, we assume L1 contracts already exist
         if (!isResend) {
+            if (isYieldBearingBridge) {
+                // deploy master vault factory
+                l1Deployment.masterVaultFactory = _deployProxyWithSalt(
+                    _getL1Salt(OrbitSalts.MASTER_VAULT_FACTORY, inbox),
+                    address(l1Templates.masterVaultFactory),
+                    proxyAdmin
+                );
+            }
+
             // l1 router deployment block
             {
                 address routerTemplate = feeToken != address(0)
@@ -282,7 +295,8 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                     l1Deployment.router,
                     inbox,
                     keccak256(type(ClonableBeaconProxy).creationCode),
-                    l2Deployment.beaconProxyFactory
+                    l2Deployment.beaconProxyFactory,
+                    l1Deployment.masterVaultFactory
                 );
 
                 l1Deployment.standardGateway = address(standardGateway);
@@ -301,7 +315,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                 );
 
                 customGateway.initialize(
-                    l2Deployment.customGateway, l1Deployment.router, inbox, upgradeExecutor
+                    l2Deployment.customGateway, l1Deployment.router, inbox, upgradeExecutor, l1Deployment.masterVaultFactory
                 );
 
                 l1Deployment.customGateway = address(customGateway);
