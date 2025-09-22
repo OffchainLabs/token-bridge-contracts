@@ -33,7 +33,7 @@ contract MasterVault is IMasterVault, Ownable {
     }
 
     // todo: remove gateway and owner params
-    // factory can transfer ownership to upgrade executor
+    //       factory retains ownership. anyone can call deposit and withdraw since it's close to a standard 4626 vault
     constructor(address _token, address _gateway, address _owner) Ownable() {
         if (_token == address(0) || _gateway == address(0) || _owner == address(0)) {
             revert ZeroAddress();
