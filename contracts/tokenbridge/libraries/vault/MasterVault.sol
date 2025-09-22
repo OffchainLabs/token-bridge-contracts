@@ -9,6 +9,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IERC4626 } from "lib/forge-std/src/interfaces/IERC4626.sol";
 
 // todo: make this more like a 4626 vault, erc20 shares + deposit + withdraw
+// todo: consider beacon proxy
 contract MasterVault is IMasterVault, Ownable {
     using SafeERC20 for IERC20;
 

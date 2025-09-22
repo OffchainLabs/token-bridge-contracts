@@ -9,6 +9,7 @@ import "./MasterVault.sol";
 
 contract MasterVaultFactory is OwnableUpgradeable {
     event VaultDeployed(address indexed token, address indexed vault);
+    event SubVaultSet(address indexed masterVault, address indexed subVault);
 
     error ZeroAddress();
 
@@ -48,5 +49,13 @@ contract MasterVaultFactory is OwnableUpgradeable {
             return deployVault(token);
         }
         return vault;
+    }
+
+    function setSubVault(
+        address masterVault,
+        address subVault
+    ) external onlyOwner {
+        IMasterVault(masterVault).setSubVault(subVault);
+        emit SubVaultSet(masterVault, subVault);
     }
 }
