@@ -22,28 +22,21 @@ contract MasterVaultFactory is OwnableUpgradeable {
             revert ZeroAddress();
         }
 
-        bytes memory bytecode = abi.encodePacked(
-            type(MasterVault).creationCode,
-            abi.encode(token)
-        );
+        bytes memory bytecode = abi.encodePacked(type(MasterVault).creationCode, abi.encode(token));
 
         vault = Create2.deploy(0, bytes32(0), bytecode);
 
         emit VaultDeployed(token, vault);
     }
 
-    function calculateVaultAddress(
-        address token
-    ) public view returns (address) {
+    function calculateVaultAddress(address token) public view returns (address) {
         bytes32 bytecodeHash = keccak256(
             abi.encodePacked(type(MasterVault).creationCode, abi.encode(token))
         );
         return Create2.computeAddress(bytes32(0), bytecodeHash);
     }
 
-    function getVault(
-        address token
-    ) external returns (address) {
+    function getVault(address token) external returns (address) {
         address vault = calculateVaultAddress(token);
         if (vault.code.length == 0) {
             return deployVault(token);
@@ -51,10 +44,7 @@ contract MasterVaultFactory is OwnableUpgradeable {
         return vault;
     }
 
-    function setSubVault(
-        address masterVault,
-        address subVault
-    ) external onlyOwner {
+    function setSubVault(address masterVault, address subVault) external onlyOwner {
         IMasterVault(masterVault).setSubVault(subVault);
         emit SubVaultSet(masterVault, subVault);
     }
