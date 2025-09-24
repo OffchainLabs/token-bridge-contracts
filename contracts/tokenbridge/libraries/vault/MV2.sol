@@ -20,6 +20,30 @@ contract MV2 is ERC4626, Ownable {
 
     constructor(IERC20 _asset, string memory _name, string memory _symbol) ERC20(_name, _symbol) ERC4626(_asset) Ownable() {}
 
+    function deposit(uint256 assets, address receiver, uint256 minSharesMinted) public returns (uint256) {
+        uint256 shares = super.deposit(assets, receiver);
+        require(shares >= minSharesMinted, "too few shares received");
+        return shares;
+    }
+
+    function withdraw(uint256 assets, address receiver, address _owner, uint256 maxSharesBurned) public returns (uint256) {
+        uint256 shares = super.withdraw(assets, receiver, _owner);
+        require(shares <= maxSharesBurned, "too many shares burned");
+        return shares;
+    }
+
+    function mint(uint256 shares, address receiver, uint256 maxAssetsDeposited) public returns (uint256) {
+        uint256 assets = super.mint(shares, receiver);
+        require(assets <= maxAssetsDeposited, "too many assets deposited");
+        return assets;
+    }
+
+    function redeem(uint256 shares, address receiver, address _owner, uint256 minAssetsReceived) public returns (uint256) {
+        uint256 assets = super.redeem(shares, receiver, _owner);
+        require(assets >= minAssetsReceived, "too few assets received");
+        return assets;
+    }
+
     function setSubVault(ERC4626 _subVault, uint256 minSubVaultShares) external onlyOwner {
         require(address(subVault) == address(0), "subvault already set");
         require(totalSupply() > 0, "must have supply before setting subvault");
