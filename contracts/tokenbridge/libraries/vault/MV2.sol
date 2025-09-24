@@ -24,6 +24,9 @@ contract MV2 is ERC4626, Ownable {
     uint256 public subVaultExchRateWad = 1e18;
 
     // note: the performance fee can be avoided if the underlying strategy can be sandwiched (eg ETH to wstETH dex swap)
+    // maybe a simpler and more robust implementation would be for the owner to adjust the subVaultExchRateWad directly
+    // this would also avoid the need for totalPrincipal tracking
+    // however, this would require more trust in the owner
     uint256 public performanceFeeBps; // in basis points, e.g. 200 = 2% | todo a way to set this
     uint256 totalPrincipal; // total assets deposited, used to calculate profit
 
@@ -173,6 +176,7 @@ contract MV2 is ERC4626, Ownable {
             _subVault.withdraw(assets, address(this), address(this));
         }
 
+        ////// PERF FEE STUFF //////
         // determine profit portion and principal portion of assets
         uint256 _totalProfit = totalProfit();
         // use shares because they are rounded up vs assets which are rounded down
@@ -191,6 +195,8 @@ contract MV2 is ERC4626, Ownable {
             // note subtraction
             assets -= fee;
         }
+
+        ////// END PERF FEE STUFF //////
 
         // call super._withdraw with remaining assets
         super._withdraw(caller, receiver, _owner, assets, shares);
