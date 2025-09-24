@@ -46,7 +46,6 @@ contract MV2 is ERC4626, Ownable {
 
     function setSubVault(ERC4626 _subVault, uint256 minSubVaultShares) external onlyOwner {
         require(address(subVault) == address(0), "subvault already set");
-        require(totalSupply() > 0, "must have supply before setting subvault");
 
         // deposit to subvault
         IERC20(asset()).safeApprove(address(_subVault), type(uint256).max);
