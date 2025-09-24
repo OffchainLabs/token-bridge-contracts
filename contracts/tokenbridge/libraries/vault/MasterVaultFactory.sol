@@ -44,7 +44,11 @@ contract MasterVaultFactory is OwnableUpgradeable {
         return vault;
     }
 
-    function setSubVault(address masterVault, address subVault) external onlyOwner {
+    // todo: consider a method to enable bridge owner to transfer specific master vault ownership to new address
+    function setSubVault(
+        address masterVault,
+        address subVault
+    ) external onlyOwner {
         IMasterVault(masterVault).setSubVault(subVault);
         emit SubVaultSet(masterVault, subVault);
     }
