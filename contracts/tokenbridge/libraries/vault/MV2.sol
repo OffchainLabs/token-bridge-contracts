@@ -12,18 +12,69 @@ contract MV2 is ERC4626, Ownable {
     using SafeERC20 for IERC20;
     using Math for uint256;
 
+    // todo: avoid inflation, rounding, other common 4626 vulns
+    // we may need a minimum asset or master share amount when setting subvaults (bc of exchange rate calc)
+
     ERC4626 public subVault;
 
     // how many subVault shares one MV2 share can be redeemed for
     // initially 1 to 1
     // constant per subvault
     // changes when subvault is set
-    // todo: this initial rate should be whatever makes 1mstUSDC == 1USDC, not 1mstUSDC == 1stUSDC
     uint256 public subVaultExchRateWad = 1e18;
 
     event SubvaultChanged(address indexed oldSubvault, address indexed newSubvault);
 
     constructor(IERC20 _asset, string memory _name, string memory _symbol) ERC20(_name, _symbol) ERC4626(_asset) Ownable() {}
+
+    // todo: can probably pull some of this stuff out into internal functions
+    function setSubVault(ERC4626 _subVault, uint256 minSubVaultShares) external onlyOwner {
+        require(address(subVault) == address(0), "subvault already set");
+        require(totalSupply() > 0, "must have supply before setting subvault");
+
+        // deposit to subvault
+        IERC20(asset()).safeApprove(address(_subVault), type(uint256).max);
+        uint256 subShares = _subVault.deposit(totalAssets(), address(this));
+        require(subShares >= minSubVaultShares, "too few subvault shares");
+
+        // set new exchange rate
+        subVaultExchRateWad = subShares.mulDiv(1e18, totalSupply(), Math.Rounding.Down);
+
+        // set subvault
+        subVault = _subVault;
+
+        emit SubvaultChanged(address(0), address(_subVault));
+    }
+
+    function switchSubVault(ERC4626 newSubVault, uint256 minAssetReceived, uint256 minNewSubVaultShares) external onlyOwner {
+        ERC4626 oldSubVault = subVault;
+        require(address(oldSubVault) != address(0), "no existing subvault");
+
+        // withdraw from old subvault
+        uint256 assetReceived = oldSubVault.withdraw(oldSubVault.maxWithdraw(address(this)), address(this), address(this));
+        require(assetReceived >= minAssetReceived, "too few assets received");
+
+        // revoke approval from old subvault
+        IERC20(asset()).safeApprove(address(oldSubVault), 0);
+
+        // deposit to new subvault
+        if (address(newSubVault) != address(0)) {
+            IERC20(asset()).safeApprove(address(newSubVault), type(uint256).max);
+            uint256 newSubShares = newSubVault.deposit(totalAssets(), address(this));
+            require(newSubShares >= minNewSubVaultShares, "too few new subvault shares");
+
+            // set new exchange rate
+            subVaultExchRateWad = newSubShares.mulDiv(1e18, totalSupply(), Math.Rounding.Down);
+        }
+        else {
+            subVaultExchRateWad = 1e18;
+        }
+
+        // set subvault
+        subVault = newSubVault;
+
+        emit SubvaultChanged(address(oldSubVault), address(newSubVault));
+    }
 
     function masterSharesToSubShares(uint256 masterShares, Math.Rounding rounding) public view returns (uint256) {
         return masterShares.mulDiv(subVaultExchRateWad, 1e18, rounding);
