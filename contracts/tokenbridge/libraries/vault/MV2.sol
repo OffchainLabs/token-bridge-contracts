@@ -23,6 +23,10 @@ contract MV2 is ERC4626, Ownable {
     // changes when subvault is set
     uint256 public subVaultExchRateWad = 1e18;
 
+    // note: the performance fee can be avoided if the underlying strategy can be sandwiched (eg ETH to wstETH dex swap)
+    uint256 public performanceFeeBps; // in basis points, e.g. 200 = 2% | todo a way to set this
+    uint256 totalPrincipal; // total assets deposited, used to calculate profit
+
     event SubvaultChanged(address indexed oldSubvault, address indexed newSubvault);
 
     constructor(IERC20 _asset, string memory _name, string memory _symbol) ERC20(_name, _symbol) ERC4626(_asset) Ownable() {}
@@ -132,6 +136,11 @@ contract MV2 is ERC4626, Ownable {
         return _subVault.convertToAssets(masterSharesToSubShares(shares, rounding));
     }
 
+    function totalProfit() public view returns (uint256) {
+        uint256 _totalAssets = totalAssets();
+        return _totalAssets > totalPrincipal ? _totalAssets - totalPrincipal : 0;
+    }
+
     /**
      * @dev Deposit/mint common workflow.
      */
@@ -142,6 +151,7 @@ contract MV2 is ERC4626, Ownable {
         uint256 shares
     ) internal virtual override {
         super._deposit(caller, receiver, assets, shares);
+        totalPrincipal += assets;
         ERC4626 _subVault = subVault;
         if (address(_subVault) != address(0)) {
             _subVault.deposit(assets, address(this));
@@ -162,6 +172,27 @@ contract MV2 is ERC4626, Ownable {
         if (address(_subVault) != address(0)) {
             _subVault.withdraw(assets, address(this), address(this));
         }
+
+        // determine profit portion and principal portion of assets
+        uint256 _totalProfit = totalProfit();
+        // use shares because they are rounded up vs assets which are rounded down
+        uint256 profitPortion = shares.mulDiv(_totalProfit, totalSupply(), Math.Rounding.Up);
+        uint256 principalPortion = assets - profitPortion;
+      
+        // subtract principal portion from totalPrincipal
+        totalPrincipal -= principalPortion;
+
+        // send fee to owner
+        if (performanceFeeBps > 0 && profitPortion > 0) {
+            uint256 fee = profitPortion.mulDiv(performanceFeeBps, 10000, Math.Rounding.Up);
+            // send fee to owner
+            IERC20(asset()).safeTransfer(owner(), fee);
+
+            // note subtraction
+            assets -= fee;
+        }
+
+        // call super._withdraw with remaining assets
         super._withdraw(caller, receiver, _owner, assets, shares);
     }
 }
