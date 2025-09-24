@@ -15,6 +15,8 @@ contract MV2 is ERC4626, Ownable {
     // todo: avoid inflation, rounding, other common 4626 vulns
 
     ERC4626 public subVault;
+    uint256 public performanceFeeBps; // in basis points, e.g. 200 = 2% | todo a way to set this
+    uint256 totalPrincipal; // total assets deposited, used to calculate profit
 
     event SubvaultChanged(address indexed oldSubvault, address indexed newSubvault);
 
@@ -93,10 +95,10 @@ contract MV2 is ERC4626, Ownable {
     /** @dev See {IERC4626-totalAssets}. */
     function totalAssets() public view virtual override returns (uint256) {
         ERC4626 _subVault = subVault;
-        if (address(_subVault) == address(0)) {
-            return super.totalAssets();
-        }
-        return _subVault.convertToAssets(_subVault.balanceOf(address(this)));
+        uint256 _totalAssets = address(_subVault) == address(0) ? super.totalAssets() : _subVault.convertToAssets(_subVault.balanceOf(address(this)));
+        uint256 profit = _totalAssets > totalPrincipal ? _totalAssets - totalPrincipal : 0;
+        uint256 fee = (profit * performanceFeeBps) / 10_000;
+        return _totalAssets - fee;
     }
 
     /** @dev See {IERC4626-maxDeposit}. */
@@ -123,6 +125,7 @@ contract MV2 is ERC4626, Ownable {
         uint256 shares
     ) internal virtual override {
         super._deposit(caller, receiver, assets, shares);
+        totalPrincipal += assets;
         ERC4626 _subVault = subVault;
         if (address(_subVault) != address(0)) {
             _subVault.deposit(assets, address(this));
@@ -139,6 +142,13 @@ contract MV2 is ERC4626, Ownable {
         uint256 assets,
         uint256 shares
     ) internal virtual override {
+        // determine how much of the users withdrawal is principal vs profit
+        // we want to bias this calculation towards increasing the size of profit vs principal
+        // so that we bias towards the vault owner instead of the users
+        // we'll subtract this user's principal portion from the total principal, so we want to round up
+        // shares should be rounded up as well
+        totalPrincipal -= totalPrincipal.mulDiv(shares, totalSupply(), Math.Rounding.Up);
+
         ERC4626 _subVault = subVault;
         if (address(_subVault) != address(0)) {
             _subVault.withdraw(assets, address(this), address(this));
