@@ -149,7 +149,8 @@ contract MV2 is ERC4626, Ownable {
         if (address(_subVault) == address(0)) {
             return super._convertToShares(assets, rounding);
         }
-        return subSharesToMasterShares(_subVault.convertToShares(assets), rounding);
+        uint256 subShares = rounding == Math.Rounding.Up ? _subVault.previewWithdraw(assets) : _subVault.previewDeposit(assets);
+        return subSharesToMasterShares(subShares, rounding);
     }
 
     /**
@@ -160,7 +161,8 @@ contract MV2 is ERC4626, Ownable {
         if (address(_subVault) == address(0)) {
             return super._convertToAssets(shares, rounding);
         }
-        return _subVault.convertToAssets(masterSharesToSubShares(shares, rounding));
+        uint256 subShares = masterSharesToSubShares(shares, rounding);
+        return rounding == Math.Rounding.Up ? _subVault.previewMint(subShares) : _subVault.previewRedeem(subShares);
     }
 
     function totalProfit() public view returns (uint256) {
