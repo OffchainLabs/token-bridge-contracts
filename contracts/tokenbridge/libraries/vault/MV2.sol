@@ -63,7 +63,9 @@ contract MasterVault2 is ERC4626, Ownable {
     /// @param  minSubVaultExchRateWad Minimum acceptable ratio (times 1e18) of new subvault shares to outstanding MasterVault shares after deposit.
     function setSubVault(ERC4626 _subVault, uint256 minSubVaultExchRateWad) external onlyOwner {
         require(address(subVault) == address(0), "subvault already set");
+        require(address(_subVault) != address(0), "subvault cannot be zero address");
         require(totalSupply() > 0, "must have supply before setting subvault");
+        require(address(_subVault.asset()) == address(asset()), "subvault asset mismatch");
 
         // deposit to subvault
         IERC20(asset()).safeApprove(address(_subVault), type(uint256).max);
@@ -88,6 +90,10 @@ contract MasterVault2 is ERC4626, Ownable {
     function switchSubVault(ERC4626 newSubVault, uint256 minAssetExchRateWad, uint256 minNewSubVaultExchRateWad) external onlyOwner {
         ERC4626 oldSubVault = subVault;
         require(address(oldSubVault) != address(0), "no existing subvault");
+        if (address(newSubVault) != address(0)) {
+            require(totalSupply() > 0, "must have supply before switching subvault");
+            require(address(newSubVault.asset()) == address(asset()), "subvault asset mismatch");
+        }
 
         // withdraw from old subvault
         uint256 _totalSupply = totalSupply();
