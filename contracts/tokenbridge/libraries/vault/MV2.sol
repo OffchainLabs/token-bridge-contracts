@@ -212,7 +212,7 @@ contract MV2 is ERC4626, Ownable {
         // subtract principal portion from totalPrincipal
         totalPrincipal -= principalPortion;
 
-        // send fee to owner
+        // send fee to owner (todo should be a separate beneficiary addr set by owner)
         if (performanceFeeBps > 0 && profitPortion > 0) {
             uint256 fee = profitPortion.mulDiv(performanceFeeBps, 10000, Math.Rounding.Up);
             // send fee to owner
