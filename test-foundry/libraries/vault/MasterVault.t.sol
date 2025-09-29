@@ -184,4 +184,82 @@ contract MasterVaultTest is Test {
         assertEq(token.balanceOf(address(vault)), depositAmount, "MasterVault should have assets directly");
     }
 
+    function test_WithoutSubvault_withdraw() public {
+        uint256 maxSharesBurned = type(uint256).max;
+
+        vm.startPrank(user);
+        token.mint();
+        uint256 depositAmount = token.balanceOf(user);
+        token.approve(address(vault), depositAmount);
+        vault.deposit(depositAmount, user, 0);
+
+        uint256 withdrawAmount = depositAmount / 2;
+        uint256 userSharesBefore = vault.balanceOf(user);
+        uint256 totalSupplyBefore = vault.totalSupply();
+        uint256 totalAssetsBefore = vault.totalAssets();
+
+        uint256 shares = vault.withdraw(withdrawAmount, user, user, maxSharesBurned);
+
+        assertEq(vault.balanceOf(user), userSharesBefore - shares, "User shares should decrease");
+        assertEq(vault.totalSupply(), totalSupplyBefore - shares, "Total supply should decrease");
+        assertEq(vault.totalAssets(), totalAssetsBefore - withdrawAmount, "Total assets should decrease");
+        assertEq(token.balanceOf(user), withdrawAmount, "User should receive withdrawn assets");
+        assertEq(token.balanceOf(address(vault)), depositAmount - withdrawAmount, "Vault should have remaining assets");
+
+        vm.stopPrank();
+    }
+
+    function test_WithSubvault_withdraw() public {
+        MockSubVault subVault = new MockSubVault(
+            IERC20(address(token)),
+            "Sub Vault Token",
+            "svTST"
+        );
+
+        vm.startPrank(user);
+        token.mint();
+        uint256 firstDepositAmount = token.balanceOf(user);
+        token.approve(address(vault), firstDepositAmount);
+        vault.deposit(firstDepositAmount, user, 0);
+        vm.stopPrank();
+
+        vault.setSubVault(subVault, 1e18);
+
+        uint256 withdrawAmount = firstDepositAmount / 2;
+        uint256 maxSharesBurned = type(uint256).max;
+
+        vm.startPrank(user);
+        uint256 userSharesBefore = vault.balanceOf(user);
+        uint256 totalSupplyBefore = vault.totalSupply();
+        uint256 totalAssetsBefore = vault.totalAssets();
+        uint256 subVaultSharesBefore = subVault.balanceOf(address(vault));
+
+        uint256 shares = vault.withdraw(withdrawAmount, user, user, maxSharesBurned);
+
+        assertEq(vault.balanceOf(user), userSharesBefore - shares, "User shares should decrease");
+        assertEq(vault.totalSupply(), totalSupplyBefore - shares, "Total supply should decrease");
+        assertEq(vault.totalAssets(), totalAssetsBefore - withdrawAmount, "Total assets should decrease");
+        assertEq(token.balanceOf(user), withdrawAmount, "User should receive withdrawn assets");
+        assertLt(subVault.balanceOf(address(vault)), subVaultSharesBefore, "SubVault shares should decrease");
+
+        token.mint();
+        uint256 secondDepositAmount = token.balanceOf(user) - withdrawAmount;
+        token.approve(address(vault), secondDepositAmount);
+        vault.deposit(secondDepositAmount, user, 0);
+
+        vault.balanceOf(user);
+        uint256 finalTotalAssets = vault.totalAssets();
+        subVault.balanceOf(address(vault));
+
+        vault.withdraw(finalTotalAssets, user, user, type(uint256).max);
+
+        assertEq(vault.balanceOf(user), 0, "User should have no shares left");
+        assertEq(vault.totalSupply(), 0, "Total supply should be zero");
+        assertEq(vault.totalAssets(), 0, "Total assets should be zero");
+        assertEq(token.balanceOf(user), firstDepositAmount + secondDepositAmount, "User should have all original tokens");
+        assertEq(subVault.balanceOf(address(vault)), 0, "SubVault should have no shares left");
+
+        vm.stopPrank();
+    }
+
 }

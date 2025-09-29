@@ -24,6 +24,8 @@ contract MasterVault is ERC4626, Ownable {
     error NoExistingSubVault();
     error MustHaveSupplyBeforeSwitchingSubVault();
     error NewSubVaultExchangeRateTooLow();
+    error BeneficiaryNotSet();
+    error PerformanceFeeDisabled();
 
     // todo: avoid inflation, rounding, other common 4626 vulns
     // we may need a minimum asset or master share amount when setting subvaults (bc of exchange rate calc)
@@ -39,10 +41,13 @@ contract MasterVault is ERC4626, Ownable {
     // maybe a simpler and more robust implementation would be for the owner to adjust the subVaultExchRateWad directly
     // this would also avoid the need for totalPrincipal tracking
     // however, this would require more trust in the owner
-    uint256 public performanceFeeBps; // in basis points, e.g. 200 = 2% | todo a way to set this
+    bool public enablePerformanceFee;
+    address public beneficiary;
     uint256 totalPrincipal; // total assets deposited, used to calculate profit
 
     event SubvaultChanged(address indexed oldSubvault, address indexed newSubvault);
+    event PerformanceFeeToggled(bool enabled);
+    event BeneficiaryUpdated(address indexed oldBeneficiary, address indexed newBeneficiary);
 
     constructor(IERC20 _asset, string memory _name, string memory _symbol) ERC20(_name, _symbol) ERC4626(_asset) Ownable() {}
 
@@ -137,6 +142,37 @@ contract MasterVault is ERC4626, Ownable {
         return subShares.mulDiv(1e18, subVaultExchRateWad, rounding);
     }
 
+    /// @notice Toggle performance fee collection on/off
+    /// @param enabled True to enable performance fees, false to disable
+    function setPerformanceFee(bool enabled) external onlyOwner {
+        enablePerformanceFee = enabled;
+        emit PerformanceFeeToggled(enabled);
+    }
+
+    /// @notice Set the beneficiary address for performance fees
+    /// @param newBeneficiary Address to receive performance fees, zero address defaults to owner
+    function setBeneficiary(address newBeneficiary) external onlyOwner {
+        address oldBeneficiary = beneficiary;
+        beneficiary = newBeneficiary;
+        emit BeneficiaryUpdated(oldBeneficiary, newBeneficiary);
+    }
+
+    /// @notice Withdraw all accumulated performance fees to beneficiary
+    /// @dev Only callable by owner when performance fees are enabled
+    function withdrawPerformanceFees() external onlyOwner {
+        if (!enablePerformanceFee) revert PerformanceFeeDisabled();
+        if (beneficiary == address(0)) revert BeneficiaryNotSet();
+
+        uint256 totalProfits = totalProfit();
+        if (totalProfits > 0) {
+            ERC4626 _subVault = subVault;
+            if (address(_subVault) != address(0)) {
+                _subVault.withdraw(totalProfits, address(this), address(this));
+            }
+            IERC20(asset()).safeTransfer(beneficiary, totalProfits);
+        }
+    }
+
     /** @dev See {IERC4626-totalAssets}. */
     function totalAssets() public view virtual override returns (uint256) {
         ERC4626 _subVault = subVault;
@@ -222,34 +258,13 @@ contract MasterVault is ERC4626, Ownable {
         uint256 assets,
         uint256 shares
     ) internal virtual override {
+        totalPrincipal -= assets;
+
         ERC4626 _subVault = subVault;
         if (address(_subVault) != address(0)) {
             _subVault.withdraw(assets, address(this), address(this));
         }
 
-        ////// PERF FEE STUFF //////
-        // determine profit portion and principal portion of assets
-        uint256 _totalProfit = totalProfit();
-        // use shares because they are rounded up vs assets which are rounded down
-        uint256 profitPortion = shares.mulDiv(_totalProfit, totalSupply(), Math.Rounding.Up);
-        uint256 principalPortion = assets - profitPortion;
-      
-        // subtract principal portion from totalPrincipal
-        totalPrincipal -= principalPortion;
-
-        // send fee to owner (todo should be a separate beneficiary addr set by owner)
-        if (performanceFeeBps > 0 && profitPortion > 0) {
-            uint256 fee = profitPortion.mulDiv(performanceFeeBps, 10000, Math.Rounding.Up);
-            // send fee to owner
-            IERC20(asset()).safeTransfer(owner(), fee);
-
-            // note subtraction
-            assets -= fee;
-        }
-
-        ////// END PERF FEE STUFF //////
-
-        // call super._withdraw with remaining assets
         super._withdraw(caller, receiver, _owner, assets, shares);
     }
 }
