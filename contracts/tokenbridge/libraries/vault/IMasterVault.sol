@@ -2,5 +2,5 @@
 pragma solidity ^0.8.0;
 
 interface IMasterVault {
-    function setSubVault(address subVault) external;
+    function setSubVault(address subVault, uint256 minSubVaultExchRateWad) external;
 }
