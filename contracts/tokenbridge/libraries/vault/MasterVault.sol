@@ -30,6 +30,11 @@ contract MasterVault is Initializable, ERC4626Upgradeable, OwnableUpgradeable {
     error NewSubVaultExchangeRateTooLow();
     error BeneficiaryNotSet();
     error PerformanceFeeDisabled();
+    error NoSharesRedeemed();
+    error NoSubvaultShares();
+    error NoSharesBurned();
+    error InvalidAsset();
+    error InvalidOwner();
 
     // todo: avoid inflation, rounding, other common 4626 vulns
     // we may need a minimum asset or master share amount when setting subvaults (bc of exchange rate calc)
@@ -54,8 +59,8 @@ contract MasterVault is Initializable, ERC4626Upgradeable, OwnableUpgradeable {
     event BeneficiaryUpdated(address indexed oldBeneficiary, address indexed newBeneficiary);
 
     function vaultInit(IERC20 _asset, string memory _name, string memory _symbol, address _owner) external initializer {
-        require(address(_asset) != address(0), "INVALID_ASSET");
-        require(_owner != address(0), "INVALID_OWNER");
+        if (address(_asset) == address(0)) revert InvalidAsset();
+        if (_owner == address(0)) revert InvalidOwner();
 
         __ERC20_init(_name, _symbol);
         __ERC4626_init(IERC20Upgradeable(address(_asset)));
@@ -109,14 +114,17 @@ contract MasterVault is Initializable, ERC4626Upgradeable, OwnableUpgradeable {
         if (totalSupply() == 0) revert MustHaveSupplyBeforeSettingSubVault();
         if (address(_subVault.asset()) != address(asset())) revert SubVaultAssetMismatch();
 
-        IERC20(asset()).safeApprove(address(_subVault), type(uint256).max);
-        uint256 subShares = _subVault.deposit(totalAssets(), address(this));
-
-        uint256 _subVaultExchRateWad = subShares.mulDiv(1e18, totalSupply(), MathUpgradeable.Rounding.Down);
-        if (_subVaultExchRateWad < minSubVaultExchRateWad) revert SubVaultExchangeRateTooLow();
-        subVaultExchRateWad = _subVaultExchRateWad;
+        uint256 _totalAssets = totalAssets();
+        uint256 _totalSupply = totalSupply();
 
         subVault = _subVault;
+
+        IERC20(asset()).safeApprove(address(_subVault), type(uint256).max);
+        uint256 subShares = _subVault.deposit(_totalAssets, address(this));
+
+        uint256 _subVaultExchRateWad = subShares.mulDiv(1e18, _totalSupply, MathUpgradeable.Rounding.Down);
+        if (_subVaultExchRateWad < minSubVaultExchRateWad) revert SubVaultExchangeRateTooLow();
+        subVaultExchRateWad = _subVaultExchRateWad;
 
         emit SubvaultChanged(address(0), address(_subVault));
     }
@@ -126,13 +134,16 @@ contract MasterVault is Initializable, ERC4626Upgradeable, OwnableUpgradeable {
         if (address(oldSubVault) == address(0)) revert NoExistingSubVault();
 
         uint256 _totalSupply = totalSupply();
-        uint256 assetReceived = oldSubVault.withdraw(oldSubVault.maxWithdraw(address(this)), address(this), address(this));
-        uint256 effectiveAssetExchRateWad = assetReceived.mulDiv(1e18, _totalSupply, MathUpgradeable.Rounding.Down);
-        if (effectiveAssetExchRateWad < minAssetExchRateWad) revert TooFewAssetsReceived();
+        uint256 maxWithdrawAmount = oldSubVault.maxWithdraw(address(this));
 
-        IERC20(asset()).safeApprove(address(oldSubVault), 0);
         subVault = IERC4626(address(0));
         subVaultExchRateWad = 1e18;
+
+        uint256 assetReceived = oldSubVault.withdraw(maxWithdrawAmount, address(this), address(this));
+        IERC20(asset()).safeApprove(address(oldSubVault), 0);
+
+        uint256 effectiveAssetExchRateWad = assetReceived.mulDiv(1e18, _totalSupply, MathUpgradeable.Rounding.Down);
+        if (effectiveAssetExchRateWad < minAssetExchRateWad) revert TooFewAssetsReceived();
 
         emit SubvaultChanged(address(oldSubVault), address(0));
     }
@@ -182,7 +193,8 @@ contract MasterVault is Initializable, ERC4626Upgradeable, OwnableUpgradeable {
         if (totalProfits > 0) {
             IERC4626 _subVault = subVault;
             if (address(_subVault) != address(0)) {
-                _subVault.withdraw(totalProfits, address(this), address(this));
+                uint256 sharesRedeemed = _subVault.withdraw(totalProfits, address(this), address(this));
+                if (sharesRedeemed == 0) revert NoSharesRedeemed();
             }
             IERC20(asset()).safeTransfer(beneficiary, totalProfits);
         }
@@ -260,7 +272,8 @@ contract MasterVault is Initializable, ERC4626Upgradeable, OwnableUpgradeable {
         totalPrincipal += assets;
         IERC4626 _subVault = subVault;
         if (address(_subVault) != address(0)) {
-            _subVault.deposit(assets, address(this));
+            uint256 subShares = _subVault.deposit(assets, address(this));
+            if (subShares == 0) revert NoSubvaultShares();
         }
     }
 
@@ -278,7 +291,8 @@ contract MasterVault is Initializable, ERC4626Upgradeable, OwnableUpgradeable {
 
         IERC4626 _subVault = subVault;
         if (address(_subVault) != address(0)) {
-            _subVault.withdraw(assets, address(this), address(this));
+            uint256 sharesBurned = _subVault.withdraw(assets, address(this), address(this));
+            if (sharesBurned == 0) revert NoSharesBurned();
         }
 
         super._withdraw(caller, receiver, _owner, assets, shares);
