@@ -277,4 +277,24 @@ contract MasterVaultTest is Test {
         vm.stopPrank();
     }
 
+    function test_beaconUpgrade() public {
+        vm.startPrank(user);
+        token.mint();
+        uint256 depositAmount = token.balanceOf(user);
+        token.approve(address(vault), depositAmount);
+        vault.deposit(depositAmount, user, 0);
+        vm.stopPrank();
+
+        address oldImplementation = beacon.implementation();
+        assertEq(oldImplementation, address(beacon.implementation()), "Should have initial implementation");
+
+        MasterVault newImplementation = new MasterVault();
+        beacon.upgradeTo(address(newImplementation));
+
+        assertEq(beacon.implementation(), address(newImplementation), "Beacon should point to new implementation");
+        assertTrue(beacon.implementation() != oldImplementation, "Implementation should have changed");
+
+        assertEq(vault.name(), name, "Name should remain after upgrade");
+    }
+
 }

@@ -25,14 +25,16 @@ contract MasterVaultFactory is IMasterVaultFactory, OwnableUpgradeable {
         beacon = new UpgradeableBeacon(address(masterVaultImplementation));
         beaconProxyFactory = new BeaconProxyFactory();
         beaconProxyFactory.initialize(address(beacon));
-        beacon.transferOwnership(address(this));
+        beacon.transferOwnership(_owner);
     }
 
     function deployVault(address token) public returns (address vault) {
         if (token == address(0)) {
             revert ZeroAddress();
         }
-        if (address(beaconProxyFactory) == address(0)) {
+        if (
+            address(beaconProxyFactory) == address(0) && beaconProxyFactory.beacon() == address(0)
+        ) {
             revert BeaconNotDeployed();
         }
 
