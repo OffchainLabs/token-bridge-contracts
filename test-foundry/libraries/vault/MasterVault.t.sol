@@ -12,6 +12,8 @@ contract MasterVaultTest is Test {
     TestERC20 public token;
 
     event SubvaultChanged(address indexed oldSubvault, address indexed newSubvault);
+    event TargetAllocationChanged(uint256 oldBps, uint256 newBps);
+    event Rebalanced(uint256 movedToSubVault, uint256 withdrawnFromSubVault);
 
     address public user = address(0x1);
     string public name = "Master Test Token";
@@ -132,6 +134,8 @@ contract MasterVaultTest is Test {
         assertEq(address(vault.subVault()), address(oldSubVault), "Old subvault should be set");
         assertEq(oldSubVault.balanceOf(address(vault)), depositAmount, "Old subvault should have assets");
         assertEq(newSubVault.balanceOf(address(vault)), 0, "New subvault should have no assets initially");
+
+        vault.setTargetAllocation(0, 100);
 
         uint256 minAssetExchRateWad = 1e18;
         uint256 minNewSubVaultExchRateWad = 1e18;
@@ -260,6 +264,227 @@ contract MasterVaultTest is Test {
         assertEq(subVault.balanceOf(address(vault)), 0, "SubVault should have no shares left");
 
         vm.stopPrank();
+    }
+
+    function test_setTargetAllocation() public {
+        assertEq(vault.targetSubVaultAllocationBps(), 10000, "Initial allocation should be 100%");
+
+        vm.expectEmit(true, true, true, true);
+        emit TargetAllocationChanged(10000, 5000);
+        vault.setTargetAllocation(5000, 100);
+
+        assertEq(vault.targetSubVaultAllocationBps(), 5000, "Allocation should be updated to 50%");
+
+        vault.setTargetAllocation(0, 100);
+        assertEq(vault.targetSubVaultAllocationBps(), 0, "Allocation should be updated to 0%");
+    }
+
+    function test_setTargetAllocation_RevertInvalidBps() public {
+        vm.expectRevert(MasterVault.InvalidAllocationBps.selector);
+        vault.setTargetAllocation(10001, 100);
+    }
+
+    function test_currentAllocationBps_noSubVault() public {
+        vm.prank(user);
+        token.mint();
+        uint256 depositAmount = token.balanceOf(user);
+
+        vm.startPrank(user);
+        token.approve(address(vault), depositAmount);
+        vault.deposit(depositAmount, user, 0);
+        vm.stopPrank();
+
+        assertEq(vault.currentAllocationBps(), 0, "Should return 0 when no subvault");
+    }
+
+    function test_currentAllocationBps_withSubVault() public {
+        MockSubVault subVault = new MockSubVault(
+            IERC20(address(token)),
+            "Sub Vault Token",
+            "svTST"
+        );
+
+        vm.startPrank(user);
+        token.mint();
+        uint256 depositAmount = token.balanceOf(user);
+        token.approve(address(vault), depositAmount);
+        vault.deposit(depositAmount, user, 0);
+        vm.stopPrank();
+
+        vault.setSubVault(subVault, 1e18);
+
+        assertEq(vault.currentAllocationBps(), 10000, "Should be 100% when all assets in subvault");
+    }
+
+    function test_rebalance_reduceAllocation() public {
+        MockSubVault subVault = new MockSubVault(
+            IERC20(address(token)),
+            "Sub Vault Token",
+            "svTST"
+        );
+
+        vm.startPrank(user);
+        token.mint();
+        uint256 depositAmount = token.balanceOf(user);
+        token.approve(address(vault), depositAmount);
+        vault.deposit(depositAmount, user, 0);
+        vm.stopPrank();
+
+        vault.setSubVault(subVault, 1e18);
+        assertEq(vault.currentAllocationBps(), 10000, "Initial allocation should be 100%");
+
+        vault.setTargetAllocation(5000, 100);
+
+        uint256 currentAlloc = vault.currentAllocationBps();
+        assertApproxEqAbs(currentAlloc, 5000, 10, "Allocation should be close to 50%");
+        assertGt(token.balanceOf(address(vault)), 0, "MasterVault should have liquid assets");
+    }
+
+    function test_rebalance_increaseAllocation() public {
+        MockSubVault subVault = new MockSubVault(
+            IERC20(address(token)),
+            "Sub Vault Token",
+            "svTST"
+        );
+
+        vm.startPrank(user);
+        token.mint();
+        uint256 depositAmount = token.balanceOf(user);
+        token.approve(address(vault), depositAmount);
+        vault.deposit(depositAmount, user, 0);
+        vm.stopPrank();
+
+        vault.setSubVault(subVault, 1e18);
+        vault.setTargetAllocation(5000, 100);
+
+        uint256 allocAfterRebalance = vault.currentAllocationBps();
+        assertApproxEqAbs(allocAfterRebalance, 5000, 10, "Allocation should be close to 50% after rebalance");
+
+        vault.setTargetAllocation(10000, 100);
+
+        uint256 currentAlloc = vault.currentAllocationBps();
+        assertApproxEqAbs(currentAlloc, 10000, 10, "Allocation should be close to 100%");
+    }
+
+    function test_switchSubVault_withGradualMigration() public {
+        MockSubVault oldSubVault = new MockSubVault(
+            IERC20(address(token)),
+            "Old Sub Vault",
+            "osvTST"
+        );
+
+        MockSubVault newSubVault = new MockSubVault(
+            IERC20(address(token)),
+            "New Sub Vault",
+            "nsvTST"
+        );
+
+        vm.startPrank(user);
+        token.mint();
+        uint256 depositAmount = token.balanceOf(user);
+        token.approve(address(vault), depositAmount);
+        vault.deposit(depositAmount, user, 0);
+        vm.stopPrank();
+
+        vault.setSubVault(oldSubVault, 1e18);
+        assertEq(vault.currentAllocationBps(), 10000, "Should start at 100%");
+
+        vault.setTargetAllocation(5000, 100);
+        assertApproxEqAbs(vault.currentAllocationBps(), 5000, 10, "Should be at 50%");
+
+        vault.setTargetAllocation(0, 100);
+        assertEq(vault.currentAllocationBps(), 0, "Should be at 0%");
+
+        vault.switchSubVault(newSubVault, 1e18, 1e18);
+
+        assertEq(address(vault.subVault()), address(newSubVault), "New subvault should be set");
+        assertEq(oldSubVault.balanceOf(address(vault)), 0, "Old subvault should have no assets");
+
+        vault.setTargetAllocation(10000, 100);
+        assertApproxEqAbs(vault.currentAllocationBps(), 10000, 10, "Should rebalance to 100% in new vault");
+    }
+
+    function test_switchSubVault_revertsIfAllocationNotZero() public {
+        MockSubVault oldSubVault = new MockSubVault(
+            IERC20(address(token)),
+            "Old Sub Vault",
+            "osvTST"
+        );
+
+        MockSubVault newSubVault = new MockSubVault(
+            IERC20(address(token)),
+            "New Sub Vault",
+            "nsvTST"
+        );
+
+        vm.startPrank(user);
+        token.mint();
+        uint256 depositAmount = token.balanceOf(user);
+        token.approve(address(vault), depositAmount);
+        vault.deposit(depositAmount, user, 0);
+        vm.stopPrank();
+
+        vault.setSubVault(oldSubVault, 1e18);
+        vault.setTargetAllocation(5000, 100);
+
+        vm.expectRevert(MasterVault.MustReduceAllocationBeforeSwitching.selector);
+        vault.switchSubVault(newSubVault, 1e18, 1e18);
+    }
+
+    function test_deposit_respectsTargetAllocation() public {
+        MockSubVault subVault = new MockSubVault(
+            IERC20(address(token)),
+            "Sub Vault Token",
+            "svTST"
+        );
+
+        vm.startPrank(user);
+        token.mint();
+        uint256 firstDeposit = token.balanceOf(user) / 2;
+        token.approve(address(vault), firstDeposit);
+        vault.deposit(firstDeposit, user, 0);
+        vm.stopPrank();
+
+        vault.setSubVault(subVault, 1e18);
+        vault.setTargetAllocation(5000, 100);
+
+        vm.startPrank(user);
+        token.mint();
+        uint256 secondDeposit = token.balanceOf(user);
+        token.approve(address(vault), secondDeposit);
+        vault.deposit(secondDeposit, user, 0);
+        vm.stopPrank();
+
+        uint256 currentAlloc = vault.currentAllocationBps();
+        assertApproxEqAbs(currentAlloc, 5000, 100, "New deposits should respect target allocation");
+    }
+
+    function test_withdraw_prefersLiquidAssets() public {
+        MockSubVault subVault = new MockSubVault(
+            IERC20(address(token)),
+            "Sub Vault Token",
+            "svTST"
+        );
+
+        vm.startPrank(user);
+        token.mint();
+        uint256 depositAmount = token.balanceOf(user);
+        token.approve(address(vault), depositAmount);
+        vault.deposit(depositAmount, user, 0);
+        vm.stopPrank();
+
+        vault.setTargetAllocation(5000, 100);
+        vault.setSubVault(subVault, 1e18);
+
+        uint256 liquidAssetsBefore = token.balanceOf(address(vault));
+        uint256 subVaultSharesBefore = subVault.balanceOf(address(vault));
+
+        vm.startPrank(user);
+        uint256 withdrawAmount = liquidAssetsBefore / 2;
+        vault.withdraw(withdrawAmount, user, user, type(uint256).max);
+        vm.stopPrank();
+
+        assertEq(subVault.balanceOf(address(vault)), subVaultSharesBefore, "SubVault shares should remain unchanged for small withdrawal");
     }
 
 }

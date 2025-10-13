@@ -26,9 +26,11 @@ contract MasterVault is ERC4626, Ownable {
     error NewSubVaultExchangeRateTooLow();
     error BeneficiaryNotSet();
     error PerformanceFeeDisabled();
+    error InvalidAllocationBps();
+    error MustReduceAllocationBeforeSwitching();
+    error NoSubVaultToRebalance();
+    error NoAssetsToRebalance();
 
-    // todo: avoid inflation, rounding, other common 4626 vulns
-    // we may need a minimum asset or master share amount when setting subvaults (bc of exchange rate calc)
     ERC4626 public subVault;
 
     // how many subVault shares one MV2 share can be redeemed for
@@ -37,10 +39,8 @@ contract MasterVault is ERC4626, Ownable {
     // changes when subvault is set
     uint256 public subVaultExchRateWad = 1e18;
 
-    // note: the performance fee can be avoided if the underlying strategy can be sandwiched (eg ETH to wstETH dex swap)
-    // maybe a simpler and more robust implementation would be for the owner to adjust the subVaultExchRateWad directly
-    // this would also avoid the need for totalPrincipal tracking
-    // however, this would require more trust in the owner
+    uint256 public targetSubVaultAllocationBps = 10000;
+
     bool public enablePerformanceFee;
     address public beneficiary;
     uint256 totalPrincipal; // total assets deposited, used to calculate profit
@@ -48,6 +48,8 @@ contract MasterVault is ERC4626, Ownable {
     event SubvaultChanged(address indexed oldSubvault, address indexed newSubvault);
     event PerformanceFeeToggled(bool enabled);
     event BeneficiaryUpdated(address indexed oldBeneficiary, address indexed newBeneficiary);
+    event TargetAllocationChanged(uint256 oldBps, uint256 newBps);
+    event Rebalanced(uint256 movedToSubVault, uint256 withdrawnFromSubVault);
 
     constructor(IERC20 _asset, string memory _name, string memory _symbol) ERC20(_name, _symbol) ERC4626(_asset) Ownable() {}
 
@@ -111,9 +113,14 @@ contract MasterVault is ERC4626, Ownable {
         if (address(oldSubVault) == address(0)) revert NoExistingSubVault();
 
         uint256 _totalSupply = totalSupply();
-        uint256 assetReceived = oldSubVault.withdraw(oldSubVault.maxWithdraw(address(this)), address(this), address(this));
-        uint256 effectiveAssetExchRateWad = assetReceived.mulDiv(1e18, _totalSupply, Math.Rounding.Down);
-        if (effectiveAssetExchRateWad < minAssetExchRateWad) revert TooFewAssetsReceived();
+        uint256 maxWithdrawable = oldSubVault.maxWithdraw(address(this));
+        uint256 assetReceived = 0;
+
+        if (maxWithdrawable > 0) {
+            assetReceived = oldSubVault.withdraw(maxWithdrawable, address(this), address(this));
+            uint256 effectiveAssetExchRateWad = assetReceived.mulDiv(1e18, _totalSupply, Math.Rounding.Down);
+            if (effectiveAssetExchRateWad < minAssetExchRateWad) revert TooFewAssetsReceived();
+        }
 
         IERC20(asset()).safeApprove(address(oldSubVault), 0);
         subVault = ERC4626(address(0));
@@ -127,11 +134,93 @@ contract MasterVault is ERC4626, Ownable {
     /// @param minAssetExchRateWad Minimum acceptable ratio (times 1e18) of assets received from old subvault to outstanding MasterVault shares
     /// @param minNewSubVaultExchRateWad Minimum acceptable ratio (times 1e18) of new subvault shares to outstanding MasterVault shares after deposit
     function switchSubVault(ERC4626 newSubVault, uint256 minAssetExchRateWad, uint256 minNewSubVaultExchRateWad) external onlyOwner {
+        if (targetSubVaultAllocationBps != 0) revert MustReduceAllocationBeforeSwitching();
+
         _revokeSubVault(minAssetExchRateWad);
 
         if (address(newSubVault) != address(0)) {
             _setSubVault(newSubVault, minNewSubVaultExchRateWad);
         }
+    }
+
+    function setTargetAllocation(uint256 newBps, uint256 maxSlippageBps) external onlyOwner {
+        if (newBps > 10000) revert InvalidAllocationBps();
+        uint256 oldBps = targetSubVaultAllocationBps;
+        targetSubVaultAllocationBps = newBps;
+        emit TargetAllocationChanged(oldBps, newBps);
+
+        if (address(subVault) != address(0) && totalAssets() > 0 && oldBps != newBps) {
+            _rebalance(maxSlippageBps);
+        }
+    }
+
+    function currentAllocationBps() public view returns (uint256) {
+        uint256 _totalAssets = totalAssets();
+        if (_totalAssets == 0) return 0;
+
+        ERC4626 _subVault = subVault;
+        if (address(_subVault) == address(0)) return 0;
+
+        uint256 subVaultAssets = _subVault.convertToAssets(_subVault.balanceOf(address(this)));
+        return subVaultAssets.mulDiv(10000, _totalAssets, Math.Rounding.Down);
+    }
+
+    function rebalance(uint256 maxSlippageBps) external onlyOwner {
+        _rebalance(maxSlippageBps);
+    }
+
+    function _rebalance(uint256 maxSlippageBps) internal {
+        ERC4626 _subVault = subVault;
+        if (address(_subVault) == address(0)) revert NoSubVaultToRebalance();
+
+        uint256 _totalAssets = totalAssets();
+        if (_totalAssets == 0) revert NoAssetsToRebalance();
+
+        uint256 currentBps = currentAllocationBps();
+        uint256 targetBps = targetSubVaultAllocationBps;
+
+        uint256 movedToSubVault = 0;
+        uint256 withdrawnFromSubVault = 0;
+
+        if (currentBps < targetBps) {
+            uint256 targetSubVaultAssets = _totalAssets.mulDiv(targetBps, 10000, Math.Rounding.Down);
+            uint256 currentSubVaultAssets = _subVault.convertToAssets(_subVault.balanceOf(address(this)));
+            uint256 assetsToDeposit = targetSubVaultAssets > currentSubVaultAssets
+                ? targetSubVaultAssets - currentSubVaultAssets
+                : 0;
+
+            if (assetsToDeposit > 0) {
+                uint256 liquidAssets = IERC20(asset()).balanceOf(address(this));
+                assetsToDeposit = assetsToDeposit > liquidAssets ? liquidAssets : assetsToDeposit;
+
+                if (assetsToDeposit > 0) {
+                    uint256 minShares = assetsToDeposit.mulDiv(10000 - maxSlippageBps, 10000, Math.Rounding.Down);
+                    uint256 sharesReceived = _subVault.deposit(assetsToDeposit, address(this));
+                    if (sharesReceived < minShares) revert SubVaultExchangeRateTooLow();
+                    movedToSubVault = assetsToDeposit;
+                }
+            }
+        } else if (currentBps > targetBps) {
+            uint256 targetSubVaultAssets = _totalAssets.mulDiv(targetBps, 10000, Math.Rounding.Down);
+            uint256 currentSubVaultAssets = _subVault.convertToAssets(_subVault.balanceOf(address(this)));
+            uint256 assetsToWithdraw = currentSubVaultAssets > targetSubVaultAssets
+                ? currentSubVaultAssets - targetSubVaultAssets
+                : 0;
+
+            if (assetsToWithdraw > 0) {
+                uint256 maxWithdrawable = _subVault.maxWithdraw(address(this));
+                assetsToWithdraw = assetsToWithdraw > maxWithdrawable ? maxWithdrawable : assetsToWithdraw;
+
+                if (assetsToWithdraw > 0) {
+                    uint256 minAssets = assetsToWithdraw.mulDiv(10000 - maxSlippageBps, 10000, Math.Rounding.Down);
+                    uint256 assetsReceived = _subVault.withdraw(assetsToWithdraw, address(this), address(this));
+                    if (assetsReceived < minAssets) revert TooFewAssetsReceived();
+                    withdrawnFromSubVault = assetsReceived;
+                }
+            }
+        }
+
+        emit Rebalanced(movedToSubVault, withdrawnFromSubVault);
     }
 
     function masterSharesToSubShares(uint256 masterShares, Math.Rounding rounding) public view returns (uint256) {
@@ -176,10 +265,11 @@ contract MasterVault is ERC4626, Ownable {
     /** @dev See {IERC4626-totalAssets}. */
     function totalAssets() public view virtual override returns (uint256) {
         ERC4626 _subVault = subVault;
+        uint256 liquidAssets = IERC20(asset()).balanceOf(address(this));
         if (address(_subVault) == address(0)) {
-            return super.totalAssets();
+            return liquidAssets;
         }
-        return _subVault.convertToAssets(_subVault.balanceOf(address(this)));
+        return liquidAssets + _subVault.convertToAssets(_subVault.balanceOf(address(this)));
     }
 
     /** @dev See {IERC4626-maxDeposit}. */
@@ -244,7 +334,10 @@ contract MasterVault is ERC4626, Ownable {
         totalPrincipal += assets;
         ERC4626 _subVault = subVault;
         if (address(_subVault) != address(0)) {
-            _subVault.deposit(assets, address(this));
+            uint256 assetsToDeposit = assets.mulDiv(targetSubVaultAllocationBps, 10000, Math.Rounding.Down);
+            if (assetsToDeposit > 0) {
+                _subVault.deposit(assetsToDeposit, address(this));
+            }
         }
     }
 
@@ -260,9 +353,15 @@ contract MasterVault is ERC4626, Ownable {
     ) internal virtual override {
         totalPrincipal -= assets;
 
-        ERC4626 _subVault = subVault;
-        if (address(_subVault) != address(0)) {
-            _subVault.withdraw(assets, address(this), address(this));
+        uint256 liquidAssets = IERC20(asset()).balanceOf(address(this));
+        uint256 assetsFromSubVault = 0;
+
+        if (liquidAssets < assets) {
+            assetsFromSubVault = assets - liquidAssets;
+            ERC4626 _subVault = subVault;
+            if (address(_subVault) != address(0)) {
+                _subVault.withdraw(assetsFromSubVault, address(this), address(this));
+            }
         }
 
         super._withdraw(caller, receiver, _owner, assets, shares);
