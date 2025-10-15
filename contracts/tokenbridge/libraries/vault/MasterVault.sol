@@ -199,6 +199,7 @@ contract MasterVault is ERC4626, Ownable {
             revert("no delta");
         }
 
+        // if the delta disagrees with the sign of the slippage tolerance, we should revert
         if (deltaSubVaultAssets < 0 && minSubVaultExchRateWad > 0) {
             revert("negative delta but positive exch rate");
         }
@@ -206,6 +207,7 @@ contract MasterVault is ERC4626, Ownable {
             revert("positive delta but negative exch rate");
         }
 
+        // make sure we can deposit or withdraw the required amount to get to target
         if (deltaSubVaultAssets < 0 && _subVault.maxWithdraw(address(this)) < uint256(-deltaSubVaultAssets)) {
             revert("cannot withdraw enough");
         }
@@ -213,15 +215,21 @@ contract MasterVault is ERC4626, Ownable {
             revert("not enough liquid"); // question: this should be impossible?
         }
 
+        // absolute value of deltaSubVaultAssets
         uint256 absDeltaSubVaultAssets = deltaSubVaultAssets > 0 ? uint256(deltaSubVaultAssets) : uint256(-deltaSubVaultAssets);
 
+        // perform the rebalance and track number of shares received or burned
         uint256 shares = deltaSubVaultAssets > 0
             ? _subVault.deposit(absDeltaSubVaultAssets, address(this))
             : _subVault.withdraw(absDeltaSubVaultAssets, address(this), address(this));
 
+        // compute absolute value of effective exchange rate
+        // round against the tolerance to be conservative
         uint256 absEffectiveExchRateWad = shares.mulDiv(1e18, absDeltaSubVaultAssets, deltaSubVaultAssets > 0 ? Math.Rounding.Down : Math.Rounding.Up);
+        // give the appropriate sign to the effective exchange rate
         int256 effectiveExchRateWad = deltaSubVaultAssets > 0 ? int256(absEffectiveExchRateWad) : -int256(absEffectiveExchRateWad);
 
+        // make sure the effective exchange rate meets the minimum specified
         if (effectiveExchRateWad < minSubVaultExchRateWad) {
             revert("exch rate too low");
         }
