@@ -49,7 +49,7 @@ contract MasterVault is ERC4626, Ownable {
     event PerformanceFeeToggled(bool enabled);
     event BeneficiaryUpdated(address indexed oldBeneficiary, address indexed newBeneficiary);
     event TargetAllocationChanged(uint256 oldBps, uint256 newBps);
-    event Rebalanced(uint256 movedToSubVault, uint256 withdrawnFromSubVault);
+    event Rebalanced(uint256 shares, int256 deltaAssets);
 
     constructor(IERC20 _asset, string memory _name, string memory _symbol) ERC20(_name, _symbol) ERC4626(_asset) Ownable() {}
 
@@ -143,14 +143,14 @@ contract MasterVault is ERC4626, Ownable {
         }
     }
 
-    function setTargetAllocation(uint256 newBps, uint256 maxSlippageBps) external onlyOwner {
+    function setTargetAllocation(uint256 newBps, int256 minSubVaultExchRateWad) external onlyOwner {
         if (newBps > 10000) revert InvalidAllocationBps();
         uint256 oldBps = targetSubVaultAllocationBps;
         targetSubVaultAllocationBps = newBps;
         emit TargetAllocationChanged(oldBps, newBps);
 
         if (address(subVault) != address(0) && totalAssets() > 0 && oldBps != newBps) {
-            _rebalance(maxSlippageBps);
+            _rebalance(minSubVaultExchRateWad);
         }
     }
 
@@ -165,11 +165,17 @@ contract MasterVault is ERC4626, Ownable {
         return subVaultAssets.mulDiv(10000, _totalAssets, Math.Rounding.Down);
     }
 
-    function rebalance(uint256 maxSlippageBps) external onlyOwner {
-        _rebalance(maxSlippageBps);
+    function rebalance(int256 minSubVaultExchRateWad) external onlyOwner {
+        _rebalance(minSubVaultExchRateWad);
     }
 
-    function _rebalance(uint256 maxSlippageBps) internal {
+    /// @param minSubVaultExchRateWad Minimum acceptable ratio (times 1e18) of subvault shares to underlying assets when depositing to or withdrawing from subvault
+    ///                               Negative is withdrawal from subvault, positive is deposit to subvault
+    function _rebalance(int256 minSubVaultExchRateWad) internal {
+        if (minSubVaultExchRateWad == 0) {
+            revert("zero exch rate");
+        }
+
         ERC4626 _subVault = subVault;
         if (address(_subVault) == address(0)) revert NoSubVaultToRebalance();
 
@@ -179,48 +185,48 @@ contract MasterVault is ERC4626, Ownable {
         uint256 currentBps = currentAllocationBps();
         uint256 targetBps = targetSubVaultAllocationBps;
 
-        uint256 movedToSubVault = 0;
-        uint256 withdrawnFromSubVault = 0;
-
-        if (currentBps < targetBps) {
-            uint256 targetSubVaultAssets = _totalAssets.mulDiv(targetBps, 10000, Math.Rounding.Down);
-            uint256 currentSubVaultAssets = _subVault.convertToAssets(_subVault.balanceOf(address(this)));
-            uint256 assetsToDeposit = targetSubVaultAssets > currentSubVaultAssets
-                ? targetSubVaultAssets - currentSubVaultAssets
-                : 0;
-
-            if (assetsToDeposit > 0) {
-                uint256 liquidAssets = IERC20(asset()).balanceOf(address(this));
-                assetsToDeposit = assetsToDeposit > liquidAssets ? liquidAssets : assetsToDeposit;
-
-                if (assetsToDeposit > 0) {
-                    uint256 minShares = assetsToDeposit.mulDiv(10000 - maxSlippageBps, 10000, Math.Rounding.Down);
-                    uint256 sharesReceived = _subVault.deposit(assetsToDeposit, address(this));
-                    if (sharesReceived < minShares) revert SubVaultExchangeRateTooLow();
-                    movedToSubVault = assetsToDeposit;
-                }
-            }
-        } else if (currentBps > targetBps) {
-            uint256 targetSubVaultAssets = _totalAssets.mulDiv(targetBps, 10000, Math.Rounding.Down);
-            uint256 currentSubVaultAssets = _subVault.convertToAssets(_subVault.balanceOf(address(this)));
-            uint256 assetsToWithdraw = currentSubVaultAssets > targetSubVaultAssets
-                ? currentSubVaultAssets - targetSubVaultAssets
-                : 0;
-
-            if (assetsToWithdraw > 0) {
-                uint256 maxWithdrawable = _subVault.maxWithdraw(address(this));
-                assetsToWithdraw = assetsToWithdraw > maxWithdrawable ? maxWithdrawable : assetsToWithdraw;
-
-                if (assetsToWithdraw > 0) {
-                    uint256 minAssets = assetsToWithdraw.mulDiv(10000 - maxSlippageBps, 10000, Math.Rounding.Down);
-                    uint256 assetsReceived = _subVault.withdraw(assetsToWithdraw, address(this), address(this));
-                    if (assetsReceived < minAssets) revert TooFewAssetsReceived();
-                    withdrawnFromSubVault = assetsReceived;
-                }
-            }
+        if (currentBps == targetBps) {
+            revert("already at target");
         }
 
-        emit Rebalanced(movedToSubVault, withdrawnFromSubVault);
+        uint256 targetSubVaultAssets = _totalAssets.mulDiv(targetBps, 10000, Math.Rounding.Down);
+        uint256 currentSubVaultAssets = _subVault.convertToAssets(_subVault.balanceOf(address(this)));
+
+        // assumed no casts will flip sign
+        int256 deltaSubVaultAssets = int256(targetSubVaultAssets) - int256(currentSubVaultAssets);
+
+        if (deltaSubVaultAssets == 0) {
+            revert("no delta");
+        }
+
+        if (deltaSubVaultAssets < 0 && minSubVaultExchRateWad > 0) {
+            revert("negative delta but positive exch rate");
+        }
+        if (deltaSubVaultAssets > 0 && minSubVaultExchRateWad < 0) {
+            revert("positive delta but negative exch rate");
+        }
+
+        if (deltaSubVaultAssets < 0 && _subVault.maxWithdraw(address(this)) < uint256(-deltaSubVaultAssets)) {
+            revert("cannot withdraw enough");
+        }
+        if (deltaSubVaultAssets > 0 && IERC20(asset()).balanceOf(address(this)) < uint256(deltaSubVaultAssets)) {
+            revert("not enough liquid"); // question: this should be impossible?
+        }
+
+        uint256 absDeltaSubVaultAssets = deltaSubVaultAssets > 0 ? uint256(deltaSubVaultAssets) : uint256(-deltaSubVaultAssets);
+
+        uint256 shares = deltaSubVaultAssets > 0
+            ? _subVault.deposit(absDeltaSubVaultAssets, address(this))
+            : _subVault.withdraw(absDeltaSubVaultAssets, address(this), address(this));
+
+        uint256 absEffectiveExchRateWad = shares.mulDiv(1e18, absDeltaSubVaultAssets, deltaSubVaultAssets > 0 ? Math.Rounding.Down : Math.Rounding.Up);
+        int256 effectiveExchRateWad = deltaSubVaultAssets > 0 ? int256(absEffectiveExchRateWad) : -int256(absEffectiveExchRateWad);
+
+        if (effectiveExchRateWad < minSubVaultExchRateWad) {
+            revert("exch rate too low");
+        }
+
+        emit Rebalanced(shares, deltaSubVaultAssets);
     }
 
     function masterSharesToSubShares(uint256 masterShares, Math.Rounding rounding) public view returns (uint256) {
