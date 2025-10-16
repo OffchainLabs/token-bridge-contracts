@@ -64,7 +64,6 @@ contract MasterVault is Initializable, ERC4626Upgradeable, OwnableUpgradeable {
 
         __ERC20_init(_name, _symbol);
         __ERC4626_init(IERC20Upgradeable(address(_asset)));
-        __Ownable_init();
         _transferOwnership(_owner);
 
         subVaultExchRateWad = 1e18;
