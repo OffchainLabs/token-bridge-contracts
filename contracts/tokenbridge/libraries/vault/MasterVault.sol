@@ -193,8 +193,7 @@ contract MasterVault is Initializable, ERC4626Upgradeable, OwnableUpgradeable {
         if (totalProfits > 0) {
             IERC4626 _subVault = subVault;
             if (address(_subVault) != address(0)) {
-                uint256 sharesRedeemed = _subVault.withdraw(totalProfits, address(this), address(this));
-                if (sharesRedeemed == 0) revert NoSharesRedeemed();
+                _subVault.withdraw(totalProfits, address(this), address(this));
             }
             IERC20(asset()).safeTransfer(beneficiary, totalProfits);
         }
@@ -272,8 +271,7 @@ contract MasterVault is Initializable, ERC4626Upgradeable, OwnableUpgradeable {
         totalPrincipal += assets;
         IERC4626 _subVault = subVault;
         if (address(_subVault) != address(0)) {
-            uint256 subShares = _subVault.deposit(assets, address(this));
-            if (subShares == 0) revert NoSubvaultShares();
+           _subVault.deposit(assets, address(this));
         }
     }
 
@@ -291,8 +289,7 @@ contract MasterVault is Initializable, ERC4626Upgradeable, OwnableUpgradeable {
 
         IERC4626 _subVault = subVault;
         if (address(_subVault) != address(0)) {
-            uint256 sharesBurned = _subVault.withdraw(assets, address(this), address(this));
-            if (sharesBurned == 0) revert NoSharesBurned();
+            _subVault.withdraw(assets, address(this), address(this));
         }
 
         super._withdraw(caller, receiver, _owner, assets, shares);
