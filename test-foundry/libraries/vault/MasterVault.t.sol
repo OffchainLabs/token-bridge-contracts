@@ -34,7 +34,7 @@ contract MasterVaultTest is Test {
         address proxyAddress = beaconProxyFactory.createProxy(salt);
         vault = MasterVault(proxyAddress);
 
-        vault.vaultInit(IERC20(address(token)), name, symbol, address(this));
+        vault.initialize(IERC20(address(token)), name, symbol, address(this));
     }
 
     function test_initialize() public {

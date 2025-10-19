@@ -55,7 +55,7 @@ contract MasterVault is Initializable, ERC4626Upgradeable, OwnableUpgradeable {
     event PerformanceFeeToggled(bool enabled);
     event BeneficiaryUpdated(address indexed oldBeneficiary, address indexed newBeneficiary);
 
-    function vaultInit(IERC20 _asset, string memory _name, string memory _symbol, address _owner) external initializer {
+    function initialize(IERC20 _asset, string memory _name, string memory _symbol, address _owner) external initializer {
         if (address(_asset) == address(0)) revert InvalidAsset();
         if (_owner == address(0)) revert InvalidOwner();
 

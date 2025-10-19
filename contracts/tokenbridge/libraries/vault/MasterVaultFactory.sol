@@ -44,7 +44,7 @@ contract MasterVaultFactory is IMasterVaultFactory, OwnableUpgradeable {
         string memory name = string(abi.encodePacked("Master ", tokenMetadata.name()));
         string memory symbol = string(abi.encodePacked("m", tokenMetadata.symbol()));
 
-        MasterVault(vault).vaultInit(IERC20(token), name, symbol, address(this));
+        MasterVault(vault).initialize(IERC20(token), name, symbol, address(this));
 
         emit VaultDeployed(token, vault);
     }
