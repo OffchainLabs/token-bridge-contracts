@@ -72,23 +72,23 @@ contract MasterVaultFactoryTest is Test {
     }
 
     function test_beaconOwnership() public {
-        assertEq(factory.beacon().owner(), owner, "Beacon owner should be the factory owner");
+        assertEq(UpgradeableBeacon(factory.beaconProxyFactory().beacon()).owner(), owner, "Beacon owner should be the factory owner");
     }
 
     function test_ownerCanUpgradeBeacon() public {
         MasterVault newImplementation = new MasterVault();
 
-        UpgradeableBeacon beacon = factory.beacon();
+        UpgradeableBeacon beacon = UpgradeableBeacon(factory.beaconProxyFactory().beacon());
         vm.prank(owner);
         beacon.upgradeTo(address(newImplementation));
 
-        assertEq(factory.beacon().implementation(), address(newImplementation), "Beacon implementation should be updated");
+        assertEq(UpgradeableBeacon(factory.beaconProxyFactory().beacon()).implementation(), address(newImplementation), "Beacon implementation should be updated");
     }
 
     function test_nonOwnerCannotUpgradeBeacon() public {
         MasterVault newImplementation = new MasterVault();
 
-        UpgradeableBeacon beacon = factory.beacon();
+        UpgradeableBeacon beacon = UpgradeableBeacon(factory.beaconProxyFactory().beacon());
         vm.prank(user);
         vm.expectRevert("Ownable: caller is not the owner");
         beacon.upgradeTo(address(newImplementation));
@@ -102,11 +102,11 @@ contract MasterVaultFactoryTest is Test {
 
         MasterVault newImplementation = new MasterVault();
 
-        UpgradeableBeacon beacon = factory.beacon();
+        UpgradeableBeacon beacon = UpgradeableBeacon(factory.beaconProxyFactory().beacon());
         vm.prank(owner);
         beacon.upgradeTo(address(newImplementation));
 
-        assertEq(factory.beacon().implementation(), address(newImplementation), "Beacon should point to new implementation");
+        assertEq(UpgradeableBeacon(factory.beaconProxyFactory().beacon()).implementation(), address(newImplementation), "Beacon should point to new implementation");
 
         MasterVault(vault1).owner();
         MasterVault(vault2).owner();
