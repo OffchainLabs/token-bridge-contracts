@@ -30,9 +30,6 @@ contract MasterVault is Initializable, ERC4626Upgradeable, OwnableUpgradeable {
     error NewSubVaultExchangeRateTooLow();
     error BeneficiaryNotSet();
     error PerformanceFeeDisabled();
-    error NoSharesRedeemed();
-    error NoSubvaultShares();
-    error NoSharesBurned();
     error InvalidAsset();
     error InvalidOwner();
 
