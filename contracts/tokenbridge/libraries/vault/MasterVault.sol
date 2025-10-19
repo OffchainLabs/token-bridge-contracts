@@ -130,16 +130,13 @@ contract MasterVault is Initializable, ERC4626Upgradeable, OwnableUpgradeable {
         if (address(oldSubVault) == address(0)) revert NoExistingSubVault();
 
         uint256 _totalSupply = totalSupply();
-        uint256 maxWithdrawAmount = oldSubVault.maxWithdraw(address(this));
-
-        subVault = IERC4626(address(0));
-        subVaultExchRateWad = 1e18;
-
-        uint256 assetReceived = oldSubVault.withdraw(maxWithdrawAmount, address(this), address(this));
-        IERC20(asset()).safeApprove(address(oldSubVault), 0);
-
+        uint256 assetReceived = oldSubVault.withdraw(oldSubVault.maxWithdraw(address(this)), address(this), address(this));
         uint256 effectiveAssetExchRateWad = assetReceived.mulDiv(1e18, _totalSupply, MathUpgradeable.Rounding.Down);
         if (effectiveAssetExchRateWad < minAssetExchRateWad) revert TooFewAssetsReceived();
+
+        IERC20(asset()).safeApprove(address(oldSubVault), 0);
+        subVault = IERC4626(address(0));
+        subVaultExchRateWad = 1e18;
 
         emit SubvaultChanged(address(oldSubVault), address(0));
     }
