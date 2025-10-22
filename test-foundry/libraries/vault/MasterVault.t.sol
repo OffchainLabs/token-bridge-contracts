@@ -6,10 +6,14 @@ import { MasterVault } from "../../../contracts/tokenbridge/libraries/vault/Mast
 import { TestERC20 } from "../../../contracts/tokenbridge/test/TestERC20.sol";
 import { MockSubVault } from "../../../contracts/tokenbridge/test/MockSubVault.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { UpgradeableBeacon } from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
+import { BeaconProxyFactory, ClonableBeaconProxy } from "../../../contracts/tokenbridge/libraries/ClonableBeaconProxy.sol";
 
 contract MasterVaultTest is Test {
     MasterVault public vault;
     TestERC20 public token;
+    UpgradeableBeacon public beacon;
+    BeaconProxyFactory public beaconProxyFactory;
 
     event SubvaultChanged(address indexed oldSubvault, address indexed newSubvault);
 
@@ -19,7 +23,18 @@ contract MasterVaultTest is Test {
 
     function setUp() public {
         token = new TestERC20();
-        vault = new MasterVault(IERC20(address(token)), name, symbol);
+
+        MasterVault implementation = new MasterVault();
+        beacon = new UpgradeableBeacon(address(implementation));
+
+        beaconProxyFactory = new BeaconProxyFactory();
+        beaconProxyFactory.initialize(address(beacon));
+
+        bytes32 salt = keccak256("test");
+        address proxyAddress = beaconProxyFactory.createProxy(salt);
+        vault = MasterVault(proxyAddress);
+
+        vault.initialize(IERC20(address(token)), name, symbol, address(this));
     }
 
     function test_initialize() public {
@@ -260,6 +275,26 @@ contract MasterVaultTest is Test {
         assertEq(subVault.balanceOf(address(vault)), 0, "SubVault should have no shares left");
 
         vm.stopPrank();
+    }
+
+    function test_beaconUpgrade() public {
+        vm.startPrank(user);
+        token.mint();
+        uint256 depositAmount = token.balanceOf(user);
+        token.approve(address(vault), depositAmount);
+        vault.deposit(depositAmount, user, 0);
+        vm.stopPrank();
+
+        address oldImplementation = beacon.implementation();
+        assertEq(oldImplementation, address(beacon.implementation()), "Should have initial implementation");
+
+        MasterVault newImplementation = new MasterVault();
+        beacon.upgradeTo(address(newImplementation));
+
+        assertEq(beacon.implementation(), address(newImplementation), "Beacon should point to new implementation");
+        assertTrue(beacon.implementation() != oldImplementation, "Implementation should have changed");
+
+        assertEq(vault.name(), name, "Name should remain after upgrade");
     }
 
 }

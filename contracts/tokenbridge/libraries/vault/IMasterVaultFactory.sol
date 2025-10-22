@@ -9,5 +9,5 @@ interface IMasterVaultFactory {
     function deployVault(address token) external returns (address vault);
     function calculateVaultAddress(address token) external view returns (address);
     function getVault(address token) external returns (address);
-    function setSubVault(address masterVault, address subVault) external;
+    function setSubVault(address masterVault, address subVault, uint256 minSubVaultExchRateWad) external;
 }

@@ -5,6 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {MasterVaultFactory} from "../../../contracts/tokenbridge/libraries/vault/MasterVaultFactory.sol";
 import {MasterVault} from "../../../contracts/tokenbridge/libraries/vault/MasterVault.sol";
 import {TestERC20} from "../../../contracts/tokenbridge/test/TestERC20.sol";
+import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
 
 contract MasterVaultFactoryTest is Test {
     MasterVaultFactory public factory;
@@ -68,5 +69,46 @@ contract MasterVaultFactoryTest is Test {
         address deployedVault = factory.deployVault(address(token));
 
         assertEq(calculatedAddress, deployedVault, "Address calculation incorrect");
+    }
+
+    function test_beaconOwnership() public {
+        assertEq(UpgradeableBeacon(factory.beaconProxyFactory().beacon()).owner(), owner, "Beacon owner should be the factory owner");
+    }
+
+    function test_ownerCanUpgradeBeacon() public {
+        MasterVault newImplementation = new MasterVault();
+
+        UpgradeableBeacon beacon = UpgradeableBeacon(factory.beaconProxyFactory().beacon());
+        vm.prank(owner);
+        beacon.upgradeTo(address(newImplementation));
+
+        assertEq(UpgradeableBeacon(factory.beaconProxyFactory().beacon()).implementation(), address(newImplementation), "Beacon implementation should be updated");
+    }
+
+    function test_nonOwnerCannotUpgradeBeacon() public {
+        MasterVault newImplementation = new MasterVault();
+
+        UpgradeableBeacon beacon = UpgradeableBeacon(factory.beaconProxyFactory().beacon());
+        vm.prank(user);
+        vm.expectRevert("Ownable: caller is not the owner");
+        beacon.upgradeTo(address(newImplementation));
+    }
+
+    function test_beaconUpgradeAffectsAllVaults() public {
+        address vault1 = factory.deployVault(address(token));
+
+        TestERC20 token2 = new TestERC20();
+        address vault2 = factory.deployVault(address(token2));
+
+        MasterVault newImplementation = new MasterVault();
+
+        UpgradeableBeacon beacon = UpgradeableBeacon(factory.beaconProxyFactory().beacon());
+        vm.prank(owner);
+        beacon.upgradeTo(address(newImplementation));
+
+        assertEq(UpgradeableBeacon(factory.beaconProxyFactory().beacon()).implementation(), address(newImplementation), "Beacon should point to new implementation");
+
+        MasterVault(vault1).owner();
+        MasterVault(vault2).owner();
     }
 }
