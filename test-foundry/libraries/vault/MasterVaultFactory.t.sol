@@ -41,7 +41,7 @@ contract MasterVaultFactoryTest is Test {
 
         MasterVault vault = MasterVault(deployedVault);
         assertEq(address(vault.asset()), address(token), "Invalid vault asset");
-        assertEq(vault.owner(), address(factory), "Invalid vault owner");
+        assertTrue(vault.hasRole(vault.DEFAULT_ADMIN_ROLE(), owner), "Factory owner should have DEFAULT_ADMIN_ROLE");
     }
 
     function test_deployVault_RevertZeroAddress() public {
@@ -108,7 +108,7 @@ contract MasterVaultFactoryTest is Test {
 
         assertEq(UpgradeableBeacon(factory.beaconProxyFactory().beacon()).implementation(), address(newImplementation), "Beacon should point to new implementation");
 
-        MasterVault(vault1).owner();
-        MasterVault(vault2).owner();
+        assertTrue(MasterVault(vault1).hasRole(MasterVault(vault1).DEFAULT_ADMIN_ROLE(), owner), "Vault1 should have owner as admin");
+        assertTrue(MasterVault(vault2).hasRole(MasterVault(vault2).DEFAULT_ADMIN_ROLE(), owner), "Vault2 should have owner as admin");
     }
 }

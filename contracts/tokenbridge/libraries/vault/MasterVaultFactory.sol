@@ -17,6 +17,7 @@ contract MasterVaultFactory is IMasterVaultFactory, OwnableUpgradeable {
 
     BeaconProxyFactory public beaconProxyFactory;
 
+    // todo: consider replacing OwnableUpgradeable with simple owner variable
     function initialize(address _owner) public initializer {
         _transferOwnership(_owner);
 
@@ -44,7 +45,7 @@ contract MasterVaultFactory is IMasterVaultFactory, OwnableUpgradeable {
         string memory name = string(abi.encodePacked("Master ", tokenMetadata.name()));
         string memory symbol = string(abi.encodePacked("m", tokenMetadata.symbol()));
 
-        MasterVault(vault).initialize(IERC20(token), name, symbol, address(this));
+        MasterVault(vault).initialize(IERC20(token), name, symbol, owner());
 
         emit VaultDeployed(token, vault);
     }
@@ -64,15 +65,5 @@ contract MasterVaultFactory is IMasterVaultFactory, OwnableUpgradeable {
             return deployVault(token);
         }
         return vault;
-    }
-
-    // todo: consider a method to enable bridge owner to transfer specific master vault ownership to new address
-    function setSubVault(
-        address masterVault,
-        address subVault,
-        uint256 minSubVaultExchRateWad
-    ) external onlyOwner {
-        IMasterVault(masterVault).setSubVault(subVault, minSubVaultExchRateWad);
-        emit SubVaultSet(masterVault, subVault);
     }
 }

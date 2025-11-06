@@ -6,15 +6,20 @@ import {ERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {MathUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-contract MasterVault is Initializable, ERC4626Upgradeable, OwnableUpgradeable {
+contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradeable, PausableUpgradeable {
     using SafeERC20 for IERC20;
     using MathUpgradeable for uint256;
+
+    bytes32 public constant VAULT_MANAGER_ROLE = keccak256("VAULT_MANAGER_ROLE");
+    bytes32 public constant FEE_MANAGER_ROLE = keccak256("FEE_MANAGER_ROLE");
+    bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
     error TooFewSharesReceived();
     error TooManySharesBurned();
@@ -61,7 +66,17 @@ contract MasterVault is Initializable, ERC4626Upgradeable, OwnableUpgradeable {
 
         __ERC20_init(_name, _symbol);
         __ERC4626_init(IERC20Upgradeable(address(_asset)));
-        _transferOwnership(_owner);
+        __AccessControl_init();
+        __Pausable_init();
+
+        _setRoleAdmin(VAULT_MANAGER_ROLE, DEFAULT_ADMIN_ROLE);
+        _setRoleAdmin(FEE_MANAGER_ROLE, DEFAULT_ADMIN_ROLE);
+        _setRoleAdmin(PAUSER_ROLE, DEFAULT_ADMIN_ROLE);
+
+        _grantRole(DEFAULT_ADMIN_ROLE, _owner);
+        _grantRole(VAULT_MANAGER_ROLE, _owner);
+        _grantRole(FEE_MANAGER_ROLE, _owner);
+        _grantRole(PAUSER_ROLE, _owner);
 
         subVaultExchRateWad = 1e18;
     }
@@ -94,14 +109,14 @@ contract MasterVault is Initializable, ERC4626Upgradeable, OwnableUpgradeable {
     /// @notice Set a subvault. Can only be called if there is not already a subvault set.
     /// @param  _subVault The subvault to set. Must be an ERC4626 vault with the same asset as this MasterVault.
     /// @param  minSubVaultExchRateWad Minimum acceptable ratio (times 1e18) of new subvault shares to outstanding MasterVault shares after deposit.
-    function setSubVault(IERC4626 _subVault, uint256 minSubVaultExchRateWad) external onlyOwner {
+    function setSubVault(IERC4626 _subVault, uint256 minSubVaultExchRateWad) external onlyRole(VAULT_MANAGER_ROLE) {
         if (address(subVault) != address(0)) revert SubVaultAlreadySet();
         _setSubVault(_subVault, minSubVaultExchRateWad);
     }
 
     /// @notice Revokes the current subvault, moving all assets back to MasterVault
     /// @param minAssetExchRateWad Minimum acceptable ratio (times 1e18) of assets received from subvault to outstanding MasterVault shares
-    function revokeSubVault(uint256 minAssetExchRateWad) external onlyOwner {
+    function revokeSubVault(uint256 minAssetExchRateWad) external onlyRole(VAULT_MANAGER_ROLE) {
         _revokeSubVault(minAssetExchRateWad);
     }
 
@@ -142,7 +157,7 @@ contract MasterVault is Initializable, ERC4626Upgradeable, OwnableUpgradeable {
     /// @param newSubVault The new subvault to switch to, or zero address to revoke current subvault
     /// @param minAssetExchRateWad Minimum acceptable ratio (times 1e18) of assets received from old subvault to outstanding MasterVault shares
     /// @param minNewSubVaultExchRateWad Minimum acceptable ratio (times 1e18) of new subvault shares to outstanding MasterVault shares after deposit
-    function switchSubVault(IERC4626 newSubVault, uint256 minAssetExchRateWad, uint256 minNewSubVaultExchRateWad) external onlyOwner {
+    function switchSubVault(IERC4626 newSubVault, uint256 minAssetExchRateWad, uint256 minNewSubVaultExchRateWad) external onlyRole(VAULT_MANAGER_ROLE) {
         _revokeSubVault(minAssetExchRateWad);
 
         if (address(newSubVault) != address(0)) {
@@ -160,22 +175,22 @@ contract MasterVault is Initializable, ERC4626Upgradeable, OwnableUpgradeable {
 
     /// @notice Toggle performance fee collection on/off
     /// @param enabled True to enable performance fees, false to disable
-    function setPerformanceFee(bool enabled) external onlyOwner {
+    function setPerformanceFee(bool enabled) external onlyRole(VAULT_MANAGER_ROLE) {
         enablePerformanceFee = enabled;
         emit PerformanceFeeToggled(enabled);
     }
 
     /// @notice Set the beneficiary address for performance fees
     /// @param newBeneficiary Address to receive performance fees, zero address defaults to owner
-    function setBeneficiary(address newBeneficiary) external onlyOwner {
+    function setBeneficiary(address newBeneficiary) external onlyRole(FEE_MANAGER_ROLE) {
         address oldBeneficiary = beneficiary;
         beneficiary = newBeneficiary;
         emit BeneficiaryUpdated(oldBeneficiary, newBeneficiary);
     }
 
     /// @notice Withdraw all accumulated performance fees to beneficiary
-    /// @dev Only callable by owner when performance fees are enabled
-    function withdrawPerformanceFees() external onlyOwner {
+    /// @dev Only callable by fee manager when performance fees are enabled
+    function withdrawPerformanceFees() external onlyRole(FEE_MANAGER_ROLE) {
         if (!enablePerformanceFee) revert PerformanceFeeDisabled();
         if (beneficiary == address(0)) revert BeneficiaryNotSet();
 
@@ -187,6 +202,14 @@ contract MasterVault is Initializable, ERC4626Upgradeable, OwnableUpgradeable {
             }
             IERC20(asset()).safeTransfer(beneficiary, totalProfits);
         }
+    }
+
+    function pause() external onlyRole(PAUSER_ROLE) {
+        _pause();
+    }
+
+    function unpause() external onlyRole(PAUSER_ROLE) {
+        _unpause();
     }
 
     /** @dev See {IERC4626-totalAssets}. */
@@ -208,6 +231,9 @@ contract MasterVault is Initializable, ERC4626Upgradeable, OwnableUpgradeable {
 
     /** @dev See {IERC4626-maxMint}. */
     function maxMint(address) public view virtual override returns (uint256) {
+        if (address(subVault) == address(0)) {
+            return type(uint256).max;
+        }
         uint256 subShares = subVault.maxMint(address(this));
         if (subShares == type(uint256).max) {
             return type(uint256).max;
@@ -255,7 +281,7 @@ contract MasterVault is Initializable, ERC4626Upgradeable, OwnableUpgradeable {
         address receiver,
         uint256 assets,
         uint256 shares
-    ) internal virtual override {
+    ) internal virtual override whenNotPaused {
         super._deposit(caller, receiver, assets, shares);
 
         totalPrincipal += assets;
@@ -274,7 +300,7 @@ contract MasterVault is Initializable, ERC4626Upgradeable, OwnableUpgradeable {
         address _owner,
         uint256 assets,
         uint256 shares
-    ) internal virtual override {
+    ) internal virtual override whenNotPaused {
         totalPrincipal -= assets;
 
         IERC4626 _subVault = subVault;
