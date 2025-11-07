@@ -75,7 +75,7 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
 
         _grantRole(DEFAULT_ADMIN_ROLE, _owner);
         _grantRole(VAULT_MANAGER_ROLE, _owner);
-        _grantRole(FEE_MANAGER_ROLE, _owner);
+        _grantRole(FEE_MANAGER_ROLE, _owner); // todo: consider permissionless by default
         _grantRole(PAUSER_ROLE, _owner);
 
         subVaultExchRateWad = 1e18;
