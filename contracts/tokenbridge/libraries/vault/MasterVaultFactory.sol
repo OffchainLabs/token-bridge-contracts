@@ -3,7 +3,6 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/utils/Create2.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import "../ClonableBeaconProxy.sol";
@@ -11,16 +10,15 @@ import "./IMasterVault.sol";
 import "./IMasterVaultFactory.sol";
 import "./MasterVault.sol";
 
-contract MasterVaultFactory is IMasterVaultFactory, OwnableUpgradeable {
+contract MasterVaultFactory is IMasterVaultFactory, Initializable {
     error ZeroAddress();
     error BeaconNotDeployed();
 
     BeaconProxyFactory public beaconProxyFactory;
+    address public owner;
 
-    // todo: consider replacing OwnableUpgradeable with simple owner variable
     function initialize(address _owner) public initializer {
-        _transferOwnership(_owner);
-
+        owner = _owner;
         MasterVault masterVaultImplementation = new MasterVault();
         UpgradeableBeacon beacon = new UpgradeableBeacon(address(masterVaultImplementation));
         beaconProxyFactory = new BeaconProxyFactory();
@@ -45,7 +43,7 @@ contract MasterVaultFactory is IMasterVaultFactory, OwnableUpgradeable {
         string memory name = string(abi.encodePacked("Master ", tokenMetadata.name()));
         string memory symbol = string(abi.encodePacked("m", tokenMetadata.symbol()));
 
-        MasterVault(vault).initialize(IERC20(token), name, symbol, owner());
+        MasterVault(vault).initialize(IERC20(token), name, symbol, owner);
 
         emit VaultDeployed(token, vault);
     }
