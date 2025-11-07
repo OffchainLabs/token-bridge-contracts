@@ -8,6 +8,7 @@ import { MockSubVault } from "../../../contracts/tokenbridge/test/MockSubVault.s
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { UpgradeableBeacon } from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import { BeaconProxyFactory, ClonableBeaconProxy } from "../../../contracts/tokenbridge/libraries/ClonableBeaconProxy.sol";
+import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
 
 contract MasterVaultTest is Test {
     MasterVault public vault;
@@ -45,6 +46,10 @@ contract MasterVaultTest is Test {
         assertEq(vault.totalSupply(), 0, "Invalid initial supply");
         assertEq(vault.totalAssets(), 0, "Invalid initial assets");
         assertEq(address(vault.subVault()), address(0), "SubVault should be zero initially");
+
+        assertTrue(vault.hasRole(vault.DEFAULT_ADMIN_ROLE(), address(this)), "Should have DEFAULT_ADMIN_ROLE");
+        assertTrue(vault.hasRole(vault.VAULT_MANAGER_ROLE(), address(this)), "Should have VAULT_MANAGER_ROLE");
+        assertTrue(vault.hasRole(vault.FEE_MANAGER_ROLE(), address(this)), "Should have FEE_MANAGER_ROLE");
     }
 
     function test_WithoutSubvault_deposit() public {
@@ -295,6 +300,217 @@ contract MasterVaultTest is Test {
         assertTrue(beacon.implementation() != oldImplementation, "Implementation should have changed");
 
         assertEq(vault.name(), name, "Name should remain after upgrade");
+    }
+
+    function test_setSubVault_revert_NotVaultManager() public {
+        MockSubVault subVault = new MockSubVault(
+            IERC20(address(token)),
+            "Sub Vault Token",
+            "svTST"
+        );
+
+        vm.startPrank(user);
+        token.mint();
+        uint256 depositAmount = token.balanceOf(user);
+        token.approve(address(vault), depositAmount);
+        vault.deposit(depositAmount, user, 0);
+
+        vm.expectRevert();
+        vault.setSubVault(subVault, 1e18);
+
+        vm.stopPrank();
+    }
+
+    function test_setBeneficiary_revert_NotFeeManager() public {
+        address newBeneficiary = address(0x999);
+
+        vm.prank(user);
+        vm.expectRevert();
+        vault.setBeneficiary(newBeneficiary);
+    }
+
+    function test_withdrawPerformanceFees_revert_NotFeeManager() public {
+        vm.prank(user);
+        vm.expectRevert();
+        vault.withdrawPerformanceFees();
+    }
+
+    function test_roleAdmin() public {
+        address vaultManager = address(0x1111);
+        address feeManager = address(0x2222);
+
+        vault.grantRole(vault.VAULT_MANAGER_ROLE(), vaultManager);
+        vault.grantRole(vault.FEE_MANAGER_ROLE(), feeManager);
+
+        assertTrue(vault.hasRole(vault.VAULT_MANAGER_ROLE(), vaultManager), "Should have VAULT_MANAGER_ROLE");
+        assertTrue(vault.hasRole(vault.FEE_MANAGER_ROLE(), feeManager), "Should have FEE_MANAGER_ROLE");
+
+        vault.revokeRole(vault.VAULT_MANAGER_ROLE(), vaultManager);
+        assertFalse(vault.hasRole(vault.VAULT_MANAGER_ROLE(), vaultManager), "Should not have VAULT_MANAGER_ROLE");
+    }
+
+    function test_multipleRoleHolders() public {
+        address vaultManager1 = address(0x1111);
+        address vaultManager2 = address(0x2222);
+
+        vault.grantRole(vault.VAULT_MANAGER_ROLE(), vaultManager1);
+        vault.grantRole(vault.VAULT_MANAGER_ROLE(), vaultManager2);
+
+        assertTrue(vault.hasRole(vault.VAULT_MANAGER_ROLE(), vaultManager1), "Manager1 should have VAULT_MANAGER_ROLE");
+        assertTrue(vault.hasRole(vault.VAULT_MANAGER_ROLE(), vaultManager2), "Manager2 should have VAULT_MANAGER_ROLE");
+
+        MockSubVault subVault = new MockSubVault(
+            IERC20(address(token)),
+            "Sub Vault Token",
+            "svTST"
+        );
+
+        vm.startPrank(user);
+        token.mint();
+        uint256 depositAmount = token.balanceOf(user);
+        token.approve(address(vault), depositAmount);
+        vault.deposit(depositAmount, user, 0);
+        vm.stopPrank();
+
+        vm.prank(vaultManager1);
+        vault.setSubVault(subVault, 1e18);
+
+        assertEq(address(vault.subVault()), address(subVault), "SubVault should be set by manager1");
+    }
+
+    function test_initialize_pauserRole() public {
+        assertTrue(vault.hasRole(vault.PAUSER_ROLE(), address(this)), "Should have PAUSER_ROLE");
+        assertFalse(vault.paused(), "Should not be paused initially");
+    }
+
+    function test_pause() public {
+        assertFalse(vault.paused(), "Should not be paused initially");
+
+        vault.pause();
+
+        assertTrue(vault.paused(), "Should be paused");
+    }
+
+    function test_unpause() public {
+        vault.pause();
+        assertTrue(vault.paused(), "Should be paused");
+
+        vault.unpause();
+
+        assertFalse(vault.paused(), "Should not be paused");
+    }
+
+    function test_pause_revert_NotPauser() public {
+        vm.prank(user);
+        vm.expectRevert();
+        vault.pause();
+    }
+
+    function test_unpause_revert_NotPauser() public {
+        vault.pause();
+
+        vm.prank(user);
+        vm.expectRevert();
+        vault.unpause();
+    }
+
+    function test_deposit_revert_WhenPaused() public {
+        vm.startPrank(user);
+        token.mint();
+        uint256 depositAmount = token.balanceOf(user);
+        token.approve(address(vault), depositAmount);
+        vm.stopPrank();
+
+        vault.pause();
+
+        vm.prank(user);
+        vm.expectRevert("Pausable: paused");
+        vault.deposit(depositAmount, user, 0);
+    }
+
+    function test_withdraw_revert_WhenPaused() public {
+        vm.startPrank(user);
+        token.mint();
+        uint256 depositAmount = token.balanceOf(user);
+        token.approve(address(vault), depositAmount);
+        vault.deposit(depositAmount, user, 0);
+        vm.stopPrank();
+
+        vault.pause();
+
+        vm.prank(user);
+        vm.expectRevert("Pausable: paused");
+        vault.withdraw(depositAmount / 2, user, user, type(uint256).max);
+    }
+
+    function test_mint_revert_WhenPaused() public {
+        vm.startPrank(user);
+        token.mint();
+        uint256 depositAmount = token.balanceOf(user);
+        token.approve(address(vault), depositAmount);
+        vm.stopPrank();
+
+        vault.pause();
+
+        vm.prank(user);
+        vm.expectRevert("Pausable: paused");
+        vault.mint(100, user, type(uint256).max);
+    }
+
+    function test_redeem_revert_WhenPaused() public {
+        vm.startPrank(user);
+        token.mint();
+        uint256 depositAmount = token.balanceOf(user);
+        token.approve(address(vault), depositAmount);
+        uint256 shares = vault.deposit(depositAmount, user, 0);
+        vm.stopPrank();
+
+        vault.pause();
+
+        vm.prank(user);
+        vm.expectRevert("Pausable: paused");
+        vault.redeem(shares / 2, user, user, 0);
+    }
+
+    function test_pauseUnpauseFlow() public {
+        vm.startPrank(user);
+        token.mint();
+        uint256 depositAmount = token.balanceOf(user);
+        token.approve(address(vault), depositAmount);
+        vault.deposit(depositAmount / 2, user, 0);
+        vm.stopPrank();
+
+        vault.pause();
+
+        vm.prank(user);
+        vm.expectRevert("Pausable: paused");
+        vault.deposit(depositAmount / 2, user, 0);
+
+        vault.unpause();
+
+        vm.prank(user);
+        vault.deposit(depositAmount / 2, user, 0);
+
+        assertEq(token.balanceOf(user), 0, "All tokens should be deposited");
+    }
+
+    function test_multiplePausers() public {
+        address pauser1 = address(0x3333);
+        address pauser2 = address(0x4444);
+
+        vault.grantRole(vault.PAUSER_ROLE(), pauser1);
+        vault.grantRole(vault.PAUSER_ROLE(), pauser2);
+
+        assertTrue(vault.hasRole(vault.PAUSER_ROLE(), pauser1), "Pauser1 should have PAUSER_ROLE");
+        assertTrue(vault.hasRole(vault.PAUSER_ROLE(), pauser2), "Pauser2 should have PAUSER_ROLE");
+
+        vm.prank(pauser1);
+        vault.pause();
+        assertTrue(vault.paused(), "Should be paused by pauser1");
+
+        vm.prank(pauser2);
+        vault.unpause();
+        assertFalse(vault.paused(), "Should be unpaused by pauser2");
     }
 
 }
