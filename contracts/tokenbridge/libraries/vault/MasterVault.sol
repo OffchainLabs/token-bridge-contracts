@@ -26,12 +26,9 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
     error TooManyAssetsDeposited();
     error TooFewAssetsReceived();
     error SubVaultAlreadySet();
-    error SubVaultCannotBeZeroAddress();
-    error MustHaveSupplyBeforeSettingSubVault();
     error SubVaultAssetMismatch();
     error SubVaultExchangeRateTooLow();
     error NoExistingSubVault();
-    error MustHaveSupplyBeforeSwitchingSubVault();
     error NewSubVaultExchangeRateTooLow();
     error BeneficiaryNotSet();
     error PerformanceFeeDisabled();
