@@ -30,8 +30,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 ///         If the subVault has manipulable convertToAssets/convertToShares functions, and performance fees are desired,
 ///         consider whitelisting a specific FEE_MANAGER_ROLE that is allowed to call withdrawPerformanceFees().
 ///         The fee manager is then trusted to not manipulate the subVault or be a victim of manipulation when withdrawing performance fees.
-///         If the FEE_MANAGER_ROLE is granted to the zero address, anyone can call withdrawPerformanceFees() 
-///         and it is called automatically on withdrawals. (TODO, it is not automatic yet)
+///         By default, only the owner has the FEE_MANAGER_ROLE.
 contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradeable, PausableUpgradeable {
     using SafeERC20 for IERC20;
     using MathUpgradeable for uint256;
@@ -85,7 +84,7 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
 
         _grantRole(DEFAULT_ADMIN_ROLE, _owner);
         _grantRole(VAULT_MANAGER_ROLE, _owner);
-        _grantRole(FEE_MANAGER_ROLE, _owner); // todo: consider permissionless by default
+        _grantRole(FEE_MANAGER_ROLE, _owner);
         _grantRole(PAUSER_ROLE, _owner);
     }
 
