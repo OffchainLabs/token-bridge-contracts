@@ -45,12 +45,9 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
     error TooManyAssetsDeposited();
     error TooFewAssetsReceived();
     error SubVaultAlreadySet();
-    error SubVaultCannotBeZeroAddress();
-    error MustHaveSupplyBeforeSettingSubVault();
     error SubVaultAssetMismatch();
     error SubVaultExchangeRateTooLow();
     error NoExistingSubVault();
-    error MustHaveSupplyBeforeSwitchingSubVault();
     error NewSubVaultExchangeRateTooLow();
     error BeneficiaryNotSet();
     error PerformanceFeeDisabled();
@@ -60,12 +57,6 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
     // todo: avoid inflation, rounding, other common 4626 vulns
     // we may need a minimum asset or master share amount when setting subvaults (bc of exchange rate calc)
     IERC4626 public subVault;
-
-    // how many subVault shares one MV2 share can be redeemed for
-    // initially 1 to 1
-    // constant per subvault
-    // changes when subvault is set
-    uint256 public subVaultExchRateWad;
 
     // note: the performance fee can be avoided if the underlying strategy can be sandwiched (eg ETH to wstETH dex swap)
     // maybe a simpler and more robust implementation would be for the owner to adjust the subVaultExchRateWad directly
@@ -96,8 +87,6 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
         _grantRole(VAULT_MANAGER_ROLE, _owner);
         _grantRole(FEE_MANAGER_ROLE, _owner); // todo: consider permissionless by default
         _grantRole(PAUSER_ROLE, _owner);
-
-        subVaultExchRateWad = 1e18;
     }
 
 
@@ -129,67 +118,46 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
     /// @param  _subVault The subvault to set. Must be an ERC4626 vault with the same asset as this MasterVault.
     /// @param  minSubVaultExchRateWad Minimum acceptable ratio (times 1e18) of new subvault shares to outstanding MasterVault shares after deposit.
     function setSubVault(IERC4626 _subVault, uint256 minSubVaultExchRateWad) external onlyRole(VAULT_MANAGER_ROLE) {
+        IERC20 underlyingAsset = IERC20(asset());
         if (address(subVault) != address(0)) revert SubVaultAlreadySet();
-        _setSubVault(_subVault, minSubVaultExchRateWad);
+        if (address(_subVault.asset()) != address(underlyingAsset)) revert SubVaultAssetMismatch();
+
+        subVault = _subVault;
+
+        IERC20(asset()).safeApprove(address(_subVault), type(uint256).max);
+        _subVault.deposit(underlyingAsset.balanceOf(address(this)), address(this));
+
+        uint256 subVaultExchRateWad = _subVault.balanceOf(address(this)).mulDiv(1e18, totalSupply(), MathUpgradeable.Rounding.Down);
+        if (subVaultExchRateWad < minSubVaultExchRateWad) revert NewSubVaultExchangeRateTooLow();
+
+        emit SubvaultChanged(address(0), address(_subVault));
     }
 
     /// @notice Revokes the current subvault, moving all assets back to MasterVault
     /// @param minAssetExchRateWad Minimum acceptable ratio (times 1e18) of assets received from subvault to outstanding MasterVault shares
     function revokeSubVault(uint256 minAssetExchRateWad) external onlyRole(VAULT_MANAGER_ROLE) {
-        _revokeSubVault(minAssetExchRateWad);
-    }
-
-    function _setSubVault(IERC4626 _subVault, uint256 minSubVaultExchRateWad) internal {
-        if (address(_subVault) == address(0)) revert SubVaultCannotBeZeroAddress();
-        if (totalSupply() == 0) revert MustHaveSupplyBeforeSettingSubVault();
-        if (address(_subVault.asset()) != address(asset())) revert SubVaultAssetMismatch();
-
-        IERC20(asset()).safeApprove(address(_subVault), type(uint256).max);
-        uint256 subShares = _subVault.deposit(totalAssets(), address(this));
-
-        subVault = _subVault;
-
-        uint256 _subVaultExchRateWad = subShares.mulDiv(1e18, totalAssets(), MathUpgradeable.Rounding.Down);
-        if (_subVaultExchRateWad < minSubVaultExchRateWad) revert SubVaultExchangeRateTooLow();
-        subVaultExchRateWad = _subVaultExchRateWad;
-
-        emit SubvaultChanged(address(0), address(_subVault));
-    }
-
-    function _revokeSubVault(uint256 minAssetExchRateWad) internal {
         IERC4626 oldSubVault = subVault;
         if (address(oldSubVault) == address(0)) revert NoExistingSubVault();
 
-        uint256 _totalSupply = totalSupply();
-        uint256 assetReceived = oldSubVault.withdraw(oldSubVault.maxWithdraw(address(this)), address(this), address(this));
-        uint256 effectiveAssetExchRateWad = assetReceived.mulDiv(1e18, _totalSupply, MathUpgradeable.Rounding.Down);
-        if (effectiveAssetExchRateWad < minAssetExchRateWad) revert TooFewAssetsReceived();
-
-        IERC20(asset()).safeApprove(address(oldSubVault), 0);
         subVault = IERC4626(address(0));
-        subVaultExchRateWad = 1e18;
+
+        oldSubVault.redeem(oldSubVault.balanceOf(address(this)), address(this), address(this));
+        IERC20(asset()).safeApprove(address(oldSubVault), 0);
+
+        uint256 assetExchRateWad = IERC20(asset()).balanceOf(address(this)).mulDiv(1e18, totalSupply(), MathUpgradeable.Rounding.Down);
+        if (assetExchRateWad < minAssetExchRateWad) revert SubVaultExchangeRateTooLow();
 
         emit SubvaultChanged(address(oldSubVault), address(0));
     }
 
-    /// @notice Switches to a new subvault or revokes current subvault if newSubVault is zero address
-    /// @param newSubVault The new subvault to switch to, or zero address to revoke current subvault
-    /// @param minAssetExchRateWad Minimum acceptable ratio (times 1e18) of assets received from old subvault to outstanding MasterVault shares
-    /// @param minNewSubVaultExchRateWad Minimum acceptable ratio (times 1e18) of new subvault shares to outstanding MasterVault shares after deposit
-    function switchSubVault(IERC4626 newSubVault, uint256 minAssetExchRateWad, uint256 minNewSubVaultExchRateWad) external onlyRole(VAULT_MANAGER_ROLE) {
-        _revokeSubVault(minAssetExchRateWad);
-
-        if (address(newSubVault) != address(0)) {
-            _setSubVault(newSubVault, minNewSubVaultExchRateWad);
-        }
-    }
-
     function masterSharesToSubShares(uint256 masterShares, MathUpgradeable.Rounding rounding) public view returns (uint256) {
-        return masterShares.mulDiv(subVaultExchRateWad, 1e18, rounding);
+        // masterShares * totalSubVaultShares / totalMasterShares
+        return masterShares.mulDiv(subVault.balanceOf(address(this)), totalSupply(), rounding);
     }
 
     function subSharesToMasterShares(uint256 subShares, MathUpgradeable.Rounding rounding) public view returns (uint256) {
-        return subShares.mulDiv(1e18, subVaultExchRateWad, rounding);
+        // subShares * totalMasterShares / totalSubVaultShares
+        return subShares.mulDiv(totalSupply(), subVault.balanceOf(address(this)), rounding);
     }
 
     /// @notice Toggle performance fee collection on/off
