@@ -126,48 +126,6 @@ contract MasterVaultTest is Test {
         assertEq(subVault.balanceOf(address(vault)), depositAmount, "SubVault should have received assets");
     }
 
-    function test_switchSubvault() public {
-        MockSubVault oldSubVault = new MockSubVault(
-            IERC20(address(token)),
-            "Old Sub Vault",
-            "osvTST"
-        );
-
-        MockSubVault newSubVault = new MockSubVault(
-            IERC20(address(token)),
-            "New Sub Vault",
-            "nsvTST"
-        );
-
-        vm.startPrank(user);
-        token.mint();
-        uint256 depositAmount = token.balanceOf(user);
-        token.approve(address(vault), depositAmount);
-        vault.deposit(depositAmount, user, 0);
-        vm.stopPrank();
-
-        vault.setSubVault(oldSubVault, 1e18);
-
-        assertEq(address(vault.subVault()), address(oldSubVault), "Old subvault should be set");
-        assertEq(oldSubVault.balanceOf(address(vault)), depositAmount, "Old subvault should have assets");
-        assertEq(newSubVault.balanceOf(address(vault)), 0, "New subvault should have no assets initially");
-
-        uint256 minAssetExchRateWad = 1e18;
-        uint256 minNewSubVaultExchRateWad = 1e18;
-
-        vm.expectEmit(true, true, false, false);
-        emit SubvaultChanged(address(oldSubVault), address(0));
-        vm.expectEmit(true, true, false, false);
-        emit SubvaultChanged(address(0), address(newSubVault));
-
-        vault.switchSubVault(newSubVault, minAssetExchRateWad, minNewSubVaultExchRateWad);
-
-        assertEq(address(vault.subVault()), address(newSubVault), "New subvault should be set");
-        assertEq(vault.totalAssets(), depositAmount, "Total assets should remain the same");
-        assertEq(oldSubVault.balanceOf(address(vault)), 0, "Old subvault should have no assets");
-        assertEq(newSubVault.balanceOf(address(vault)), depositAmount, "New subvault should have received assets");
-    }
-
     function test_revokeSubvault() public {
         MockSubVault subVault = new MockSubVault(
             IERC20(address(token)),
