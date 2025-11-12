@@ -24,10 +24,10 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 ///         - It must be able to handle arbitrarily large deposits and withdrawals
 ///         - Deposit size or withdrawal size must not affect the exchange rate (i.e. no slippage)
 ///
-///         For performance fees to be enabled, the subVault should also have manipulation resistant 
-///         convertToAssets and convertToShares functions. If these can be manipulated, 
+///         For performance fees to be enabled, the subVault should also have a manipulation resistant 
+///         convertToAssets function. If convertToAssets can be manipulated, 
 ///         an incorrect profit calculation may occur, leading to incorrect performance fee withdrawals.
-///         If the subVault has manipulable convertToAssets/convertToShares functions, and performance fees are desired,
+///         If the subVault has a manipulable convertToAssets function, and performance fees are desired,
 ///         consider whitelisting a specific FEE_MANAGER_ROLE that is allowed to call withdrawPerformanceFees().
 ///         The fee manager is then trusted to not manipulate the subVault or be a victim of manipulation when withdrawing performance fees.
 ///         By default, only the owner has the FEE_MANAGER_ROLE.
@@ -35,8 +35,14 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
     using SafeERC20 for IERC20;
     using MathUpgradeable for uint256;
 
+    /// @notice Vault manager role can set/revoke subvaults, toggle performance fees and set the performance fee beneficiary
+    /// @dev    Should never be granted to the zero address
     bytes32 public constant VAULT_MANAGER_ROLE = keccak256("VAULT_MANAGER_ROLE");
+    /// @notice Fee manager role can call withdrawPerformanceFees() 
+    /// @dev    It is important that the convertToAssets function of the subVault is not manipulated prior to calling withdrawPerformanceFees().
+    ///         See contract notice for more details.
     bytes32 public constant FEE_MANAGER_ROLE = keccak256("FEE_MANAGER_ROLE");
+    /// @notice Pauser role can pause/unpause deposits and withdrawals (todo: pause should pause EVERYTHING)
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
     error TooFewSharesReceived();
