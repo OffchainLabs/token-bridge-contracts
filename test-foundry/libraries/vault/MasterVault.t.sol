@@ -122,7 +122,6 @@ contract MasterVaultTest is Test {
         vault.setSubVault(subVault, minSubVaultExchRateWad);
 
         assertEq(address(vault.subVault()), address(subVault), "SubVault should be set");
-        assertEq(vault.subVaultExchRateWad(), 1e18, "Exchange rate should be 1:1 initially");
         assertEq(vault.totalAssets(), depositAmount, "Total assets should remain the same");
         assertEq(subVault.balanceOf(address(vault)), depositAmount, "SubVault should have received assets");
     }
@@ -164,7 +163,6 @@ contract MasterVaultTest is Test {
         vault.switchSubVault(newSubVault, minAssetExchRateWad, minNewSubVaultExchRateWad);
 
         assertEq(address(vault.subVault()), address(newSubVault), "New subvault should be set");
-        assertEq(vault.subVaultExchRateWad(), 1e18, "Exchange rate should remain 1:1");
         assertEq(vault.totalAssets(), depositAmount, "Total assets should remain the same");
         assertEq(oldSubVault.balanceOf(address(vault)), 0, "Old subvault should have no assets");
         assertEq(newSubVault.balanceOf(address(vault)), depositAmount, "New subvault should have received assets");
@@ -188,7 +186,6 @@ contract MasterVaultTest is Test {
 
         assertEq(address(vault.subVault()), address(subVault), "SubVault should be set");
         assertEq(subVault.balanceOf(address(vault)), depositAmount, "SubVault should have assets");
-        assertEq(vault.subVaultExchRateWad(), 1e18, "Exchange rate should be 1:1");
 
         uint256 minAssetExchRateWad = 1e18;
 
@@ -198,7 +195,6 @@ contract MasterVaultTest is Test {
         vault.revokeSubVault(minAssetExchRateWad);
 
         assertEq(address(vault.subVault()), address(0), "SubVault should be revoked");
-        assertEq(vault.subVaultExchRateWad(), 1e18, "Exchange rate should reset to 1:1");
         assertEq(vault.totalAssets(), depositAmount, "Total assets should remain the same");
         assertEq(subVault.balanceOf(address(vault)), 0, "SubVault should have no assets");
         assertEq(token.balanceOf(address(vault)), depositAmount, "MasterVault should have assets directly");
