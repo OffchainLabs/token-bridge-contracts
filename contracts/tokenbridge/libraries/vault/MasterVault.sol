@@ -25,7 +25,6 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 ///         For a subVault to be compatible with the MasterVault, it must adhere to the following:
 ///         - It must be able to handle arbitrarily large deposits and withdrawals
 ///         - Deposit size or withdrawal size must not affect the exchange rate (i.e. no slippage)
-///         - Must not have deposit or withdrawal fees (or the deposit/withdrawal fee beneficiary is trusted by all MasterVault users)
 ///         - convertToAssets and convertToShares must not be manipulable
 contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradeable, PausableUpgradeable {
     using SafeERC20 for IERC20;
