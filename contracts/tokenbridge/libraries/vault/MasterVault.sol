@@ -99,16 +99,6 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
     /// @param  _subVault The subvault to set. Must be an ERC4626 vault with the same asset as this MasterVault.
     /// @param  minSubVaultExchRateWad Minimum acceptable ratio (times 1e18) of new subvault shares to outstanding MasterVault shares after deposit.
     function setSubVault(IERC4626 _subVault, uint256 minSubVaultExchRateWad) external onlyRole(VAULT_MANAGER_ROLE) {
-        _setSubVault(_subVault, minSubVaultExchRateWad);
-    }
-
-    /// @notice Revokes the current subvault, moving all assets back to MasterVault
-    /// @param minAssetExchRateWad Minimum acceptable ratio (times 1e18) of assets received from subvault to outstanding MasterVault shares
-    function revokeSubVault(uint256 minAssetExchRateWad) external onlyRole(VAULT_MANAGER_ROLE) {
-        _revokeSubVault(minAssetExchRateWad);
-    }
-
-    function _setSubVault(IERC4626 _subVault, uint256 minSubVaultExchRateWad) internal {
         IERC20 underlyingAsset = IERC20(asset());
         if (address(subVault) != address(0)) revert SubVaultAlreadySet();
         if (address(_subVault.asset()) != address(underlyingAsset)) revert SubVaultAssetMismatch();
@@ -124,7 +114,9 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
         emit SubvaultChanged(address(0), address(_subVault));
     }
 
-    function _revokeSubVault(uint256 minAssetExchRateWad) internal {
+    /// @notice Revokes the current subvault, moving all assets back to MasterVault
+    /// @param minAssetExchRateWad Minimum acceptable ratio (times 1e18) of assets received from subvault to outstanding MasterVault shares
+    function revokeSubVault(uint256 minAssetExchRateWad) external onlyRole(VAULT_MANAGER_ROLE) {
         IERC4626 oldSubVault = subVault;
         if (address(oldSubVault) == address(0)) revert NoExistingSubVault();
 
@@ -137,18 +129,6 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
         if (assetExchRateWad < minAssetExchRateWad) revert SubVaultExchangeRateTooLow();
 
         emit SubvaultChanged(address(oldSubVault), address(0));
-    }
-
-    /// @notice Switches to a new subvault or revokes current subvault if newSubVault is zero address
-    /// @param newSubVault The new subvault to switch to, or zero address to revoke current subvault
-    /// @param minAssetExchRateWad Minimum acceptable ratio (times 1e18) of assets received from old subvault to outstanding MasterVault shares
-    /// @param minNewSubVaultExchRateWad Minimum acceptable ratio (times 1e18) of new subvault shares to outstanding MasterVault shares after deposit
-    function switchSubVault(IERC4626 newSubVault, uint256 minAssetExchRateWad, uint256 minNewSubVaultExchRateWad) external onlyRole(VAULT_MANAGER_ROLE) {
-        _revokeSubVault(minAssetExchRateWad);
-
-        if (address(newSubVault) != address(0)) {
-            _setSubVault(newSubVault, minNewSubVaultExchRateWad);
-        }
     }
 
     function masterSharesToSubShares(uint256 masterShares, MathUpgradeable.Rounding rounding) public view returns (uint256) {
