@@ -35,6 +35,8 @@ contract MasterVault is
     bytes32 public constant FEE_MANAGER_ROLE = keccak256("FEE_MANAGER_ROLE");
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
+    uint256 public constant MULTIPLIER = 1e18;
+
     error TooFewSharesReceived();
     error TooManySharesBurned();
     error TooManyAssetsDeposited();
@@ -129,20 +131,20 @@ contract MasterVault is
     /// @notice return share price by asset in 18 decimals
     /// @dev max value is 1e18 if performance fee is enabled
     /// @dev examples:
-    /// example 1. sharePrice = 1e18 means we need to pay 1  asset to get 1 share regardless of the decimals
-    /// example 2. sharePrice = 10 * 1e18 means we need to pay 10  asset to get 1 share regardless of the decimals
-    /// example 3. sharePrice = 0.1 * 1e18 means we need to pay 0.1  asset to get 1 share regardless of the decimals
+    /// example 1. sharePrice = 1e18 means we need to pay 1  asset to get 1 share  
+    /// example 2. sharePrice = 10 * 1e18 means we need to pay 10  asset to get 1 share  
+    /// example 3. sharePrice = 0.1 * 1e18 means we need to pay 0.1  asset to get 1 share  
     /// example 4. vault holds 99 USDC and 100 shares => sharePrice = 99 * 1e18 / 100
     function sharePrice() public view returns (uint256) {
-        uint256 multiplier = 1e18;
         uint256 _totalAssets = totalAssets();
         uint256 _totalSupply = totalSupply();
 
-        if (_totalSupply == 0) {
-            return 1 * multiplier;
+        // todo: should we also consider _totalAssets == 0 case?
+        if (_totalSupply == 0 || _totalAssets == 0) {
+            return 1 * MULTIPLIER;
         }
 
-        uint256 _sharePrice = MathUpgradeable.mulDiv(_totalAssets, multiplier, _totalSupply);
+        uint256 _sharePrice = MathUpgradeable.mulDiv(_totalAssets, MULTIPLIER, _totalSupply);
 
         if (enablePerformanceFee) {
             _sharePrice = MathUpgradeable.min(_sharePrice, 1e18);
@@ -152,6 +154,59 @@ contract MasterVault is
     }
 
     /// ERC4626 internal methods ///
+
+    /// @dev Override to implement performance fee logic when converting assets to shares
+    /// @dev this follow exactly same precision that ERC4626 impl. does with no deciamls. ie 1 share = 1 wei of share
+    /// @dev when user acquiring shares this should round Down [deposit, mint]
+    ///      //  and round Up when redeeming [withdraw, redeem]
+    /// examples:
+    /// 1. sharePrice =   1 * 1e18 & assets = 1; then output should be {Up: 1 , Down: 1 }
+    /// 2. sharePrice = 0.1 * 1e18 & assets = 1; then output should be {Up: 10, Down: 10}
+    /// 3. sharePrice =  10 * 1e18 & assets = 1; then output should be {Up: 1 , Down: 0 }; this require tests to cover: [deposit, mint, withdraw, redeem]
+    /// 4. sharePrice =  100 * 1e18 & assets = 99; then output should be {Up: 1 , Down: 0 }; this require tests to cover: [deposit, mint, withdraw, redeem]
+    /// 5. sharePrice =  100 * 1e18 & assets = 199; then output should be {Up: 2 , Down: 1 }; this require tests to cover: [deposit, mint, withdraw, redeem]
+    /// @notice sharePrice can be > 1 only if perf fee is disabled
+    function _convertToShares(
+        uint256 assets,
+        MathUpgradeable.Rounding rounding
+    ) internal view virtual override returns (uint256) {
+        uint256 _sharePrice = sharePrice();
+        uint256 _shares = MathUpgradeable.mulDiv(assets, MULTIPLIER, _sharePrice, rounding);
+        return _shares;
+    }
+
+    /// @dev Override to implement performance fee logic when converting assets to shares
+    /// @dev this follow exactly same precision that ERC4626 impl. does with no deciamls. ie 1 share = 1 wei of share
+    /// @dev _effectiveAssets is to:
+    ///     // 1. let users socialize losses but not profit if perf fee is enable
+    ///     // 2. let users socialize losses and profit if perf fee is disabled
+    /// @dev when user redeeming shares for assets this should round Down [withdraw, redeem]
+    ///      //  and round Up when redeeming [deposit, mint]
+    /// examples:
+    /// * group (A): perf fee is enable
+    /// 1. shares = 1   & _totalAssets = 1 & _totalSupply = 1  ; then output should be {Up: 1 , Down: 1 }
+    /// 2. shares = 1   & _totalAssets = 2 & _totalSupply = 1  ; then output should be {Up: 2 , Down: 2 }
+    /// 3. shares = 1   & _totalAssets = 1 & _totalSupply = 2  ; then output should be {Up: 1 , Down: 0 }
+    /// 4. shares = 99  & _totalAssets = 1 & _totalSupply = 100; then output should be {Up: 1 , Down: 0 }
+    /// 5. shares = 1   & _totalAssets = 1 & _totalSupply = 0  ; then output should be {Up: 1 , Down: 1 }
+    /// 6. shares = 1   & _totalAssets = 0 & _totalSupply = 1  ; then output should be {Up: 0 , Down: 0 }
+    function _convertToAssets(
+        uint256 shares,
+        MathUpgradeable.Rounding rounding
+    ) internal view virtual override returns (uint256) {
+        uint256 _totalAssets = totalAssets();
+        uint256 _totalSupply = totalSupply();
+        uint256 _effectiveAssets = enablePerformanceFee
+            ? MathUpgradeable.min(_totalAssets, totalPrincipal)
+            : _totalAssets;
+
+        if (_totalSupply == 0) {
+            return 1;
+        }
+
+        uint256 _assets = MathUpgradeable.mulDiv(shares, _effectiveAssets, _totalSupply, rounding);
+        return _assets;
+    }
 
     /// @dev Override internal deposit to track total principal
     function _deposit(

@@ -33,19 +33,16 @@ contract MasterVaultTest is MasterVaultCoreTest {
     function test_mint() public {
         vm.startPrank(user);
         token.mint();
-        uint256 depositAmount = 100;
-        uint256 expectedShares = depositAmount; // rate 1:1
+        uint256 sharesToMint = 100;
 
-        token.approve(address(vault), depositAmount);
+        token.approve(address(vault), type(uint256).max);
 
-        uint256 shares = vault.mint(depositAmount, user);
+        uint256 assetsCost = vault.mint(sharesToMint, user);
 
-        assertEq(vault.balanceOf(user), shares, "User should receive shares");
-        assertEq(expectedShares, shares, "User received shares should be equal to returned shares");
-
-        assertEq(vault.totalAssets(), depositAmount, "Vault should hold deposited assets");
-        assertEq(vault.totalSupply(), shares, "Total supply should equal shares minted");
-        assertEq(token.balanceOf(address(vault)), depositAmount, "Vault should hold the tokens");
+        assertEq(vault.balanceOf(user), sharesToMint, "User should receive requested shares");
+        assertEq(vault.totalSupply(), sharesToMint, "Total supply should equal shares minted");
+        assertEq(vault.totalAssets(), assetsCost, "Vault should hold the assets deposited");
+        assertEq(token.balanceOf(address(vault)), assetsCost, "Vault should hold the tokens");
 
         vm.stopPrank();
     }

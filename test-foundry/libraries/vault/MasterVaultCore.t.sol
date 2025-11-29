@@ -19,7 +19,7 @@ contract MasterVaultCoreTest is Test {
     string public name = "Master Test Token";
     string public symbol = "mTST";
 
-    function setUp() public {
+    function setUp() public virtual {
         token = new TestERC20();
 
         MasterVault implementation = new MasterVault();
