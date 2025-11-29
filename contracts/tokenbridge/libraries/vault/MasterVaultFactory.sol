@@ -6,7 +6,6 @@ import "@openzeppelin/contracts/utils/Create2.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import "../ClonableBeaconProxy.sol";
-import "./IMasterVault.sol";
 import "./IMasterVaultFactory.sol";
 import "./MasterVault.sol";
 
