@@ -31,6 +31,7 @@ contract MasterVault is
     AccessControlUpgradeable,
     PausableUpgradeable
 {
+    using SafeERC20 for IERC20;
     bytes32 public constant VAULT_MANAGER_ROLE = keccak256("VAULT_MANAGER_ROLE");
     bytes32 public constant FEE_MANAGER_ROLE = keccak256("FEE_MANAGER_ROLE");
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
@@ -46,10 +47,16 @@ contract MasterVault is
     error ZeroAddress();
     error PerformanceFeeDisabled();
     error BeneficiaryNotSet();
+    error SubVaultAlreadySet();
+    error SubVaultAssetMismatch();
+    error NewSubVaultExchangeRateTooLow();
+    error NoExistingSubVault();
+    error SubVaultExchangeRateTooLow();
 
     event PerformanceFeeToggled(bool enabled);
     event BeneficiaryUpdated(address indexed oldBeneficiary, address indexed newBeneficiary);
     event PerformanceFeesWithdrawn(address indexed beneficiary, uint256 amount);
+    event SubvaultChanged(address indexed oldSubVault, address indexed newSubVault);
 
     // note: the performance fee can be avoided if the underlying strategy can be sandwiched (eg ETH to wstETH dex swap)
     // maybe a simpler and more robust implementation would be for the owner to adjust the subVaultExchRateWad directly
@@ -58,6 +65,7 @@ contract MasterVault is
     bool public enablePerformanceFee;
     address public beneficiary;
     uint256 public totalPrincipal; // total assets deposited, used to calculate profit
+    IERC4626 public subVault;
 
     function initialize(
         IERC20 _asset,
@@ -229,5 +237,43 @@ contract MasterVault is
     ) internal virtual override whenNotPaused {
         super._withdraw(caller, receiver, owner, assets, shares);
         totalPrincipal -= assets;
+    }
+
+    /// SubVault management methods ///
+
+    /// @notice Set a subvault. Can only be called if there is not already a subvault set.
+    /// @param  _subVault The subvault to set. Must be an ERC4626 vault with the same asset as this MasterVault.
+    /// @param  minSubVaultExchRateWad Minimum acceptable ratio (times 1e18) of new subvault shares to outstanding MasterVault shares after deposit.
+    function setSubVault(IERC4626 _subVault, uint256 minSubVaultExchRateWad) external onlyRole(VAULT_MANAGER_ROLE) {
+        IERC20 underlyingAsset = IERC20(asset());
+        if (address(subVault) != address(0)) revert SubVaultAlreadySet();
+        if (address(_subVault.asset()) != address(underlyingAsset)) revert SubVaultAssetMismatch();
+
+        subVault = _subVault;
+
+        IERC20(asset()).safeApprove(address(_subVault), type(uint256).max);
+        _subVault.deposit(underlyingAsset.balanceOf(address(this)), address(this));
+
+        uint256 subVaultExchRateWad = MathUpgradeable.mulDiv(_subVault.balanceOf(address(this)), 1e18, totalSupply(), MathUpgradeable.Rounding.Down);
+        if (subVaultExchRateWad < minSubVaultExchRateWad) revert NewSubVaultExchangeRateTooLow();
+
+        emit SubvaultChanged(address(0), address(_subVault));
+    }
+
+    /// @notice Revokes the current subvault, moving all assets back to MasterVault
+    /// @param minAssetExchRateWad Minimum acceptable ratio (times 1e18) of assets received from subvault to outstanding MasterVault shares
+    function revokeSubVault(uint256 minAssetExchRateWad) external onlyRole(VAULT_MANAGER_ROLE) {
+        IERC4626 oldSubVault = subVault;
+        if (address(oldSubVault) == address(0)) revert NoExistingSubVault();
+
+        subVault = IERC4626(address(0));
+
+        oldSubVault.redeem(oldSubVault.balanceOf(address(this)), address(this), address(this));
+        IERC20(asset()).safeApprove(address(oldSubVault), 0);
+
+        uint256 assetExchRateWad = MathUpgradeable.mulDiv(IERC20(asset()).balanceOf(address(this)), 1e18, totalSupply(), MathUpgradeable.Rounding.Down);
+        if (assetExchRateWad < minAssetExchRateWad) revert SubVaultExchangeRateTooLow();
+
+        emit SubvaultChanged(address(oldSubVault), address(0));
     }
 }
