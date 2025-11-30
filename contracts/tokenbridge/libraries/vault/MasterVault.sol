@@ -64,7 +64,7 @@ contract MasterVault is
     // however, this would require more trust in the owner
     bool public enablePerformanceFee;
     address public beneficiary;
-    uint256 public totalPrincipal; // total assets deposited, used to calculate profit
+    int256 public totalPrincipal; // total assets deposited, used to calculate profit
     IERC4626 public subVault;
 
     function initialize(
@@ -105,6 +105,9 @@ contract MasterVault is
     /// @param enabled True to enable performance fees, false to disable
     function setPerformanceFee(bool enabled) external onlyRole(VAULT_MANAGER_ROLE) {
         enablePerformanceFee = enabled;
+        if (enabled) {
+            totalPrincipal = 0;
+        }
         emit PerformanceFeeToggled(enabled);
     }
 
@@ -118,9 +121,9 @@ contract MasterVault is
     }
 
     /// @notice calculating total profit
-    function totalProfit() public view returns (uint256) {
+    function totalProfit() public view returns (int256) {
         uint256 _totalAssets = totalAssets();
-        return _totalAssets > totalPrincipal ? _totalAssets - totalPrincipal : 0;
+        return int256(_totalAssets) - totalPrincipal;
     }
 
     /// @notice Withdraw all accumulated performance fees to beneficiary
@@ -129,10 +132,10 @@ contract MasterVault is
         if (!enablePerformanceFee) revert PerformanceFeeDisabled();
         if (beneficiary == address(0)) revert BeneficiaryNotSet();
 
-        uint256 totalProfits = totalProfit();
-        if (totalProfits > 0) {
-            SafeERC20.safeTransfer(IERC20(asset()), beneficiary, totalProfits);
-            emit PerformanceFeesWithdrawn(beneficiary, totalProfits);
+        int256 _totalProfits = totalProfit();
+        if (_totalProfits > 0) {
+            SafeERC20.safeTransfer(IERC20(asset()), beneficiary, uint256(_totalProfits));
+            emit PerformanceFeesWithdrawn(beneficiary, uint256(_totalProfits));
         }
     }
 
@@ -205,7 +208,7 @@ contract MasterVault is
         uint256 _totalAssets = totalAssets();
         uint256 _totalSupply = totalSupply();
         uint256 _effectiveAssets = enablePerformanceFee
-            ? MathUpgradeable.min(_totalAssets, totalPrincipal)
+            ? MathUpgradeable.min(_totalAssets, uint256(totalPrincipal))
             : _totalAssets;
 
         if (_totalSupply == 0) {
@@ -224,7 +227,7 @@ contract MasterVault is
         uint256 shares
     ) internal virtual override whenNotPaused {
         super._deposit(caller, receiver, assets, shares);
-        totalPrincipal += assets;
+        totalPrincipal += int256(assets);
     }
 
     /// @dev Override internal withdraw to track total principal
@@ -236,7 +239,7 @@ contract MasterVault is
         uint256 shares
     ) internal virtual override whenNotPaused {
         super._withdraw(caller, receiver, owner, assets, shares);
-        totalPrincipal -= assets;
+        totalPrincipal -= int256(assets);
     }
 
     /// SubVault management methods ///

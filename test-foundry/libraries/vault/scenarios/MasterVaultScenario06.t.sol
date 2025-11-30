@@ -45,7 +45,7 @@ contract MasterVaultScenario06Test is MasterVaultCoreTest {
         uint256 sharesB = vault.deposit(300, userB);
         vm.stopPrank();
 
-        assertEq(vault.totalPrincipal(), 400, "Total principal should be 400");
+        assertEq(vault.totalPrincipal(), int256(400), "Total principal should be 400");
         assertEq(vault.totalAssets(), 400, "Total assets should be 400");
         assertEq(sharesA, 100, "User A should have 100 shares");
         assertEq(sharesB, 300, "User B should have 300 shares");
@@ -69,8 +69,8 @@ contract MasterVaultScenario06Test is MasterVaultCoreTest {
         token.transfer(address(0xdead), 100);
 
         assertEq(vault.totalAssets(), 300, "Vault should have 300 USDC after loss");
-        assertEq(vault.totalPrincipal(), 400, "Total principal should still be 400");
-        assertEq(vault.totalProfit(), 0, "Total profit should be 0 after loss");
+        assertEq(vault.totalPrincipal(), int256(400), "Total principal should still be 400");
+        assertEq(vault.totalProfit(), -100, "Total profit should be -100 after loss (represents 100 loss)");
 
         // Step 6: User A redeems 100 shares
         vm.prank(userA);

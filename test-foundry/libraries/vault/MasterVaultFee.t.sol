@@ -100,7 +100,7 @@ contract MasterVaultFeeTest is MasterVaultCoreTest {
 
         vault.deposit(depositAmount, user);
 
-        assertEq(vault.totalPrincipal(), depositAmount, "Total principal should equal deposit amount");
+        assertEq(vault.totalPrincipal(), int256(depositAmount), "Total principal should equal deposit amount");
 
         vm.stopPrank();
     }
@@ -115,7 +115,7 @@ contract MasterVaultFeeTest is MasterVaultCoreTest {
 
         uint256 assets = vault.mint(shares, user);
 
-        assertEq(vault.totalPrincipal(), assets, "Total principal should equal assets deposited");
+        assertEq(vault.totalPrincipal(), int256(assets), "Total principal should equal assets deposited");
 
         vm.stopPrank();
     }
@@ -127,12 +127,12 @@ contract MasterVaultFeeTest is MasterVaultCoreTest {
         token.approve(address(vault), depositAmount);
         vault.deposit(depositAmount, user);
 
-        assertEq(vault.totalPrincipal(), depositAmount, "Total principal should equal deposit amount");
+        assertEq(vault.totalPrincipal(), int256(depositAmount), "Total principal should equal deposit amount");
 
         uint256 withdrawAmount = 100;
         vault.withdraw(withdrawAmount, user, user);
 
-        assertEq(vault.totalPrincipal(), depositAmount - withdrawAmount, "Total principal should decrease by withdraw amount");
+        assertEq(vault.totalPrincipal(), int256(depositAmount - withdrawAmount), "Total principal should decrease by withdraw amount");
 
         vm.stopPrank();
     }
@@ -144,12 +144,12 @@ contract MasterVaultFeeTest is MasterVaultCoreTest {
         token.approve(address(vault), depositAmount);
         uint256 shares = vault.deposit(depositAmount, user);
 
-        assertEq(vault.totalPrincipal(), depositAmount, "Total principal should equal deposit amount");
+        assertEq(vault.totalPrincipal(), int256(depositAmount), "Total principal should equal deposit amount");
 
         uint256 sharesToRedeem = shares / 2;
         uint256 assetsReceived = vault.redeem(sharesToRedeem, user, user);
 
-        assertEq(vault.totalPrincipal(), depositAmount - assetsReceived, "Total principal should decrease by redeemed assets");
+        assertEq(vault.totalPrincipal(), int256(depositAmount - assetsReceived), "Total principal should decrease by redeemed assets");
 
         vm.stopPrank();
     }
@@ -179,7 +179,7 @@ contract MasterVaultFeeTest is MasterVaultCoreTest {
         vault.deposit(depositAmount, user);
         vm.stopPrank();
 
-        assertEq(vault.totalPrincipal(), depositAmount, "Total principal should equal deposit");
+        assertEq(vault.totalPrincipal(), int256(depositAmount), "Total principal should equal deposit");
         assertEq(vault.totalAssets(), depositAmount, "Total assets should equal deposit");
         assertEq(vault.totalProfit(), 0, "Should have no profit initially");
 
@@ -187,7 +187,7 @@ contract MasterVaultFeeTest is MasterVaultCoreTest {
         token.mint();
 
         assertEq(vault.totalAssets(), depositAmount * 2, "Total assets should be doubled");
-        assertEq(vault.totalProfit(), depositAmount, "Profit should equal initial deposit amount");
+        assertEq(vault.totalProfit(), int256(depositAmount), "Profit should equal initial deposit amount");
 
         uint256 beneficiaryBalanceBefore = token.balanceOf(beneficiaryAddress);
 
