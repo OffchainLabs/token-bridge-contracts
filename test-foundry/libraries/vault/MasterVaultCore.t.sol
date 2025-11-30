@@ -33,6 +33,7 @@ contract MasterVaultCoreTest is Test {
         vault = MasterVault(proxyAddress);
 
         vault.initialize(IERC20(address(token)), name, symbol, address(this));
+        vault.unpause();
     }
 
     /// todo: 
@@ -73,13 +74,29 @@ contract MasterVaultCoreTest is Test {
     }
 
 
+    function test_initialize_pausedByDefault() public {
+        // Deploy a fresh vault to test initial paused state
+        MasterVault implementation = new MasterVault();
+        UpgradeableBeacon testBeacon = new UpgradeableBeacon(address(implementation));
+        BeaconProxyFactory testFactory = new BeaconProxyFactory();
+        testFactory.initialize(address(testBeacon));
+
+        bytes32 salt = keccak256("test_paused");
+        address proxyAddress = testFactory.createProxy(salt);
+        MasterVault testVault = MasterVault(proxyAddress);
+
+        testVault.initialize(IERC20(address(token)), "Test", "TST", address(this));
+
+        assertTrue(testVault.paused(), "Vault should be paused immediately after initialization");
+    }
+
     function test_initialize_pauserRole() public {
         assertTrue(vault.hasRole(vault.PAUSER_ROLE(), address(this)), "Should have PAUSER_ROLE");
-        assertFalse(vault.paused(), "Should not be paused initially");
+        assertFalse(vault.paused(), "Should not be paused after unpause in setUp");
     }
 
     function test_pause() public {
-        assertFalse(vault.paused(), "Should not be paused initially");
+        assertFalse(vault.paused(), "Should not be paused after unpause in setUp");
 
         vault.pause();
 

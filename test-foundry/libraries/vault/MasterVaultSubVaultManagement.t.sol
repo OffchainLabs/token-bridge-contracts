@@ -27,6 +27,7 @@ contract MasterVaultSubVaultManagementTest is MasterVaultCoreTest {
         subVault = MasterVault(subVaultProxyAddress);
 
         subVault.initialize(IERC20(address(token)), "Sub Vault Token", "sST", address(this));
+        subVault.unpause();
     }
 
     function test_setSubVault() public {

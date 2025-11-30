@@ -89,6 +89,9 @@ contract MasterVault is
         _grantRole(VAULT_MANAGER_ROLE, _owner);
         _grantRole(FEE_MANAGER_ROLE, _owner); // todo: consider permissionless by default
         _grantRole(PAUSER_ROLE, _owner);
+
+        // vault paused by default to protect against first depositor attack 
+        _pause();
     }
 
     function pause() external onlyRole(PAUSER_ROLE) {
