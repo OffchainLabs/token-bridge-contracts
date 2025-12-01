@@ -90,7 +90,7 @@ contract MasterVault is
         _grantRole(FEE_MANAGER_ROLE, _owner); // todo: consider permissionless by default
         _grantRole(PAUSER_ROLE, _owner);
 
-        // vault paused by default to protect against first depositor attack 
+        // vault paused by default to protect against first depositor attack
         _pause();
     }
 
@@ -123,6 +123,18 @@ contract MasterVault is
         emit BeneficiaryUpdated(oldBeneficiary, newBeneficiary);
     }
 
+    /** @dev See {IERC4626-totalAssets}. */
+    function totalAssets() public view virtual override returns (uint256) {
+        IERC20 underlyingAsset = IERC20(asset());
+
+        if (address(subVault) == address(0)) {
+            return underlyingAsset.balanceOf(address(this));
+        }
+        uint256 _subShares = subVault.balanceOf(address(this));
+        uint256 _assets = subVault.previewRedeem(_subShares);
+        return _assets;
+    }
+
     /// @notice calculating total profit
     function totalProfit() public view returns (int256) {
         uint256 _totalAssets = totalAssets();
@@ -137,7 +149,12 @@ contract MasterVault is
 
         int256 _totalProfits = totalProfit();
         if (_totalProfits > 0) {
-            SafeERC20.safeTransfer(IERC20(asset()), beneficiary, uint256(_totalProfits));
+            if (address(subVault) == address(0)) {
+                SafeERC20.safeTransfer(IERC20(asset()), beneficiary, uint256(_totalProfits));
+            } else {
+                subVault.withdraw(uint256(_totalProfits), beneficiary, address(this));
+            }
+
             emit PerformanceFeesWithdrawn(beneficiary, uint256(_totalProfits));
         }
     }
@@ -145,9 +162,9 @@ contract MasterVault is
     /// @notice return share price by asset in 18 decimals
     /// @dev max value is 1e18 if performance fee is enabled
     /// @dev examples:
-    /// example 1. sharePrice = 1e18 means we need to pay 1  asset to get 1 share  
-    /// example 2. sharePrice = 10 * 1e18 means we need to pay 10  asset to get 1 share  
-    /// example 3. sharePrice = 0.1 * 1e18 means we need to pay 0.1  asset to get 1 share  
+    /// example 1. sharePrice = 1e18 means we need to pay 1  asset to get 1 share
+    /// example 2. sharePrice = 10 * 1e18 means we need to pay 10  asset to get 1 share
+    /// example 3. sharePrice = 0.1 * 1e18 means we need to pay 0.1  asset to get 1 share
     /// example 4. vault holds 99 USDC and 100 shares => sharePrice = 99 * 1e18 / 100
     function sharePrice() public view returns (uint256) {
         uint256 _totalAssets = totalAssets();
@@ -230,6 +247,14 @@ contract MasterVault is
         uint256 shares
     ) internal virtual override whenNotPaused {
         super._deposit(caller, receiver, assets, shares);
+
+        if (address(subVault) != address(0)) {
+            IERC20 underlyingAsset = IERC20(asset());
+            // todo: should we deposit only users assets and account for trasnfer fee or keep depositing _idleAssets?
+            uint256 _idleAssets = underlyingAsset.balanceOf(address(this));
+            subVault.deposit(_idleAssets, address(this));
+        }
+
         totalPrincipal += int256(assets);
     }
 
@@ -241,6 +266,11 @@ contract MasterVault is
         uint256 assets,
         uint256 shares
     ) internal virtual override whenNotPaused {
+        if (address(subVault) != address(0)) {
+            subVault.withdraw(assets, address(this), address(this));
+        }
+
+        // todo: account trasnfer fee? should we withdraw all? should we validate against users assets if transfer fee accure?
         super._withdraw(caller, receiver, owner, assets, shares);
         totalPrincipal -= int256(assets);
     }
@@ -250,7 +280,10 @@ contract MasterVault is
     /// @notice Set a subvault. Can only be called if there is not already a subvault set.
     /// @param  _subVault The subvault to set. Must be an ERC4626 vault with the same asset as this MasterVault.
     /// @param  minSubVaultExchRateWad Minimum acceptable ratio (times 1e18) of new subvault shares to outstanding MasterVault shares after deposit.
-    function setSubVault(IERC4626 _subVault, uint256 minSubVaultExchRateWad) external onlyRole(VAULT_MANAGER_ROLE) {
+    function setSubVault(
+        IERC4626 _subVault,
+        uint256 minSubVaultExchRateWad
+    ) external onlyRole(VAULT_MANAGER_ROLE) {
         IERC20 underlyingAsset = IERC20(asset());
         if (address(subVault) != address(0)) revert SubVaultAlreadySet();
         if (address(_subVault.asset()) != address(underlyingAsset)) revert SubVaultAssetMismatch();
@@ -260,7 +293,12 @@ contract MasterVault is
         IERC20(asset()).safeApprove(address(_subVault), type(uint256).max);
         _subVault.deposit(underlyingAsset.balanceOf(address(this)), address(this));
 
-        uint256 subVaultExchRateWad = MathUpgradeable.mulDiv(_subVault.balanceOf(address(this)), 1e18, totalSupply(), MathUpgradeable.Rounding.Down);
+        uint256 subVaultExchRateWad = MathUpgradeable.mulDiv(
+            _subVault.balanceOf(address(this)),
+            1e18,
+            totalSupply(),
+            MathUpgradeable.Rounding.Down
+        );
         if (subVaultExchRateWad < minSubVaultExchRateWad) revert NewSubVaultExchangeRateTooLow();
 
         emit SubvaultChanged(address(0), address(_subVault));
@@ -277,9 +315,48 @@ contract MasterVault is
         oldSubVault.redeem(oldSubVault.balanceOf(address(this)), address(this), address(this));
         IERC20(asset()).safeApprove(address(oldSubVault), 0);
 
-        uint256 assetExchRateWad = MathUpgradeable.mulDiv(IERC20(asset()).balanceOf(address(this)), 1e18, totalSupply(), MathUpgradeable.Rounding.Down);
+        uint256 assetExchRateWad = MathUpgradeable.mulDiv(
+            IERC20(asset()).balanceOf(address(this)),
+            1e18,
+            totalSupply(),
+            MathUpgradeable.Rounding.Down
+        );
         if (assetExchRateWad < minAssetExchRateWad) revert SubVaultExchangeRateTooLow();
 
         emit SubvaultChanged(address(oldSubVault), address(0));
+    }
+
+    /// Max methods needed only if SubVault is set ///
+
+    /** @dev See {IERC4626-maxDeposit}. */
+    function maxDeposit(address receiver) public view virtual override returns (uint256) {
+        if (address(subVault) == address(0)) {
+            return super.maxDeposit(receiver);
+        }
+        return subVault.maxDeposit(receiver);
+    }
+
+    /** @dev See {IERC4626-maxMint}. */
+    function maxMint(address receiver) public view virtual override returns (uint256) {
+        if (address(subVault) == address(0)) {
+            return super.maxMint(receiver);
+        }
+        return subVault.maxMint(receiver);
+    }
+
+    /** @dev See {IERC4626-maxWithdraw}. */
+    function maxWithdraw(address owner) public view virtual override returns (uint256) {
+        if (address(subVault) == address(0)) {
+            return super.maxWithdraw(owner);
+        }
+        return subVault.maxWithdraw(owner);
+    }
+
+    /** @dev See {IERC4626-maxRedeem}. */
+    function maxRedeem(address owner) public view virtual override returns (uint256) {
+        if (address(subVault) == address(0)) {
+            return super.maxRedeem(owner);
+        }
+        return subVault.maxRedeem(owner);
     }
 }
