@@ -5,7 +5,7 @@ import { MasterVaultCoreTest } from "./MasterVaultCore.t.sol";
 import { MasterVault } from "../../../contracts/tokenbridge/libraries/vault/MasterVault.sol";
 
 contract MasterVaultSharePriceNoFeeTest is MasterVaultCoreTest {
-    /// @dev example 1. sharePrice = 1e18 means we need to pay 1 asset to get 1 share 
+    /// @dev example 1. sharePrice = 1e18 means we need to pay 1 asset to get 1 share
     function test_sharePrice_example1_oneToOne() public {
         vm.startPrank(user);
         token.mint();
@@ -18,7 +18,7 @@ contract MasterVaultSharePriceNoFeeTest is MasterVaultCoreTest {
         assertEq(price, 1e18, "Share price should be 1e18 for 1:1 ratio");
     }
 
-    /// @dev example 2. sharePrice = 2 * 1e18 means we need to pay 2 asset to get 1 share 
+    /// @dev example 2. sharePrice = 2 * 1e18 means we need to pay 2 asset to get 1 share
     function test_sharePrice_example2_twoToOne() public {
         vm.startPrank(user);
         token.mint();
@@ -36,7 +36,7 @@ contract MasterVaultSharePriceNoFeeTest is MasterVaultCoreTest {
         assertEq(price, 2e18, "Share price should be 2e18 when assets are 2x shares");
     }
 
-    /// @dev example 3. sharePrice = 0.1 * 1e18 means we need to pay 0.1 asset to get 1 share 
+    /// @dev example 3. sharePrice = 0.1 * 1e18 means we need to pay 0.1 asset to get 1 share
     function test_sharePrice_example3_oneToTen() public {
         // This scenario would require shares > assets, which happens in loss scenarios
         // We'll simulate by having 1000 shares but only 100 assets

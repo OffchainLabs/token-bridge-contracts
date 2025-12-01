@@ -87,6 +87,10 @@ contract MasterVaultScenario03Test is MasterVaultCoreTest {
         assertEq(assetsReceivedB, 300, "User B should receive 300 USDC (their principal)");
 
         // Verify beneficiary received all profits
-        assertEq(token.balanceOf(beneficiaryAddress), 100, "Beneficiary should have 100 USDC (all profits)");
+        assertEq(
+            token.balanceOf(beneficiaryAddress),
+            100,
+            "Beneficiary should have 100 USDC (all profits)"
+        );
     }
 }

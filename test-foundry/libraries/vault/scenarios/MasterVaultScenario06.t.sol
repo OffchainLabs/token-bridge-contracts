@@ -70,7 +70,11 @@ contract MasterVaultScenario06Test is MasterVaultCoreTest {
 
         assertEq(vault.totalAssets(), 300, "Vault should have 300 USDC after loss");
         assertEq(vault.totalPrincipal(), int256(400), "Total principal should still be 400");
-        assertEq(vault.totalProfit(), -100, "Total profit should be -100 after loss (represents 100 loss)");
+        assertEq(
+            vault.totalProfit(),
+            -100,
+            "Total profit should be -100 after loss (represents 100 loss)"
+        );
 
         // Step 6: User A redeems 100 shares
         vm.prank(userA);
@@ -97,6 +101,10 @@ contract MasterVaultScenario06Test is MasterVaultCoreTest {
         assertEq(assetsReceivedB, 225, "User B should receive 225 USDC (300 - 25% loss)");
 
         // Verify beneficiary keeps all profits
-        assertEq(token.balanceOf(beneficiaryAddress), 100, "Beneficiary should have 100 USDC (all profits)");
+        assertEq(
+            token.balanceOf(beneficiaryAddress),
+            100,
+            "Beneficiary should have 100 USDC (all profits)"
+        );
     }
 }

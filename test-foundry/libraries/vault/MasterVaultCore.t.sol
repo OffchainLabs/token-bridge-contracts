@@ -36,10 +36,10 @@ contract MasterVaultCoreTest is Test {
         vault.unpause();
     }
 
-    /// todo: 
-    /// test pause func with deposits/withdrawals 
+    /// todo:
+    /// test pause func with deposits/withdrawals
     /// test deposit, withdraw, mint, redeem
-     
+
     function test_initialize() public {
         assertEq(address(vault.asset()), address(token), "Invalid asset");
         assertEq(vault.name(), name, "Invalid name");
@@ -48,11 +48,20 @@ contract MasterVaultCoreTest is Test {
         assertEq(vault.totalSupply(), 0, "Invalid initial supply");
         assertEq(vault.totalAssets(), 0, "Invalid initial assets");
 
-        assertTrue(vault.hasRole(vault.DEFAULT_ADMIN_ROLE(), address(this)), "Should have DEFAULT_ADMIN_ROLE");
-        assertTrue(vault.hasRole(vault.VAULT_MANAGER_ROLE(), address(this)), "Should have VAULT_MANAGER_ROLE");
-        assertTrue(vault.hasRole(vault.FEE_MANAGER_ROLE(), address(this)), "Should have FEE_MANAGER_ROLE");
+        assertTrue(
+            vault.hasRole(vault.DEFAULT_ADMIN_ROLE(), address(this)),
+            "Should have DEFAULT_ADMIN_ROLE"
+        );
+        assertTrue(
+            vault.hasRole(vault.VAULT_MANAGER_ROLE(), address(this)),
+            "Should have VAULT_MANAGER_ROLE"
+        );
+        assertTrue(
+            vault.hasRole(vault.FEE_MANAGER_ROLE(), address(this)),
+            "Should have FEE_MANAGER_ROLE"
+        );
     }
-    
+
     function test_beaconUpgrade() public {
         vm.startPrank(user);
         token.mint();
@@ -62,17 +71,27 @@ contract MasterVaultCoreTest is Test {
         vm.stopPrank();
 
         address oldImplementation = beacon.implementation();
-        assertEq(oldImplementation, address(beacon.implementation()), "Should have initial implementation");
+        assertEq(
+            oldImplementation,
+            address(beacon.implementation()),
+            "Should have initial implementation"
+        );
 
         MasterVault newImplementation = new MasterVault();
         beacon.upgradeTo(address(newImplementation));
 
-        assertEq(beacon.implementation(), address(newImplementation), "Beacon should point to new implementation");
-        assertTrue(beacon.implementation() != oldImplementation, "Implementation should have changed");
+        assertEq(
+            beacon.implementation(),
+            address(newImplementation),
+            "Beacon should point to new implementation"
+        );
+        assertTrue(
+            beacon.implementation() != oldImplementation,
+            "Implementation should have changed"
+        );
 
         assertEq(vault.name(), name, "Name should remain after upgrade");
     }
-
 
     function test_initialize_pausedByDefault() public {
         // Deploy a fresh vault to test initial paused state
@@ -144,5 +163,4 @@ contract MasterVaultCoreTest is Test {
         vault.unpause();
         assertFalse(vault.paused(), "Should be unpaused by pauser2");
     }
-
 }

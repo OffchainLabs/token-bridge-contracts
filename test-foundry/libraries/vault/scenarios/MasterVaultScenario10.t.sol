@@ -57,8 +57,16 @@ contract MasterVaultScenario10Test is MasterVaultCoreTest {
         vm.stopPrank();
 
         // User B gets 0 shares: 100 / 1,000,001 rounds down to 0
-        assertEq(sharesB, 0, "User B should receive 0 shares due to rounding (100 / 1,000,001 = 0)");
-        assertEq(vault.totalSupply(), 1, "Total supply should still be 1 (only attacker has shares)");
+        assertEq(
+            sharesB,
+            0,
+            "User B should receive 0 shares due to rounding (100 / 1,000,001 = 0)"
+        );
+        assertEq(
+            vault.totalSupply(),
+            1,
+            "Total supply should still be 1 (only attacker has shares)"
+        );
         assertEq(vault.totalAssets(), 1_000_101, "Total assets should be 1,000,101");
         assertEq(vault.totalPrincipal(), int256(101), "Total principal should be 101");
 
@@ -70,7 +78,11 @@ contract MasterVaultScenario10Test is MasterVaultCoreTest {
         assertEq(assetsReceivedA, 1_000_101, "User A should receive all 1,000,101 USDC");
 
         // Verify final state
-        assertEq(vault.totalPrincipal(), int256(-1_000_000), "Total principal should be -1,000,000");
+        assertEq(
+            vault.totalPrincipal(),
+            int256(-1_000_000),
+            "Total principal should be -1,000,000"
+        );
         assertEq(vault.totalAssets(), 0, "Vault assets should be 0");
         assertEq(vault.totalSupply(), 0, "Total supply should be 0");
         assertEq(vault.sharePrice(), 1e18, "Share price should be 1e18");
@@ -78,7 +90,11 @@ contract MasterVaultScenario10Test is MasterVaultCoreTest {
         // Verify user holdings change - User A profits, User B loses
         // User A: deposited 1, received back 1,000,101, profit = 1,000,100
         // User B: deposited 100, received back 0, loss = 100
-        assertEq(token.balanceOf(userA), userAInitialBalance + 1_000_100, "User A should gain 1,000,100 USDC");
+        assertEq(
+            token.balanceOf(userA),
+            userAInitialBalance + 1_000_100,
+            "User A should gain 1,000,100 USDC"
+        );
         assertEq(token.balanceOf(userB), userBInitialBalance - 100, "User B should lose 100 USDC");
 
         // Verify no beneficiary involved

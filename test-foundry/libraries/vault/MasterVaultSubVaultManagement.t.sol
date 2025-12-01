@@ -39,7 +39,11 @@ contract MasterVaultSubVaultManagementTest is MasterVaultCoreTest {
         vault.deposit(depositAmount, user);
         vm.stopPrank();
 
-        assertEq(address(vault.subVault()), address(0), "SubVault should be zero address initially");
+        assertEq(
+            address(vault.subVault()),
+            address(0),
+            "SubVault should be zero address initially"
+        );
         assertEq(token.balanceOf(address(vault)), depositAmount, "Main vault should hold tokens");
 
         // Set subVault with minSubVaultExchRateWad = 1e18 (1:1 ratio)
@@ -49,8 +53,16 @@ contract MasterVaultSubVaultManagementTest is MasterVaultCoreTest {
 
         assertEq(address(vault.subVault()), address(subVault), "SubVault should be set");
         assertEq(token.balanceOf(address(vault)), 0, "Main vault should have no tokens");
-        assertEq(token.balanceOf(address(subVault)), depositAmount, "SubVault should hold the tokens");
-        assertEq(subVault.balanceOf(address(vault)), depositAmount, "Main vault should have subVault shares");
+        assertEq(
+            token.balanceOf(address(subVault)),
+            depositAmount,
+            "SubVault should hold the tokens"
+        );
+        assertEq(
+            subVault.balanceOf(address(vault)),
+            depositAmount,
+            "Main vault should have subVault shares"
+        );
     }
 
     function test_setSubVault_revert_SubVaultAlreadySet() public {
@@ -117,9 +129,17 @@ contract MasterVaultSubVaultManagementTest is MasterVaultCoreTest {
         vault.revokeSubVault(1e18);
 
         assertEq(address(vault.subVault()), address(0), "SubVault should be zero address");
-        assertEq(token.balanceOf(address(vault)), depositAmount, "Main vault should have tokens back");
+        assertEq(
+            token.balanceOf(address(vault)),
+            depositAmount,
+            "Main vault should have tokens back"
+        );
         assertEq(token.balanceOf(address(subVault)), 0, "SubVault should have no tokens");
-        assertEq(subVault.balanceOf(address(vault)), 0, "Main vault should have no subVault shares");
+        assertEq(
+            subVault.balanceOf(address(vault)),
+            0,
+            "Main vault should have no subVault shares"
+        );
     }
 
     function test_revokeSubVault_revert_NoExistingSubVault() public {

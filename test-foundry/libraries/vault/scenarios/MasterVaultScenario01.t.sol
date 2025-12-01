@@ -65,6 +65,10 @@ contract MasterVaultScenario01Test is MasterVaultCoreTest {
         assertEq(token.balanceOf(userB), userBInitialBalance, "User B should have no gain/loss");
 
         // Verify beneficiary received nothing
-        assertEq(token.balanceOf(beneficiaryAddress), 0, "Beneficiary should have 0 (nothing claimed)");
+        assertEq(
+            token.balanceOf(beneficiaryAddress),
+            0,
+            "Beneficiary should have 0 (nothing claimed)"
+        );
     }
 }

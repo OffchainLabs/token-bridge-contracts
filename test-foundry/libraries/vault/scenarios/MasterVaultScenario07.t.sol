@@ -111,6 +111,10 @@ contract MasterVaultScenario07Test is MasterVaultCoreTest {
         assertEq(token.balanceOf(userB), userBInitialBalance - 75, "User B should lose 75 USDC");
 
         // Verify beneficiary keeps all profits
-        assertEq(token.balanceOf(beneficiaryAddress), 100, "Beneficiary should have 100 USDC (all profits)");
+        assertEq(
+            token.balanceOf(beneficiaryAddress),
+            100,
+            "Beneficiary should have 100 USDC (all profits)"
+        );
     }
 }

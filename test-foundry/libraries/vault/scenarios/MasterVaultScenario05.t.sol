@@ -71,7 +71,11 @@ contract MasterVaultScenario05Test is MasterVaultCoreTest {
         vault.deposit(300, userB);
         vm.stopPrank();
 
-        assertEq(vault.totalPrincipal(), 800, "Total principal should be 800 after second deposits");
+        assertEq(
+            vault.totalPrincipal(),
+            800,
+            "Total principal should be 800 after second deposits"
+        );
         assertEq(vault.totalAssets(), 800, "Total assets should be 800 after second deposits");
 
         // Step 7: User A redeems 200 shares
@@ -133,6 +137,10 @@ contract MasterVaultScenario05Test is MasterVaultCoreTest {
         assertEq(assetsReceivedB, 225, "User B should receive 225 USDC in final redemption");
 
         // Verify beneficiary still has profits
-        assertEq(token.balanceOf(beneficiaryAddress), 100, "Beneficiary should have 100 USDC (all profits)");
+        assertEq(
+            token.balanceOf(beneficiaryAddress),
+            100,
+            "Beneficiary should have 100 USDC (all profits)"
+        );
     }
 }

@@ -77,7 +77,11 @@ contract MasterVaultScenario08Test is MasterVaultCoreTest {
         uint256 sharesB2 = vault.deposit(300, userB);
         vm.stopPrank();
 
-        assertEq(sharesB2, 400, "User B should receive 400 shares for 300 USDC deposit at 0.75e18 sharePrice");
+        assertEq(
+            sharesB2,
+            400,
+            "User B should receive 400 shares for 300 USDC deposit at 0.75e18 sharePrice"
+        );
         assertEq(vault.totalPrincipal(), 700, "Total principal should be 700");
         assertEq(vault.totalAssets(), 600, "Total assets should be 600");
 
@@ -106,9 +110,17 @@ contract MasterVaultScenario08Test is MasterVaultCoreTest {
 
         // Verify assets received
         assertEq(assetsReceivedA, 75, "User A should receive 75 USDC");
-        assertEq(assetsReceivedB, 525, "User B should receive 525 USDC (225 from first 300 shares + 300 from 400 shares)");
+        assertEq(
+            assetsReceivedB,
+            525,
+            "User B should receive 525 USDC (225 from first 300 shares + 300 from 400 shares)"
+        );
 
         // Verify beneficiary keeps all profits
-        assertEq(token.balanceOf(beneficiaryAddress), 100, "Beneficiary should have 100 USDC (all profits)");
+        assertEq(
+            token.balanceOf(beneficiaryAddress),
+            100,
+            "Beneficiary should have 100 USDC (all profits)"
+        );
     }
 }

@@ -26,7 +26,11 @@ contract MasterVaultSharePriceWithFeeTest is MasterVaultCoreTest {
 
         // With performance fee enabled, sharePrice should be capped at 1e18 even though actual ratio is 2:1
         uint256 price = vault.sharePrice();
-        assertEq(price, 1e18, "Share price should be capped at 1e18 when performance fee is enabled");
+        assertEq(
+            price,
+            1e18,
+            "Share price should be capped at 1e18 when performance fee is enabled"
+        );
     }
 
     /// @dev When vault has losses, sharePrice can be below 1e18 even with performance fee

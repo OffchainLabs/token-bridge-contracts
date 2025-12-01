@@ -71,14 +71,26 @@ contract MasterVaultScenario02Test is MasterVaultCoreTest {
         assertEq(vault.sharePrice(), 1e18, "Share price should be 1e18");
 
         // Verify user holdings change
-        assertEq(token.balanceOf(userA), userAInitialBalance - 25, "User A should lose 25 USDC (25% of 100)");
-        assertEq(token.balanceOf(userB), userBInitialBalance - 75, "User B should lose 75 USDC (25% of 300)");
+        assertEq(
+            token.balanceOf(userA),
+            userAInitialBalance - 25,
+            "User A should lose 25 USDC (25% of 100)"
+        );
+        assertEq(
+            token.balanceOf(userB),
+            userBInitialBalance - 75,
+            "User B should lose 75 USDC (25% of 300)"
+        );
 
         // Verify assets received
         assertEq(assetsReceivedA, 75, "User A should receive 75 USDC (100 - 25)");
         assertEq(assetsReceivedB, 225, "User B should receive 225 USDC (300 - 75)");
 
         // Verify beneficiary received nothing
-        assertEq(token.balanceOf(beneficiaryAddress), 0, "Beneficiary should have 0 (nothing claimed)");
+        assertEq(
+            token.balanceOf(beneficiaryAddress),
+            0,
+            "Beneficiary should have 0 (nothing claimed)"
+        );
     }
 }

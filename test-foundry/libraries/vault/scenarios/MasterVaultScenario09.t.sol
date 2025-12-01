@@ -86,18 +86,34 @@ contract MasterVaultScenario09Test is MasterVaultCoreTest {
 
         // Verify final state
         assertEq(vault.totalPrincipal(), int256(0), "Total principal should be 0");
-        assertEq(vault.totalAssets(), 1_000_000, "Vault assets should be 1,000,000 (the donated profit)");
+        assertEq(
+            vault.totalAssets(),
+            1_000_000,
+            "Vault assets should be 1,000,000 (the donated profit)"
+        );
         assertEq(vault.totalSupply(), 0, "Total supply should be 0");
         assertEq(vault.sharePrice(), 1e18, "Share price should be 1e18");
 
         // Verify user holdings change
         // User A: deposited 1, received back 1, change = 0
         // User B: deposited 100, received back 100, change = 0
-        assertEq(token.balanceOf(userA), userAInitialBalance, "User A should break even (0 change)");
-        assertEq(token.balanceOf(userB), userBInitialBalance, "User B should break even (0 change)");
+        assertEq(
+            token.balanceOf(userA),
+            userAInitialBalance,
+            "User A should break even (0 change)"
+        );
+        assertEq(
+            token.balanceOf(userB),
+            userBInitialBalance,
+            "User B should break even (0 change)"
+        );
 
         // Verify beneficiary has not claimed fees yet
-        assertEq(token.balanceOf(beneficiaryAddress), 0, "Beneficiary should have 0 USDC (fees not claimed yet)");
+        assertEq(
+            token.balanceOf(beneficiaryAddress),
+            0,
+            "Beneficiary should have 0 USDC (fees not claimed yet)"
+        );
 
         // Verify the 1M USDC remains in vault as profit
         assertEq(vault.totalProfit(), 1_000_000, "Total profit should be 1,000,000 USDC");
