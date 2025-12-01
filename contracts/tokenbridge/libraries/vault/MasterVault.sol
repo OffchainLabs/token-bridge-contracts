@@ -293,13 +293,17 @@ contract MasterVault is
         IERC20(asset()).safeApprove(address(_subVault), type(uint256).max);
         _subVault.deposit(underlyingAsset.balanceOf(address(this)), address(this));
 
-        uint256 subVaultExchRateWad = MathUpgradeable.mulDiv(
-            _subVault.balanceOf(address(this)),
-            1e18,
-            totalSupply(),
-            MathUpgradeable.Rounding.Down
-        );
-        if (subVaultExchRateWad < minSubVaultExchRateWad) revert NewSubVaultExchangeRateTooLow();
+        uint256 _totalSupply = totalSupply();
+        if (_totalSupply > 0) {
+            uint256 subVaultExchRateWad = MathUpgradeable.mulDiv(
+                _subVault.balanceOf(address(this)),
+                1e18,
+                totalSupply(),
+                MathUpgradeable.Rounding.Down
+            );
+            if (subVaultExchRateWad < minSubVaultExchRateWad)
+                revert NewSubVaultExchangeRateTooLow();
+        }
 
         emit SubvaultChanged(address(0), address(_subVault));
     }
@@ -349,7 +353,7 @@ contract MasterVault is
         if (address(subVault) == address(0)) {
             return super.maxWithdraw(owner);
         }
-        return subVault.maxWithdraw(owner);
+        return subVault.maxWithdraw(address(this));
     }
 
     /** @dev See {IERC4626-maxRedeem}. */
@@ -357,6 +361,6 @@ contract MasterVault is
         if (address(subVault) == address(0)) {
             return super.maxRedeem(owner);
         }
-        return subVault.maxRedeem(owner);
+        return subVault.maxRedeem(address(this));
     }
 }

@@ -2,9 +2,12 @@
 pragma solidity ^0.8.0;
 
 import { MasterVaultCoreTest } from "./MasterVaultCore.t.sol";
+import { MockSubVault } from "../../../contracts/tokenbridge/test/MockSubVault.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { IERC4626 } from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 
 contract MasterVaultTest is MasterVaultCoreTest {
-    // first deposit 
+    // first deposit
     function test_deposit() public {
         vm.startPrank(user);
         token.mint();
@@ -17,12 +20,21 @@ contract MasterVaultTest is MasterVaultCoreTest {
         assertEq(vault.balanceOf(user), shares, "User should receive shares");
         assertEq(vault.totalAssets(), depositAmount, "Vault should hold deposited assets");
         assertEq(vault.totalSupply(), shares, "Total supply should equal shares minted");
-        assertEq(token.balanceOf(address(vault)), depositAmount, "Vault should hold the tokens");
 
-        assertGt(token.balanceOf(address(vault)), 0, "Vault should hold the tokens");
+        address _assetsHoldingVault = address(vault.subVault()) == address(0)
+            ? address(vault)
+            : address(vault.subVault());
+
+        assertEq(
+            token.balanceOf(_assetsHoldingVault),
+            depositAmount,
+            "Vault should hold the tokens"
+        );
+        assertGt(token.balanceOf(_assetsHoldingVault), 0, "Vault should hold the tokens");
+
         assertEq(
             vault.totalSupply(),
-            token.balanceOf(address(vault)),
+            token.balanceOf(_assetsHoldingVault),
             "First deposit should be at a rate of 1"
         );
 
@@ -39,10 +51,14 @@ contract MasterVaultTest is MasterVaultCoreTest {
 
         uint256 assetsCost = vault.mint(sharesToMint, user);
 
+        address _assetsHoldingVault = address(vault.subVault()) == address(0)
+            ? address(vault)
+            : address(vault.subVault());
+
         assertEq(vault.balanceOf(user), sharesToMint, "User should receive requested shares");
         assertEq(vault.totalSupply(), sharesToMint, "Total supply should equal shares minted");
         assertEq(vault.totalAssets(), assetsCost, "Vault should hold the assets deposited");
-        assertEq(token.balanceOf(address(vault)), assetsCost, "Vault should hold the tokens");
+        assertEq(token.balanceOf(_assetsHoldingVault), assetsCost, "Vault should hold the tokens");
 
         vm.stopPrank();
     }
@@ -88,5 +104,13 @@ contract MasterVaultTest is MasterVaultCoreTest {
         assertEq(assetsReceived, depositAmount, "All assets should be received");
 
         vm.stopPrank();
+    }
+}
+
+contract MasterVaultTestWithSubvault is MasterVaultTest {
+    function setUp() public override {
+        super.setUp();
+        MockSubVault _subvault = new MockSubVault(IERC20(address(token)), "TestSubvault", "TSV");
+        vault.setSubVault(IERC4626(address(_subvault)), 0);
     }
 }
