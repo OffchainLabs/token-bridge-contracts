@@ -220,7 +220,7 @@ contract MasterVault is
             : _totalAssets;
 
         if (_totalSupply == 0) {
-            return 1;
+            return shares;
         }
 
         uint256 _assets = MathUpgradeable.mulDiv(shares, _effectiveAssets, _totalSupply, rounding);
