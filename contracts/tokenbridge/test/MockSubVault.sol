@@ -15,4 +15,8 @@ contract MockSubVault is ERC4626 {
     function totalAssets() public view override returns (uint256) {
         return IERC20(asset()).balanceOf(address(this));
     }
+
+    function adminMint(address to, uint256 amount) external {
+        _mint(to, amount);
+    }
 }
