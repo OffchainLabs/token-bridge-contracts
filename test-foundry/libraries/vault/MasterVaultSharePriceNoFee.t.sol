@@ -3,8 +3,17 @@ pragma solidity ^0.8.0;
 
 import { MasterVaultCoreTest } from "./MasterVaultCore.t.sol";
 import { MasterVault } from "../../../contracts/tokenbridge/libraries/vault/MasterVault.sol";
+import { MockSubVault } from "../../../contracts/tokenbridge/test/MockSubVault.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { IERC4626 } from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 
 contract MasterVaultSharePriceNoFeeTest is MasterVaultCoreTest {
+    function getAssetsHoldingVault() internal view returns (address) {
+        return address(vault.subVault()) == address(0)
+            ? address(vault)
+            : address(vault.subVault());
+    }
+
     /// @dev example 1. sharePrice = 1e18 means we need to pay 1 asset to get 1 share
     function test_sharePrice_example1_oneToOne() public {
         vm.startPrank(user);
@@ -28,7 +37,7 @@ contract MasterVaultSharePriceNoFeeTest is MasterVaultCoreTest {
         vm.stopPrank();
 
         // Simulate vault growth: double the assets
-        vm.prank(address(vault));
+        vm.prank(getAssetsHoldingVault());
         token.mint();
 
         // Now vault has 2x assets compared to shares
@@ -48,7 +57,7 @@ contract MasterVaultSharePriceNoFeeTest is MasterVaultCoreTest {
         vm.stopPrank();
 
         // simulate vault loss: transfer out 90% of assets
-        vm.prank(address(vault));
+        vm.prank(getAssetsHoldingVault());
         token.transfer(user, 900);
 
         // vault has 100 assets but 1000 shares
@@ -66,7 +75,7 @@ contract MasterVaultSharePriceNoFeeTest is MasterVaultCoreTest {
         vm.stopPrank();
 
         // simulate vault loss: transfer out 1 unit
-        vm.prank(address(vault));
+        vm.prank(getAssetsHoldingVault());
         token.transfer(user, 1);
 
         // vault has 99 assets and 100 shares
@@ -149,7 +158,7 @@ contract MasterVaultSharePriceNoFeeTest is MasterVaultCoreTest {
         vm.stopPrank();
 
         // Simulate loss: transfer out 90% of assets
-        vm.prank(address(vault));
+        vm.prank(getAssetsHoldingVault());
         token.transfer(user, 900);
 
         // Now sharePrice = 0.1e18
@@ -173,7 +182,7 @@ contract MasterVaultSharePriceNoFeeTest is MasterVaultCoreTest {
         vault.deposit(1000, user);
         vm.stopPrank();
 
-        vm.prank(address(vault));
+        vm.prank(getAssetsHoldingVault());
         token.transfer(user, 900);
 
         assertEq(vault.sharePrice(), 0.1e18, "Share price should be 0.1e18");
@@ -196,7 +205,7 @@ contract MasterVaultSharePriceNoFeeTest is MasterVaultCoreTest {
         vault.deposit(1000, user);
         vm.stopPrank();
 
-        vm.prank(address(vault));
+        vm.prank(getAssetsHoldingVault());
         token.transfer(user, 900);
 
         assertEq(vault.sharePrice(), 0.1e18, "Share price should be 0.1e18");
@@ -222,7 +231,7 @@ contract MasterVaultSharePriceNoFeeTest is MasterVaultCoreTest {
         vault.deposit(1000, user);
         vm.stopPrank();
 
-        vm.prank(address(vault));
+        vm.prank(getAssetsHoldingVault());
         token.transfer(user, 900);
 
         assertEq(vault.sharePrice(), 0.1e18, "Share price should be 0.1e18");
@@ -252,7 +261,7 @@ contract MasterVaultSharePriceNoFeeTest is MasterVaultCoreTest {
         vm.stopPrank();
 
         // Simulate vault growth: multiply assets by 10
-        vm.prank(address(vault));
+        vm.prank(getAssetsHoldingVault());
         token.mint(initialDeposit * 9);
 
         // Now sharePrice = 10e18
@@ -278,7 +287,7 @@ contract MasterVaultSharePriceNoFeeTest is MasterVaultCoreTest {
         vm.stopPrank();
 
         // Simulate vault growth: multiply assets by 10
-        vm.prank(address(vault));
+        vm.prank(getAssetsHoldingVault());
         token.mint(initialDeposit * 9);
 
         assertEq(vault.sharePrice(), 10e18, "Share price should be 10e18");
@@ -302,7 +311,7 @@ contract MasterVaultSharePriceNoFeeTest is MasterVaultCoreTest {
         vault.deposit(initialDeposit, user);
         vm.stopPrank();
 
-        vm.startPrank(address(vault));
+        vm.startPrank(getAssetsHoldingVault());
         for (uint i = 0; i < 9; i++) {
             token.mint();
         }
@@ -332,7 +341,7 @@ contract MasterVaultSharePriceNoFeeTest is MasterVaultCoreTest {
         vault.deposit(initialDeposit, user);
         vm.stopPrank();
 
-        vm.startPrank(address(vault));
+        vm.startPrank(getAssetsHoldingVault());
         for (uint i = 0; i < 9; i++) {
             token.mint();
         }
@@ -371,7 +380,7 @@ contract MasterVaultSharePriceNoFeeTest is MasterVaultCoreTest {
         uint256 targetAssets = currentShares * 100;
         uint256 assetsToAdd = targetAssets - currentAssets;
 
-        vm.prank(address(vault));
+        vm.prank(getAssetsHoldingVault());
         token.mint(assetsToAdd);
 
         assertEq(vault.sharePrice(), 100e18, "Share price should be 100e18");
@@ -400,7 +409,7 @@ contract MasterVaultSharePriceNoFeeTest is MasterVaultCoreTest {
         uint256 targetAssets = currentShares * 100;
         uint256 assetsToAdd = targetAssets - currentAssets;
 
-        vm.prank(address(vault));
+        vm.prank(getAssetsHoldingVault());
         token.mint(assetsToAdd);
 
         assertEq(vault.sharePrice(), 100e18, "Share price should be 100e18");
@@ -429,7 +438,7 @@ contract MasterVaultSharePriceNoFeeTest is MasterVaultCoreTest {
         uint256 targetAssets = currentShares * 100;
         uint256 assetsToAdd = targetAssets - currentAssets;
 
-        vm.prank(address(vault));
+        vm.prank(getAssetsHoldingVault());
         token.mint(assetsToAdd);
 
         assertEq(vault.sharePrice(), 100e18, "Share price should be 100e18");
@@ -461,7 +470,7 @@ contract MasterVaultSharePriceNoFeeTest is MasterVaultCoreTest {
         uint256 targetAssets = currentShares * 100;
         uint256 assetsToAdd = targetAssets - currentAssets;
 
-        vm.prank(address(vault));
+        vm.prank(getAssetsHoldingVault());
         token.mint(assetsToAdd);
 
         assertEq(vault.sharePrice(), 100e18, "Share price should be 100e18");
@@ -495,7 +504,7 @@ contract MasterVaultSharePriceNoFeeTest is MasterVaultCoreTest {
         uint256 targetAssets = currentShares * 100;
         uint256 assetsToAdd = targetAssets - currentAssets;
 
-        vm.prank(address(vault));
+        vm.prank(getAssetsHoldingVault());
         token.mint(assetsToAdd);
 
         assertEq(vault.sharePrice(), 100e18, "Share price should be 100e18");
@@ -524,7 +533,7 @@ contract MasterVaultSharePriceNoFeeTest is MasterVaultCoreTest {
         uint256 targetAssets = currentShares * 100;
         uint256 assetsToAdd = targetAssets - currentAssets;
 
-        vm.prank(address(vault));
+        vm.prank(getAssetsHoldingVault());
         token.mint(assetsToAdd);
 
         assertEq(vault.sharePrice(), 100e18, "Share price should be 100e18");
@@ -553,7 +562,7 @@ contract MasterVaultSharePriceNoFeeTest is MasterVaultCoreTest {
         uint256 targetAssets = currentShares * 100;
         uint256 assetsToAdd = targetAssets - currentAssets;
 
-        vm.prank(address(vault));
+        vm.prank(getAssetsHoldingVault());
         token.mint(assetsToAdd);
 
         assertEq(vault.sharePrice(), 100e18, "Share price should be 100e18");
@@ -585,7 +594,7 @@ contract MasterVaultSharePriceNoFeeTest is MasterVaultCoreTest {
         uint256 targetAssets = currentShares * 100;
         uint256 assetsToAdd = targetAssets - currentAssets;
 
-        vm.prank(address(vault));
+        vm.prank(getAssetsHoldingVault());
         token.mint(assetsToAdd);
 
         assertEq(vault.sharePrice(), 100e18, "Share price should be 100e18");
@@ -603,3 +612,36 @@ contract MasterVaultSharePriceNoFeeTest is MasterVaultCoreTest {
         vm.stopPrank();
     }
 }
+
+contract MasterVaultSharePriceNoFeeTestWithSubvaultFresh is MasterVaultSharePriceNoFeeTest {
+    function setUp() public override {
+        super.setUp();
+        MockSubVault _subvault = new MockSubVault(IERC20(address(token)), "TestSubvault", "TSV");
+        vault.setSubVault(IERC4626(address(_subvault)), 0);
+    }
+}
+
+// contract MasterVaultSharePriceNoFeeTestWithSubvaultHoldingAssets is MasterVaultSharePriceNoFeeTest {
+//     function setUp() public override {
+//         super.setUp();
+
+//         MockSubVault _subvault = new MockSubVault(IERC20(address(token)), "TestSubvault", "TSV");
+//         uint256 _initAmount = 97659744;
+//         token.mint(_initAmount);
+//         token.approve(address(_subvault), _initAmount);
+//         _subvault.deposit(_initAmount, address(this));
+//         assertEq(
+//             _initAmount,
+//             _subvault.totalAssets(),
+//             "subvault should be initiated with assets = _initAmount"
+//         );
+//         assertEq(
+//             _initAmount,
+//             _subvault.totalSupply(),
+//             "subvault should be initiated with shares = _initAmount"
+//         );
+
+//         vault.setSubVault(IERC4626(address(_subvault)), 0);
+//     }
+// }
+

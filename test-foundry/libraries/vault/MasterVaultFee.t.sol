@@ -3,6 +3,9 @@ pragma solidity ^0.8.0;
 
 import { MasterVaultCoreTest } from "./MasterVaultCore.t.sol";
 import { MasterVault } from "../../../contracts/tokenbridge/libraries/vault/MasterVault.sol";
+import { MockSubVault } from "../../../contracts/tokenbridge/test/MockSubVault.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { IERC4626 } from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 
 contract MasterVaultFeeTest is MasterVaultCoreTest {
     address public beneficiaryAddress = address(0x9999);
@@ -203,6 +206,10 @@ contract MasterVaultFeeTest is MasterVaultCoreTest {
         vault.setPerformanceFee(true);
         vault.setBeneficiary(beneficiaryAddress);
 
+        address _assetsHoldingVault = address(vault.subVault()) == address(0)
+            ? address(vault)
+            : address(vault.subVault());
+
         vm.startPrank(user);
         token.mint();
         uint256 depositAmount = token.balanceOf(user);
@@ -218,8 +225,11 @@ contract MasterVaultFeeTest is MasterVaultCoreTest {
         assertEq(vault.totalAssets(), depositAmount, "Total assets should equal deposit");
         assertEq(vault.totalProfit(), 0, "Should have no profit initially");
 
-        vm.prank(address(vault));
-        token.mint();
+        uint256 assetsHoldingVaultBalance = token.balanceOf(_assetsHoldingVault);
+        uint256 amountToMint = assetsHoldingVaultBalance;
+
+        vm.prank(_assetsHoldingVault);
+        token.mint(amountToMint);
 
         assertEq(vault.totalAssets(), depositAmount * 2, "Total assets should be doubled");
         assertEq(
@@ -249,4 +259,36 @@ contract MasterVaultFeeTest is MasterVaultCoreTest {
     event PerformanceFeeToggled(bool enabled);
     event BeneficiaryUpdated(address indexed oldBeneficiary, address indexed newBeneficiary);
     event PerformanceFeesWithdrawn(address indexed beneficiary, uint256 amount);
+}
+
+contract MasterVaultFeeTestWithSubvaultFresh is MasterVaultFeeTest {
+    function setUp() public override {
+        super.setUp();
+        MockSubVault _subvault = new MockSubVault(IERC20(address(token)), "TestSubvault", "TSV");
+        vault.setSubVault(IERC4626(address(_subvault)), 0);
+    }
+}
+
+contract MasterVaultFeeTestWithSubvaultHoldingAssets is MasterVaultFeeTest {
+    function setUp() public override {
+        super.setUp();
+
+        MockSubVault _subvault = new MockSubVault(IERC20(address(token)), "TestSubvault", "TSV");
+        uint256 _initAmount = 97659744;
+        token.mint(_initAmount);
+        token.approve(address(_subvault), _initAmount);
+        _subvault.deposit(_initAmount, address(this));
+        assertEq(
+            _initAmount,
+            _subvault.totalAssets(),
+            "subvault should be initiated with assets = _initAmount"
+        );
+        assertEq(
+            _initAmount,
+            _subvault.totalSupply(),
+            "subvault should be initiated with shares = _initAmount"
+        );
+
+        vault.setSubVault(IERC4626(address(_subvault)), 0);
+    }
 }
