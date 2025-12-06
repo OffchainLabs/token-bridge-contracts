@@ -22,6 +22,10 @@ contract MasterVaultCoreTest is Test {
     string public name = "Master Test Token";
     string public symbol = "mTST";
 
+    function getAssetsHoldingVault() internal view virtual returns (address) {
+        return address(vault.subVault()) == address(0) ? address(vault) : address(vault.subVault());
+    }
+
     function setUp() public virtual {
         token = new TestERC20();
 

@@ -8,12 +8,6 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IERC4626 } from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 
 contract MasterVaultSharePriceNoFeeTest is MasterVaultCoreTest {
-    function getAssetsHoldingVault() internal view returns (address) {
-        return address(vault.subVault()) == address(0)
-            ? address(vault)
-            : address(vault.subVault());
-    }
-
     /// @dev example 1. sharePrice = 1e18 means we need to pay 1 asset to get 1 share
     function test_sharePrice_example1_oneToOne() public {
         vm.startPrank(user);
@@ -620,28 +614,4 @@ contract MasterVaultSharePriceNoFeeTestWithSubvaultFresh is MasterVaultSharePric
         vault.setSubVault(IERC4626(address(_subvault)), 0);
     }
 }
-
-// contract MasterVaultSharePriceNoFeeTestWithSubvaultHoldingAssets is MasterVaultSharePriceNoFeeTest {
-//     function setUp() public override {
-//         super.setUp();
-
-//         MockSubVault _subvault = new MockSubVault(IERC20(address(token)), "TestSubvault", "TSV");
-//         uint256 _initAmount = 97659744;
-//         token.mint(_initAmount);
-//         token.approve(address(_subvault), _initAmount);
-//         _subvault.deposit(_initAmount, address(this));
-//         assertEq(
-//             _initAmount,
-//             _subvault.totalAssets(),
-//             "subvault should be initiated with assets = _initAmount"
-//         );
-//         assertEq(
-//             _initAmount,
-//             _subvault.totalSupply(),
-//             "subvault should be initiated with shares = _initAmount"
-//         );
-
-//         vault.setSubVault(IERC4626(address(_subvault)), 0);
-//     }
-// }
 

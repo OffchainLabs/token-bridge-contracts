@@ -3,9 +3,12 @@ pragma solidity ^0.8.0;
 
 import { MasterVaultCoreTest } from "./MasterVaultCore.t.sol";
 import { MasterVault } from "../../../contracts/tokenbridge/libraries/vault/MasterVault.sol";
+import { MockSubVault } from "../../../contracts/tokenbridge/test/MockSubVault.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { IERC4626 } from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 
 contract MasterVaultSharePriceWithFeeTest is MasterVaultCoreTest {
-    function setUp() public override {
+    function setUp() public virtual override {
         super.setUp();
         // Enable performance fee for all tests in this file
         vault.setPerformanceFee(true);
@@ -21,7 +24,7 @@ contract MasterVaultSharePriceWithFeeTest is MasterVaultCoreTest {
         vm.stopPrank();
 
         // Simulate vault growth: double the assets
-        vm.prank(address(vault));
+        vm.prank(getAssetsHoldingVault());
         token.mint();
 
         // With performance fee enabled, sharePrice should be capped at 1e18 even though actual ratio is 2:1
@@ -42,9 +45,17 @@ contract MasterVaultSharePriceWithFeeTest is MasterVaultCoreTest {
         vault.deposit(depositAmount, user);
         vm.stopPrank();
 
-        // Simulate vault loss: transfer out 10%
-        vm.prank(address(vault));
-        token.transfer(user, 100);
+        uint256 vaultAssetsBefore = vault.totalAssets();
+        address _assetHoldingVault = getAssetsHoldingVault();
+        uint256 holdingVaultBalance = token.balanceOf(_assetHoldingVault);
+
+        // Calculate amount to transfer to achieve 10% loss for master vault
+        // amountToTransfer = (targetLoss * holdingVaultBalance) / vaultAssetsBefore
+        uint256 amountToTransfer = (100 * holdingVaultBalance) / vaultAssetsBefore;
+
+        // Simulate vault loss: transfer out to achieve 10% loss
+        vm.prank(_assetHoldingVault);
+        token.transfer(user, amountToTransfer);
 
         // sharePrice should be 0.9e18 (900/1000)
         uint256 price = vault.sharePrice();
@@ -62,7 +73,7 @@ contract MasterVaultSharePriceWithFeeTest is MasterVaultCoreTest {
         vm.stopPrank();
 
         // Vault gains profit
-        vm.prank(address(vault));
+        vm.prank(getAssetsHoldingVault());
         token.mint();
 
         // Now sharePrice is capped at 1e18
@@ -90,7 +101,7 @@ contract MasterVaultSharePriceWithFeeTest is MasterVaultCoreTest {
         vm.stopPrank();
 
         // Vault gains profit (doubles)
-        vm.prank(address(vault));
+        vm.prank(getAssetsHoldingVault());
         token.mint();
 
         // User redeems shares - should only get back principal (due to _effectiveAssets)
@@ -112,7 +123,7 @@ contract MasterVaultSharePriceWithFeeTest is MasterVaultCoreTest {
         vm.stopPrank();
 
         // Vault gains profit (doubles)
-        vm.prank(address(vault));
+        vm.prank(getAssetsHoldingVault());
         token.mint();
 
         // User tries to withdraw all their principal
@@ -139,9 +150,16 @@ contract MasterVaultSharePriceWithFeeTest is MasterVaultCoreTest {
         uint256 shares2 = vault.deposit(1000, address(0x2));
         vm.stopPrank();
 
+        uint256 vaultAssetsBefore = vault.totalAssets();
+        address _assetHoldingVault = getAssetsHoldingVault();
+        uint256 holdingVaultBalance = token.balanceOf(_assetHoldingVault);
+
+        // Calculate amount to transfer to achieve 50% loss for master vault
+        uint256 amountToTransfer = (1000 * holdingVaultBalance) / vaultAssetsBefore;
+
         // Vault loses 50% of assets
-        vm.prank(address(vault));
-        token.transfer(address(0x999), 1000);
+        vm.prank(_assetHoldingVault);
+        token.transfer(address(0x999), amountToTransfer);
 
         // Both users should be able to redeem proportionally
         vm.prank(user);
@@ -165,9 +183,12 @@ contract MasterVaultSharePriceWithFeeTest is MasterVaultCoreTest {
         uint256 shares1 = vault.deposit(deposit1, user);
         vm.stopPrank();
 
+        address _assetHoldingVault = getAssetsHoldingVault();
+        uint256 holdingVaultBalance = token.balanceOf(_assetHoldingVault);
+
         // Vault gains profit (doubles)
-        vm.prank(address(vault));
-        token.mint(1000);
+        vm.prank(_assetHoldingVault);
+        token.mint(holdingVaultBalance);
 
         // User 2 deposits same amount
         vm.startPrank(address(0x2));
@@ -208,9 +229,11 @@ contract MasterVaultSharePriceWithFeeTest is MasterVaultCoreTest {
         vault.deposit(1000, user);
         vm.stopPrank();
 
+        address _assetHoldingVault = getAssetsHoldingVault();
+
         // Simulate 50% loss
-        vm.prank(address(vault));
-        token.transfer(user, 500);
+        vm.startPrank(_assetHoldingVault);
+        token.transfer(user,( token.balanceOf(_assetHoldingVault)/2));
 
         // sharePrice = 0.5e18
         assertEq(vault.sharePrice(), 0.5e18, "Share price should be 0.5e18");
@@ -223,5 +246,39 @@ contract MasterVaultSharePriceWithFeeTest is MasterVaultCoreTest {
         assertEq(shares, 2, "Should receive 2 shares for 1 asset at 0.5e18 sharePrice");
 
         vm.stopPrank();
+    }
+}
+
+contract MasterVaultSharePriceWithFeeTestWithSubvaultFresh is MasterVaultSharePriceWithFeeTest {
+    function setUp() public override {
+        super.setUp();
+        MockSubVault _subvault = new MockSubVault(IERC20(address(token)), "TestSubvault", "TSV");
+        vault.setSubVault(IERC4626(address(_subvault)), 0);
+    }
+}
+
+contract MasterVaultSharePriceWithFeeTestWithSubvaultHoldingAssets is
+    MasterVaultSharePriceWithFeeTest
+{
+    function setUp() public override {
+        super.setUp();
+
+        MockSubVault _subvault = new MockSubVault(IERC20(address(token)), "TestSubvault", "TSV");
+        uint256 _initAmount = 3290234;
+        token.mint(_initAmount);
+        token.approve(address(_subvault), _initAmount);
+        _subvault.deposit(_initAmount, address(this));
+        assertEq(
+            _initAmount,
+            _subvault.totalAssets(),
+            "subvault should be initiated with assets = _initAmount"
+        );
+        assertEq(
+            _initAmount,
+            _subvault.totalSupply(),
+            "subvault should be initiated with shares = _initAmount"
+        );
+
+        vault.setSubVault(IERC4626(address(_subvault)), 0);
     }
 }

@@ -335,20 +335,4 @@ contract MasterVault is
         }
         return subVault.maxMint(receiver);
     }
-
-    /** @dev See {IERC4626-maxWithdraw}. */
-    function maxWithdraw(address owner) public view virtual override returns (uint256) {
-        if (address(subVault) == address(0)) {
-            return super.maxWithdraw(owner);
-        }
-        return subVault.maxWithdraw(address(this));
-    }
-
-    /** @dev See {IERC4626-maxRedeem}. */
-    function maxRedeem(address owner) public view virtual override returns (uint256) {
-        if (address(subVault) == address(0)) {
-            return super.maxRedeem(owner);
-        }
-        return subVault.maxRedeem(address(this));
-    }
 }
