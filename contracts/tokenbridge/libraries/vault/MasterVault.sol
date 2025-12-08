@@ -42,6 +42,7 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
     error NoExistingSubVault();
     error NewSubVaultExchangeRateTooLow();
     error PerformanceFeeDisabled();
+    error BeneficiaryNotSet();
     error InvalidAsset();
     error InvalidOwner();
 
@@ -49,13 +50,15 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
     // we may need a minimum asset or master share amount when setting subvaults (bc of exchange rate calc)
     IERC4626 public subVault;
 
-    // note: the performance fee can be avoided if the underlying strategy can be sandwiched (eg ETH to wstETH dex swap)
-    // maybe a simpler and more robust implementation would be for the owner to adjust the subVaultExchRateWad directly
-    // this would also avoid the need for totalPrincipal tracking
-    // however, this would require more trust in the owner
+    /// @notice Flag indicating if performance fee is enabled
     bool public enablePerformanceFee;
+
+    /// @notice Address that receives performance fees
     address public beneficiary;
-    uint256 totalPrincipal; // total assets deposited, used to calculate profit
+
+    /// @notice totalPrincipal tracks the total assets deposited into the vault (minus withdrawals)
+    /// @dev    When performance fees are disabled, totalPrincipal is 0
+    uint256 public totalPrincipal;
 
     event SubvaultChanged(address indexed oldSubvault, address indexed newSubvault);
     event PerformanceFeeToggled(bool enabled);
@@ -80,6 +83,9 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
 
     function distributePerformanceFee() external whenNotPaused {
         if (!enablePerformanceFee) revert PerformanceFeeDisabled();
+        if (beneficiary == address(0)) {
+            revert BeneficiaryNotSet();
+        }
         subVault.redeem(totalProfitInSubVaultShares(MathUpgradeable.Rounding.Down), beneficiary, address(this));
         // todo emit event
     }
@@ -124,11 +130,16 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
     /// @param enabled True to enable performance fees, false to disable
     function setPerformanceFee(bool enabled) external onlyRole(VAULT_MANAGER_ROLE) {
         enablePerformanceFee = enabled;
+
         // reset totalPrincipal to current totalAssets when enabling performance fee
         // this prevents a sudden large profit
         if (enabled) {
             totalPrincipal = _totalAssets(MathUpgradeable.Rounding.Up);
         }
+        else {
+            totalPrincipal = 0;
+        }
+
         emit PerformanceFeeToggled(enabled);
     }
 
@@ -200,7 +211,8 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
     ) internal virtual override whenNotPaused {
         super._deposit(caller, receiver, assets, shares);
 
-        totalPrincipal += assets;
+        if (enablePerformanceFee) totalPrincipal += assets;
+
         IERC4626 _subVault = subVault;
         if (address(_subVault) != address(0)) {
            _subVault.deposit(assets, address(this));
@@ -217,7 +229,7 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
         uint256 assets,
         uint256 shares
     ) internal virtual override whenNotPaused {
-        totalPrincipal -= assets;
+        if (enablePerformanceFee) totalPrincipal -= assets;
 
         IERC4626 _subVault = subVault;
         if (address(_subVault) != address(0)) {
