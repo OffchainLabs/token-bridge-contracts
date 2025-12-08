@@ -13,12 +13,36 @@ import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IER
 import {MathUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
+/// @notice MasterVault is an ERC4626 metavault that deposits assets to an admin defined subVault.
+/// @dev    If a subVault is not set, MasterVault shares entitle holders to a pro-rata share of the underlying held by the MasterVault.
+///         If a subVault is set, MasterVault shares entitle holders to a pro-rata share of subVault shares held by the MasterVault.
+///         On deposit to the MasterVault, if there is a subVault set, the assets are immediately deposited into the subVault.
+///         On withdraw from the MasterVault, if there is a subVault set, a pro rata amount of subvault shares are redeemed.
+///         On deposit and withdraw, if there is no subVault set, assets are moved to/from the MasterVault itself.
+///
+///         For a subVault to be compatible with the MasterVault, it must adhere to the following:
+///         - It must be able to handle arbitrarily large deposits and withdrawals
+///         - Deposit size or withdrawal size must not affect the exchange rate (i.e. no slippage)
+///
+///         For performance fees to be enabled, the subVault should also have a manipulation resistant 
+///         convertToAssets function. If convertToAssets can be manipulated, 
+///         an incorrect profit calculation may occur, leading to incorrect performance fee withdrawals.
+///         If the subVault has a manipulable convertToAssets function, and performance fees are desired,
+///         consider whitelisting a specific FEE_MANAGER_ROLE that is allowed to call withdrawPerformanceFees().
+///         The fee manager is then trusted to not manipulate the subVault or be a victim of manipulation when withdrawing performance fees.
+///         By default, only the owner has the FEE_MANAGER_ROLE.
 contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradeable, PausableUpgradeable {
     using SafeERC20 for IERC20;
     using MathUpgradeable for uint256;
 
+    /// @notice Vault manager role can set/revoke subvaults, toggle performance fees and set the performance fee beneficiary
+    /// @dev    Should never be granted to the zero address
     bytes32 public constant VAULT_MANAGER_ROLE = keccak256("VAULT_MANAGER_ROLE");
+    /// @notice Fee manager role can call withdrawPerformanceFees() 
+    /// @dev    It is important that the convertToAssets function of the subVault is not manipulated prior to calling withdrawPerformanceFees().
+    ///         See contract notice for more details.
     bytes32 public constant FEE_MANAGER_ROLE = keccak256("FEE_MANAGER_ROLE");
+    /// @notice Pauser role can pause/unpause deposits and withdrawals (todo: pause should pause EVERYTHING)
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
     error TooFewSharesReceived();
@@ -66,7 +90,7 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
 
         _grantRole(DEFAULT_ADMIN_ROLE, _owner);
         _grantRole(VAULT_MANAGER_ROLE, _owner);
-        _grantRole(FEE_MANAGER_ROLE, _owner); // todo: consider permissionless by default
+        _grantRole(FEE_MANAGER_ROLE, _owner);
         _grantRole(PAUSER_ROLE, _owner);
     }
 
