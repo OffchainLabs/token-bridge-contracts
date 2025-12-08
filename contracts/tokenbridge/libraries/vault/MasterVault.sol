@@ -36,16 +36,11 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
     /// @notice Pauser role can pause/unpause deposits and withdrawals (todo: pause should pause EVERYTHING)
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
-    error TooFewSharesReceived();
-    error TooManySharesBurned();
-    error TooManyAssetsDeposited();
-    error TooFewAssetsReceived();
     error SubVaultAlreadySet();
     error SubVaultAssetMismatch();
     error SubVaultExchangeRateTooLow();
     error NoExistingSubVault();
     error NewSubVaultExchangeRateTooLow();
-    error BeneficiaryNotSet();
     error PerformanceFeeDisabled();
     error InvalidAsset();
     error InvalidOwner();
