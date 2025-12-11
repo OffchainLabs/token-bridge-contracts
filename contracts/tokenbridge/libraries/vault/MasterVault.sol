@@ -255,9 +255,16 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
      * would represent an infinite amount of shares.
      */
     function _convertToShares(uint256 assets, MathUpgradeable.Rounding rounding) internal view virtual override returns (uint256 shares) {
+        uint256 supply = totalSupply();
+
         if (address(subVault) == address(0)) {
             uint256 effectiveTotalAssets = enablePerformanceFee ? _min(totalAssets(), totalPrincipal) : totalAssets();
-            return totalSupply().mulDiv(assets, effectiveTotalAssets, rounding);
+
+            if (supply == 0 || effectiveTotalAssets == 0) {
+                return assets;  
+            }
+
+            return supply.mulDiv(assets, effectiveTotalAssets, rounding);
         }
 
         uint256 totalSubShares = subVault.balanceOf(address(this));
@@ -267,7 +274,7 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
             // and we are subtracting profit from it, we should use the same rounding direction for profit
             totalSubShares -= totalProfitInSubVaultShares(_flipRounding(rounding));
         }
-        
+
         uint256 subShares = _assetsToSubVaultShares(assets, rounding);
 
         return totalSupply().mulDiv(subShares, totalSubShares, rounding);
