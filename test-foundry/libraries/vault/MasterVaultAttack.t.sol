@@ -11,7 +11,7 @@ contract MasterVaultTestWithSubvaultFresh is MasterVaultTest {
     function setUp() public override {
         super.setUp();
         MockSubVault _subvault = new MockSubVault(IERC20(address(token)), "TestSubvault", "TSV");
-        vault.setSubVault(IERC4626(address(_subvault)), 0);
+        vault.setSubVault(IERC4626(address(_subvault)));
     }
 }
 

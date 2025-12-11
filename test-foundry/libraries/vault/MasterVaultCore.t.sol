@@ -40,6 +40,5 @@ contract MasterVaultCoreTest is Test {
         vault = MasterVault(proxyAddress);
 
         vault.initialize(IERC20(address(token)), name, symbol, address(this));
-        vault.unpause();
     }
 }
