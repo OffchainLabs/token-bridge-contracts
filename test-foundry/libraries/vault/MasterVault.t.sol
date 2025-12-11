@@ -1,470 +1,149 @@
-// // SPDX-License-Identifier: UNLICENSED
-// pragma solidity ^0.8.0;
-
-// import { Test } from "forge-std/Test.sol";
-// import { MasterVault } from "../../../contracts/tokenbridge/libraries/vault/MasterVault.sol";
-// import { TestERC20 } from "../../../contracts/tokenbridge/test/TestERC20.sol";
-// import { MockSubVault } from "../../../contracts/tokenbridge/test/MockSubVault.sol";
-// import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-// import { UpgradeableBeacon } from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
-// import { BeaconProxyFactory, ClonableBeaconProxy } from "../../../contracts/tokenbridge/libraries/ClonableBeaconProxy.sol";
-// import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
-
-// contract MasterVaultTest is Test {
-//     MasterVault public vault;
-//     TestERC20 public token;
-//     UpgradeableBeacon public beacon;
-//     BeaconProxyFactory public beaconProxyFactory;
-
-//     event SubvaultChanged(address indexed oldSubvault, address indexed newSubvault);
-
-//     address public user = address(0x1);
-//     string public name = "Master Test Token";
-//     string public symbol = "mTST";
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.0;
 
-//     function setUp() public {
-//         token = new TestERC20();
-
-//         MasterVault implementation = new MasterVault();
-//         beacon = new UpgradeableBeacon(address(implementation));
-
-//         beaconProxyFactory = new BeaconProxyFactory();
-//         beaconProxyFactory.initialize(address(beacon));
-
-//         bytes32 salt = keccak256("test");
-//         address proxyAddress = beaconProxyFactory.createProxy(salt);
-//         vault = MasterVault(proxyAddress);
-
-//         vault.initialize(IERC20(address(token)), name, symbol, address(this));
-//     }
-
-//     function test_initialize() public {
-//         assertEq(address(vault.asset()), address(token), "Invalid asset");
-//         assertEq(vault.name(), name, "Invalid name");
-//         assertEq(vault.symbol(), symbol, "Invalid symbol");
-//         assertEq(vault.decimals(), token.decimals(), "Invalid decimals");
-//         assertEq(vault.totalSupply(), 0, "Invalid initial supply");
-//         assertEq(vault.totalAssets(), 0, "Invalid initial assets");
-//         assertEq(address(vault.subVault()), address(0), "SubVault should be zero initially");
-
-//         assertTrue(vault.hasRole(vault.DEFAULT_ADMIN_ROLE(), address(this)), "Should have DEFAULT_ADMIN_ROLE");
-//         assertTrue(vault.hasRole(vault.VAULT_MANAGER_ROLE(), address(this)), "Should have VAULT_MANAGER_ROLE");
-//         assertTrue(vault.hasRole(vault.FEE_MANAGER_ROLE(), address(this)), "Should have FEE_MANAGER_ROLE");
-//     }
-
-//     function test_WithoutSubvault_deposit() public {
-//         assertEq(address(vault.subVault()), address(0), "SubVault should be zero initially");
+import { MasterVaultCoreTest } from "./MasterVaultCore.t.sol";
+import { MockSubVault } from "../../../contracts/tokenbridge/test/MockSubVault.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { IERC4626 } from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 
-//         // user deposit 500 tokens to vault
-//         // by this test expec:
-//         //- user to receive 500 shares
-//         //- total shares supply to increase by 500
-//         //- total assets to increase by 500
-
-//         uint256 minShares = 0;
+contract MasterVaultTest is MasterVaultCoreTest {
+    // first deposit
+    function test_deposit() public {
+        address _assetsHoldingVault = address(vault.subVault()) == address(0)
+            ? address(vault)
+            : address(vault.subVault());
+        uint256 _assetsHoldingVaultBalanceBefore = token.balanceOf(_assetsHoldingVault);
 
-//         vm.startPrank(user);
-//         token.mint();
-//         uint256 depositAmount = token.balanceOf(user);
-
-//         token.approve(address(vault), depositAmount);
-
-//         uint256 sharesBefore = vault.balanceOf(user);
-//         uint256 totalSupplyBefore = vault.totalSupply();
-//         uint256 totalAssetsBefore = vault.totalAssets();
-
-//         uint256 shares = vault.deposit(depositAmount, user, minShares);
+        vm.startPrank(user);
+        token.mint();
+        uint256 depositAmount = 100;
 
-//         assertEq(vault.balanceOf(user), sharesBefore + shares, "Invalid user balance");
-//         assertEq(vault.totalSupply(), totalSupplyBefore + shares, "Invalid total supply");
-//         assertEq(vault.totalAssets(), totalAssetsBefore + depositAmount, "Invalid total assets");
-//         assertEq(token.balanceOf(user), 0, "User tokens should be transferred");
-
-//         vm.stopPrank();
-//     }
-
-//     function test_deposit_RevertTooFewSharesReceived() public {
-//         vm.startPrank(user);
-//         token.mint();
-//         uint256 depositAmount = token.balanceOf(user);
-//         uint256 minShares = depositAmount * 2; // Unrealistic requirement
-
-//         token.approve(address(vault), depositAmount);
-
-//         vm.expectRevert(MasterVault.TooFewSharesReceived.selector);
-//         vault.deposit(depositAmount, user, minShares);
-
-//         vm.stopPrank();
-//     }
-
-//     function test_setSubvault() public {
-//         MockSubVault subVault = new MockSubVault(
-//             IERC20(address(token)),
-//             "Sub Vault Token",
-//             "svTST"
-//         );
-
-//         vm.startPrank(user);
-//         token.mint();
-//         uint256 depositAmount = token.balanceOf(user);
-//         token.approve(address(vault), depositAmount);
-//         vault.deposit(depositAmount, user, 0);
-//         vm.stopPrank();
-
-//         assertEq(address(vault.subVault()), address(0), "SubVault should be zero initially");
-//         assertEq(vault.totalAssets(), depositAmount, "Total assets should equal deposit");
-
-//         uint256 minSubVaultExchRateWad = 1e18;
-
-//         vm.expectEmit(true, true, false, false);
-//         emit SubvaultChanged(address(0), address(subVault));
-
-//         vault.setSubVault(subVault, minSubVaultExchRateWad);
-
-//         assertEq(address(vault.subVault()), address(subVault), "SubVault should be set");
-//         assertEq(vault.totalAssets(), depositAmount, "Total assets should remain the same");
-//         assertEq(subVault.balanceOf(address(vault)), depositAmount, "SubVault should have received assets");
-//     }
-
-//     function test_revokeSubvault() public {
-//         MockSubVault subVault = new MockSubVault(
-//             IERC20(address(token)),
-//             "Sub Vault Token",
-//             "svTST"
-//         );
-
-//         vm.startPrank(user);
-//         token.mint();
-//         uint256 depositAmount = token.balanceOf(user);
-//         token.approve(address(vault), depositAmount);
-//         vault.deposit(depositAmount, user, 0);
-//         vm.stopPrank();
-
-//         vault.setSubVault(subVault, 1e18);
-
-//         assertEq(address(vault.subVault()), address(subVault), "SubVault should be set");
-//         assertEq(subVault.balanceOf(address(vault)), depositAmount, "SubVault should have assets");
-
-//         uint256 minAssetExchRateWad = 1e18;
-
-//         vm.expectEmit(true, true, false, false);
-//         emit SubvaultChanged(address(subVault), address(0));
-
-//         vault.revokeSubVault(minAssetExchRateWad);
-
-//         assertEq(address(vault.subVault()), address(0), "SubVault should be revoked");
-//         assertEq(vault.totalAssets(), depositAmount, "Total assets should remain the same");
-//         assertEq(subVault.balanceOf(address(vault)), 0, "SubVault should have no assets");
-//         assertEq(token.balanceOf(address(vault)), depositAmount, "MasterVault should have assets directly");
-//     }
-
-//     function test_WithoutSubvault_withdraw() public {
-//         uint256 maxSharesBurned = type(uint256).max;
-
-//         vm.startPrank(user);
-//         token.mint();
-//         uint256 depositAmount = token.balanceOf(user);
-//         token.approve(address(vault), depositAmount);
-//         vault.deposit(depositAmount, user, 0);
-
-//         uint256 withdrawAmount = depositAmount / 2;
-//         uint256 userSharesBefore = vault.balanceOf(user);
-//         uint256 totalSupplyBefore = vault.totalSupply();
-//         uint256 totalAssetsBefore = vault.totalAssets();
-
-//         uint256 shares = vault.withdraw(withdrawAmount, user, user, maxSharesBurned);
-
-//         assertEq(vault.balanceOf(user), userSharesBefore - shares, "User shares should decrease");
-//         assertEq(vault.totalSupply(), totalSupplyBefore - shares, "Total supply should decrease");
-//         assertEq(vault.totalAssets(), totalAssetsBefore - withdrawAmount, "Total assets should decrease");
-//         assertEq(token.balanceOf(user), withdrawAmount, "User should receive withdrawn assets");
-//         assertEq(token.balanceOf(address(vault)), depositAmount - withdrawAmount, "Vault should have remaining assets");
-
-//         vm.stopPrank();
-//     }
-
-//     function test_WithSubvault_withdraw() public {
-//         MockSubVault subVault = new MockSubVault(
-//             IERC20(address(token)),
-//             "Sub Vault Token",
-//             "svTST"
-//         );
-
-//         vm.startPrank(user);
-//         token.mint();
-//         uint256 firstDepositAmount = token.balanceOf(user);
-//         token.approve(address(vault), firstDepositAmount);
-//         vault.deposit(firstDepositAmount, user, 0);
-//         vm.stopPrank();
-
-//         vault.setSubVault(subVault, 1e18);
-
-//         uint256 withdrawAmount = firstDepositAmount / 2;
-//         uint256 maxSharesBurned = type(uint256).max;
-
-//         vm.startPrank(user);
-//         uint256 userSharesBefore = vault.balanceOf(user);
-//         uint256 totalSupplyBefore = vault.totalSupply();
-//         uint256 totalAssetsBefore = vault.totalAssets();
-//         uint256 subVaultSharesBefore = subVault.balanceOf(address(vault));
-
-//         uint256 shares = vault.withdraw(withdrawAmount, user, user, maxSharesBurned);
-
-//         assertEq(vault.balanceOf(user), userSharesBefore - shares, "User shares should decrease");
-//         assertEq(vault.totalSupply(), totalSupplyBefore - shares, "Total supply should decrease");
-//         assertEq(vault.totalAssets(), totalAssetsBefore - withdrawAmount, "Total assets should decrease");
-//         assertEq(token.balanceOf(user), withdrawAmount, "User should receive withdrawn assets");
-//         assertLt(subVault.balanceOf(address(vault)), subVaultSharesBefore, "SubVault shares should decrease");
-
-//         token.mint();
-//         uint256 secondDepositAmount = token.balanceOf(user) - withdrawAmount;
-//         token.approve(address(vault), secondDepositAmount);
-//         vault.deposit(secondDepositAmount, user, 0);
-
-//         vault.balanceOf(user);
-//         uint256 finalTotalAssets = vault.totalAssets();
-//         subVault.balanceOf(address(vault));
-
-//         vault.withdraw(finalTotalAssets, user, user, type(uint256).max);
-
-//         assertEq(vault.balanceOf(user), 0, "User should have no shares left");
-//         assertEq(vault.totalSupply(), 0, "Total supply should be zero");
-//         assertEq(vault.totalAssets(), 0, "Total assets should be zero");
-//         assertEq(token.balanceOf(user), firstDepositAmount + secondDepositAmount, "User should have all original tokens");
-//         assertEq(subVault.balanceOf(address(vault)), 0, "SubVault should have no shares left");
-
-//         vm.stopPrank();
-//     }
-
-//     function test_beaconUpgrade() public {
-//         vm.startPrank(user);
-//         token.mint();
-//         uint256 depositAmount = token.balanceOf(user);
-//         token.approve(address(vault), depositAmount);
-//         vault.deposit(depositAmount, user, 0);
-//         vm.stopPrank();
-
-//         address oldImplementation = beacon.implementation();
-//         assertEq(oldImplementation, address(beacon.implementation()), "Should have initial implementation");
-
-//         MasterVault newImplementation = new MasterVault();
-//         beacon.upgradeTo(address(newImplementation));
-
-//         assertEq(beacon.implementation(), address(newImplementation), "Beacon should point to new implementation");
-//         assertTrue(beacon.implementation() != oldImplementation, "Implementation should have changed");
-
-//         assertEq(vault.name(), name, "Name should remain after upgrade");
-//     }
-
-//     function test_setSubVault_revert_NotVaultManager() public {
-//         MockSubVault subVault = new MockSubVault(
-//             IERC20(address(token)),
-//             "Sub Vault Token",
-//             "svTST"
-//         );
-
-//         vm.startPrank(user);
-//         token.mint();
-//         uint256 depositAmount = token.balanceOf(user);
-//         token.approve(address(vault), depositAmount);
-//         vault.deposit(depositAmount, user, 0);
-
-//         vm.expectRevert();
-//         vault.setSubVault(subVault, 1e18);
-
-//         vm.stopPrank();
-//     }
-
-//     function test_setBeneficiary_revert_NotFeeManager() public {
-//         address newBeneficiary = address(0x999);
-
-//         vm.prank(user);
-//         vm.expectRevert();
-//         vault.setBeneficiary(newBeneficiary);
-//     }
-
-//     function test_withdrawPerformanceFees_revert_NotFeeManager() public {
-//         vm.prank(user);
-//         vm.expectRevert();
-//         vault.withdrawPerformanceFees();
-//     }
-
-//     function test_roleAdmin() public {
-//         address vaultManager = address(0x1111);
-//         address feeManager = address(0x2222);
-
-//         vault.grantRole(vault.VAULT_MANAGER_ROLE(), vaultManager);
-//         vault.grantRole(vault.FEE_MANAGER_ROLE(), feeManager);
-
-//         assertTrue(vault.hasRole(vault.VAULT_MANAGER_ROLE(), vaultManager), "Should have VAULT_MANAGER_ROLE");
-//         assertTrue(vault.hasRole(vault.FEE_MANAGER_ROLE(), feeManager), "Should have FEE_MANAGER_ROLE");
-
-//         vault.revokeRole(vault.VAULT_MANAGER_ROLE(), vaultManager);
-//         assertFalse(vault.hasRole(vault.VAULT_MANAGER_ROLE(), vaultManager), "Should not have VAULT_MANAGER_ROLE");
-//     }
-
-//     function test_multipleRoleHolders() public {
-//         address vaultManager1 = address(0x1111);
-//         address vaultManager2 = address(0x2222);
-
-//         vault.grantRole(vault.VAULT_MANAGER_ROLE(), vaultManager1);
-//         vault.grantRole(vault.VAULT_MANAGER_ROLE(), vaultManager2);
-
-//         assertTrue(vault.hasRole(vault.VAULT_MANAGER_ROLE(), vaultManager1), "Manager1 should have VAULT_MANAGER_ROLE");
-//         assertTrue(vault.hasRole(vault.VAULT_MANAGER_ROLE(), vaultManager2), "Manager2 should have VAULT_MANAGER_ROLE");
-
-//         MockSubVault subVault = new MockSubVault(
-//             IERC20(address(token)),
-//             "Sub Vault Token",
-//             "svTST"
-//         );
-
-//         vm.startPrank(user);
-//         token.mint();
-//         uint256 depositAmount = token.balanceOf(user);
-//         token.approve(address(vault), depositAmount);
-//         vault.deposit(depositAmount, user, 0);
-//         vm.stopPrank();
-
-//         vm.prank(vaultManager1);
-//         vault.setSubVault(subVault, 1e18);
-
-//         assertEq(address(vault.subVault()), address(subVault), "SubVault should be set by manager1");
-//     }
-
-//     function test_initialize_pauserRole() public {
-//         assertTrue(vault.hasRole(vault.PAUSER_ROLE(), address(this)), "Should have PAUSER_ROLE");
-//         assertFalse(vault.paused(), "Should not be paused initially");
-//     }
-
-//     function test_pause() public {
-//         assertFalse(vault.paused(), "Should not be paused initially");
-
-//         vault.pause();
-
-//         assertTrue(vault.paused(), "Should be paused");
-//     }
-
-//     function test_unpause() public {
-//         vault.pause();
-//         assertTrue(vault.paused(), "Should be paused");
-
-//         vault.unpause();
-
-//         assertFalse(vault.paused(), "Should not be paused");
-//     }
-
-//     function test_pause_revert_NotPauser() public {
-//         vm.prank(user);
-//         vm.expectRevert();
-//         vault.pause();
-//     }
-
-//     function test_unpause_revert_NotPauser() public {
-//         vault.pause();
-
-//         vm.prank(user);
-//         vm.expectRevert();
-//         vault.unpause();
-//     }
-
-//     function test_deposit_revert_WhenPaused() public {
-//         vm.startPrank(user);
-//         token.mint();
-//         uint256 depositAmount = token.balanceOf(user);
-//         token.approve(address(vault), depositAmount);
-//         vm.stopPrank();
-
-//         vault.pause();
-
-//         vm.prank(user);
-//         vm.expectRevert("Pausable: paused");
-//         vault.deposit(depositAmount, user, 0);
-//     }
-
-//     function test_withdraw_revert_WhenPaused() public {
-//         vm.startPrank(user);
-//         token.mint();
-//         uint256 depositAmount = token.balanceOf(user);
-//         token.approve(address(vault), depositAmount);
-//         vault.deposit(depositAmount, user, 0);
-//         vm.stopPrank();
-
-//         vault.pause();
-
-//         vm.prank(user);
-//         vm.expectRevert("Pausable: paused");
-//         vault.withdraw(depositAmount / 2, user, user, type(uint256).max);
-//     }
-
-//     function test_mint_revert_WhenPaused() public {
-//         vm.startPrank(user);
-//         token.mint();
-//         uint256 depositAmount = token.balanceOf(user);
-//         token.approve(address(vault), depositAmount);
-//         vm.stopPrank();
-
-//         vault.pause();
-
-//         vm.prank(user);
-//         vm.expectRevert("Pausable: paused");
-//         vault.mint(100, user, type(uint256).max);
-//     }
-
-//     function test_redeem_revert_WhenPaused() public {
-//         vm.startPrank(user);
-//         token.mint();
-//         uint256 depositAmount = token.balanceOf(user);
-//         token.approve(address(vault), depositAmount);
-//         uint256 shares = vault.deposit(depositAmount, user, 0);
-//         vm.stopPrank();
-
-//         vault.pause();
-
-//         vm.prank(user);
-//         vm.expectRevert("Pausable: paused");
-//         vault.redeem(shares / 2, user, user, 0);
-//     }
-
-//     function test_pauseUnpauseFlow() public {
-//         vm.startPrank(user);
-//         token.mint();
-//         uint256 depositAmount = token.balanceOf(user);
-//         token.approve(address(vault), depositAmount);
-//         vault.deposit(depositAmount / 2, user, 0);
-//         vm.stopPrank();
-
-//         vault.pause();
-
-//         vm.prank(user);
-//         vm.expectRevert("Pausable: paused");
-//         vault.deposit(depositAmount / 2, user, 0);
-
-//         vault.unpause();
-
-//         vm.prank(user);
-//         vault.deposit(depositAmount / 2, user, 0);
-
-//         assertEq(token.balanceOf(user), 0, "All tokens should be deposited");
-//     }
-
-//     function test_multiplePausers() public {
-//         address pauser1 = address(0x3333);
-//         address pauser2 = address(0x4444);
-
-//         vault.grantRole(vault.PAUSER_ROLE(), pauser1);
-//         vault.grantRole(vault.PAUSER_ROLE(), pauser2);
-
-//         assertTrue(vault.hasRole(vault.PAUSER_ROLE(), pauser1), "Pauser1 should have PAUSER_ROLE");
-//         assertTrue(vault.hasRole(vault.PAUSER_ROLE(), pauser2), "Pauser2 should have PAUSER_ROLE");
-
-//         vm.prank(pauser1);
-//         vault.pause();
-//         assertTrue(vault.paused(), "Should be paused by pauser1");
-
-//         vm.prank(pauser2);
-//         vault.unpause();
-//         assertFalse(vault.paused(), "Should be unpaused by pauser2");
-//     }
-
-// }
+        token.approve(address(vault), depositAmount);
+
+        uint256 shares = vault.deposit(depositAmount, user);
+
+        uint256 _assetsHoldingVaultBalanceAfter = token.balanceOf(_assetsHoldingVault);
+        uint256 diff = _assetsHoldingVaultBalanceAfter - _assetsHoldingVaultBalanceBefore;
+
+        assertEq(vault.balanceOf(user), shares, "User should receive shares");
+        assertEq(vault.totalAssets(), depositAmount, "Vault should hold deposited assets");
+        assertEq(vault.totalSupply(), shares, "Total supply should equal shares minted");
+
+        assertEq(diff, depositAmount, "Vault should increase holding of assets");
+        assertGt(token.balanceOf(_assetsHoldingVault), 0, "Vault should hold the tokens");
+
+        assertEq(vault.totalSupply(), diff, "First deposit should be at a rate of 1");
+
+        vm.stopPrank();
+    }
+
+    // first mint
+    function test_mint() public {
+        address _assetsHoldingVault = address(vault.subVault()) == address(0)
+            ? address(vault)
+            : address(vault.subVault());
+
+        uint256 _assetsHoldingVaultBalanceBefore = token.balanceOf(_assetsHoldingVault);
+
+        vm.startPrank(user);
+        token.mint();
+        uint256 sharesToMint = 100;
+
+        token.approve(address(vault), type(uint256).max);
+
+        //   assertEq(1, vault.totalAssets(), "First mint should be at a rate of 1"); // 0
+        // assertEq(1, vault.totalSupply(), "First mint should be at a rate of 1");   // 0
+
+
+        uint256 assetsCost = vault.mint(sharesToMint, user);
+
+        uint256 _assetsHoldingVaultBalanceAfter = token.balanceOf(_assetsHoldingVault);
+
+        assertEq(vault.balanceOf(user), sharesToMint, "User should receive requested shares");
+        assertEq(vault.totalSupply(), sharesToMint, "Total supply should equal shares minted");
+        assertEq(vault.totalAssets(), assetsCost, "Vault should hold the assets deposited");
+        assertEq(
+            _assetsHoldingVaultBalanceAfter - _assetsHoldingVaultBalanceBefore,
+            assetsCost,
+            "Vault should hold the tokens"
+        );
+
+        assertEq(vault.totalSupply(), vault.totalAssets(), "First mint should be at a rate of 1");
+        vm.stopPrank();
+    }
+
+    function test_withdraw() public {
+        vm.startPrank(user);
+        token.mint();
+        uint256 depositAmount = token.balanceOf(user);
+        token.approve(address(vault), depositAmount);
+        vault.deposit(depositAmount, user);
+
+        uint256 userSharesBefore = vault.balanceOf(user);
+        uint256 withdrawAmount = depositAmount; // withdraw all assets
+
+        uint256 sharesRedeemed = vault.withdraw(withdrawAmount, user, user);
+
+        assertEq(vault.balanceOf(user), 0, "User should have no shares left");
+        assertEq(token.balanceOf(user), depositAmount, "User should receive all withdrawn tokens");
+        assertEq(vault.totalAssets(), 0, "Vault should have no assets left");
+        assertEq(vault.totalSupply(), 0, "Total supply should be zero");
+        assertEq(token.balanceOf(address(vault)), 0, "Vault should have no tokens left");
+        assertEq(sharesRedeemed, userSharesBefore, "All shares should be redeemed");
+
+        vm.stopPrank();
+    }
+
+    function test_redeem() public {
+        vm.startPrank(user);
+        token.mint();
+        uint256 depositAmount = token.balanceOf(user);
+        token.approve(address(vault), depositAmount);
+        uint256 shares = vault.deposit(depositAmount, user);
+
+        uint256 sharesToRedeem = shares; // redeem all shares
+
+        uint256 assetsReceived = vault.redeem(sharesToRedeem, user, user);
+
+        assertEq(vault.balanceOf(user), 0, "User should have no shares left");
+        assertEq(token.balanceOf(user), depositAmount, "User should receive all assets back");
+        assertEq(vault.totalAssets(), 0, "Vault should have no assets left");
+        assertEq(vault.totalSupply(), 0, "Total supply should be zero");
+        assertEq(token.balanceOf(address(vault)), 0, "Vault should have no tokens left");
+        assertEq(assetsReceived, depositAmount, "All assets should be received");
+
+        vm.stopPrank();
+    }
+}
+
+contract MasterVaultTestWithSubvaultFresh is MasterVaultTest {
+    function setUp() public override {
+        super.setUp();
+        MockSubVault _subvault = new MockSubVault(IERC20(address(token)), "TestSubvault", "TSV");
+        vault.setSubVault(IERC4626(address(_subvault)), 0);
+    }
+}
+
+contract MasterVaultTestWithSubvaultHoldingAssets is MasterVaultTest {
+    function setUp() public override {
+        super.setUp();
+
+        MockSubVault _subvault = new MockSubVault(IERC20(address(token)), "TestSubvault", "TSV");
+        uint256 _initAmount = 97659743;
+        token.mint(_initAmount);
+        token.approve(address(_subvault), _initAmount);
+        _subvault.deposit(_initAmount, address(this));
+        assertEq(
+            _initAmount,
+            _subvault.totalAssets(),
+            "subvault should be initiated with assets = _initAmount"
+        );
+        assertEq(
+            _initAmount,
+            _subvault.totalSupply(),
+            "subvault should be initiated with shares = _initAmount"
+        );
+
+        vault.setSubVault(IERC4626(address(_subvault)), 0);
+    }
+}

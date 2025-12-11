@@ -28,6 +28,10 @@ contract TestERC20 is aeERC20 {
     function mint() external {
         _mint(msg.sender, 50000000);
     }
+
+    function mint(uint256 amount) external {
+        _mint(msg.sender, amount);
+    }
 }
 
 // test token code inspired from maker

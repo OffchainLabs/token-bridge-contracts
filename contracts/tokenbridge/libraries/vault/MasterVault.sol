@@ -79,6 +79,8 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
         _grantRole(DEFAULT_ADMIN_ROLE, _owner);
         _grantRole(VAULT_MANAGER_ROLE, _owner);
         _grantRole(PAUSER_ROLE, _owner);
+
+        _pause(); 
     }
 
     function distributePerformanceFee() external whenNotPaused {
