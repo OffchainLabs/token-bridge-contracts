@@ -105,8 +105,11 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
         IERC20(asset()).safeApprove(address(_subVault), type(uint256).max);
         _subVault.deposit(underlyingAsset.balanceOf(address(this)), address(this));
 
-        uint256 subVaultExchRateWad = _subVault.balanceOf(address(this)).mulDiv(1e18, totalSupply(), MathUpgradeable.Rounding.Down);
-        if (subVaultExchRateWad < minSubVaultExchRateWad) revert NewSubVaultExchangeRateTooLow();
+        uint256 supply = totalSupply();
+        if (supply > 0) {
+            uint256 subVaultExchRateWad = _subVault.balanceOf(address(this)).mulDiv(1e18, supply, MathUpgradeable.Rounding.Down);
+            if (subVaultExchRateWad < minSubVaultExchRateWad) revert NewSubVaultExchangeRateTooLow();
+        }
 
         emit SubvaultChanged(address(0), address(_subVault));
     }
@@ -122,8 +125,11 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
         oldSubVault.redeem(oldSubVault.balanceOf(address(this)), address(this), address(this));
         IERC20(asset()).safeApprove(address(oldSubVault), 0);
 
-        uint256 assetExchRateWad = IERC20(asset()).balanceOf(address(this)).mulDiv(1e18, totalSupply(), MathUpgradeable.Rounding.Down);
-        if (assetExchRateWad < minAssetExchRateWad) revert SubVaultExchangeRateTooLow();
+        uint256 supply = totalSupply();
+        if (supply > 0) {
+            uint256 assetExchRateWad = IERC20(asset()).balanceOf(address(this)).mulDiv(1e18, supply, MathUpgradeable.Rounding.Down);
+            if (assetExchRateWad < minAssetExchRateWad) revert SubVaultExchangeRateTooLow();
+        }
 
         emit SubvaultChanged(address(oldSubVault), address(0));
     }
@@ -277,17 +283,27 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
 
         uint256 subShares = _assetsToSubVaultShares(assets, rounding);
 
-        return totalSupply().mulDiv(subShares, totalSubShares, rounding);
+        if (supply == 0 || totalSubShares == 0) {
+            return subShares;  
+        }
+
+        return supply.mulDiv(subShares, totalSubShares, rounding);
     }
 
     /**
      * @dev Internal conversion function (from shares to assets) with support for rounding direction.
      */
     function _convertToAssets(uint256 shares, MathUpgradeable.Rounding rounding) internal view virtual override returns (uint256 assets) {
+        uint256 _totalSupply = totalSupply();
+
+        if(_totalSupply == 0) {
+            return shares;
+        }
+
         // if we have no subvault, we just do normal pro-rata calculation
         if (address(subVault) == address(0)) {
             uint256 effectiveTotalAssets = enablePerformanceFee ? _min(totalAssets(), totalPrincipal) : totalAssets();
-            return effectiveTotalAssets.mulDiv(shares, totalSupply(), rounding);
+            return effectiveTotalAssets.mulDiv(shares, _totalSupply, rounding);
         }
 
         uint256 totalSubShares = subVault.balanceOf(address(this));
@@ -299,7 +315,7 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
         }
         
         // totalSubShares * shares / totalMasterShares
-        uint256 subShares = totalSubShares.mulDiv(shares, totalSupply(), rounding);
+        uint256 subShares = totalSubShares.mulDiv(shares, _totalSupply, rounding);
 
         return _subVaultSharesToAssets(subShares, rounding);
     }
