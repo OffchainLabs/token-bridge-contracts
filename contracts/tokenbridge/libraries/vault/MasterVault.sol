@@ -63,6 +63,7 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
     event SubvaultChanged(address indexed oldSubvault, address indexed newSubvault);
     event PerformanceFeeToggled(bool enabled);
     event BeneficiaryUpdated(address indexed oldBeneficiary, address indexed newBeneficiary);
+    event PerformanceFeesWithdrawn(address indexed beneficiary, uint256 amount);
 
     function initialize(IERC20 _asset, string memory _name, string memory _symbol, address _owner) external initializer {
         if (address(_asset) == address(0)) revert InvalidAsset();
@@ -88,8 +89,17 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
         if (beneficiary == address(0)) {
             revert BeneficiaryNotSet();
         }
-        subVault.redeem(totalProfitInSubVaultShares(MathUpgradeable.Rounding.Down), beneficiary, address(this));
-        // todo emit event
+
+        uint256 profit = totalProfit(MathUpgradeable.Rounding.Down);
+        if (profit == 0) return;
+
+        if (address(subVault) != address(0)) {
+            subVault.redeem(totalProfitInSubVaultShares(MathUpgradeable.Rounding.Down), beneficiary, address(this));
+        } else {
+            IERC20(asset()).safeTransfer(beneficiary, profit);
+        }
+
+        emit PerformanceFeesWithdrawn(beneficiary, profit);
     }
 
     /// @notice Set a subvault. Can only be called if there is not already a subvault set.
