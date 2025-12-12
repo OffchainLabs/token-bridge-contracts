@@ -197,6 +197,58 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
         return _assetsToSubVaultShares(profitAssets.mulDiv(targetAllocationWad, 1e18, rounding), rounding);
     }
 
+    /** @dev See {IERC4626-deposit}. */
+    function deposit(uint256 assets, address receiver) public virtual override returns (uint256) {
+        require(assets <= maxDeposit(receiver), "ERC4626: deposit more than max");
+
+        (uint256 shares, uint256 assetsFromSubVault) = _convertToSharesDetailed(assets, MathUpgradeable.Rounding.Down);
+        _deposit(_msgSender(), receiver, assets, shares, assetsFromSubVault);
+
+        return shares;
+    }
+
+    /** @dev See {IERC4626-mint}.
+     *
+     * As opposed to {deposit}, minting is allowed even if the vault is in a state where the price of a share is zero.
+     * In this case, the shares will be minted without requiring any assets to be deposited.
+     */
+    function mint(uint256 shares, address receiver) public virtual override returns (uint256) {
+        require(shares <= maxMint(receiver), "ERC4626: mint more than max");
+
+        (uint256 assets, uint256 assetsFromSubVault) = _convertToAssetsDetailed(shares, MathUpgradeable.Rounding.Up);
+        _deposit(_msgSender(), receiver, assets, shares, assetsFromSubVault);
+
+        return assets;
+    }
+
+    /** @dev See {IERC4626-withdraw}. */
+    function withdraw(
+        uint256 assets,
+        address receiver,
+        address owner
+    ) public virtual override returns (uint256) {
+        require(assets <= maxWithdraw(owner), "ERC4626: withdraw more than max");
+
+        (uint256 shares, uint256 assetsFromSubVault) = _convertToSharesDetailed(assets, MathUpgradeable.Rounding.Up);
+        _withdraw(_msgSender(), receiver, owner, assets, shares, assetsFromSubVault);
+
+        return shares;
+    }
+
+    /** @dev See {IERC4626-redeem}. */
+    function redeem(
+        uint256 shares,
+        address receiver,
+        address owner
+    ) public virtual override returns (uint256) {
+        require(shares <= maxRedeem(owner), "ERC4626: redeem more than max");
+
+        (uint256 assets, uint256 assetsFromSubVault) = _convertToAssetsDetailed(shares, MathUpgradeable.Rounding.Down);
+        _withdraw(_msgSender(), receiver, owner, assets, shares, assetsFromSubVault);
+
+        return assets;
+    }
+
     /**
      * @dev Deposit/mint common workflow.
      */
@@ -220,16 +272,12 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
         address receiver,
         address _owner,
         uint256 assets,
-        uint256 shares
-    ) internal virtual override whenNotPaused {
+        uint256 shares,
+        uint256 assetsToWithdraw
+    ) internal whenNotPaused {
         if (enablePerformanceFee) totalPrincipal -= assets;
-
-        IERC4626 _subVault = subVault;
-        if (address(_subVault) != address(0)) {
-            _subVault.withdraw(assets, address(this), address(this));
-        }
-
-        super._withdraw(caller, receiver, _owner, assets, shares);
+        subVault.withdraw(assetsToWithdraw, address(this), address(this));
+        _withdraw(caller, receiver, _owner, assets, shares);
     }
 
     function _totalAssets(MathUpgradeable.Rounding rounding) internal view returns (uint256) {
@@ -244,10 +292,10 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
      * would represent an infinite amount of shares.
      */
     function _convertToShares(uint256 assets, MathUpgradeable.Rounding rounding) internal view virtual override returns (uint256 shares) {
-        (,,shares) = _convertToShares2(assets, rounding);
+        (shares,) = _convertToSharesDetailed(assets, rounding);
     }
 
-    function _convertToShares2(uint256 assets, MathUpgradeable.Rounding rounding) internal view returns (uint256 sharesFromIdle, uint256 sharesFromSubVault, uint256 sharesFromBoth) {
+    function _convertToSharesDetailed(uint256 assets, MathUpgradeable.Rounding rounding) internal view returns (uint256 shares, uint256 assetsForSubVault) {
         uint256 supply = totalSupply();
 
         uint256 totalIdle = IERC20(asset()).balanceOf(address(this));
@@ -263,14 +311,14 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
         // figure out how much assets should be deposited to subvault vs kept idle
         // same rounding direction since they are used in the numerators of the final calculation
         uint256 assetsForIdle = assets.mulDiv(1e18 - targetAllocationWad, 1e18, rounding);
-        uint256 assetsForSubVault = assets.mulDiv(targetAllocationWad, 1e18, rounding);
+        assetsForSubVault = assets.mulDiv(targetAllocationWad, 1e18, rounding);
 
         // figure out how many shares would be issued according to each portion
-        sharesFromIdle = assetsForIdle.mulDiv(supply, totalIdle, rounding);
-        sharesFromSubVault = _assetsToSubVaultShares(assetsForSubVault, rounding).mulDiv(supply, totalSubShares, rounding);
+        uint256 sharesFromIdle = assetsForIdle.mulDiv(supply, totalIdle, rounding);
+        uint256 sharesFromSubVault = _assetsToSubVaultShares(assetsForSubVault, rounding).mulDiv(supply, totalSubShares, rounding);
 
         // take the min if rounding down, max if rounding up
-        sharesFromBoth = rounding == MathUpgradeable.Rounding.Down
+        shares = rounding == MathUpgradeable.Rounding.Down
             ? MathUpgradeable.min(sharesFromIdle, sharesFromSubVault)
             : MathUpgradeable.max(sharesFromIdle, sharesFromSubVault);
     }
@@ -279,10 +327,10 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
      * @dev Internal conversion function (from shares to assets) with support for rounding direction.
      */
     function _convertToAssets(uint256 shares, MathUpgradeable.Rounding rounding) internal view virtual override returns (uint256 assets) {
-        (,, assets) = _convertToAssets2(shares, rounding);
+        (assets,) = _convertToAssetsDetailed(shares, rounding);
     }
 
-    function _convertToAssets2(uint256 shares, MathUpgradeable.Rounding rounding) internal view returns (uint256 assetsFromIdle, uint256 assetsFromSubVault, uint256 assetsFromBoth) {
+    function _convertToAssetsDetailed(uint256 shares, MathUpgradeable.Rounding rounding) internal view returns (uint256 assets, uint256 assetsFromSubVault) {
         uint256 supply = totalSupply();
 
         uint256 totalIdle = IERC20(asset()).balanceOf(address(this));
@@ -301,13 +349,11 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
         uint256 sharesForSubVault = shares.mulDiv(targetAllocationWad, 1e18, rounding);
 
         // figure out how much assets would be received according to each portion
-        assetsFromIdle = sharesForIdle.mulDiv(totalIdle, supply, rounding);
+        uint256 assetsFromIdle = sharesForIdle.mulDiv(totalIdle, supply, rounding);
         assetsFromSubVault = _subVaultSharesToAssets(sharesForSubVault.mulDiv(totalSubShares, supply, rounding), rounding);
-        
-        // take the min if rounding down, max if rounding up
-        assetsFromBoth = rounding == MathUpgradeable.Rounding.Down
-            ? MathUpgradeable.min(assetsFromIdle, assetsFromSubVault)
-            : MathUpgradeable.max(assetsFromIdle, assetsFromSubVault);
+
+        // total it up
+        assets = assetsFromIdle + assetsFromSubVault;
     }
 
     function _assetsToSubVaultShares(uint256 assets, MathUpgradeable.Rounding rounding) internal view returns (uint256 subShares) {
