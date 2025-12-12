@@ -50,7 +50,7 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
     // we may need a minimum asset or master share amount when setting subvaults (bc of exchange rate calc)
     IERC4626 public subVault;
 
-    uint256 targetAllocationWad;
+    uint256 public targetAllocationWad;
 
     /// @notice Flag indicating if performance fee is enabled
     bool public enablePerformanceFee;
@@ -120,6 +120,26 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
         IERC20(asset()).safeApprove(address(_subVault), type(uint256).max);
 
         emit SubvaultChanged(oldSubVault, address(_subVault));
+    }
+
+    function setTargetAllocationWad(uint256 _targetAllocationWad) external onlyRole(VAULT_MANAGER_ROLE) {
+        require(_targetAllocationWad <= 1e18, "Target allocation must be <= 100%");
+        
+        int256 allocationDelta = int256(_targetAllocationWad) - int256(targetAllocationWad);
+        require(allocationDelta != 0, "Allocation unchanged");
+
+        int256 idleDelta = int256(totalAssets()) * allocationDelta / 1e18;
+
+        if (idleDelta > 0) {
+            // move assets into subvault
+            subVault.deposit(uint256(idleDelta), address(this));
+        }
+        else if (idleDelta < 0) {
+            // move assets out of subvault
+            subVault.withdraw(uint256(-idleDelta), address(this), address(this));
+        }
+
+        targetAllocationWad = _targetAllocationWad;
     }
 
     /// @notice Toggle performance fee collection on/off
