@@ -67,12 +67,9 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
     event BeneficiaryUpdated(address indexed oldBeneficiary, address indexed newBeneficiary);
     event PerformanceFeesWithdrawn(address indexed beneficiary, uint256 amount);
 
-    function initialize(IERC20 _asset, string memory _name, string memory _symbol, address _owner) external initializer {
-        if (address(_asset) == address(0)) revert InvalidAsset();
-        if (_owner == address(0)) revert InvalidOwner();
-
+    function initialize(IERC4626 _subVault, string memory _name, string memory _symbol, address _owner) external initializer {
         __ERC20_init(_name, _symbol);
-        __ERC4626_init(IERC20Upgradeable(address(_asset)));
+        __ERC4626_init(IERC20Upgradeable(_subVault.asset()));
         __AccessControl_init();
         __Pausable_init();
 
@@ -83,7 +80,7 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
         _grantRole(VAULT_MANAGER_ROLE, _owner);
         _grantRole(PAUSER_ROLE, _owner);
 
-        // todo: deploy initial subvault
+        subVault = _subVault;
     }
 
     function distributePerformanceFee() external whenNotPaused {
