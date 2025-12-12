@@ -36,6 +36,8 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
     /// @notice Pauser role can pause/unpause deposits and withdrawals (todo: pause should pause EVERYTHING)
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
+    uint8 public constant EXTRA_DECIMALS = 18;
+
     error SubVaultAlreadySet();
     error SubVaultAssetMismatch();
     error SubVaultExchangeRateTooLow();
@@ -70,6 +72,10 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
     function initialize(IERC4626 _subVault, string memory _name, string memory _symbol, address _owner) external initializer {
         __ERC20_init(_name, _symbol);
         __ERC4626_init(IERC20Upgradeable(_subVault.asset()));
+
+        // call decimals() to ensure underlying has reasonable decimals and we won't have overflow
+        decimals();
+
         __AccessControl_init();
         __Pausable_init();
 
@@ -80,7 +86,16 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
         _grantRole(VAULT_MANAGER_ROLE, _owner);
         _grantRole(PAUSER_ROLE, _owner);
 
+        // mint some dead shares to avoid first depositor issues
+        // for more information on the mitigation: 
+        // https://web.archive.org/web/20250609034056/https://docs.openzeppelin.com/contracts/4.x/erc4626#fees
+        _mint(address(1), 10 ** EXTRA_DECIMALS);
+
         subVault = _subVault;
+    }
+
+    function decimals() public view override returns (uint8) {
+        return super.decimals() + EXTRA_DECIMALS;
     }
 
     function distributePerformanceFee() external whenNotPaused {
@@ -315,7 +330,7 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
     function _convertToSharesDetailed(uint256 assets, MathUpgradeable.Rounding rounding) internal view returns (uint256 shares, uint256 assetsForSubVault) {
         uint256 supply = totalSupply();
 
-        uint256 totalIdle = IERC20(asset()).balanceOf(address(this));
+        uint256 totalIdle = IERC20(asset()).balanceOf(address(this)) + 1; // we always add one virtual asset to avoid first depositor issues (todo: document this better)
         uint256 totalSubShares = subVault.balanceOf(address(this));
 
         if (enablePerformanceFee) {
@@ -332,12 +347,17 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
 
         // figure out how many shares would be issued according to each portion
         uint256 sharesFromIdle = assetsForIdle.mulDiv(supply, totalIdle, rounding);
-        uint256 sharesFromSubVault = _assetsToSubVaultShares(assetsForSubVault, rounding).mulDiv(supply, totalSubShares, rounding);
+        if (totalSubShares == 0) {
+            shares = sharesFromIdle;
+        }
+        else {
+            uint256 sharesFromSubVault = totalSubShares == 0 ? 0 : _assetsToSubVaultShares(assetsForSubVault, rounding).mulDiv(supply, totalSubShares, rounding);
 
-        // take the min if rounding down, max if rounding up
-        shares = rounding == MathUpgradeable.Rounding.Down
-            ? MathUpgradeable.min(sharesFromIdle, sharesFromSubVault)
-            : MathUpgradeable.max(sharesFromIdle, sharesFromSubVault);
+            // take the min if rounding down, max if rounding up
+            shares = rounding == MathUpgradeable.Rounding.Down
+                ? MathUpgradeable.min(sharesFromIdle, sharesFromSubVault)
+                : MathUpgradeable.max(sharesFromIdle, sharesFromSubVault);
+        }
     }
 
     /**
@@ -350,7 +370,7 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
     function _convertToAssetsDetailed(uint256 shares, MathUpgradeable.Rounding rounding) internal view returns (uint256 assets, uint256 assetsFromSubVault) {
         uint256 supply = totalSupply();
 
-        uint256 totalIdle = IERC20(asset()).balanceOf(address(this));
+        uint256 totalIdle = IERC20(asset()).balanceOf(address(this)) + 1; // we always add one virtual asset to avoid first depositor issues (todo: document this better)
         uint256 totalSubShares = subVault.balanceOf(address(this));
 
         if (enablePerformanceFee) {
