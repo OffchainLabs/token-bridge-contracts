@@ -36,6 +36,11 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
     /// @notice Pauser role can pause/unpause deposits and withdrawals (todo: pause should pause EVERYTHING)
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
+    /// @notice Extra decimals added to the ERC20 decimals of the underlying asset to determine the decimals of the MasterVault
+    /// @dev    This is done to mitigate the "first depositor" problem described in the OpenZeppelin ERC4626 documentation.
+    ///         See https://docs.openzeppelin.com/contracts/5.x/erc4626 for more details on the mitigation.
+    uint8 public constant EXTRA_DECIMALS = 18;
+
     error SubVaultAlreadySet();
     error SubVaultAssetMismatch();
     error NoExistingSubVault();
@@ -69,6 +74,10 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
     function initialize(IERC4626 _subVault, string memory _name, string memory _symbol, address _owner) external initializer {
         __ERC20_init(_name, _symbol);
         __ERC4626_init(IERC20Upgradeable(_subVault.asset()));
+
+        // call decimals() to ensure underlying has reasonable decimals and we won't have overflow
+        decimals();
+
         __AccessControl_init();
         __Pausable_init();
 
@@ -79,7 +88,17 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
         _grantRole(VAULT_MANAGER_ROLE, _owner);
         _grantRole(PAUSER_ROLE, _owner);
 
+        // mint some dead shares to avoid first depositor issues
+        // for more information on the mitigation: 
+        // https://web.archive.org/web/20250609034056/https://docs.openzeppelin.com/contracts/4.x/erc4626#fees
+        _mint(address(1), 10 ** EXTRA_DECIMALS);
+
         subVault = _subVault;
+    }
+    
+    /// @dev Overridden to add EXTRA_DECIMALS to the underlying asset decimals
+    function decimals() public view override returns (uint8) {
+        return super.decimals() + EXTRA_DECIMALS;
     }
 
     function distributePerformanceFee() external whenNotPaused {
@@ -263,7 +282,9 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
      * would represent an infinite amount of shares.
      */
     function _convertToShares(uint256 assets, MathUpgradeable.Rounding rounding) internal view virtual override returns (uint256 shares) {
-        uint256 __totalAssets = _totalAssets(_flipRounding(rounding));
+        // we add one as part of the first deposit mitigation
+        // see for details: https://docs.openzeppelin.com/contracts/5.x/erc4626
+        uint256 __totalAssets = _totalAssets(_flipRounding(rounding)) + 1;
         if (enablePerformanceFee) {
             __totalAssets -= totalProfit(rounding);
         }
@@ -274,7 +295,9 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
      * @dev Internal conversion function (from shares to assets) with support for rounding direction.
      */
     function _convertToAssets(uint256 shares, MathUpgradeable.Rounding rounding) internal view virtual override returns (uint256 assets) {
-        uint256 __totalAssets = _totalAssets(rounding);
+        // we add one as part of the first deposit mitigation
+        // see for details: https://docs.openzeppelin.com/contracts/5.x/erc4626
+        uint256 __totalAssets = _totalAssets(rounding) + 1;
         if (enablePerformanceFee) {
             __totalAssets -= totalProfit(_flipRounding(rounding));
         }

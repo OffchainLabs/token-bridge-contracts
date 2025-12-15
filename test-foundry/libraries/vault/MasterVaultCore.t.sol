@@ -18,7 +18,7 @@ contract MasterVaultCoreTest is Test {
     MasterVault public vault;
     TestERC20 public token;
 
-    address public user = address(0x1);
+    address public user = vm.addr(1);
     string public name = "Master Test Token";
     string public symbol = "mTST";
 
