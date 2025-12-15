@@ -36,6 +36,9 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
     /// @notice Pauser role can pause/unpause deposits and withdrawals (todo: pause should pause EVERYTHING)
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
 
+    /// @notice Extra decimals added to the ERC20 decimals of the underlying asset to determine the decimals of the MasterVault
+    /// @dev    This is done to mitigate the "first depositor" problem described in the OpenZeppelin ERC4626 documentation.
+    ///         See https://docs.openzeppelin.com/contracts/5.x/erc4626 for more details on the mitigation.
     uint8 public constant EXTRA_DECIMALS = 18;
 
     error SubVaultAlreadySet();
@@ -92,7 +95,8 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
 
         subVault = _subVault;
     }
-
+    
+    /// @dev Overridden to add EXTRA_DECIMALS to the underlying asset decimals
     function decimals() public view override returns (uint8) {
         return super.decimals() + EXTRA_DECIMALS;
     }
@@ -336,7 +340,10 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
     function _convertToSharesDetailed(uint256 assets, MathUpgradeable.Rounding rounding) internal view returns (uint256 shares, uint256 assetsForSubVault) {
         uint256 supply = totalSupply();
 
-        uint256 totalIdle = IERC20(asset()).balanceOf(address(this)) + 1; // we always add one virtual asset to avoid first depositor issues (todo: document this better)
+        // totalIdle is the assets held directly by the MasterVault (aka reserves)
+        // we add one wei as part of the first depositor attack mitigation
+        // see https://docs.openzeppelin.com/contracts/5.x/erc4626 for more details
+        uint256 totalIdle = IERC20(asset()).balanceOf(address(this)) + 1;
         uint256 totalSubShares = subVault.balanceOf(address(this));
 
         if (enablePerformanceFee) {
@@ -376,7 +383,10 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
     function _convertToAssetsDetailed(uint256 shares, MathUpgradeable.Rounding rounding) internal view returns (uint256 assets, uint256 assetsFromSubVault) {
         uint256 supply = totalSupply();
 
-        uint256 totalIdle = IERC20(asset()).balanceOf(address(this)) + 1; // we always add one virtual asset to avoid first depositor issues (todo: document this better)
+        // totalIdle is the assets held directly by the MasterVault (aka reserves)
+        // we add one wei as part of the first depositor attack mitigation
+        // see https://docs.openzeppelin.com/contracts/5.x/erc4626 for more details
+        uint256 totalIdle = IERC20(asset()).balanceOf(address(this)) + 1;
         uint256 totalSubShares = subVault.balanceOf(address(this));
 
         if (enablePerformanceFee) {
