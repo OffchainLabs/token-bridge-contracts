@@ -40,9 +40,8 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
 
     error SubVaultAlreadySet();
     error SubVaultAssetMismatch();
-    error SubVaultExchangeRateTooLow();
     error NoExistingSubVault();
-    error NewSubVaultExchangeRateTooLow();
+    error SubVaultExchangeRateTooLow(int256 required, int256 actual);
     error PerformanceFeeDisabled();
     error BeneficiaryNotSet();
     error InvalidAsset();
@@ -134,21 +133,28 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
         emit SubvaultChanged(oldSubVault, address(_subVault));
     }
 
-    function setTargetAllocationWad(uint256 _targetAllocationWad) external onlyRole(VAULT_MANAGER_ROLE) {
+    function setTargetAllocationWad(uint256 _targetAllocationWad, int256 minSubVaultExchRateWad) external onlyRole(VAULT_MANAGER_ROLE) {
         require(_targetAllocationWad <= 1e18, "Target allocation must be <= 100%");
         
         int256 allocationDelta = int256(_targetAllocationWad) - int256(targetAllocationWad);
         require(allocationDelta != 0, "Allocation unchanged");
 
         int256 idleDelta = int256(totalAssets()) * allocationDelta / 1e18;
+        int256 subVaultExchRateWad;
 
         if (idleDelta > 0) {
             // move assets into subvault
-            subVault.deposit(uint256(idleDelta), address(this));
+            uint256 shares = subVault.deposit(uint256(idleDelta), address(this));
+            subVaultExchRateWad = int256(uint256(idleDelta).mulDiv(1e18, shares, MathUpgradeable.Rounding.Down));
         }
         else if (idleDelta < 0) {
             // move assets out of subvault
-            subVault.withdraw(uint256(-idleDelta), address(this), address(this));
+            uint256 shares = subVault.withdraw(uint256(-idleDelta), address(this), address(this));
+            subVaultExchRateWad = int256(uint256(-idleDelta).mulDiv(1e18, shares, MathUpgradeable.Rounding.Up));
+        }
+
+        if (subVaultExchRateWad < minSubVaultExchRateWad) {
+            revert SubVaultExchangeRateTooLow(minSubVaultExchRateWad, subVaultExchRateWad);
         }
 
         targetAllocationWad = _targetAllocationWad;
