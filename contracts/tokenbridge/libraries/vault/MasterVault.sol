@@ -110,11 +110,18 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
         uint256 profit = totalProfit(MathUpgradeable.Rounding.Down);
         if (profit == 0) return;
 
-        if (address(subVault) != address(0)) {
-            subVault.redeem(totalProfitInSubVaultShares(MathUpgradeable.Rounding.Down), beneficiary, address(this));
-        } else {
-            IERC20(asset()).safeTransfer(beneficiary, profit);
+        uint256 totalIdle = IERC20(asset()).balanceOf(address(this));
+        if (totalIdle > 0) {
+            uint256 amountToTransfer = profit <= totalIdle ? profit : totalIdle;
+            IERC20(asset()).safeTransfer(beneficiary, amountToTransfer);
+            profit -= amountToTransfer;
         }
+
+        if (profit > 0) {
+            subVault.withdraw(profit, beneficiary, address(this));
+        }
+
+        rebalance();
 
         emit PerformanceFeesWithdrawn(beneficiary, profit);
     }
@@ -137,30 +144,33 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
         emit SubvaultChanged(oldSubVault, address(_subVault));
     }
 
-    function setTargetAllocationWad(uint256 _targetAllocationWad, int256 minSubVaultExchRateWad) external onlyRole(VAULT_MANAGER_ROLE) {
-        require(_targetAllocationWad <= 1e18, "Target allocation must be <= 100%");
+    function rebalance() public {
+        // todo: handle 0 and 100 special cases if needed
+        uint256 totalAssetsUp = _totalAssets(MathUpgradeable.Rounding.Up);
+        uint256 totalAssetsDown = _totalAssets(MathUpgradeable.Rounding.Down);
+        uint256 idleTargetUp = totalAssetsUp.mulDiv(1e18 - targetAllocationWad, 1e18, MathUpgradeable.Rounding.Up);
+        uint256 idleTargetDown = totalAssetsDown.mulDiv(1e18 - targetAllocationWad, 1e18, MathUpgradeable.Rounding.Down);
+        uint256 idleBalance = IERC20(asset()).balanceOf(address(this));
         
-        int256 allocationDelta = int256(_targetAllocationWad) - int256(targetAllocationWad);
-        require(allocationDelta != 0, "Allocation unchanged");
-
-        int256 idleDelta = int256(totalAssets()) * allocationDelta / 1e18;
-        int256 subVaultExchRateWad;
-
-        if (idleDelta > 0) {
-            // move assets into subvault
-            uint256 shares = subVault.deposit(uint256(idleDelta), address(this));
-            subVaultExchRateWad = int256(uint256(idleDelta).mulDiv(1e18, shares, MathUpgradeable.Rounding.Down));
-        }
-        else if (idleDelta < 0) {
-            // move assets out of subvault
-            uint256 shares = subVault.withdraw(uint256(-idleDelta), address(this), address(this));
-            subVaultExchRateWad = int256(uint256(-idleDelta).mulDiv(1e18, shares, MathUpgradeable.Rounding.Up));
+        if (idleTargetDown <= idleBalance && idleBalance <= idleTargetUp) {
+            return;
         }
 
-        if (subVaultExchRateWad < minSubVaultExchRateWad) {
-            revert SubVaultExchangeRateTooLow(minSubVaultExchRateWad, subVaultExchRateWad);
+        if (idleBalance < idleTargetDown) {
+            // we need to withdraw from subvault
+            uint256 assetsToWithdraw = idleTargetDown - idleBalance;
+            subVault.withdraw(assetsToWithdraw, address(this), address(this));
         }
+        else {
+            // we need to deposit into subvault
+            uint256 assetsToDeposit = idleBalance - idleTargetUp;
+            subVault.deposit(assetsToDeposit, address(this));
+        }
+    }
 
+    function setTargetAllocationWad(uint256 _targetAllocationWad) external onlyRole(VAULT_MANAGER_ROLE) {
+        require(_targetAllocationWad <= 1e18, "Target allocation must be <= 100%");
+        require(targetAllocationWad != _targetAllocationWad, "Allocation unchanged");
         targetAllocationWad = _targetAllocationWad;
     }
 
@@ -227,70 +237,6 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
         return __totalAssets > totalPrincipal ? __totalAssets - totalPrincipal : 0;
     }
 
-    function totalProfitInIdleAssets(MathUpgradeable.Rounding rounding) public view returns (uint256) {
-        return totalProfit(rounding).mulDiv(1e18 - targetAllocationWad, 1e18, rounding);
-    }
-
-    function totalProfitInSubVaultShares(MathUpgradeable.Rounding rounding) public view returns (uint256) {
-        uint256 profitAssets = totalProfit(rounding);
-        if (profitAssets == 0) {
-            return 0;
-        }
-        return _assetsToSubVaultShares(profitAssets.mulDiv(targetAllocationWad, 1e18, rounding), rounding);
-    }
-
-    /** @dev See {IERC4626-deposit}. */
-    function deposit(uint256 assets, address receiver) public virtual override returns (uint256) {
-        require(assets <= maxDeposit(receiver), "ERC4626: deposit more than max");
-
-        (uint256 shares, uint256 assetsFromSubVault) = _convertToSharesDetailed(assets, MathUpgradeable.Rounding.Down);
-        _deposit(_msgSender(), receiver, assets, shares, assetsFromSubVault);
-
-        return shares;
-    }
-
-    /** @dev See {IERC4626-mint}.
-     *
-     * As opposed to {deposit}, minting is allowed even if the vault is in a state where the price of a share is zero.
-     * In this case, the shares will be minted without requiring any assets to be deposited.
-     */
-    function mint(uint256 shares, address receiver) public virtual override returns (uint256) {
-        require(shares <= maxMint(receiver), "ERC4626: mint more than max");
-
-        (uint256 assets, uint256 assetsFromSubVault) = _convertToAssetsDetailed(shares, MathUpgradeable.Rounding.Up);
-        _deposit(_msgSender(), receiver, assets, shares, assetsFromSubVault);
-
-        return assets;
-    }
-
-    /** @dev See {IERC4626-withdraw}. */
-    function withdraw(
-        uint256 assets,
-        address receiver,
-        address owner
-    ) public virtual override returns (uint256) {
-        require(assets <= maxWithdraw(owner), "ERC4626: withdraw more than max");
-
-        (uint256 shares, uint256 assetsFromSubVault) = _convertToSharesDetailed(assets, MathUpgradeable.Rounding.Up);
-        _withdraw(_msgSender(), receiver, owner, assets, shares, assetsFromSubVault);
-
-        return shares;
-    }
-
-    /** @dev See {IERC4626-redeem}. */
-    function redeem(
-        uint256 shares,
-        address receiver,
-        address owner
-    ) public virtual override returns (uint256) {
-        require(shares <= maxRedeem(owner), "ERC4626: redeem more than max");
-
-        (uint256 assets, uint256 assetsFromSubVault) = _convertToAssetsDetailed(shares, MathUpgradeable.Rounding.Down);
-        _withdraw(_msgSender(), receiver, owner, assets, shares, assetsFromSubVault);
-
-        return assets;
-    }
-
     /**
      * @dev Deposit/mint common workflow.
      */
@@ -298,12 +244,11 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
         address caller,
         address receiver,
         uint256 assets,
-        uint256 shares,
-        uint256 assetsToDeposit
-    ) internal whenNotPaused {
-        _deposit(caller, receiver, assets, shares);
+        uint256 shares
+    ) internal override whenNotPaused {
+        super._deposit(caller, receiver, assets, shares);
         if (enablePerformanceFee) totalPrincipal += assets;
-        subVault.deposit(assetsToDeposit, address(this));
+        rebalance();
     }
 
     /**
@@ -314,19 +259,22 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
         address receiver,
         address _owner,
         uint256 assets,
-        uint256 shares,
-        uint256 assetsToWithdraw
-    ) internal whenNotPaused {
+        uint256 shares
+    ) internal override whenNotPaused {
         if (enablePerformanceFee) totalPrincipal -= assets;
-        subVault.withdraw(assetsToWithdraw, address(this), address(this));
-        _withdraw(caller, receiver, _owner, assets, shares);
+        uint256 idleAssets = IERC20(asset()).balanceOf(address(this));
+        if (idleAssets < assets) {
+            uint256 assetsToWithdraw = assets - idleAssets;
+            subVault.withdraw(assetsToWithdraw, address(this), address(this));
+        }
+        super._withdraw(caller, receiver, _owner, assets, shares);
+        rebalance();
     }
 
     function _totalAssets(MathUpgradeable.Rounding rounding) internal view returns (uint256) {
         return IERC20(asset()).balanceOf(address(this)) + _subVaultSharesToAssets(subVault.balanceOf(address(this)), rounding);
     }
 
-    // todo: question: will this drift over time? i don't think so but worth checking and testing for
     /**
      * @dev Internal conversion function (from assets to shares) with support for rounding direction.
      *
@@ -334,91 +282,26 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
      * would represent an infinite amount of shares.
      */
     function _convertToShares(uint256 assets, MathUpgradeable.Rounding rounding) internal view virtual override returns (uint256 shares) {
-        (shares,) = _convertToSharesDetailed(assets, rounding);
-    }
-
-    function _convertToSharesDetailed(uint256 assets, MathUpgradeable.Rounding rounding) internal view returns (uint256 shares, uint256 assetsForSubVault) {
-        uint256 supply = totalSupply();
-
-        // totalIdle is the assets held directly by the MasterVault (aka reserves)
-        // we add one wei as part of the first depositor attack mitigation
-        // see https://docs.openzeppelin.com/contracts/5.x/erc4626 for more details
-        uint256 totalIdle = IERC20(asset()).balanceOf(address(this)) + 1;
-        uint256 totalSubShares = subVault.balanceOf(address(this));
-
+        uint256 __totalAssets = _totalAssets(_flipRounding(rounding));
         if (enablePerformanceFee) {
-            // since we use totalSubShares and totalIdle in the denominators of the final calculation,
-            // and we are subtracting profit from it, we should use the same rounding direction for profit
-            totalSubShares -= totalProfitInSubVaultShares(_flipRounding(rounding));
-            totalIdle -= totalProfitInIdleAssets(_flipRounding(rounding));
+            __totalAssets -= totalProfit(rounding);
         }
-
-        // figure out how much assets should be deposited to subvault vs kept idle
-        // same rounding direction since they are used in the numerators of the final calculation
-        uint256 assetsForIdle = assets.mulDiv(1e18 - targetAllocationWad, 1e18, rounding);
-        assetsForSubVault = assets.mulDiv(targetAllocationWad, 1e18, rounding);
-
-        // figure out how many shares would be issued according to each portion
-        uint256 sharesFromIdle = assetsForIdle.mulDiv(supply, totalIdle, rounding);
-        if (totalSubShares == 0) {
-            shares = sharesFromIdle;
-        }
-        else {
-            uint256 sharesFromSubVault = totalSubShares == 0 ? 0 : _assetsToSubVaultShares(assetsForSubVault, rounding).mulDiv(supply, totalSubShares, rounding);
-
-            // take the min if rounding down, max if rounding up
-            shares = rounding == MathUpgradeable.Rounding.Down
-                ? MathUpgradeable.min(sharesFromIdle, sharesFromSubVault)
-                : MathUpgradeable.max(sharesFromIdle, sharesFromSubVault);
-        }
+        return assets.mulDiv(totalSupply(), __totalAssets, rounding);
     }
 
     /**
      * @dev Internal conversion function (from shares to assets) with support for rounding direction.
      */
     function _convertToAssets(uint256 shares, MathUpgradeable.Rounding rounding) internal view virtual override returns (uint256 assets) {
-        (assets,) = _convertToAssetsDetailed(shares, rounding);
-    }
-
-    function _convertToAssetsDetailed(uint256 shares, MathUpgradeable.Rounding rounding) internal view returns (uint256 assets, uint256 assetsFromSubVault) {
-        uint256 supply = totalSupply();
-
-        // totalIdle is the assets held directly by the MasterVault (aka reserves)
-        // we add one wei as part of the first depositor attack mitigation
-        // see https://docs.openzeppelin.com/contracts/5.x/erc4626 for more details
-        uint256 totalIdle = IERC20(asset()).balanceOf(address(this)) + 1;
-        uint256 totalSubShares = subVault.balanceOf(address(this));
-
+        uint256 __totalAssets = _totalAssets(rounding);
         if (enablePerformanceFee) {
-            // since we use totalSubShares and totalIdle in the numerators of the final calculation,
-            // and we are subtracting profit from it, we should use the opposite rounding direction for profit
-            totalSubShares -= totalProfitInSubVaultShares(_flipRounding(rounding));
-            totalIdle -= totalProfitInIdleAssets(_flipRounding(rounding));
+            __totalAssets -= totalProfit(_flipRounding(rounding));
         }
-
-        // figure out how many shares should be burned for subvault shares vs idle
-        // same rounding direction since they are used in the numerators of the final calculation (todo: confirm rounding direction)
-        uint256 sharesForIdle = shares.mulDiv(1e18 - targetAllocationWad, 1e18, rounding);
-        uint256 sharesForSubVault = shares.mulDiv(targetAllocationWad, 1e18, rounding);
-
-        // figure out how much assets would be received according to each portion
-        uint256 assetsFromIdle = sharesForIdle.mulDiv(totalIdle, supply, rounding);
-        assetsFromSubVault = _subVaultSharesToAssets(sharesForSubVault.mulDiv(totalSubShares, supply, rounding), rounding);
-
-        // total it up
-        assets = assetsFromIdle + assetsFromSubVault;
-    }
-
-    function _assetsToSubVaultShares(uint256 assets, MathUpgradeable.Rounding rounding) internal view returns (uint256 subShares) {
-        return rounding == MathUpgradeable.Rounding.Up ? subVault.previewWithdraw(assets) : subVault.previewDeposit(assets);
+        return shares.mulDiv(__totalAssets, totalSupply(), rounding);
     }
 
     function _subVaultSharesToAssets(uint256 subShares, MathUpgradeable.Rounding rounding) internal view returns (uint256 assets) {
         return rounding == MathUpgradeable.Rounding.Up ? subVault.previewMint(subShares) : subVault.previewRedeem(subShares);
-    }
-
-    function _min(uint256 a, uint256 b) internal pure returns (uint256) {
-        return a <= b ? a : b;
     }
 
     function _flipRounding(MathUpgradeable.Rounding rounding) internal pure returns (MathUpgradeable.Rounding) {
