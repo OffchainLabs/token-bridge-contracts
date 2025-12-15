@@ -282,7 +282,9 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
      * would represent an infinite amount of shares.
      */
     function _convertToShares(uint256 assets, MathUpgradeable.Rounding rounding) internal view virtual override returns (uint256 shares) {
-        uint256 __totalAssets = _totalAssets(_flipRounding(rounding));
+        // we add one as part of the first deposit mitigation
+        // see for details: https://docs.openzeppelin.com/contracts/5.x/erc4626
+        uint256 __totalAssets = _totalAssets(_flipRounding(rounding)) + 1;
         if (enablePerformanceFee) {
             __totalAssets -= totalProfit(rounding);
         }
@@ -293,7 +295,9 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
      * @dev Internal conversion function (from shares to assets) with support for rounding direction.
      */
     function _convertToAssets(uint256 shares, MathUpgradeable.Rounding rounding) internal view virtual override returns (uint256 assets) {
-        uint256 __totalAssets = _totalAssets(rounding);
+        // we add one as part of the first deposit mitigation
+        // see for details: https://docs.openzeppelin.com/contracts/5.x/erc4626
+        uint256 __totalAssets = _totalAssets(rounding) + 1;
         if (enablePerformanceFee) {
             __totalAssets -= totalProfit(_flipRounding(rounding));
         }
