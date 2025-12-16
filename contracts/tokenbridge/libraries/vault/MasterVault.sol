@@ -49,6 +49,7 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
     error BeneficiaryNotSet();
     error InvalidAsset();
     error InvalidOwner();
+    error NonZeroTargetAllocation(uint256 targetAllocationWad);
 
     // todo: avoid inflation, rounding, other common 4626 vulns
     // we may need a minimum asset or master share amount when setting subvaults (bc of exchange rate calc)
@@ -128,8 +129,6 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
 
         emit PerformanceFeesWithdrawn(beneficiary, amountToTransfer, amountToWithdraw);
     }
-
-    error NonZeroTargetAllocation(uint256 targetAllocationWad);
 
     /// @notice Set a subvault. Can only be called if there is not already a subvault set.
     /// @param  _subVault The subvault to set. Must be an ERC4626 vault with the same asset as this MasterVault.
