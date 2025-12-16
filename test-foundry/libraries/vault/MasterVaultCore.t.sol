@@ -19,6 +19,7 @@ contract MasterVaultCoreTest is Test {
     TestERC20 public token;
 
     address public user = vm.addr(1);
+    address public admin = vm.addr(2);
     string public name = "Master Test Token";
     string public symbol = "mTST";
 
@@ -28,7 +29,7 @@ contract MasterVaultCoreTest is Test {
 
     function setUp() public virtual {
         factory = new MasterVaultFactory();
-        factory.initialize(address(this));
+        factory.initialize(admin);
         token = new TestERC20();
         vault = MasterVault(factory.deployVault(address(token)));
     }
