@@ -93,6 +93,8 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
         // https://web.archive.org/web/20250609034056/https://docs.openzeppelin.com/contracts/4.x/erc4626#fees
         _mint(address(1), 10 ** EXTRA_DECIMALS);
 
+        IERC20(asset()).safeApprove(address(_subVault), type(uint256).max);
+
         subVault = _subVault;
     }
     
@@ -185,6 +187,7 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
             totalPrincipal = _totalAssets(MathUpgradeable.Rounding.Up);
         }
         else {
+            // todo: we need to distribute here
             totalPrincipal = 0;
         }
 
@@ -284,11 +287,7 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
     function _convertToShares(uint256 assets, MathUpgradeable.Rounding rounding) internal view virtual override returns (uint256 shares) {
         // we add one as part of the first deposit mitigation
         // see for details: https://docs.openzeppelin.com/contracts/5.x/erc4626
-        uint256 __totalAssets = _totalAssets(_flipRounding(rounding)) + 1;
-        if (enablePerformanceFee) {
-            __totalAssets -= totalProfit(rounding);
-        }
-        return assets.mulDiv(totalSupply(), __totalAssets, rounding);
+        return assets.mulDiv(totalSupply(), _totalAssetsLessProfit(_flipRounding(rounding)) + 1, rounding);
     }
 
     /**
@@ -297,11 +296,15 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
     function _convertToAssets(uint256 shares, MathUpgradeable.Rounding rounding) internal view virtual override returns (uint256 assets) {
         // we add one as part of the first deposit mitigation
         // see for details: https://docs.openzeppelin.com/contracts/5.x/erc4626
-        uint256 __totalAssets = _totalAssets(rounding) + 1;
+        return shares.mulDiv(_totalAssetsLessProfit(rounding) + 1, totalSupply(), rounding);
+    }
+
+    function _totalAssetsLessProfit(MathUpgradeable.Rounding rounding) internal view returns (uint256) {
+        uint256 __totalAssets = _totalAssets(rounding);
         if (enablePerformanceFee) {
             __totalAssets -= totalProfit(_flipRounding(rounding));
         }
-        return shares.mulDiv(__totalAssets, totalSupply(), rounding);
+        return __totalAssets;
     }
 
     function _subVaultSharesToAssets(uint256 subShares, MathUpgradeable.Rounding rounding) internal view returns (uint256 assets) {
