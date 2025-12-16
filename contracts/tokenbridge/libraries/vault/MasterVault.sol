@@ -69,7 +69,7 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
     event SubvaultChanged(address indexed oldSubvault, address indexed newSubvault);
     event PerformanceFeeToggled(bool enabled);
     event BeneficiaryUpdated(address indexed oldBeneficiary, address indexed newBeneficiary);
-    event PerformanceFeesWithdrawn(address indexed beneficiary, uint256 amount);
+    event PerformanceFeesWithdrawn(address indexed beneficiary, uint256 amountTransferred, uint256 amountWithdrawn);
 
     function initialize(IERC4626 _subVault, string memory _name, string memory _symbol, address _owner) external initializer {
         __ERC20_init(_name, _symbol);
@@ -113,19 +113,20 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
         if (profit == 0) return;
 
         uint256 totalIdle = IERC20(asset()).balanceOf(address(this));
-        if (totalIdle > 0) {
-            uint256 amountToTransfer = profit <= totalIdle ? profit : totalIdle;
+        
+        uint256 amountToTransfer = profit <= totalIdle ? profit : totalIdle;
+        uint256 amountToWithdraw = profit - amountToTransfer;
+        
+        if (amountToTransfer > 0) {
             IERC20(asset()).safeTransfer(beneficiary, amountToTransfer);
-            profit -= amountToTransfer;
         }
-
-        if (profit > 0) {
-            subVault.withdraw(profit, beneficiary, address(this));
+        if (amountToWithdraw > 0) {
+            subVault.withdraw(amountToWithdraw, beneficiary, address(this));
         }
 
         rebalance();
 
-        emit PerformanceFeesWithdrawn(beneficiary, profit);
+        emit PerformanceFeesWithdrawn(beneficiary, amountToTransfer, amountToWithdraw);
     }
 
     error NonZeroTargetAllocation(uint256 targetAllocationWad);
