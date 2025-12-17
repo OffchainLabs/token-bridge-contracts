@@ -148,8 +148,8 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
 
     function rebalance() public {
         // todo: handle 0 and 100 special cases if needed
-        uint256 totalAssetsUp = _totalAssets(MathUpgradeable.Rounding.Up);
-        uint256 totalAssetsDown = _totalAssets(MathUpgradeable.Rounding.Down);
+        uint256 totalAssetsUp = _totalAssetsLessProfit(MathUpgradeable.Rounding.Up);
+        uint256 totalAssetsDown = _totalAssetsLessProfit(MathUpgradeable.Rounding.Down);
         uint256 idleTargetUp = totalAssetsUp.mulDiv(1e18 - targetAllocationWad, 1e18, MathUpgradeable.Rounding.Up);
         uint256 idleTargetDown = totalAssetsDown.mulDiv(1e18 - targetAllocationWad, 1e18, MathUpgradeable.Rounding.Down);
         uint256 idleBalance = IERC20(asset()).balanceOf(address(this));
