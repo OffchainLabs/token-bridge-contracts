@@ -180,6 +180,7 @@ contract MasterVault is Initializable, ReentrancyGuardUpgradeable, ERC4626Upgrad
         require(_targetAllocationWad <= 1e18, "Target allocation must be <= 100%");
         require(targetAllocationWad != _targetAllocationWad, "Allocation unchanged");
         targetAllocationWad = _targetAllocationWad;
+        rebalance();
     }
 
     /// @notice Toggle performance fee collection on/off
