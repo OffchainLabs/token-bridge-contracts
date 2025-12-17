@@ -12,6 +12,7 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {MathUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
 // todo: should we have an arbitrary call function for the vault manager to do stuff with the subvault? like queue withdrawals etc
 
@@ -26,7 +27,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 ///         - It must be able to handle arbitrarily large deposits and withdrawals
 ///         - Deposit size or withdrawal size must not affect the exchange rate (i.e. no slippage)
 ///         - convertToAssets and convertToShares must not be manipulable
-contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradeable, PausableUpgradeable {
+contract MasterVault is Initializable, ReentrancyGuardUpgradeable, ERC4626Upgradeable, AccessControlUpgradeable, PausableUpgradeable {
     using SafeERC20 for IERC20;
     using MathUpgradeable for uint256;
 
@@ -101,7 +102,7 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
         return super.decimals() + EXTRA_DECIMALS;
     }
 
-    function distributePerformanceFee() public whenNotPaused {
+    function distributePerformanceFee() public whenNotPaused nonReentrant {
         if (!enablePerformanceFee) revert PerformanceFeeDisabled();
         if (beneficiary == address(0)) {
             revert BeneficiaryNotSet();
@@ -129,7 +130,7 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
 
     /// @notice Set a subvault. Can only be called if there is not already a subvault set.
     /// @param  _subVault The subvault to set. Must be an ERC4626 vault with the same asset as this MasterVault.
-    function setSubVault(IERC4626 _subVault) external onlyRole(VAULT_MANAGER_ROLE) {
+    function setSubVault(IERC4626 _subVault) external whenNotPaused onlyRole(VAULT_MANAGER_ROLE) {
         IERC20 underlyingAsset = IERC20(asset());
         if (address(_subVault.asset()) != address(underlyingAsset)) revert SubVaultAssetMismatch();
         if (targetAllocationWad != 0) revert NonZeroTargetAllocation(targetAllocationWad);
@@ -143,7 +144,7 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
         emit SubvaultChanged(oldSubVault, address(_subVault));
     }
 
-    function rebalance() public {
+    function rebalance() public whenNotPaused nonReentrant {
         uint256 totalAssetsUp = _totalAssetsLessProfit(MathUpgradeable.Rounding.Up);
         uint256 totalAssetsDown = _totalAssetsLessProfit(MathUpgradeable.Rounding.Down);
         uint256 idleTargetUp = totalAssetsUp.mulDiv(1e18 - targetAllocationWad, 1e18, MathUpgradeable.Rounding.Up);
@@ -166,15 +167,17 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
         }
     }
 
-    function setTargetAllocationWad(uint256 _targetAllocationWad) external onlyRole(VAULT_MANAGER_ROLE) {
+    function setTargetAllocationWad(uint256 _targetAllocationWad) external whenNotPaused onlyRole(VAULT_MANAGER_ROLE) {
         require(_targetAllocationWad <= 1e18, "Target allocation must be <= 100%");
         require(targetAllocationWad != _targetAllocationWad, "Allocation unchanged");
         targetAllocationWad = _targetAllocationWad;
     }
 
     /// @notice Toggle performance fee collection on/off
+    /// @dev    Not explicitly marked nonReentrant because distributePerformanceFee is called within
+    ///         this function and is nonReentrant itself.
     /// @param enabled True to enable performance fees, false to disable
-    function setPerformanceFee(bool enabled) external onlyRole(VAULT_MANAGER_ROLE) {
+    function setPerformanceFee(bool enabled) external whenNotPaused onlyRole(VAULT_MANAGER_ROLE) {
         // reset totalPrincipal to current totalAssets when enabling performance fee
         // this prevents a sudden large profit
         if (enabled) {
@@ -192,7 +195,7 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
 
     /// @notice Set the beneficiary address for performance fees
     /// @param newBeneficiary Address to receive performance fees
-    function setBeneficiary(address newBeneficiary) external onlyRole(VAULT_MANAGER_ROLE) {
+    function setBeneficiary(address newBeneficiary) external whenNotPaused onlyRole(VAULT_MANAGER_ROLE) {
         address oldBeneficiary = beneficiary;
         beneficiary = newBeneficiary;
         emit BeneficiaryUpdated(oldBeneficiary, newBeneficiary);
@@ -239,7 +242,7 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
         address receiver,
         uint256 assets,
         uint256 shares
-    ) internal override whenNotPaused {
+    ) internal override whenNotPaused nonReentrant {
         super._deposit(caller, receiver, assets, shares);
         if (enablePerformanceFee) totalPrincipal += assets;
         rebalance();
@@ -254,7 +257,7 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
         address _owner,
         uint256 assets,
         uint256 shares
-    ) internal override whenNotPaused {
+    ) internal override whenNotPaused nonReentrant {
         if (enablePerformanceFee) totalPrincipal -= assets;
         uint256 idleAssets = IERC20(asset()).balanceOf(address(this));
         if (idleAssets < assets) {
