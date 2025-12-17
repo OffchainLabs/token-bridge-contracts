@@ -194,7 +194,7 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
     }
 
     /// @notice Set the beneficiary address for performance fees
-    /// @param newBeneficiary Address to receive performance fees, zero address defaults to owner
+    /// @param newBeneficiary Address to receive performance fees
     function setBeneficiary(address newBeneficiary) external onlyRole(VAULT_MANAGER_ROLE) {
         address oldBeneficiary = beneficiary;
         beneficiary = newBeneficiary;
