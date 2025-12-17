@@ -41,10 +41,7 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
     ///         See https://docs.openzeppelin.com/contracts/5.x/erc4626 for more details on the mitigation.
     uint8 public constant EXTRA_DECIMALS = 18;
 
-    error SubVaultAlreadySet();
     error SubVaultAssetMismatch();
-    error NoExistingSubVault();
-    error SubVaultExchangeRateTooLow(int256 required, int256 actual);
     error PerformanceFeeDisabled();
     error BeneficiaryNotSet();
     error InvalidAsset();
