@@ -96,41 +96,18 @@ contract MasterVault is Initializable, ReentrancyGuardUpgradeable, ERC4626Upgrad
 
         subVault = _subVault;
     }
-    
-    /// @dev Overridden to add EXTRA_DECIMALS to the underlying asset decimals
-    function decimals() public view override returns (uint8) {
-        return super.decimals() + EXTRA_DECIMALS;
+
+    function rebalance() external whenNotPaused nonReentrant {
+        _rebalance();
     }
 
-    function distributePerformanceFee() public whenNotPaused nonReentrant {
-        if (!enablePerformanceFee) revert PerformanceFeeDisabled();
-        if (beneficiary == address(0)) {
-            revert BeneficiaryNotSet();
-        }
-
-        uint256 profit = totalProfit(MathUpgradeable.Rounding.Down);
-        if (profit == 0) return;
-
-        uint256 totalIdle = IERC20(asset()).balanceOf(address(this));
-        
-        uint256 amountToTransfer = profit <= totalIdle ? profit : totalIdle;
-        uint256 amountToWithdraw = profit - amountToTransfer;
-        
-        if (amountToTransfer > 0) {
-            IERC20(asset()).safeTransfer(beneficiary, amountToTransfer);
-        }
-        if (amountToWithdraw > 0) {
-            subVault.withdraw(amountToWithdraw, beneficiary, address(this));
-        }
-
-        rebalance();
-
-        emit PerformanceFeesWithdrawn(beneficiary, amountToTransfer, amountToWithdraw);
+    function distributePerformanceFee() external whenNotPaused nonReentrant {
+        _distributePerformanceFee();
     }
 
     /// @notice Set a new subvault
     /// @param  _subVault The subvault to set. Must be an ERC4626 vault with the same asset as this MasterVault.
-    function setSubVault(IERC4626 _subVault) external whenNotPaused onlyRole(VAULT_MANAGER_ROLE) {
+    function setSubVault(IERC4626 _subVault) external whenNotPaused nonReentrant onlyRole(VAULT_MANAGER_ROLE) {
         IERC20 underlyingAsset = IERC20(asset());
         if (address(_subVault.asset()) != address(underlyingAsset)) revert SubVaultAssetMismatch();
 
@@ -151,48 +128,25 @@ contract MasterVault is Initializable, ReentrancyGuardUpgradeable, ERC4626Upgrad
         emit SubvaultChanged(oldSubVault, address(_subVault));
     }
 
-    function rebalance() public whenNotPaused nonReentrant {
-        uint256 totalAssetsUp = _totalAssetsLessProfit(MathUpgradeable.Rounding.Up);
-        uint256 totalAssetsDown = _totalAssetsLessProfit(MathUpgradeable.Rounding.Down);
-        uint256 idleTargetUp = totalAssetsUp.mulDiv(1e18 - targetAllocationWad, 1e18, MathUpgradeable.Rounding.Up);
-        uint256 idleTargetDown = totalAssetsDown.mulDiv(1e18 - targetAllocationWad, 1e18, MathUpgradeable.Rounding.Down);
-        uint256 idleBalance = IERC20(asset()).balanceOf(address(this));
-        
-        if (idleTargetDown <= idleBalance && idleBalance <= idleTargetUp) {
-            return;
-        }
-
-        if (idleBalance < idleTargetDown) {
-            // we need to withdraw from subvault
-            uint256 assetsToWithdraw = idleTargetDown - idleBalance;
-            subVault.withdraw(assetsToWithdraw, address(this), address(this));
-        }
-        else {
-            // we need to deposit into subvault
-            uint256 assetsToDeposit = idleBalance - idleTargetUp;
-            subVault.deposit(assetsToDeposit, address(this));
-        }
-    }
-
-    function setTargetAllocationWad(uint256 _targetAllocationWad) external whenNotPaused onlyRole(VAULT_MANAGER_ROLE) {
+    function setTargetAllocationWad(uint256 _targetAllocationWad) external whenNotPaused nonReentrant onlyRole(VAULT_MANAGER_ROLE) {
         require(_targetAllocationWad <= 1e18, "Target allocation must be <= 100%");
         require(targetAllocationWad != _targetAllocationWad, "Allocation unchanged");
         targetAllocationWad = _targetAllocationWad;
-        rebalance();
+        _rebalance();
     }
 
     /// @notice Toggle performance fee collection on/off
     /// @dev    Not explicitly marked nonReentrant because distributePerformanceFee is called within
     ///         this function and is nonReentrant itself.
     /// @param enabled True to enable performance fees, false to disable
-    function setPerformanceFee(bool enabled) external whenNotPaused onlyRole(VAULT_MANAGER_ROLE) {
+    function setPerformanceFee(bool enabled) external whenNotPaused nonReentrant onlyRole(VAULT_MANAGER_ROLE) {
         // reset totalPrincipal to current totalAssets when enabling performance fee
         // this prevents a sudden large profit
         if (enabled) {
             totalPrincipal = _totalAssets(MathUpgradeable.Rounding.Up);
         }
         else {
-            distributePerformanceFee();
+            _distributePerformanceFee();
             totalPrincipal = 0;
         }
 
@@ -203,7 +157,7 @@ contract MasterVault is Initializable, ReentrancyGuardUpgradeable, ERC4626Upgrad
 
     /// @notice Set the beneficiary address for performance fees
     /// @param newBeneficiary Address to receive performance fees
-    function setBeneficiary(address newBeneficiary) external whenNotPaused onlyRole(VAULT_MANAGER_ROLE) {
+    function setBeneficiary(address newBeneficiary) external whenNotPaused nonReentrant onlyRole(VAULT_MANAGER_ROLE) {
         address oldBeneficiary = beneficiary;
         beneficiary = newBeneficiary;
         emit BeneficiaryUpdated(oldBeneficiary, newBeneficiary);
@@ -215,6 +169,11 @@ contract MasterVault is Initializable, ReentrancyGuardUpgradeable, ERC4626Upgrad
 
     function unpause() external onlyRole(PAUSER_ROLE) {
         _unpause();
+    }
+    
+    /// @dev Overridden to add EXTRA_DECIMALS to the underlying asset decimals
+    function decimals() public view override returns (uint8) {
+        return super.decimals() + EXTRA_DECIMALS;
     }
 
     /** @dev See {IERC4626-totalAssets}. */
@@ -245,6 +204,55 @@ contract MasterVault is Initializable, ReentrancyGuardUpgradeable, ERC4626Upgrad
         return __totalAssets > totalPrincipal ? __totalAssets - totalPrincipal : 0;
     }
 
+    function _rebalance() internal {
+        uint256 totalAssetsUp = _totalAssetsLessProfit(MathUpgradeable.Rounding.Up);
+        uint256 totalAssetsDown = _totalAssetsLessProfit(MathUpgradeable.Rounding.Down);
+        uint256 idleTargetUp = totalAssetsUp.mulDiv(1e18 - targetAllocationWad, 1e18, MathUpgradeable.Rounding.Up);
+        uint256 idleTargetDown = totalAssetsDown.mulDiv(1e18 - targetAllocationWad, 1e18, MathUpgradeable.Rounding.Down);
+        uint256 idleBalance = IERC20(asset()).balanceOf(address(this));
+        
+        if (idleTargetDown <= idleBalance && idleBalance <= idleTargetUp) {
+            return;
+        }
+
+        if (idleBalance < idleTargetDown) {
+            // we need to withdraw from subvault
+            uint256 assetsToWithdraw = idleTargetDown - idleBalance;
+            subVault.withdraw(assetsToWithdraw, address(this), address(this));
+        }
+        else {
+            // we need to deposit into subvault
+            uint256 assetsToDeposit = idleBalance - idleTargetUp;
+            subVault.deposit(assetsToDeposit, address(this));
+        }
+    }
+
+    function _distributePerformanceFee() internal {
+        if (!enablePerformanceFee) revert PerformanceFeeDisabled();
+        if (beneficiary == address(0)) {
+            revert BeneficiaryNotSet();
+        }
+
+        uint256 profit = totalProfit(MathUpgradeable.Rounding.Down);
+        if (profit == 0) return;
+
+        uint256 totalIdle = IERC20(asset()).balanceOf(address(this));
+        
+        uint256 amountToTransfer = profit <= totalIdle ? profit : totalIdle;
+        uint256 amountToWithdraw = profit - amountToTransfer;
+        
+        if (amountToTransfer > 0) {
+            IERC20(asset()).safeTransfer(beneficiary, amountToTransfer);
+        }
+        if (amountToWithdraw > 0) {
+            subVault.withdraw(amountToWithdraw, beneficiary, address(this));
+        }
+
+        _rebalance();
+
+        emit PerformanceFeesWithdrawn(beneficiary, amountToTransfer, amountToWithdraw);
+    }
+
     /**
      * @dev Deposit/mint common workflow.
      */
@@ -256,7 +264,7 @@ contract MasterVault is Initializable, ReentrancyGuardUpgradeable, ERC4626Upgrad
     ) internal override whenNotPaused nonReentrant {
         super._deposit(caller, receiver, assets, shares);
         if (enablePerformanceFee) totalPrincipal += assets;
-        rebalance();
+        _rebalance();
     }
 
     /**
@@ -276,7 +284,7 @@ contract MasterVault is Initializable, ReentrancyGuardUpgradeable, ERC4626Upgrad
             subVault.withdraw(assetsToWithdraw, address(this), address(this));
         }
         super._withdraw(caller, receiver, _owner, assets, shares);
-        rebalance();
+        _rebalance();
     }
 
     function _totalAssets(MathUpgradeable.Rounding rounding) internal view returns (uint256) {
