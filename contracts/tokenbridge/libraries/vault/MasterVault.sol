@@ -48,6 +48,7 @@ contract MasterVault is Initializable, ReentrancyGuardUpgradeable, ERC4626Upgrad
     error InvalidAsset();
     error InvalidOwner();
     error NonZeroTargetAllocation(uint256 targetAllocationWad);
+    error NonZeroSubVaultShares(uint256 subVaultShares);
 
     // todo: avoid inflation, rounding, other common 4626 vulns
     // we may need a minimum asset or master share amount when setting subvaults (bc of exchange rate calc)
@@ -133,7 +134,14 @@ contract MasterVault is Initializable, ReentrancyGuardUpgradeable, ERC4626Upgrad
     function setSubVault(IERC4626 _subVault) external whenNotPaused onlyRole(VAULT_MANAGER_ROLE) {
         IERC20 underlyingAsset = IERC20(asset());
         if (address(_subVault.asset()) != address(underlyingAsset)) revert SubVaultAssetMismatch();
+
+        // we ensure target allocation is zero, therefore the master vault holds no subvault shares
         if (targetAllocationWad != 0) revert NonZeroTargetAllocation(targetAllocationWad);
+
+        // sanity check to ensure we have zero subvault shares before changing
+        if (subVault.balanceOf(address(this)) != 0) {
+            revert NonZeroSubVaultShares(subVault.balanceOf(address(this)));
+        }
 
         address oldSubVault = address(subVault);
         subVault = _subVault;
