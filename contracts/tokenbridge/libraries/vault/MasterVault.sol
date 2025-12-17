@@ -224,14 +224,9 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
 
     // /** @dev See {IERC4626-maxMint}. */
     function maxMint(address) public view virtual override returns (uint256) {
-        if (address(subVault) == address(0)) {
-            return type(uint256).max;
-        }
         uint256 subShares = subVault.maxMint(address(this));
-        if (subShares == type(uint256).max) {
-            return type(uint256).max;
-        }
-        return totalSupply().mulDiv(subShares, subVault.balanceOf(address(this)), MathUpgradeable.Rounding.Down); // todo: check rounding direction
+        uint256 assets = _subVaultSharesToAssets(subShares, MathUpgradeable.Rounding.Down);
+        return _convertToShares(assets, MathUpgradeable.Rounding.Down);
     }
 
     function totalProfit(MathUpgradeable.Rounding rounding) public view returns (uint256) {
