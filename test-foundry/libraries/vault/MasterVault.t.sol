@@ -87,10 +87,6 @@ contract MasterVaultFirstDepositTest is MasterVaultCoreTest {
         assertEq(sharesRedeemed, withdrawAmount * DEAD_SHARES, "sharesRedeemed mismatch withdraw return value");
     }
 
-    function testFoo() public {
-        test_redeem(79228162514264337593543950335, 79228162514264337593543950332);
-    }
-
     function test_redeem(uint96 _firstMint, uint96 _redeemAmount) public {
         uint256 firstMint = _firstMint;
         uint256 redeemAmount = _redeemAmount;
