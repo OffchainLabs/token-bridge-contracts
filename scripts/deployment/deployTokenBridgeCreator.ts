@@ -79,6 +79,7 @@ export const deployTokenBridgeCreator = async () => {
       l1Deployer,
       envVars.baseChainWeth,
       gasLimitForL2FactoryDeployment,
+      true,
       true
     )
 

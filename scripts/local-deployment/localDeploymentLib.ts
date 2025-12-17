@@ -21,6 +21,31 @@ const LOCALHOST_L2_RPC = 'http://127.0.0.1:8547'
 const LOCALHOST_L3_RPC = 'http://127.0.0.1:3347'
 const LOCALHOST_L3_OWNER_KEY =
   '0xecdf21cb41c65afb51f91df408b7656e2c8739a5877f2814add0afd780cc210e'
+
+export const deployCreate2Factory = async (
+  deployerWallet: Wallet
+): Promise<void> => {
+  const create2FactoryAddress = '0x4e59b44847b379578588920ca78fbf26c0b4956c'
+  const factoryCode = await deployerWallet.provider.getCode(
+    create2FactoryAddress
+  )
+  if (factoryCode.length <= 2) {
+    console.log('CREATE2 factory not yet deployed. Deploying...')
+    const fundingTx = await deployerWallet.sendTransaction({
+      to: '0x3fab184622dc19b6109349b94811493bf2a45362',
+      value: ethers.utils.parseEther('0.01'),
+    })
+    await fundingTx.wait()
+    const create2SignedTx =
+      '0xf8a58085174876e800830186a08080b853604580600e600039806000f350fe7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf31ba02222222222222222222222222222222222222222222222222222222222222222a02222222222222222222222222222222222222222222222222222222222222222'
+    const create2DeployTx = await deployerWallet.provider.sendTransaction(
+      create2SignedTx
+    )
+    await create2DeployTx.wait()
+    console.log(`CREATE2 factory deployed at ${create2FactoryAddress}`)
+  }
+}
+
 /**
  * Steps:
  * - read network info from local container and register networks
@@ -83,6 +108,9 @@ export const setupTokenBridgeInLocalEnv = async () => {
   )
   registerCustomArbitrumNetwork(coreL2Network)
 
+  // prerequisite - deploy CREATE2 factory
+  await deployCreate2Factory(parentDeployer)
+
   // prerequisite - deploy L1 creator and set templates
   console.log('Deploying L1TokenBridgeCreator')
 
@@ -108,7 +136,9 @@ export const setupTokenBridgeInLocalEnv = async () => {
     await deployL1TokenBridgeCreator(
       parentDeployer,
       l1Weth,
-      gasLimitForL2FactoryDeployment
+      gasLimitForL2FactoryDeployment,
+      false,
+      true
     )
   console.log('L1TokenBridgeCreator', l1TokenBridgeCreator.address)
   console.log('L1TokenBridgeRetryableSender', retryableSender.address)
