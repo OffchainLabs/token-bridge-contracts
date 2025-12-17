@@ -225,6 +225,9 @@ contract MasterVault is Initializable, ReentrancyGuardUpgradeable, ERC4626Upgrad
     // /** @dev See {IERC4626-maxMint}. */
     function maxMint(address) public view virtual override returns (uint256) {
         uint256 subShares = subVault.maxMint(address(this));
+        if (subShares == type(uint256).max) {
+            return type(uint256).max;
+        }
         uint256 assets = _subVaultSharesToAssets(subShares, MathUpgradeable.Rounding.Down);
         return _convertToShares(assets, MathUpgradeable.Rounding.Down);
     }
