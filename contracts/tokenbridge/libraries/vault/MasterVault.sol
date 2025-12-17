@@ -128,7 +128,7 @@ contract MasterVault is Initializable, ReentrancyGuardUpgradeable, ERC4626Upgrad
         emit PerformanceFeesWithdrawn(beneficiary, amountToTransfer, amountToWithdraw);
     }
 
-    /// @notice Set a subvault. Can only be called if there is not already a subvault set.
+    /// @notice Set a new subvault
     /// @param  _subVault The subvault to set. Must be an ERC4626 vault with the same asset as this MasterVault.
     function setSubVault(IERC4626 _subVault) external whenNotPaused onlyRole(VAULT_MANAGER_ROLE) {
         IERC20 underlyingAsset = IERC20(asset());
