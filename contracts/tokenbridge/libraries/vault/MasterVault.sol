@@ -17,16 +17,14 @@ import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/se
 // todo: should we have an arbitrary call function for the vault manager to do stuff with the subvault? like queue withdrawals etc
 
 /// @notice MasterVault is an ERC4626 metavault that deposits assets to an admin defined subVault.
-/// @dev    If a subVault is not set, MasterVault shares entitle holders to a pro-rata share of the underlying held by the MasterVault.
-///         If a subVault is set, MasterVault shares entitle holders to a pro-rata share of subVault shares held by the MasterVault.
-///         On deposit to the MasterVault, if there is a subVault set, the assets are immediately deposited into the subVault.
-///         On withdraw from the MasterVault, if there is a subVault set, a pro rata amount of subvault shares are redeemed.
-///         On deposit and withdraw, if there is no subVault set, assets are moved to/from the MasterVault itself.
+/// @dev    The MasterVault keeps some fraction of assets idle and deposits the rest into the subVault to earn yield.
+///         A 100% performance fee can be enabled/disabled by the vault manager, and are collected on demand.
+///         The MasterVault mitigates the "first depositor" problem by adding 18 decimals to the underlying asset.
+///         i.e. if the underlying asset has 6 decimals, the MasterVault will have 24 decimals.
 ///
 ///         For a subVault to be compatible with the MasterVault, it must adhere to the following:
-///         - It must be able to handle arbitrarily large deposits and withdrawals
-///         - Deposit size or withdrawal size must not affect the exchange rate (i.e. no slippage)
 ///         - convertToAssets and convertToShares must not be manipulable
+///         - must not have deposit / withdrawal fees (todo: verify this requirement is necessary)
 contract MasterVault is Initializable, ReentrancyGuardUpgradeable, ERC4626Upgradeable, AccessControlUpgradeable, PausableUpgradeable {
     using SafeERC20 for IERC20;
     using MathUpgradeable for uint256;
