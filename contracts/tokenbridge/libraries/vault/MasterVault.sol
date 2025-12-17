@@ -78,6 +78,7 @@ contract MasterVault is Initializable, ReentrancyGuardUpgradeable, ERC4626Upgrad
         // call decimals() to ensure underlying has reasonable decimals and we won't have overflow
         decimals();
 
+        __ReentrancyGuard_init();
         __AccessControl_init();
         __Pausable_init();
 
