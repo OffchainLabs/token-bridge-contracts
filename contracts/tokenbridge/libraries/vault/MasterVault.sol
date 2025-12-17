@@ -104,7 +104,7 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
         return super.decimals() + EXTRA_DECIMALS;
     }
 
-    function distributePerformanceFee() external whenNotPaused {
+    function distributePerformanceFee() public whenNotPaused {
         if (!enablePerformanceFee) revert PerformanceFeeDisabled();
         if (beneficiary == address(0)) {
             revert BeneficiaryNotSet();
@@ -147,7 +147,6 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
     }
 
     function rebalance() public {
-        // todo: handle 0 and 100 special cases if needed
         uint256 totalAssetsUp = _totalAssetsLessProfit(MathUpgradeable.Rounding.Up);
         uint256 totalAssetsDown = _totalAssetsLessProfit(MathUpgradeable.Rounding.Down);
         uint256 idleTargetUp = totalAssetsUp.mulDiv(1e18 - targetAllocationWad, 1e18, MathUpgradeable.Rounding.Up);
@@ -179,17 +178,17 @@ contract MasterVault is Initializable, ERC4626Upgradeable, AccessControlUpgradea
     /// @notice Toggle performance fee collection on/off
     /// @param enabled True to enable performance fees, false to disable
     function setPerformanceFee(bool enabled) external onlyRole(VAULT_MANAGER_ROLE) {
-        enablePerformanceFee = enabled;
-
         // reset totalPrincipal to current totalAssets when enabling performance fee
         // this prevents a sudden large profit
         if (enabled) {
             totalPrincipal = _totalAssets(MathUpgradeable.Rounding.Up);
         }
         else {
-            // todo: we need to distribute here
+            distributePerformanceFee();
             totalPrincipal = 0;
         }
+
+        enablePerformanceFee = enabled;
 
         emit PerformanceFeeToggled(enabled);
     }
