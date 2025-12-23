@@ -2,14 +2,19 @@
 
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/utils/Create2.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 import "../ClonableBeaconProxy.sol";
 import "./IMasterVault.sol";
 import "./IMasterVaultFactory.sol";
 import "./MasterVault.sol";
 
+contract DefaultSubVault is ERC4626 {
+    constructor(address token) ERC4626(IERC20(token)) ERC20("Default SubVault", "DSV") {}
+}
+
+// todo: slim down this contract
 contract MasterVaultFactory is IMasterVaultFactory, Initializable {
     error ZeroAddress();
     error BeaconNotDeployed();
@@ -27,23 +32,13 @@ contract MasterVaultFactory is IMasterVaultFactory, Initializable {
     }
 
     function deployVault(address token) public returns (address vault) {
-        if (token == address(0)) {
-            revert ZeroAddress();
-        }
-        if (
-            address(beaconProxyFactory) == address(0) && beaconProxyFactory.beacon() == address(0)
-        ) {
-            revert BeaconNotDeployed();
-        }
-
         bytes32 userSalt = _getUserSalt(token);
         vault = beaconProxyFactory.createProxy(userSalt);
 
-        IERC20Metadata tokenMetadata = IERC20Metadata(token);
-        string memory name = string(abi.encodePacked("Master ", tokenMetadata.name()));
-        string memory symbol = string(abi.encodePacked("m", tokenMetadata.symbol()));
+        string memory name = string(abi.encodePacked("Master ", _tryGetTokenName(token)));
+        string memory symbol = string(abi.encodePacked("m", _tryGetTokenSymbol(token)));
 
-        MasterVault(vault).initialize(IERC20(token), name, symbol, owner);
+        MasterVault(vault).initialize(new DefaultSubVault(token), name, symbol, owner);
 
         emit VaultDeployed(token, vault);
     }
@@ -63,5 +58,21 @@ contract MasterVaultFactory is IMasterVaultFactory, Initializable {
             return deployVault(token);
         }
         return vault;
+    }
+
+    function _tryGetTokenName(address token) internal view returns (string memory) {
+        try IERC20Metadata(token).name() returns (string memory name) {
+            return name;
+        } catch {
+            return "";
+        }
+    }
+
+    function _tryGetTokenSymbol(address token) internal view returns (string memory) {
+        try IERC20Metadata(token).symbol() returns (string memory symbol) {
+            return symbol;
+        } catch {
+            return "";
+        }
     }
 }

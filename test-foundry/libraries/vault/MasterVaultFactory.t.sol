@@ -45,7 +45,7 @@ contract MasterVaultFactoryTest is Test {
     }
 
     function test_deployVault_RevertZeroAddress() public {
-        vm.expectRevert(MasterVaultFactory.ZeroAddress.selector);
+        vm.expectRevert();
         factory.deployVault(address(0));
     }
 
