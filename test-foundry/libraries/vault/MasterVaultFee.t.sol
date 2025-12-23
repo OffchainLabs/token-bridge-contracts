@@ -326,8 +326,8 @@ contract MasterVaultFeeTest is MasterVaultCoreTest {
         if (expectedProfit > 0) {
             uint256 vaultBalance = token.balanceOf(address(vault));
             uint256 expectedTransferred = MathUpgradeable.min(vaultBalance, expectedProfit);
-            // vm.expectEmit(true, true, true, true);
-            // emit PerformanceFeesWithdrawn(beneficiaryAddress, expectedTransferred, expectedProfit - expectedTransferred);
+            vm.expectEmit(true, true, true, true);
+            emit PerformanceFeesWithdrawn(beneficiaryAddress, expectedTransferred, expectedProfit - expectedTransferred);
         }
         vault.distributePerformanceFee();
 
