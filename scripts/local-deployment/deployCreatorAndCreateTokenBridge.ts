@@ -1,5 +1,7 @@
 import * as fs from 'fs'
 import { setupTokenBridgeInLocalEnv } from './localDeploymentLib'
+import dotenv from 'dotenv'
+dotenv.config()
 
 async function main() {
   const {
