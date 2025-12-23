@@ -121,7 +121,7 @@ export class ContractVerifier {
       return
     }
 
-    if (!process.env.ARBISCAN_API_KEY) {
+    if (!this.apiKey) {
       console.warn(
         'ARBISCAN_API_KEY is not set. Skipping contract verification.'
       )
