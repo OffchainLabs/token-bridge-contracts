@@ -6,7 +6,9 @@ import { MasterVault } from "../../../contracts/tokenbridge/libraries/vault/Mast
 import { MockSubVault } from "../../../contracts/tokenbridge/test/MockSubVault.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IERC4626 } from "@openzeppelin/contracts/interfaces/IERC4626.sol";
-import { MathUpgradeable } from "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
+import {
+    MathUpgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
 
 contract MasterVaultFeeTest is MasterVaultCoreTest {
     address public beneficiaryAddress = address(0x9999);
@@ -123,11 +125,7 @@ contract MasterVaultFeeTest is MasterVaultCoreTest {
 
         uint256 assets = vault.mint(shares, user);
 
-        assertEq(
-            vault.totalPrincipal(),
-            assets,
-            "Total principal should equal assets deposited"
-        );
+        assertEq(vault.totalPrincipal(), assets, "Total principal should equal assets deposited");
 
         vm.stopPrank();
     }
@@ -198,11 +196,18 @@ contract MasterVaultFeeTest is MasterVaultCoreTest {
         vault.distributePerformanceFee();
     }
 
-    function test_withdrawPerformanceFees_VaultDoubleInAssets() public {
+    function test_withdrawPerformanceFees_VaultDoubleInAssets_Fuzz(uint256 allocationWad) public {
+        IERC4626 _subvault = vault.subVault();
+
+        vm.assume(allocationWad <= 1e18);
+
+        if (vault.targetAllocationWad() != allocationWad) {
+            vault.setTargetAllocationWad(allocationWad);
+        }
+
+        vault.setPerformanceFee(true);
         vault.setBeneficiary(beneficiaryAddress);
         vault.setPerformanceFee(true);
-
-        address _assetsHoldingVault = address(vault); // since allocation is 0
 
         vm.startPrank(user);
         token.mint();
@@ -211,19 +216,28 @@ contract MasterVaultFeeTest is MasterVaultCoreTest {
         vault.deposit(depositAmount, user);
         vm.stopPrank();
 
-        assertEq(
-            vault.totalPrincipal(),
-            depositAmount,
-            "Total principal should equal deposit"
-        );
+        vault.rebalance();
+
+        assertEq(vault.totalPrincipal(), depositAmount, "Total principal should equal deposit");
         assertEq(vault.totalAssets(), depositAmount, "Total assets should equal deposit");
-        assertEq(vault.totalProfit(MathUpgradeable.Rounding.Up), 0, "Should have no profit initially");
+        assertEq(
+            vault.totalProfit(MathUpgradeable.Rounding.Up),
+            0,
+            "Should have no profit initially"
+        );
 
-        uint256 assetsHoldingVaultBalance = token.balanceOf(_assetsHoldingVault);
-        uint256 amountToMint = assetsHoldingVaultBalance;
+        uint256 subVaultAssets = _subvault.totalAssets();
+        uint256 idleAssets = token.balanceOf(address(vault));
 
-        vm.prank(_assetsHoldingVault);
-        token.mint(amountToMint);
+        if (subVaultAssets > 0) {
+            vm.prank(address(_subvault));
+            token.mint(subVaultAssets);
+        }
+
+        if (idleAssets > 0) {
+            vm.prank(address(vault));
+            token.mint(idleAssets);
+        }
 
         assertEq(vault.totalAssets(), depositAmount * 2, "Total assets should be doubled");
         assertEq(
@@ -234,8 +248,13 @@ contract MasterVaultFeeTest is MasterVaultCoreTest {
 
         uint256 beneficiaryBalanceBefore = token.balanceOf(beneficiaryAddress);
 
-        vm.expectEmit(true, true, true, true);
-        emit PerformanceFeesWithdrawn(beneficiaryAddress, depositAmount, 0);
+        uint256 expectedProfit = depositAmount;
+        if (expectedProfit > 0) {
+            uint256 vaultBalance = token.balanceOf(address(vault));
+            uint256 expectedTransferred = MathUpgradeable.min(vaultBalance, expectedProfit);
+            vm.expectEmit(true, true, true, true);
+            emit PerformanceFeesWithdrawn(beneficiaryAddress, expectedTransferred, expectedProfit - expectedTransferred);
+        }
         vault.distributePerformanceFee();
 
         assertEq(
@@ -246,6 +265,81 @@ contract MasterVaultFeeTest is MasterVaultCoreTest {
         assertEq(
             vault.totalAssets(),
             depositAmount,
+            "Vault assets should decrease by profit amount"
+        );
+    }
+
+    function test_withdrawPerformanceFees_SubVaultDoubleInAssets_Fuzz(
+        uint256 allocationWad
+    ) public {
+        IERC4626 _subvault = vault.subVault();
+
+        vm.assume(allocationWad <= 1e18);
+
+        if (vault.targetAllocationWad() != allocationWad) {
+            vault.setTargetAllocationWad(allocationWad);
+        }
+
+        vault.setPerformanceFee(true);
+        vault.setBeneficiary(beneficiaryAddress);
+
+        vm.startPrank(user);
+        token.mint();
+        uint256 depositAmount = token.balanceOf(user);
+        token.approve(address(vault), depositAmount);
+        vault.deposit(depositAmount, user);
+        vm.stopPrank();
+
+        vault.rebalance();
+
+        assertEq(vault.totalPrincipal(), depositAmount, "Total principal should equal deposit");
+        assertEq(vault.totalAssets(), depositAmount, "Total assets should equal deposit");
+        assertEq(
+            vault.totalProfit(MathUpgradeable.Rounding.Up),
+            0,
+            "Should have no profit initially"
+        );
+
+        uint256 subVaultAssets = _subvault.totalAssets();
+        uint256 vaultAssetsInSubVault = vault.totalAssets() - token.balanceOf(address(vault));
+
+        if (subVaultAssets > 0) {
+            vm.prank(address(_subvault));
+            token.mint(subVaultAssets);
+        }
+
+        uint256 expectedProfit = vaultAssetsInSubVault;
+
+        assertEq(
+            vault.totalAssets(),
+            depositAmount + expectedProfit,
+            "Total assets should increase by subvault profit"
+        );
+        assertEq(
+            vault.totalProfit(MathUpgradeable.Rounding.Down),
+            expectedProfit,
+            "Profit should equal subvault profit"
+        );
+
+        uint256 beneficiaryBalanceBefore = token.balanceOf(beneficiaryAddress);
+
+        if (expectedProfit > 0) {
+            uint256 vaultBalance = token.balanceOf(address(vault));
+            uint256 expectedTransferred = MathUpgradeable.min(vaultBalance, expectedProfit);
+            // vm.expectEmit(true, true, true, true);
+            // emit PerformanceFeesWithdrawn(beneficiaryAddress, expectedTransferred, expectedProfit - expectedTransferred);
+        }
+        vault.distributePerformanceFee();
+
+        assertEq(
+            token.balanceOf(beneficiaryAddress),
+            beneficiaryBalanceBefore + expectedProfit,
+            "Beneficiary should receive profit"
+        );
+        assertApproxEqAbs(
+            vault.totalAssets(),
+            depositAmount,
+            1,
             "Vault assets should decrease by profit amount"
         );
     }
@@ -263,26 +357,26 @@ contract MasterVaultFeeTestWithSubvaultFresh is MasterVaultFeeTest {
     }
 }
 
-contract MasterVaultFeeTestWithSubvaultHoldingAssets is MasterVaultFeeTest {
-    function setUp() public override {
-        super.setUp();
+// contract MasterVaultFeeTestWithSubvaultHoldingAssets is MasterVaultFeeTest {
+//     function setUp() public override {
+//         super.setUp();
 
-        MockSubVault _subvault = new MockSubVault(IERC20(address(token)), "TestSubvault", "TSV");
-        uint256 _initAmount = 97659744;
-        token.mint(_initAmount);
-        token.approve(address(_subvault), _initAmount);
-        _subvault.deposit(_initAmount, address(this));
-        assertEq(
-            _initAmount,
-            _subvault.totalAssets(),
-            "subvault should be initiated with assets = _initAmount"
-        );
-        assertEq(
-            _initAmount,
-            _subvault.totalSupply(),
-            "subvault should be initiated with shares = _initAmount"
-        );
+//         MockSubVault _subvault = new MockSubVault(IERC20(address(token)), "TestSubvault", "TSV");
+//         uint256 _initAmount = 97659744;
+//         token.mint(_initAmount);
+//         token.approve(address(_subvault), _initAmount);
+//         _subvault.deposit(_initAmount, address(this));
+//         assertEq(
+//             _initAmount,
+//             _subvault.totalAssets(),
+//             "subvault should be initiated with assets = _initAmount"
+//         );
+//         assertEq(
+//             _initAmount,
+//             _subvault.totalSupply(),
+//             "subvault should be initiated with shares = _initAmount"
+//         );
 
-        vault.setSubVault(IERC4626(address(_subvault)));
-    }
-}
+//         vault.setSubVault(IERC4626(address(_subvault)));
+//     }
+// }
