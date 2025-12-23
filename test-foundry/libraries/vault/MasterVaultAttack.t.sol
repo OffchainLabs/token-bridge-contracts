@@ -2,16 +2,16 @@
 pragma solidity ^0.8.0;
 
 import "forge-std/console2.sol";
-import { MasterVaultTest } from "./MasterVault.t.sol";
+import { MasterVaultCoreTest } from "./MasterVaultCore.t.sol";
 import { MockSubVault } from "../../../contracts/tokenbridge/test/MockSubVault.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IERC4626 } from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 
-contract MasterVaultTestWithSubvaultFresh is MasterVaultTest {
+contract MasterVaultTestWithSubvaultFresh is MasterVaultCoreTest {
     function setUp() public override {
         super.setUp();
         MockSubVault _subvault = new MockSubVault(IERC20(address(token)), "TestSubvault", "TSV");
-        vault.setSubVault(IERC4626(address(_subvault)), 0);
+        vault.setSubVault(IERC4626(address(_subvault)));
     }
 }
 
