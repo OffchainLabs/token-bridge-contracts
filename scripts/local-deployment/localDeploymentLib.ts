@@ -125,6 +125,7 @@ export const setupTokenBridgeInLocalEnv = async () => {
       true
     )
     l1Weth = l1WethContract.address
+    console.log('Deployed WETH at', l1Weth)
   }
 
   //// run retryable estimate for deploying L2 factory
