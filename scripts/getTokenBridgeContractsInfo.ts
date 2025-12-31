@@ -14,6 +14,17 @@ type Alloc = {
   }
 }
 
+// Constants
+// EIP-1967 admin slot
+const adminSlot =
+  '0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103'
+// EIP-1967 implementation slot
+const implSlot =
+  '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc'
+
+// Initialize alloc object
+const alloc: Alloc = {}
+
 // Check environment variables
 const parentChainRpc = process.env.PARENT_CHAIN_RPC as string
 if (!parentChainRpc) {
@@ -61,16 +72,6 @@ type ForgeStorageEntry = {
   slot: string // note: string, we’ll convert to bigint
   type: string
   bytes: string
-}
-
-type ForgeTypeInfo = {
-  label: string
-  encoding: 'inplace' | 'mapping' | 'dynamic_array' | string
-  numberOfBytes: string
-  base?: string
-  key?: string
-  value?: string
-  members?: any[]
 }
 
 type ForgeStorageLayout = {
@@ -193,10 +194,32 @@ async function getStorageLayout(
   return storage
 }
 
-async function main() {
-  // Initialize alloc object
-  const alloc: Alloc = {}
+async function getAddressFromStorage(
+  address: `0x${string}`,
+  rawslot: `0x${string}`
+): Promise<`0x${string}`> {
+  const slot = ethers.BigNumber.from(rawslot)
+  const addressRaw = await parentChainProvider.getStorageAt(
+    address,
+    slot.toBigInt()
+  )
+  return ethers.utils.getAddress(
+    ethers.utils.hexDataSlice(addressRaw, 12)
+  ) as `0x${string}`
+}
 
+async function addAddressToStorage(
+  contractAddress: `0x${string}`,
+  slot: `0x${string}`,
+  addressToAdd: `0x${string}`
+): Promise<void> {
+  if (!alloc[contractAddress].storage) {
+    alloc[contractAddress].storage = {}
+  }
+  alloc[contractAddress].storage![slot] = addressToAdd
+}
+
+async function main() {
   // Create2 proxy
   const create2ProxyAddress =
     '0x4e59b44847b379578588920cA78FbF26c0B4956C' as `0x${string}`
@@ -206,6 +229,36 @@ async function main() {
   alloc[tokenBridgeCreatorAddress] = await getAccountInformation(
     tokenBridgeCreatorAddress,
     'contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol:L1AtomicTokenBridgeCreator'
+  )
+
+  // TokenBridgeCreator ProxyAdmin
+  const tokenBridgeCreatorProxyAdminAddress = await getAddressFromStorage(
+    tokenBridgeCreatorAddress,
+    adminSlot
+  )
+  alloc[tokenBridgeCreatorProxyAdminAddress] = await getAccountInformation(
+    tokenBridgeCreatorProxyAdminAddress,
+    'ProxyAdmin'
+  )
+  await addAddressToStorage(
+    tokenBridgeCreatorAddress,
+    adminSlot,
+    tokenBridgeCreatorProxyAdminAddress
+  )
+
+  // TokenBridgeCreator Logic
+  const tokenBridgeCreatorLogicAddress = await getAddressFromStorage(
+    tokenBridgeCreatorAddress,
+    implSlot
+  )
+  alloc[tokenBridgeCreatorLogicAddress] = await getAccountInformation(
+    tokenBridgeCreatorLogicAddress,
+    'contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol:L1AtomicTokenBridgeCreator'
+  )
+  await addAddressToStorage(
+    tokenBridgeCreatorAddress,
+    implSlot,
+    tokenBridgeCreatorLogicAddress
   )
 
   // RetryableSender
@@ -218,6 +271,21 @@ async function main() {
   alloc[retryableSenderAddress] = await getAccountInformation(
     retryableSenderAddress,
     'contracts/tokenbridge/ethereum/L1TokenBridgeRetryableSender.sol:L1TokenBridgeRetryableSender'
+  )
+
+  // RetryableSender Logic
+  const retryableSenderLogicAddress = await getAddressFromStorage(
+    retryableSenderAddress,
+    implSlot
+  )
+  alloc[retryableSenderLogicAddress] = await getAccountInformation(
+    retryableSenderLogicAddress,
+    'contracts/tokenbridge/ethereum/L1TokenBridgeRetryableSender.sol:L1TokenBridgeRetryableSender'
+  )
+  await addAddressToStorage(
+    retryableSenderAddress,
+    implSlot,
+    retryableSenderLogicAddress
   )
 
   // L1 templates
