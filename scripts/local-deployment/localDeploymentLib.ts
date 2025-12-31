@@ -6,6 +6,7 @@ import { RollupAdminLogic__factory } from '@arbitrum/sdk/dist/lib/abi/factories/
 import { execSync } from 'child_process'
 import {
   createTokenBridge,
+  deployContract,
   deployL1TokenBridgeCreator,
   getEstimateForDeployingFactory,
   registerGateway,
@@ -116,12 +117,13 @@ export const setupTokenBridgeInLocalEnv = async () => {
 
   let l1Weth = process.env['PARENT_WETH_OVERRIDE']
   if (l1Weth === undefined || l1Weth === '') {
-    const l1WethContract = await new TestWETH9__factory(parentDeployer).deploy(
-      'WETH',
-      'WETH'
+    const l1WethContract = await deployContract(
+      TestWETH9__factory,
+      parentDeployer,
+      ['WETH', 'WETH'],
+      false,
+      true
     )
-    await l1WethContract.deployed()
-
     l1Weth = l1WethContract.address
   }
 
@@ -273,9 +275,11 @@ export const getLocalNetwork = async (
 
   let nativeToken: string | undefined = undefined
   try {
-    nativeToken = await IERC20Bridge__factory.connect(data.bridge, l1Provider).nativeToken()
-  }
-  catch {}
+    nativeToken = await IERC20Bridge__factory.connect(
+      data.bridge,
+      l1Provider
+    ).nativeToken()
+  } catch {}
 
   const l2Network: ArbitrumNetwork = {
     nativeToken,
@@ -292,7 +296,7 @@ export const getLocalNetwork = async (
     isCustom: true,
     name: 'OrbitLocal',
     retryableLifetimeSeconds: 7 * 24 * 60 * 60,
-    isTestnet: true
+    isTestnet: true,
   }
   return {
     l2Network,
