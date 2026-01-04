@@ -24,6 +24,7 @@ contract MasterVaultCoreTest is Test {
     address public user = vm.addr(1);
     string public name = "Master Test Token";
     string public symbol = "mTST";
+    uint256 public constant DEAD_SHARES = 10 ** 18;
 
     struct State {
         uint256 userShares;
@@ -31,6 +32,7 @@ contract MasterVaultCoreTest is Test {
         uint256 masterVaultTotalSupply;
         uint256 masterVaultTokenBalance;
         uint256 masterVaultSubVaultShareBalance;
+        uint256 masterVaultTotalPrincipal;
         uint256 subVaultTotalAssets;
         uint256 subVaultTotalSupply;
         uint256 subVaultTokenBalance;
@@ -70,6 +72,11 @@ contract MasterVaultCoreTest is Test {
             "masterVaultSubVaultShareBalance mismatch"
         );
         assertEq(
+            expectedState.masterVaultTotalPrincipal,
+            vault.totalPrincipal(),
+            "masterVaultTotalPrincipal mismatch"
+        );
+        assertEq(
             expectedState.subVaultTotalAssets,
             vault.subVault().totalAssets(),
             "subVaultTotalAssets mismatch"
@@ -94,6 +101,7 @@ contract MasterVaultCoreTest is Test {
                 masterVaultTotalSupply: vault.totalSupply(),
                 masterVaultTokenBalance: token.balanceOf(address(vault)),
                 masterVaultSubVaultShareBalance: vault.subVault().balanceOf(address(vault)),
+                masterVaultTotalPrincipal: vault.totalPrincipal(),
                 subVaultTotalAssets: vault.subVault().totalAssets(),
                 subVaultTotalSupply: vault.subVault().totalSupply(),
                 subVaultTokenBalance: token.balanceOf(address(vault.subVault()))
@@ -107,6 +115,7 @@ contract MasterVaultCoreTest is Test {
         console2.log(" masterVaultTotalSupply:", state.masterVaultTotalSupply);
         console2.log(" masterVaultTokenBalance:", state.masterVaultTokenBalance);
         console2.log(" masterVaultSubVaultShareBalance:", state.masterVaultSubVaultShareBalance);
+        console2.log(" masterVaultTotalPrincipal:", state.masterVaultTotalPrincipal);
         console2.log(" subVaultTotalAssets:", state.subVaultTotalAssets);
         console2.log(" subVaultTotalSupply:", state.subVaultTotalSupply);
         console2.log(" subVaultTokenBalance:", state.subVaultTokenBalance);

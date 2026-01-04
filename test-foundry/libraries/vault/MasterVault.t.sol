@@ -10,8 +10,6 @@ import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 contract MasterVaultFirstDepositTest is MasterVaultCoreTest {
     using Math for uint256;
 
-    uint256 constant DEAD_SHARES = 10 ** 18;
-
     // first deposit
     function test_deposit(uint96 _depositAmount) public {
         uint256 depositAmount = _depositAmount;
@@ -27,6 +25,7 @@ contract MasterVaultFirstDepositTest is MasterVaultCoreTest {
                 masterVaultTotalSupply: (1 + depositAmount) * DEAD_SHARES,
                 masterVaultTokenBalance: depositAmount,
                 masterVaultSubVaultShareBalance: 0,
+                masterVaultTotalPrincipal: 0,
                 subVaultTotalAssets: 0,
                 subVaultTotalSupply: 0,
                 subVaultTokenBalance: 0
@@ -49,6 +48,7 @@ contract MasterVaultFirstDepositTest is MasterVaultCoreTest {
                 masterVaultTotalSupply: mintAmount + DEAD_SHARES,
                 masterVaultTokenBalance: mintAmount.ceilDiv(1e18),
                 masterVaultSubVaultShareBalance: 0,
+                masterVaultTotalPrincipal: 0,
                 subVaultTotalAssets: 0,
                 subVaultTotalSupply: 0,
                 subVaultTokenBalance: 0
@@ -72,6 +72,7 @@ contract MasterVaultFirstDepositTest is MasterVaultCoreTest {
                 masterVaultTotalSupply: (1 + firstDeposit - withdrawAmount) * DEAD_SHARES,
                 masterVaultTokenBalance: firstDeposit - withdrawAmount,
                 masterVaultSubVaultShareBalance: 0,
+                masterVaultTotalPrincipal: 0,
                 subVaultTotalAssets: 0,
                 subVaultTotalSupply: 0,
                 subVaultTokenBalance: 0
@@ -102,6 +103,7 @@ contract MasterVaultFirstDepositTest is MasterVaultCoreTest {
                 masterVaultTotalSupply: beforeState.masterVaultTotalSupply - redeemAmount,
                 masterVaultTokenBalance: beforeState.masterVaultTokenBalance - expectedAssets,
                 masterVaultSubVaultShareBalance: 0,
+                masterVaultTotalPrincipal: 0,
                 subVaultTotalAssets: 0,
                 subVaultTotalSupply: 0,
                 subVaultTokenBalance: 0
