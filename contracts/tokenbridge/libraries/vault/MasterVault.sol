@@ -340,8 +340,8 @@ contract MasterVault is Initializable, ReentrancyGuardUpgradeable, ERC4626Upgrad
 
     function _totalAssetsLessProfit(MathUpgradeable.Rounding rounding) internal view returns (uint256) {
         uint256 __totalAssets = _totalAssets(rounding);
-        if (enablePerformanceFee) {
-            __totalAssets -= totalProfit(_flipRounding(rounding));
+        if (enablePerformanceFee && __totalAssets > totalPrincipal) {
+            return totalPrincipal;
         }
         return __totalAssets;
     }
