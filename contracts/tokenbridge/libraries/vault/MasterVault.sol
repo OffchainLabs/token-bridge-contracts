@@ -25,6 +25,10 @@ import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/se
 ///         For a subVault to be compatible with the MasterVault, it must adhere to the following:
 ///         - convertToAssets and convertToShares must not be manipulable
 ///         - must not have deposit / withdrawal fees (todo: verify this requirement is necessary)
+///
+///         maxDeposit and maxMint are always type(uint256).max, which may not reflect the subVault's limits.
+///         maxWithdraw and maxRedeem are based solely on the user's balance of MasterVault
+///         shares and the MasterVault total assets and therefore may not reflect the subVault's limits.
 contract MasterVault is Initializable, ReentrancyGuardUpgradeable, ERC4626Upgradeable, AccessControlUpgradeable, PausableUpgradeable {
     using SafeERC20 for IERC20;
     using MathUpgradeable for uint256;
@@ -40,6 +44,7 @@ contract MasterVault is Initializable, ReentrancyGuardUpgradeable, ERC4626Upgrad
     ///         See https://docs.openzeppelin.com/contracts/5.x/erc4626 for more details on the mitigation.
     uint8 public constant EXTRA_DECIMALS = 18;
 
+    error Unimplemented();
     error SubVaultAssetMismatch();
     error PerformanceFeeDisabled();
     error BeneficiaryNotSet();
@@ -181,27 +186,14 @@ contract MasterVault is Initializable, ReentrancyGuardUpgradeable, ERC4626Upgrad
         return _totalAssets(MathUpgradeable.Rounding.Down);
     }
 
-    /** @dev See {IERC4626-maxDeposit}. */
-    function maxDeposit(address) public view virtual override returns (uint256) {
-        if (address(subVault) == address(0)) {
-            return type(uint256).max;
-        }
-        return subVault.maxDeposit(address(this));
-    }
-
-    // /** @dev See {IERC4626-maxMint}. */
-    function maxMint(address) public view virtual override returns (uint256) {
-        uint256 subShares = subVault.maxMint(address(this));
-        if (subShares == type(uint256).max) {
-            return type(uint256).max;
-        }
-        uint256 assets = _subVaultSharesToAssets(subShares, MathUpgradeable.Rounding.Down);
-        return _convertToShares(assets, MathUpgradeable.Rounding.Down);
-    }
-
     function totalProfit(MathUpgradeable.Rounding rounding) public view returns (uint256) {
         uint256 __totalAssets = _totalAssets(rounding);
         return __totalAssets > totalPrincipal ? __totalAssets - totalPrincipal : 0;
+    }
+
+    /// @inheritdoc ERC4626Upgradeable
+    function maxDeposit(address) public view virtual override returns (uint256) {
+        return type(uint256).max;
     }
 
     function _rebalance() internal {
