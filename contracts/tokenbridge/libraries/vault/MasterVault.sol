@@ -117,7 +117,7 @@ contract MasterVault is Initializable, ReentrancyGuardUpgradeable, ERC4626Upgrad
 
     /// @notice Set a new subvault
     /// @param  _subVault The subvault to set. Must be an ERC4626 vault with the same asset as this MasterVault.
-    function setSubVault(IERC4626 _subVault) external whenNotPaused nonReentrant onlyRole(VAULT_MANAGER_ROLE) {
+    function setSubVault(IERC4626 _subVault) external nonReentrant onlyRole(VAULT_MANAGER_ROLE) {
         IERC20 underlyingAsset = IERC20(asset());
         if (address(_subVault.asset()) != address(underlyingAsset)) revert SubVaultAssetMismatch();
 
@@ -138,24 +138,22 @@ contract MasterVault is Initializable, ReentrancyGuardUpgradeable, ERC4626Upgrad
         emit SubvaultChanged(oldSubVault, address(_subVault));
     }
 
-    function setTargetAllocationWad(uint256 _targetAllocationWad) external whenNotPaused nonReentrant onlyRole(VAULT_MANAGER_ROLE) {
+    function setTargetAllocationWad(uint256 _targetAllocationWad) external nonReentrant onlyRole(VAULT_MANAGER_ROLE) {
         require(_targetAllocationWad <= 1e18, "Target allocation must be <= 100%");
         require(targetAllocationWad != _targetAllocationWad, "Allocation unchanged");
         targetAllocationWad = _targetAllocationWad;
         _rebalance();
     }
 
-    function setMinimumRebalanceAmount(uint256 _minimumRebalanceAmount) external whenNotPaused nonReentrant onlyRole(VAULT_MANAGER_ROLE) {
+    function setMinimumRebalanceAmount(uint256 _minimumRebalanceAmount) external onlyRole(VAULT_MANAGER_ROLE) {
         uint256 oldAmount = minimumRebalanceAmount;
         minimumRebalanceAmount = _minimumRebalanceAmount;
         emit MinimumRebalanceAmountUpdated(oldAmount, _minimumRebalanceAmount);
     }
 
     /// @notice Toggle performance fee collection on/off
-    /// @dev    Not explicitly marked nonReentrant because distributePerformanceFee is called within
-    ///         this function and is nonReentrant itself.
     /// @param enabled True to enable performance fees, false to disable
-    function setPerformanceFee(bool enabled) external whenNotPaused nonReentrant onlyRole(VAULT_MANAGER_ROLE) {
+    function setPerformanceFee(bool enabled) external nonReentrant onlyRole(VAULT_MANAGER_ROLE) {
         // reset totalPrincipal to current totalAssets when enabling performance fee
         // this prevents a sudden large profit
         if (enabled) {
@@ -173,7 +171,7 @@ contract MasterVault is Initializable, ReentrancyGuardUpgradeable, ERC4626Upgrad
 
     /// @notice Set the beneficiary address for performance fees
     /// @param newBeneficiary Address to receive performance fees
-    function setBeneficiary(address newBeneficiary) external whenNotPaused nonReentrant onlyRole(VAULT_MANAGER_ROLE) {
+    function setBeneficiary(address newBeneficiary) external onlyRole(VAULT_MANAGER_ROLE) {
         address oldBeneficiary = beneficiary;
         beneficiary = newBeneficiary;
         emit BeneficiaryUpdated(oldBeneficiary, newBeneficiary);
