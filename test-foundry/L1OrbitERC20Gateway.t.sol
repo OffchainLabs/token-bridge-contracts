@@ -22,7 +22,7 @@ contract L1OrbitERC20GatewayTest is L1ERC20GatewayTest {
 
         l1Gateway = new L1OrbitERC20Gateway();
         L1OrbitERC20Gateway(address(l1Gateway)).initialize(
-            l2Gateway, router, inbox, cloneableProxyHash, l2BeaconProxyFactory
+            l2Gateway, router, inbox, cloneableProxyHash, l2BeaconProxyFactory, address(0)
         );
 
         token = IERC20(address(new TestERC20()));
@@ -38,7 +38,7 @@ contract L1OrbitERC20GatewayTest is L1ERC20GatewayTest {
     /* solhint-disable func-name-mixedcase */
     function test_initialize() public override {
         L1ERC20Gateway gateway = new L1OrbitERC20Gateway();
-        gateway.initialize(l2Gateway, router, inbox, cloneableProxyHash, l2BeaconProxyFactory);
+        gateway.initialize(l2Gateway, router, inbox, cloneableProxyHash, l2BeaconProxyFactory, address(0));
 
         assertEq(gateway.counterpartGateway(), l2Gateway, "Invalid counterpartGateway");
         assertEq(gateway.router(), router, "Invalid router");
