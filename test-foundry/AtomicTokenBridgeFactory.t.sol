@@ -221,7 +221,7 @@ contract AtomicTokenBridgeCreatorTest is Test {
         }
 
         {
-            (address l1r, address l1sgw, address l1cgw, address l1wgw, address l1w, address mvf) =
+            (address l1r, address l1sgw, address l1cgw, address l1wgw, address l1w) =
                 factory.inboxToL1Deployment(address(inbox));
             assertEq(l1r, 0xcB37BCa7042A10FfA75Ff95Ad8B361A13bbAA63A, "l1r");
             assertTrue(l1r.code.length > 0, "l1r code");
@@ -233,7 +233,6 @@ contract AtomicTokenBridgeCreatorTest is Test {
             assertTrue(l1wgw.code.length > 0, "l1wgw code");
             assertEq(l1w, 0x96d3F6c20EEd2697647F543fE6C08bC2Fbf39758, "l1w");
             assertTrue(l1w.code.length > 0, "l1w code");
-            assertEq(mvf, address(0), "mvf");
         }
         {
             (

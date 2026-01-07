@@ -263,14 +263,15 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
 
         // if resend, we assume L1 contracts already exist
         if (!isResend) {
+            address masterVaultFactory = address(0);
             if (args.isYieldBearingBridge) {
                 // deploy master vault factory
-                l1Deployment.masterVaultFactory = _deployProxyWithSalt(
+                masterVaultFactory = _deployProxyWithSalt(
                     _getL1Salt(OrbitSalts.MASTER_VAULT_FACTORY, args.inbox),
                     address(l1Templates.masterVaultFactory),
                     proxyAdmin
                 );
-                IMasterVaultFactory(l1Deployment.masterVaultFactory).initialize(upgradeExecutor);
+                IMasterVaultFactory(masterVaultFactory).initialize(upgradeExecutor);
             }
 
             // l1 router deployment block
@@ -301,7 +302,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                     args.inbox,
                     keccak256(type(ClonableBeaconProxy).creationCode),
                     l2Deployment.beaconProxyFactory,
-                    l1Deployment.masterVaultFactory
+                    masterVaultFactory
                 );
 
                 l1Deployment.standardGateway = address(standardGateway);
@@ -320,7 +321,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                 );
 
                 customGateway.initialize(
-                    l2Deployment.customGateway, l1Deployment.router, args.inbox, upgradeExecutor, l1Deployment.masterVaultFactory
+                    l2Deployment.customGateway, l1Deployment.router, args.inbox, upgradeExecutor, masterVaultFactory
                 );
 
                 l1Deployment.customGateway = address(customGateway);

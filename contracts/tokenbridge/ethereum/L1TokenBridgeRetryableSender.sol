@@ -224,7 +224,6 @@ struct L1DeploymentAddresses {
     address customGateway;
     address wethGateway;
     address weth;
-    address masterVaultFactory;
 }
 
 struct L2DeploymentAddresses {
