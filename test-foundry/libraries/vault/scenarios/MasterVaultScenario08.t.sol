@@ -1,47 +1,25 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import { MasterVaultCoreTest } from "../MasterVaultCore.t.sol";
+import { MasterVaultScenarioCoreTest } from "./MasterVaultScenarioCore.t.sol";
 import { MasterVault } from "../../../../contracts/tokenbridge/libraries/vault/MasterVault.sol";
 import {
     MathUpgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
 
-contract MasterVaultScenario08Test is MasterVaultCoreTest {
-    address public userA = address(0xA);
-    address public userB = address(0xB);
-    address public beneficiaryAddress = address(0x9999);
-
-    function setUp() public override {
-        super.setUp();
-        // Enable performance fee for this scenario
-        vault.setPerformanceFee(true);
-        vault.setBeneficiary(beneficiaryAddress);
-    }
-
+contract MasterVaultScenario08Test is MasterVaultScenarioCoreTest {
     /// @dev Scenario: Profit, fee claim, loss, then User B deposits more before redemptions
     /// Expected: Beneficiary keeps profits, original users share loss, User B's new deposit is fine
     function test_scenario08_depositAfterLoss() public {
         // Setup: Mint tokens for users (100 for A, 600 for B: 300+300)
-        vm.prank(userA);
-        token.mint(100);
-        vm.prank(userB);
-        token.mint(600);
-
-        uint256 userAInitialBalance = token.balanceOf(userA);
-        uint256 userBInitialBalance = token.balanceOf(userB);
+        _mintTokens(userA, 100);
+        _mintTokens(userB, 600);
 
         // Step 1: User A deposits 100 USDC
-        vm.startPrank(userA);
-        token.approve(address(vault), 100);
-        uint256 sharesA = vault.deposit(100, userA);
-        vm.stopPrank();
+        uint256 sharesA = _deposit(userA, 100);
 
         // Step 2: User B deposits 300 USDC
-        vm.startPrank(userB);
-        token.approve(address(vault), 300);
-        uint256 sharesB1 = vault.deposit(300, userB);
-        vm.stopPrank();
+        uint256 sharesB1 = _deposit(userB, 300);
 
         // Verify intermediate state 1
         user = userA;
@@ -61,8 +39,7 @@ contract MasterVaultScenario08Test is MasterVaultCoreTest {
         assertEq(vault.balanceOf(userB), 300 * DEAD_SHARES, "User B shares mismatch");
 
         // Step 3: Vault wins 100 USDC
-        token.mint(100);
-        token.transfer(address(vault), 100);
+        _simulateProfit(100);
 
         assertEq(vault.totalAssets(), 500, "Vault should have 500 USDC after profit");
         assertEq(
@@ -72,35 +49,27 @@ contract MasterVaultScenario08Test is MasterVaultCoreTest {
         );
 
         // Step 4: Claim fees
-        vault.distributePerformanceFee();
+        _distributePerformanceFee();
 
         assertEq(vault.totalAssets(), 400, "Vault should have 400 USDC after fee withdrawal");
         assertEq(token.balanceOf(beneficiaryAddress), 100, "Beneficiary should have 100 USDC");
 
         // Step 5: Vault loses 100 USDC (25% loss)
-        vm.prank(address(vault));
-        token.transfer(address(0xdead), 100);
+        _simulateLoss(100);
 
         assertEq(vault.totalAssets(), 300, "Vault should have 300 USDC after loss");
         assertEq(vault.totalPrincipal(), 400, "Total principal should still be 400");
 
         // Step 6: User B deposits 300 USDC
-        // At this point, sharePrice is approx 300/401 = 0.748e18
-        // shares = 300 * 401e18 / 301 = 399667774086378737541
-        vm.startPrank(userB);
-        token.approve(address(vault), 300);
-        uint256 sharesB2 = vault.deposit(300, userB);
-        vm.stopPrank();
+        uint256 sharesB2 = _deposit(userB, 300);
 
         assertEq(sharesB2, 399667774086378737541, "User B shares mismatch for second deposit");
 
         // Step 7: User A redeems all shares
-        vm.prank(userA);
-        uint256 assetsReceivedA = vault.redeem(sharesA, userA, userA);
+        uint256 assetsReceivedA = _redeem(userA, sharesA);
 
         // Step 8: User B redeems all shares
-        vm.prank(userB);
-        uint256 assetsReceivedB = vault.redeem(sharesB1 + sharesB2, userB, userB);
+        uint256 assetsReceivedB = _redeem(userB, sharesB1 + sharesB2);
 
         // Verify final state
         _checkState(
@@ -118,21 +87,11 @@ contract MasterVaultScenario08Test is MasterVaultCoreTest {
         );
 
         // Verify user holdings change
-        // User A: deposited 100, received back 75, loss = 25
-        // User B: deposited 600 (300+300), received back 524 (approx 525), loss = 76
-        assertEq(token.balanceOf(userA), userAInitialBalance - 25, "User A should lose 25 USDC");
-        assertEq(token.balanceOf(userB), userBInitialBalance - 75, "User B should lose 75 USDC");
+        _checkHoldings(userAInitialBalance - 25, userBInitialBalance - 75, 100);
 
         // Verify assets received
         assertEq(assetsReceivedA, 75, "User A should receive 75 USDC");
         assertEq(assetsReceivedB, 525, "User B should receive 525 USDC");
-
-        // Verify beneficiary keeps all profits
-        assertEq(
-            token.balanceOf(beneficiaryAddress),
-            100,
-            "Beneficiary should have 100 USDC (all profits)"
-        );
     }
 
     /// @dev Scenario: Profit, fee claim, loss, then User B deposits more before redemptions, 100% allocation
@@ -141,56 +100,36 @@ contract MasterVaultScenario08Test is MasterVaultCoreTest {
         vault.setTargetAllocationWad(1e18);
 
         // Setup: Mint tokens for users
-        vm.prank(userA);
-        token.mint(100);
-        vm.prank(userB);
-        token.mint(600);
-
-        uint256 userAInitialBalance = token.balanceOf(userA);
-        uint256 userBInitialBalance = token.balanceOf(userB);
+        _mintTokens(userA, 200);
+        _mintTokens(userB, 600);
 
         // Step 1: User A deposits 100 USDC
-        vm.startPrank(userA);
-        token.approve(address(vault), 100);
-        uint256 sharesA = vault.deposit(100, userA);
-        vm.stopPrank();
+        uint256 sharesA = _deposit(userA, 100);
 
         // Step 2: User B deposits 300 USDC
-        vm.startPrank(userB);
-        token.approve(address(vault), 300);
-        uint256 sharesB1 = vault.deposit(300, userB);
-        vm.stopPrank();
+        uint256 sharesB1 = _deposit(userB, 300);
 
         // Step 3: Subvault wins 100 USDC
-        token.mint(100);
-        token.transfer(address(vault.subVault()), 100);
+        _simulateProfit(100);
 
         // Step 4: Claim fees
-        vault.distributePerformanceFee();
+        _distributePerformanceFee();
 
         // Step 5: Subvault loses 100 USDC
-        vm.prank(address(vault.subVault()));
-        token.transfer(address(0xdead), 100);
+        _simulateLoss(100);
 
         // Step 6: User B deposits 300 USDC
-        vm.startPrank(userB);
-        token.approve(address(vault), 300);
-        uint256 sharesB2 = vault.deposit(300, userB);
-        vm.stopPrank();
+        uint256 sharesB2 = _deposit(userB, 300);
 
         // Step 7: User A redeems all shares
-        vm.prank(userA);
-        uint256 assetsReceivedA = vault.redeem(sharesA, userA, userA);
+        uint256 assetsReceivedA = _redeem(userA, sharesA);
 
         // Step 8: User B redeems all shares
-        vm.prank(userB);
-        uint256 assetsReceivedB = vault.redeem(sharesB1 + sharesB2, userB, userB);
+        uint256 assetsReceivedB = _redeem(userB, sharesB1 + sharesB2);
 
         // Verify final state
-        assertEq(token.balanceOf(userA), userAInitialBalance - 25, "User A should lose 25 USDC");
-        assertEq(token.balanceOf(userB), userBInitialBalance - 75, "User B should lose 75 USDC");
+        _checkHoldings(userAInitialBalance - 25, userBInitialBalance - 75, 100);
         assertEq(assetsReceivedA, 75, "User A should receive 75 USDC");
         assertEq(assetsReceivedB, 525, "User B should receive 525 USDC");
-        assertEq(token.balanceOf(beneficiaryAddress), 100, "Beneficiary should have 100 USDC");
     }
 }
