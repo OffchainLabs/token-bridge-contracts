@@ -54,6 +54,12 @@ contract MasterVault is Initializable, ReentrancyGuardUpgradeable, ERC4626Upgrad
 
     uint256 public targetAllocationWad;
 
+    /// @notice The minimum amount of assets that must be deposited/withdrawn when rebalancing.
+    ///         If the amount to deposit or withdraw is less than this amount, no action is taken.
+    ///         This prevents dust rebalances.
+    /// @dev    Defaults to 1e6, but can be set by the vault manager to any value.
+    uint256 public minimumRebalanceAmount;
+
     /// @notice Flag indicating if performance fee is enabled
     bool public enablePerformanceFee;
 
@@ -67,7 +73,9 @@ contract MasterVault is Initializable, ReentrancyGuardUpgradeable, ERC4626Upgrad
     event SubvaultChanged(address indexed oldSubvault, address indexed newSubvault);
     event PerformanceFeeToggled(bool enabled);
     event BeneficiaryUpdated(address indexed oldBeneficiary, address indexed newBeneficiary);
+    event MinimumRebalanceAmountUpdated(uint256 oldAmount, uint256 newAmount);
     event PerformanceFeesWithdrawn(address indexed beneficiary, uint256 amountTransferred, uint256 amountWithdrawn);
+    event Rebalanced(bool deposited, uint256 desiredAmount, uint256 actualAmount);
 
     function initialize(IERC4626 _subVault, string memory _name, string memory _symbol, address _owner) external initializer {
         __ERC20_init(_name, _symbol);
@@ -95,6 +103,8 @@ contract MasterVault is Initializable, ReentrancyGuardUpgradeable, ERC4626Upgrad
         IERC20(asset()).safeApprove(address(_subVault), type(uint256).max);
 
         subVault = _subVault;
+
+        minimumRebalanceAmount = 1e6;
     }
 
     function rebalance() external whenNotPaused nonReentrant {
@@ -107,7 +117,7 @@ contract MasterVault is Initializable, ReentrancyGuardUpgradeable, ERC4626Upgrad
 
     /// @notice Set a new subvault
     /// @param  _subVault The subvault to set. Must be an ERC4626 vault with the same asset as this MasterVault.
-    function setSubVault(IERC4626 _subVault) external whenNotPaused nonReentrant onlyRole(VAULT_MANAGER_ROLE) {
+    function setSubVault(IERC4626 _subVault) external nonReentrant onlyRole(VAULT_MANAGER_ROLE) {
         IERC20 underlyingAsset = IERC20(asset());
         if (address(_subVault.asset()) != address(underlyingAsset)) revert SubVaultAssetMismatch();
 
@@ -128,18 +138,22 @@ contract MasterVault is Initializable, ReentrancyGuardUpgradeable, ERC4626Upgrad
         emit SubvaultChanged(oldSubVault, address(_subVault));
     }
 
-    function setTargetAllocationWad(uint256 _targetAllocationWad) external whenNotPaused nonReentrant onlyRole(VAULT_MANAGER_ROLE) {
+    function setTargetAllocationWad(uint256 _targetAllocationWad) external nonReentrant onlyRole(VAULT_MANAGER_ROLE) {
         require(_targetAllocationWad <= 1e18, "Target allocation must be <= 100%");
         require(targetAllocationWad != _targetAllocationWad, "Allocation unchanged");
         targetAllocationWad = _targetAllocationWad;
         _rebalance();
     }
 
+    function setMinimumRebalanceAmount(uint256 _minimumRebalanceAmount) external onlyRole(VAULT_MANAGER_ROLE) {
+        uint256 oldAmount = minimumRebalanceAmount;
+        minimumRebalanceAmount = _minimumRebalanceAmount;
+        emit MinimumRebalanceAmountUpdated(oldAmount, _minimumRebalanceAmount);
+    }
+
     /// @notice Toggle performance fee collection on/off
-    /// @dev    Not explicitly marked nonReentrant because distributePerformanceFee is called within
-    ///         this function and is nonReentrant itself.
     /// @param enabled True to enable performance fees, false to disable
-    function setPerformanceFee(bool enabled) external whenNotPaused nonReentrant onlyRole(VAULT_MANAGER_ROLE) {
+    function setPerformanceFee(bool enabled) external nonReentrant onlyRole(VAULT_MANAGER_ROLE) {
         // reset totalPrincipal to current totalAssets when enabling performance fee
         // this prevents a sudden large profit
         if (enabled) {
@@ -157,7 +171,7 @@ contract MasterVault is Initializable, ReentrancyGuardUpgradeable, ERC4626Upgrad
 
     /// @notice Set the beneficiary address for performance fees
     /// @param newBeneficiary Address to receive performance fees
-    function setBeneficiary(address newBeneficiary) external whenNotPaused nonReentrant onlyRole(VAULT_MANAGER_ROLE) {
+    function setBeneficiary(address newBeneficiary) external onlyRole(VAULT_MANAGER_ROLE) {
         address oldBeneficiary = beneficiary;
         beneficiary = newBeneficiary;
         emit BeneficiaryUpdated(oldBeneficiary, newBeneficiary);
@@ -217,13 +231,25 @@ contract MasterVault is Initializable, ReentrancyGuardUpgradeable, ERC4626Upgrad
 
         if (idleBalance < idleTargetDown) {
             // we need to withdraw from subvault
-            uint256 assetsToWithdraw = idleTargetDown - idleBalance;
-            subVault.withdraw(assetsToWithdraw, address(this), address(this));
+            uint256 desiredWithdraw = idleTargetDown - idleBalance;
+            uint256 maxWithdrawable = subVault.maxWithdraw(address(this));
+            uint256 withdrawAmount = desiredWithdraw < maxWithdrawable ? desiredWithdraw : maxWithdrawable;
+            if (withdrawAmount < minimumRebalanceAmount) {
+                return;
+            }
+            subVault.withdraw(withdrawAmount, address(this), address(this));
+            emit Rebalanced(false, desiredWithdraw, withdrawAmount);
         }
         else {
             // we need to deposit into subvault
-            uint256 assetsToDeposit = idleBalance - idleTargetUp;
-            subVault.deposit(assetsToDeposit, address(this));
+            uint256 desiredDeposit = idleBalance - idleTargetUp;
+            uint256 maxDepositable = subVault.maxDeposit(address(this));
+            uint256 depositAmount = desiredDeposit < maxDepositable ? desiredDeposit : maxDepositable;
+            if (depositAmount < minimumRebalanceAmount) {
+                return;
+            }
+            subVault.deposit(depositAmount, address(this));
+            emit Rebalanced(true, desiredDeposit, depositAmount);
         }
     }
 
