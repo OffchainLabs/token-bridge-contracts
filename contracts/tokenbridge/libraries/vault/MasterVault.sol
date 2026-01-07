@@ -44,7 +44,6 @@ contract MasterVault is Initializable, ReentrancyGuardUpgradeable, ERC4626Upgrad
     ///         See https://docs.openzeppelin.com/contracts/5.x/erc4626 for more details on the mitigation.
     uint8 public constant EXTRA_DECIMALS = 18;
 
-    error Unimplemented();
     error SubVaultAssetMismatch();
     error PerformanceFeeDisabled();
     error BeneficiaryNotSet();
