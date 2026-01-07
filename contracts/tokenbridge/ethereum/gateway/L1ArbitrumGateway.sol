@@ -22,6 +22,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/Create2.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 import "../L1ArbitrumMessenger.sol";
 import "./IL1ArbitrumGateway.sol";
 import "../../libraries/ProxyUtil.sol";
@@ -29,8 +30,7 @@ import "../../libraries/gateway/GatewayMessageHandler.sol";
 import "../../libraries/gateway/TokenGateway.sol";
 import "../../libraries/ITransferAndCall.sol";
 import "../../libraries/ERC165.sol";
-import { MasterVaultFactory } from "../../libraries/vault/MasterVaultFactory.sol";
-import { IMasterVault } from "../../libraries/vault/IMasterVault.sol";
+import { IMasterVaultFactory } from "../IMasterVaultFactory.sol";
 
 /**
  * @title Common interface for gatways on L1 messaging to Arbitrum.
@@ -43,9 +43,6 @@ abstract contract L1ArbitrumGateway is
 {
     using SafeERC20 for IERC20;
     using Address for address;
-
-    error BadVaultFactory();
-    error BadVaultCodeHash();
 
     address public override inbox;
     address public masterVaultFactory;
@@ -150,10 +147,9 @@ abstract contract L1ArbitrumGateway is
         uint256 _amount
     ) internal virtual {
         // this method is virtual since different subclasses can handle escrow differently
-        address _masterVaultFactory = masterVaultFactory;
-        if (_masterVaultFactory != address(0)) {
-            // todo: do we want to unwrap here or just transfer vault shares?
-            address masterVault = MasterVaultFactory(masterVaultFactory).getVault(_l1Token);
+        if (masterVaultFactory != address(0)) {
+            address masterVault = IMasterVaultFactory(masterVaultFactory).getVault(_l1Token);
+            IERC20(masterVault).safeTransfer(_dest, _amount);
         } else {
             IERC20(_l1Token).safeTransfer(_dest, _amount);
         }
@@ -317,13 +313,9 @@ abstract contract L1ArbitrumGateway is
         uint256 postBalance = IERC20(_l1Token).balanceOf(address(this));
         amountReceived = postBalance - prevBalance;
 
-        address _masterVaultFactory = masterVaultFactory;
-        if (_masterVaultFactory != address(0)) {
-            address masterVault = MasterVaultFactory(masterVaultFactory).getVault(_l1Token);
-            // todo: decide whether we want the master vault to act like its own vault, or whether it is just a pointer to the real vault
-            // this affects which address gets approved
-            // somewhat related to deciding whether we want to auto unwrap on withdrawals
-            amountReceived = IMasterVault(masterVault).deposit(amountReceived);
+        if (masterVaultFactory != address(0)) {
+            address masterVault = IMasterVaultFactory(masterVaultFactory).getVault(_l1Token);
+            amountReceived = IERC4626(masterVault).deposit(amountReceived, address(this));
         }
     }
 

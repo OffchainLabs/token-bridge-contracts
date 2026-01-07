@@ -43,7 +43,7 @@ import {TransparentUpgradeableProxy} from
     "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {IAccessControlUpgradeable} from
     "@openzeppelin/contracts-upgradeable/access/IAccessControlUpgradeable.sol";
-import {MasterVaultFactory} from "../libraries/vault/MasterVaultFactory.sol";
+import {IMasterVaultFactory} from "./IMasterVaultFactory.sol";
 import {L1ArbitrumGateway} from "./gateway/L1ArbitrumGateway.sol";
 
 /**
@@ -82,7 +82,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         L1OrbitERC20Gateway feeTokenBasedStandardGatewayTemplate;
         L1OrbitCustomGateway feeTokenBasedCustomGatewayTemplate;
         IUpgradeExecutor upgradeExecutor;
-        MasterVaultFactory masterVaultFactory;
+        IMasterVaultFactory masterVaultFactory;
     }
 
     struct CreateTokenBridgeArgs {
@@ -270,7 +270,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                     address(l1Templates.masterVaultFactory),
                     proxyAdmin
                 );
-                MasterVaultFactory(l1Deployment.masterVaultFactory).initialize(upgradeExecutor);
+                IMasterVaultFactory(l1Deployment.masterVaultFactory).initialize(upgradeExecutor);
             }
 
             // l1 router deployment block
