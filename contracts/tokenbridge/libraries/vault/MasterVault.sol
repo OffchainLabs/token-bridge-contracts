@@ -68,6 +68,7 @@ contract MasterVault is Initializable, ReentrancyGuardUpgradeable, ERC4626Upgrad
     event PerformanceFeeToggled(bool enabled);
     event BeneficiaryUpdated(address indexed oldBeneficiary, address indexed newBeneficiary);
     event PerformanceFeesWithdrawn(address indexed beneficiary, uint256 amountTransferred, uint256 amountWithdrawn);
+    event Rebalanced(bool deposited, uint256 desiredAmount, uint256 actualAmount);
 
     function initialize(IERC4626 _subVault, string memory _name, string memory _symbol, address _owner) external initializer {
         __ERC20_init(_name, _symbol);
@@ -217,13 +218,19 @@ contract MasterVault is Initializable, ReentrancyGuardUpgradeable, ERC4626Upgrad
 
         if (idleBalance < idleTargetDown) {
             // we need to withdraw from subvault
-            uint256 assetsToWithdraw = idleTargetDown - idleBalance;
-            subVault.withdraw(assetsToWithdraw, address(this), address(this));
+            uint256 desiredWithdraw = idleTargetDown - idleBalance;
+            uint256 maxWithdrawable = subVault.maxWithdraw(address(this));
+            uint256 withdrawAmount = desiredWithdraw < maxWithdrawable ? desiredWithdraw : maxWithdrawable;
+            subVault.withdraw(withdrawAmount, address(this), address(this));
+            emit Rebalanced(false, desiredWithdraw, withdrawAmount);
         }
         else {
             // we need to deposit into subvault
-            uint256 assetsToDeposit = idleBalance - idleTargetUp;
+            uint256 desiredDeposit = idleBalance - idleTargetUp;
+            uint256 maxDepositable = subVault.maxDeposit(address(this));
+            uint256 assetsToDeposit = desiredDeposit < maxDepositable ? desiredDeposit : maxDepositable;
             subVault.deposit(assetsToDeposit, address(this));
+            emit Rebalanced(true, desiredDeposit, assetsToDeposit);
         }
     }
 
