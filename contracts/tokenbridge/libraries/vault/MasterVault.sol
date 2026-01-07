@@ -54,8 +54,8 @@ contract MasterVault is Initializable, ReentrancyGuardUpgradeable, ERC4626Upgrad
 
     uint256 public targetAllocationWad;
 
-    /// @notice The minimum amount of assets that must be rebalanced when rebalancing.
-    ///         If the difference between current and target allocation is less than this amount, no action is taken.
+    /// @notice The minimum amount of assets that must be deposited/withdrawn when rebalancing.
+    ///         If the amount to deposit or withdraw is less than this amount, no action is taken.
     ///         This prevents dust rebalances.
     /// @dev    Defaults to 1e6, but can be set by the vault manager to any value.
     uint256 public minimumRebalanceAmount;
