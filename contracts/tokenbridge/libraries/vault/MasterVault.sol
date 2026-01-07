@@ -234,22 +234,22 @@ contract MasterVault is Initializable, ReentrancyGuardUpgradeable, ERC4626Upgrad
         if (idleBalance < idleTargetDown) {
             // we need to withdraw from subvault
             uint256 desiredWithdraw = idleTargetDown - idleBalance;
-            if (desiredWithdraw < minimumRebalanceAmount) {
-                return;
-            }
             uint256 maxWithdrawable = subVault.maxWithdraw(address(this));
             uint256 withdrawAmount = desiredWithdraw < maxWithdrawable ? desiredWithdraw : maxWithdrawable;
+            if (withdrawAmount < minimumRebalanceAmount) {
+                return;
+            }
             subVault.withdraw(withdrawAmount, address(this), address(this));
             emit Rebalanced(false, desiredWithdraw, withdrawAmount);
         }
         else {
             // we need to deposit into subvault
             uint256 desiredDeposit = idleBalance - idleTargetUp;
-            if (desiredDeposit < minimumRebalanceAmount) {
-                return;
-            }
             uint256 maxDepositable = subVault.maxDeposit(address(this));
             uint256 depositAmount = desiredDeposit < maxDepositable ? desiredDeposit : maxDepositable;
+            if (depositAmount < minimumRebalanceAmount) {
+                return;
+            }
             subVault.deposit(depositAmount, address(this));
             emit Rebalanced(true, desiredDeposit, depositAmount);
         }
