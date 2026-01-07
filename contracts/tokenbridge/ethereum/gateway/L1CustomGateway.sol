@@ -98,7 +98,7 @@ contract L1CustomGateway is L1ArbitrumExtendedGateway, ICustomGateway {
         address _inbox,
         address _owner,
         address _masterVaultFactory // todo: document that this switches the contracts behavior between YBB mode and normal mode
-    ) public {
+    ) public virtual {
         L1ArbitrumGateway._initialize(_l1Counterpart, _l1Router, _inbox, _masterVaultFactory);
         owner = _owner;
         // disable whitelist by default

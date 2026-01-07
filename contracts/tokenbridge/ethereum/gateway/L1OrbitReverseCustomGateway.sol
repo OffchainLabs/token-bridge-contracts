@@ -18,6 +18,17 @@ import { IArbToken } from "../../arbitrum/IArbToken.sol";
  *          if minting is also occuring on L2
  */
 contract L1OrbitReverseCustomGateway is L1OrbitCustomGateway {
+    function initialize(
+        address _l1Counterpart,
+        address _l1Router,
+        address _inbox,
+        address _owner,
+        address _masterVaultFactory // todo: document that this switches the contracts behavior between YBB mode and normal mode
+    ) public override {
+        require(_masterVaultFactory == address(0), "MASTER_VAULT_FACTORY_MUST_BE_ZERO");
+        super.initialize(_l1Counterpart, _l1Router, _inbox, _owner, _masterVaultFactory);
+    }
+
     function inboundEscrowTransfer(
         address _l1Address,
         address _dest,
