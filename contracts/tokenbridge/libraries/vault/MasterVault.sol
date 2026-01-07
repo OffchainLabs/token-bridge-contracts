@@ -57,6 +57,7 @@ contract MasterVault is Initializable, ReentrancyGuardUpgradeable, ERC4626Upgrad
     /// @notice The minimum amount of assets that must be rebalanced when rebalancing.
     ///         If the difference between current and target allocation is less than this amount, no action is taken.
     ///         This prevents dust rebalances.
+    /// @dev    Defaults to 1e6, but can be set by the vault manager to any value.
     uint256 public minimumRebalanceAmount;
 
     /// @notice Flag indicating if performance fee is enabled
@@ -72,6 +73,7 @@ contract MasterVault is Initializable, ReentrancyGuardUpgradeable, ERC4626Upgrad
     event SubvaultChanged(address indexed oldSubvault, address indexed newSubvault);
     event PerformanceFeeToggled(bool enabled);
     event BeneficiaryUpdated(address indexed oldBeneficiary, address indexed newBeneficiary);
+    event MinimumRebalanceAmountUpdated(uint256 oldAmount, uint256 newAmount);
     event PerformanceFeesWithdrawn(address indexed beneficiary, uint256 amountTransferred, uint256 amountWithdrawn);
     event Rebalanced(bool deposited, uint256 desiredAmount, uint256 actualAmount);
 
@@ -101,6 +103,8 @@ contract MasterVault is Initializable, ReentrancyGuardUpgradeable, ERC4626Upgrad
         IERC20(asset()).safeApprove(address(_subVault), type(uint256).max);
 
         subVault = _subVault;
+
+        minimumRebalanceAmount = 1e6;
     }
 
     function rebalance() external whenNotPaused nonReentrant {
@@ -139,6 +143,12 @@ contract MasterVault is Initializable, ReentrancyGuardUpgradeable, ERC4626Upgrad
         require(targetAllocationWad != _targetAllocationWad, "Allocation unchanged");
         targetAllocationWad = _targetAllocationWad;
         _rebalance();
+    }
+
+    function setMinimumRebalanceAmount(uint256 _minimumRebalanceAmount) external whenNotPaused nonReentrant onlyRole(VAULT_MANAGER_ROLE) {
+        uint256 oldAmount = minimumRebalanceAmount;
+        minimumRebalanceAmount = _minimumRebalanceAmount;
+        emit MinimumRebalanceAmountUpdated(oldAmount, _minimumRebalanceAmount);
     }
 
     /// @notice Toggle performance fee collection on/off
