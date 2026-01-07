@@ -54,6 +54,11 @@ contract MasterVault is Initializable, ReentrancyGuardUpgradeable, ERC4626Upgrad
 
     uint256 public targetAllocationWad;
 
+    /// @notice The minimum amount of assets that must be rebalanced when rebalancing.
+    ///         If the difference between current and target allocation is less than this amount, no action is taken.
+    ///         This prevents dust rebalances.
+    uint256 public minimumRebalanceAmount;
+
     /// @notice Flag indicating if performance fee is enabled
     bool public enablePerformanceFee;
 
@@ -219,6 +224,9 @@ contract MasterVault is Initializable, ReentrancyGuardUpgradeable, ERC4626Upgrad
         if (idleBalance < idleTargetDown) {
             // we need to withdraw from subvault
             uint256 desiredWithdraw = idleTargetDown - idleBalance;
+            if (desiredWithdraw < minimumRebalanceAmount) {
+                return;
+            }
             uint256 maxWithdrawable = subVault.maxWithdraw(address(this));
             uint256 withdrawAmount = desiredWithdraw < maxWithdrawable ? desiredWithdraw : maxWithdrawable;
             subVault.withdraw(withdrawAmount, address(this), address(this));
@@ -227,6 +235,9 @@ contract MasterVault is Initializable, ReentrancyGuardUpgradeable, ERC4626Upgrad
         else {
             // we need to deposit into subvault
             uint256 desiredDeposit = idleBalance - idleTargetUp;
+            if (desiredDeposit < minimumRebalanceAmount) {
+                return;
+            }
             uint256 maxDepositable = subVault.maxDeposit(address(this));
             uint256 assetsToDeposit = desiredDeposit < maxDepositable ? desiredDeposit : maxDepositable;
             subVault.deposit(assetsToDeposit, address(this));
