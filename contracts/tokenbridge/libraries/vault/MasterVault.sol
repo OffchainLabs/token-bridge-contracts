@@ -249,9 +249,9 @@ contract MasterVault is Initializable, ReentrancyGuardUpgradeable, ERC4626Upgrad
                 return;
             }
             uint256 maxDepositable = subVault.maxDeposit(address(this));
-            uint256 assetsToDeposit = desiredDeposit < maxDepositable ? desiredDeposit : maxDepositable;
-            subVault.deposit(assetsToDeposit, address(this));
-            emit Rebalanced(true, desiredDeposit, assetsToDeposit);
+            uint256 depositAmount = desiredDeposit < maxDepositable ? desiredDeposit : maxDepositable;
+            subVault.deposit(depositAmount, address(this));
+            emit Rebalanced(true, desiredDeposit, depositAmount);
         }
     }
 
