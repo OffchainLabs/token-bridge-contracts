@@ -234,26 +234,6 @@ contract MasterVault is
         return _totalAssets(MathUpgradeable.Rounding.Down);
     }
 
-    /**
-     * @dev See {IERC4626-maxDeposit}.
-     */
-    function maxDeposit(address) public view returns (uint256) {
-        if (address(subVault) == address(0)) {
-            return type(uint256).max;
-        }
-        return subVault.maxDeposit(address(this));
-    }
-
-    // /** @dev See {IERC4626-maxMint}. */
-    function maxMint(address) public view returns (uint256) {
-        uint256 subShares = subVault.maxMint(address(this));
-        if (subShares == type(uint256).max) {
-            return type(uint256).max;
-        }
-        uint256 assets = _subVaultSharesToAssets(subShares, MathUpgradeable.Rounding.Down);
-        return _convertToShares(assets, MathUpgradeable.Rounding.Down);
-    }
-
     function totalProfit(MathUpgradeable.Rounding rounding) public view returns (uint256) {
         uint256 __totalAssets = _totalAssets(rounding);
         return __totalAssets > totalPrincipal ? __totalAssets - totalPrincipal : 0;
