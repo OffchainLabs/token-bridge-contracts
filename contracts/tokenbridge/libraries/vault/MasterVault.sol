@@ -2,9 +2,6 @@
 pragma solidity ^0.8.0;
 
 import {
-    ERC4626Upgradeable
-} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC4626Upgradeable.sol";
-import {
     ERC20Upgradeable
 } from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -28,7 +25,7 @@ import {
 
 // todo: should we have an arbitrary call function for the vault manager to do stuff with the subvault? like queue withdrawals etc
 
-/// @notice MasterVault is an ERC4626 metavault that deposits assets to an admin defined subVault.
+/// @notice MasterVault is a metavault that deposits assets to an admin defined ERC4626 compliant subVault.
 /// @dev    The MasterVault keeps some fraction of assets idle and deposits the rest into the subVault to earn yield.
 ///         A 100% performance fee can be enabled/disabled by the vault manager, and are collected on demand.
 ///         The MasterVault mitigates the "first depositor" problem by adding 18 decimals to the underlying asset.
@@ -40,7 +37,7 @@ import {
 contract MasterVault is
     Initializable,
     ReentrancyGuardUpgradeable,
-    ERC4626Upgradeable,
+    ERC20Upgradeable,
     AccessControlUpgradeable,
     PausableUpgradeable
 {
@@ -70,6 +67,8 @@ contract MasterVault is
     error InvalidOwner();
     error NonZeroTargetAllocation(uint256 targetAllocationWad);
     error NonZeroSubVaultShares(uint256 subVaultShares);
+
+    IERC20 public asset;
 
     // todo: avoid inflation, rounding, other common 4626 vulns
     // we may need a minimum asset or master share amount when setting subvaults (bc of exchange rate calc)
@@ -109,7 +108,8 @@ contract MasterVault is
         address _owner
     ) external initializer {
         __ERC20_init(_name, _symbol);
-        __ERC4626_init(IERC20Upgradeable(_subVault.asset()));
+
+        asset = IERC20(address(_subVault.asset()));
 
         // call decimals() to ensure underlying has reasonable decimals and we won't have overflow
         decimals();
@@ -133,7 +133,7 @@ contract MasterVault is
         // https://web.archive.org/web/20250609034056/https://docs.openzeppelin.com/contracts/4.x/erc4626#fees
         _mint(address(1), 10 ** EXTRA_DECIMALS);
 
-        IERC20(asset()).safeApprove(address(_subVault), type(uint256).max);
+        asset.safeApprove(address(_subVault), type(uint256).max);
 
         subVault = _subVault;
 
@@ -151,8 +151,7 @@ contract MasterVault is
     /// @notice Set a new subvault
     /// @param  _subVault The subvault to set. Must be an ERC4626 vault with the same asset as this MasterVault.
     function setSubVault(IERC4626 _subVault) external nonReentrant onlyRole(SUBVAULT_MANAGER_ROLE) {
-        IERC20 underlyingAsset = IERC20(asset());
-        if (address(_subVault.asset()) != address(underlyingAsset)) revert SubVaultAssetMismatch();
+        if (address(_subVault.asset()) != address(asset)) revert SubVaultAssetMismatch();
 
         // we ensure target allocation is zero, therefore the master vault holds no subvault shares
         if (targetAllocationWad != 0) revert NonZeroTargetAllocation(targetAllocationWad);
@@ -165,8 +164,8 @@ contract MasterVault is
         address oldSubVault = address(subVault);
         subVault = _subVault;
 
-        if (oldSubVault != address(0)) IERC20(asset()).safeApprove(address(oldSubVault), 0);
-        IERC20(asset()).safeApprove(address(_subVault), type(uint256).max);
+        if (oldSubVault != address(0)) asset.safeApprove(address(oldSubVault), 0);
+        asset.safeApprove(address(_subVault), type(uint256).max);
 
         emit SubvaultChanged(oldSubVault, address(_subVault));
     }
@@ -225,20 +224,20 @@ contract MasterVault is
 
     /// @dev Overridden to add EXTRA_DECIMALS to the underlying asset decimals
     function decimals() public view override returns (uint8) {
-        return super.decimals() + EXTRA_DECIMALS;
+        return IERC20Metadata(address(asset)).decimals() + EXTRA_DECIMALS;
     }
 
     /**
      * @dev See {IERC4626-totalAssets}.
      */
-    function totalAssets() public view virtual override returns (uint256) {
+    function totalAssets() public view returns (uint256) {
         return _totalAssets(MathUpgradeable.Rounding.Down);
     }
 
     /**
      * @dev See {IERC4626-maxDeposit}.
      */
-    function maxDeposit(address) public view virtual override returns (uint256) {
+    function maxDeposit(address) public view returns (uint256) {
         if (address(subVault) == address(0)) {
             return type(uint256).max;
         }
@@ -246,7 +245,7 @@ contract MasterVault is
     }
 
     // /** @dev See {IERC4626-maxMint}. */
-    function maxMint(address) public view virtual override returns (uint256) {
+    function maxMint(address) public view returns (uint256) {
         uint256 subShares = subVault.maxMint(address(this));
         if (subShares == type(uint256).max) {
             return type(uint256).max;
@@ -267,7 +266,7 @@ contract MasterVault is
             totalAssetsUp.mulDiv(1e18 - targetAllocationWad, 1e18, MathUpgradeable.Rounding.Up);
         uint256 idleTargetDown =
             totalAssetsDown.mulDiv(1e18 - targetAllocationWad, 1e18, MathUpgradeable.Rounding.Down);
-        uint256 idleBalance = IERC20(asset()).balanceOf(address(this));
+        uint256 idleBalance = asset.balanceOf(address(this));
 
         if (idleTargetDown <= idleBalance && idleBalance <= idleTargetUp) {
             return;
@@ -307,13 +306,13 @@ contract MasterVault is
         uint256 profit = totalProfit(MathUpgradeable.Rounding.Down);
         if (profit == 0) return;
 
-        uint256 totalIdle = IERC20(asset()).balanceOf(address(this));
+        uint256 totalIdle = asset.balanceOf(address(this));
 
         uint256 amountToTransfer = profit <= totalIdle ? profit : totalIdle;
         uint256 amountToWithdraw = profit - amountToTransfer;
 
         if (amountToTransfer > 0) {
-            IERC20(asset()).safeTransfer(beneficiary, amountToTransfer);
+            asset.safeTransfer(beneficiary, amountToTransfer);
         }
         if (amountToWithdraw > 0) {
             subVault.withdraw(amountToWithdraw, beneficiary, address(this));
@@ -327,11 +326,10 @@ contract MasterVault is
      */
     function _deposit(address caller, address receiver, uint256 assets, uint256 shares)
         internal
-        override
         whenNotPaused
         nonReentrant
     {
-        super._deposit(caller, receiver, assets, shares);
+        // super._deposit(caller, receiver, assets, shares);
         if (enablePerformanceFee) totalPrincipal += assets;
     }
 
@@ -344,18 +342,18 @@ contract MasterVault is
         address _owner,
         uint256 assets,
         uint256 shares
-    ) internal override whenNotPaused nonReentrant {
+    ) internal whenNotPaused nonReentrant {
         if (enablePerformanceFee) totalPrincipal -= assets;
-        uint256 idleAssets = IERC20(asset()).balanceOf(address(this));
+        uint256 idleAssets = asset.balanceOf(address(this));
         if (idleAssets < assets) {
             uint256 assetsToWithdraw = assets - idleAssets;
             subVault.withdraw(assetsToWithdraw, address(this), address(this));
         }
-        super._withdraw(caller, receiver, _owner, assets, shares);
+        // super._withdraw(caller, receiver, _owner, assets, shares);
     }
 
     function _totalAssets(MathUpgradeable.Rounding rounding) internal view returns (uint256) {
-        return IERC20(asset()).balanceOf(address(this))
+        return asset.balanceOf(address(this))
             + _subVaultSharesToAssets(subVault.balanceOf(address(this)), rounding);
     }
 
@@ -368,8 +366,6 @@ contract MasterVault is
     function _convertToShares(uint256 assets, MathUpgradeable.Rounding rounding)
         internal
         view
-        virtual
-        override
         returns (uint256 shares)
     {
         // we add one as part of the first deposit mitigation
@@ -386,8 +382,6 @@ contract MasterVault is
     function _convertToAssets(uint256 shares, MathUpgradeable.Rounding rounding)
         internal
         view
-        virtual
-        override
         returns (uint256 assets)
     {
         // we add one as part of the first deposit mitigation
