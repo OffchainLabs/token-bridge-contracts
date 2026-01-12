@@ -1,24 +1,30 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.0;
 
-import {ERC4626Upgradeable} from
-    "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC4626Upgradeable.sol";
-import {ERC20Upgradeable} from
-    "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import {
+    ERC4626Upgradeable
+} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC4626Upgradeable.sol";
+import {
+    ERC20Upgradeable
+} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {IERC20Upgradeable} from
-    "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
+import {
+    IERC20Upgradeable
+} from "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
-import {AccessControlUpgradeable} from
-    "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
-import {PausableUpgradeable} from
-    "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import {
+    AccessControlUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import {
+    PausableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {MathUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {ReentrancyGuardUpgradeable} from
-    "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+import {
+    ReentrancyGuardUpgradeable
+} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
 // todo: should we have an arbitrary call function for the vault manager to do stuff with the subvault? like queue withdrawals etc
 
@@ -144,11 +150,7 @@ contract MasterVault is
 
     /// @notice Set a new subvault
     /// @param  _subVault The subvault to set. Must be an ERC4626 vault with the same asset as this MasterVault.
-    function setSubVault(IERC4626 _subVault)
-        external
-        nonReentrant
-        onlyRole(SUBVAULT_MANAGER_ROLE)
-    {
+    function setSubVault(IERC4626 _subVault) external nonReentrant onlyRole(SUBVAULT_MANAGER_ROLE) {
         IERC20 underlyingAsset = IERC20(asset());
         if (address(_subVault.asset()) != address(underlyingAsset)) revert SubVaultAssetMismatch();
 
@@ -376,9 +378,10 @@ contract MasterVault is
     {
         // we add one as part of the first deposit mitigation
         // see for details: https://docs.openzeppelin.com/contracts/5.x/erc4626
-        return assets.mulDiv(
-            totalSupply(), _totalAssetsLessProfit(_flipRounding(rounding)) + 1, rounding
-        );
+        return
+            assets.mulDiv(
+                totalSupply(), _totalAssetsLessProfit(_flipRounding(rounding)) + 1, rounding
+            );
     }
 
     /**
