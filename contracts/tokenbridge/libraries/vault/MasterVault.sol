@@ -1,32 +1,24 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.0;
 
-import {
-    ERC4626Upgradeable
-} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC4626Upgradeable.sol";
-import {
-    ERC20Upgradeable
-} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {
-    IERC20Upgradeable
-} from "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
-import { IERC4626 } from "@openzeppelin/contracts/interfaces/IERC4626.sol";
-import {
-    AccessControlUpgradeable
-} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
-import {
-    PausableUpgradeable
-} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
-import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import {
-    MathUpgradeable
-} from "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
-import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {
-    ReentrancyGuardUpgradeable
-} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+import {ERC4626Upgradeable} from
+    "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC4626Upgradeable.sol";
+import {ERC20Upgradeable} from
+    "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC20Upgradeable} from
+    "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
+import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
+import {AccessControlUpgradeable} from
+    "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import {PausableUpgradeable} from
+    "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import {MathUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {ReentrancyGuardUpgradeable} from
+    "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
 // todo: should we have an arbitrary call function for the vault manager to do stuff with the subvault? like queue withdrawals etc
 
@@ -100,9 +92,7 @@ contract MasterVault is
     event BeneficiaryUpdated(address indexed oldBeneficiary, address indexed newBeneficiary);
     event MinimumRebalanceAmountUpdated(uint256 oldAmount, uint256 newAmount);
     event PerformanceFeesWithdrawn(
-        address indexed beneficiary,
-        uint256 amountTransferred,
-        uint256 amountWithdrawn
+        address indexed beneficiary, uint256 amountTransferred, uint256 amountWithdrawn
     );
     event Rebalanced(bool deposited, uint256 desiredAmount, uint256 actualAmount);
 
@@ -154,7 +144,11 @@ contract MasterVault is
 
     /// @notice Set a new subvault
     /// @param  _subVault The subvault to set. Must be an ERC4626 vault with the same asset as this MasterVault.
-    function setSubVault(IERC4626 _subVault) external nonReentrant onlyRole(SUBVAULT_MANAGER_ROLE) {
+    function setSubVault(IERC4626 _subVault)
+        external
+        nonReentrant
+        onlyRole(SUBVAULT_MANAGER_ROLE)
+    {
         IERC20 underlyingAsset = IERC20(asset());
         if (address(_subVault.asset()) != address(underlyingAsset)) revert SubVaultAssetMismatch();
 
@@ -175,18 +169,21 @@ contract MasterVault is
         emit SubvaultChanged(oldSubVault, address(_subVault));
     }
 
-    function setTargetAllocationWad(
-        uint256 _targetAllocationWad
-    ) external nonReentrant onlyRole(SUBVAULT_MANAGER_ROLE) {
+    function setTargetAllocationWad(uint256 _targetAllocationWad)
+        external
+        nonReentrant
+        onlyRole(SUBVAULT_MANAGER_ROLE)
+    {
         require(_targetAllocationWad <= 1e18, "Target allocation must be <= 100%");
         require(targetAllocationWad != _targetAllocationWad, "Allocation unchanged");
         targetAllocationWad = _targetAllocationWad;
         _rebalance();
     }
 
-    function setMinimumRebalanceAmount(
-        uint256 _minimumRebalanceAmount
-    ) external onlyRole(SUBVAULT_MANAGER_ROLE) {
+    function setMinimumRebalanceAmount(uint256 _minimumRebalanceAmount)
+        external
+        onlyRole(SUBVAULT_MANAGER_ROLE)
+    {
         uint256 oldAmount = minimumRebalanceAmount;
         minimumRebalanceAmount = _minimumRebalanceAmount;
         emit MinimumRebalanceAmountUpdated(oldAmount, _minimumRebalanceAmount);
@@ -230,12 +227,16 @@ contract MasterVault is
         return super.decimals() + EXTRA_DECIMALS;
     }
 
-    /** @dev See {IERC4626-totalAssets}. */
+    /**
+     * @dev See {IERC4626-totalAssets}.
+     */
     function totalAssets() public view virtual override returns (uint256) {
         return _totalAssets(MathUpgradeable.Rounding.Down);
     }
 
-    /** @dev See {IERC4626-maxDeposit}. */
+    /**
+     * @dev See {IERC4626-maxDeposit}.
+     */
     function maxDeposit(address) public view virtual override returns (uint256) {
         if (address(subVault) == address(0)) {
             return type(uint256).max;
@@ -261,16 +262,10 @@ contract MasterVault is
     function _rebalance() internal {
         uint256 totalAssetsUp = _totalAssetsLessProfit(MathUpgradeable.Rounding.Up);
         uint256 totalAssetsDown = _totalAssetsLessProfit(MathUpgradeable.Rounding.Down);
-        uint256 idleTargetUp = totalAssetsUp.mulDiv(
-            1e18 - targetAllocationWad,
-            1e18,
-            MathUpgradeable.Rounding.Up
-        );
-        uint256 idleTargetDown = totalAssetsDown.mulDiv(
-            1e18 - targetAllocationWad,
-            1e18,
-            MathUpgradeable.Rounding.Down
-        );
+        uint256 idleTargetUp =
+            totalAssetsUp.mulDiv(1e18 - targetAllocationWad, 1e18, MathUpgradeable.Rounding.Up);
+        uint256 idleTargetDown =
+            totalAssetsDown.mulDiv(1e18 - targetAllocationWad, 1e18, MathUpgradeable.Rounding.Down);
         uint256 idleBalance = IERC20(asset()).balanceOf(address(this));
 
         if (idleTargetDown <= idleBalance && idleBalance <= idleTargetUp) {
@@ -281,9 +276,8 @@ contract MasterVault is
             // we need to withdraw from subvault
             uint256 desiredWithdraw = idleTargetDown - idleBalance;
             uint256 maxWithdrawable = subVault.maxWithdraw(address(this));
-            uint256 withdrawAmount = desiredWithdraw < maxWithdrawable
-                ? desiredWithdraw
-                : maxWithdrawable;
+            uint256 withdrawAmount =
+                desiredWithdraw < maxWithdrawable ? desiredWithdraw : maxWithdrawable;
             if (withdrawAmount < minimumRebalanceAmount) {
                 return;
             }
@@ -293,9 +287,8 @@ contract MasterVault is
             // we need to deposit into subvault
             uint256 desiredDeposit = idleBalance - idleTargetUp;
             uint256 maxDepositable = subVault.maxDeposit(address(this));
-            uint256 depositAmount = desiredDeposit < maxDepositable
-                ? desiredDeposit
-                : maxDepositable;
+            uint256 depositAmount =
+                desiredDeposit < maxDepositable ? desiredDeposit : maxDepositable;
             if (depositAmount < minimumRebalanceAmount) {
                 return;
             }
@@ -333,12 +326,12 @@ contract MasterVault is
     /**
      * @dev Deposit/mint common workflow.
      */
-    function _deposit(
-        address caller,
-        address receiver,
-        uint256 assets,
-        uint256 shares
-    ) internal override whenNotPaused nonReentrant {
+    function _deposit(address caller, address receiver, uint256 assets, uint256 shares)
+        internal
+        override
+        whenNotPaused
+        nonReentrant
+    {
         super._deposit(caller, receiver, assets, shares);
         if (enablePerformanceFee) totalPrincipal += assets;
     }
@@ -364,9 +357,8 @@ contract MasterVault is
     }
 
     function _totalAssets(MathUpgradeable.Rounding rounding) internal view returns (uint256) {
-        return
-            IERC20(asset()).balanceOf(address(this)) +
-            _subVaultSharesToAssets(subVault.balanceOf(address(this)), rounding);
+        return IERC20(asset()).balanceOf(address(this))
+            + _subVaultSharesToAssets(subVault.balanceOf(address(this)), rounding);
     }
 
     /**
@@ -375,35 +367,40 @@ contract MasterVault is
      * Will revert if assets > 0, totalSupply > 0 and totalAssets = 0. That corresponds to a case where any asset
      * would represent an infinite amount of shares.
      */
-    function _convertToShares(
-        uint256 assets,
-        MathUpgradeable.Rounding rounding
-    ) internal view virtual override returns (uint256 shares) {
+    function _convertToShares(uint256 assets, MathUpgradeable.Rounding rounding)
+        internal
+        view
+        virtual
+        override
+        returns (uint256 shares)
+    {
         // we add one as part of the first deposit mitigation
         // see for details: https://docs.openzeppelin.com/contracts/5.x/erc4626
-        return
-            assets.mulDiv(
-                totalSupply(),
-                _totalAssetsLessProfit(_flipRounding(rounding)) + 1,
-                rounding
-            );
+        return assets.mulDiv(
+            totalSupply(), _totalAssetsLessProfit(_flipRounding(rounding)) + 1, rounding
+        );
     }
 
     /**
      * @dev Internal conversion function (from shares to assets) with support for rounding direction.
      */
-    function _convertToAssets(
-        uint256 shares,
-        MathUpgradeable.Rounding rounding
-    ) internal view virtual override returns (uint256 assets) {
+    function _convertToAssets(uint256 shares, MathUpgradeable.Rounding rounding)
+        internal
+        view
+        virtual
+        override
+        returns (uint256 assets)
+    {
         // we add one as part of the first deposit mitigation
         // see for details: https://docs.openzeppelin.com/contracts/5.x/erc4626
         return shares.mulDiv(_totalAssetsLessProfit(rounding) + 1, totalSupply(), rounding);
     }
 
-    function _totalAssetsLessProfit(
-        MathUpgradeable.Rounding rounding
-    ) internal view returns (uint256) {
+    function _totalAssetsLessProfit(MathUpgradeable.Rounding rounding)
+        internal
+        view
+        returns (uint256)
+    {
         uint256 __totalAssets = _totalAssets(rounding);
         if (enablePerformanceFee && __totalAssets > totalPrincipal) {
             return totalPrincipal;
@@ -411,22 +408,23 @@ contract MasterVault is
         return __totalAssets;
     }
 
-    function _subVaultSharesToAssets(
-        uint256 subShares,
-        MathUpgradeable.Rounding rounding
-    ) internal view returns (uint256 assets) {
-        return
-            rounding == MathUpgradeable.Rounding.Up
-                ? subVault.previewMint(subShares)
-                : subVault.previewRedeem(subShares);
+    function _subVaultSharesToAssets(uint256 subShares, MathUpgradeable.Rounding rounding)
+        internal
+        view
+        returns (uint256 assets)
+    {
+        return rounding == MathUpgradeable.Rounding.Up
+            ? subVault.previewMint(subShares)
+            : subVault.previewRedeem(subShares);
     }
 
-    function _flipRounding(
-        MathUpgradeable.Rounding rounding
-    ) internal pure returns (MathUpgradeable.Rounding) {
-        return
-            rounding == MathUpgradeable.Rounding.Up
-                ? MathUpgradeable.Rounding.Down
-                : MathUpgradeable.Rounding.Up;
+    function _flipRounding(MathUpgradeable.Rounding rounding)
+        internal
+        pure
+        returns (MathUpgradeable.Rounding)
+    {
+        return rounding == MathUpgradeable.Rounding.Up
+            ? MathUpgradeable.Rounding.Down
+            : MathUpgradeable.Rounding.Up;
     }
 }
