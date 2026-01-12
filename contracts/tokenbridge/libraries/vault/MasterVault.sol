@@ -140,6 +140,29 @@ contract MasterVault is
         minimumRebalanceAmount = 1e6;
     }
 
+    /// @notice Deposit some underlying assets in exchange for vault shares
+    function deposit(uint256 assets) external whenNotPaused nonReentrant returns (uint256 shares) {
+        shares = _convertToShares(assets, MathUpgradeable.Rounding.Down);
+        if (enablePerformanceFee) totalPrincipal += assets;
+        _mint(msg.sender, shares);
+        asset.safeTransferFrom(msg.sender, address(this), assets);
+    }
+
+    /// @notice Redeem some vault shares in exchange for underlying assets
+    function redeem(uint256 shares) internal whenNotPaused nonReentrant returns (uint256 assets) {
+        assets = _convertToAssets(shares, MathUpgradeable.Rounding.Down);
+        if (enablePerformanceFee) totalPrincipal -= assets;
+
+        uint256 idleAssets = asset.balanceOf(address(this));
+        if (idleAssets < assets) {
+            uint256 assetsToWithdraw = assets - idleAssets;
+            subVault.withdraw(assetsToWithdraw, address(this), address(this));
+        }
+
+        _burn(msg.sender, shares);
+        asset.safeTransfer(msg.sender, assets);
+    }
+
     function rebalance() external whenNotPaused nonReentrant onlyRole(KEEPER_ROLE) {
         _rebalance();
     }
@@ -299,37 +322,6 @@ contract MasterVault is
         }
 
         emit PerformanceFeesWithdrawn(beneficiary, amountToTransfer, amountToWithdraw);
-    }
-
-    /**
-     * @dev Deposit/mint common workflow.
-     */
-    function _deposit(address caller, address receiver, uint256 assets, uint256 shares)
-        internal
-        whenNotPaused
-        nonReentrant
-    {
-        // super._deposit(caller, receiver, assets, shares);
-        if (enablePerformanceFee) totalPrincipal += assets;
-    }
-
-    /**
-     * @dev Withdraw/redeem common workflow.
-     */
-    function _withdraw(
-        address caller,
-        address receiver,
-        address _owner,
-        uint256 assets,
-        uint256 shares
-    ) internal whenNotPaused nonReentrant {
-        if (enablePerformanceFee) totalPrincipal -= assets;
-        uint256 idleAssets = asset.balanceOf(address(this));
-        if (idleAssets < assets) {
-            uint256 assetsToWithdraw = assets - idleAssets;
-            subVault.withdraw(assetsToWithdraw, address(this), address(this));
-        }
-        // super._withdraw(caller, receiver, _owner, assets, shares);
     }
 
     function _totalAssets(MathUpgradeable.Rounding rounding) internal view returns (uint256) {
