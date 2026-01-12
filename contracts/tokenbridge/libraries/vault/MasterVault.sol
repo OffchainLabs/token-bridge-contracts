@@ -179,7 +179,6 @@ contract MasterVault is
         require(_targetAllocationWad <= 1e18, "Target allocation must be <= 100%");
         require(targetAllocationWad != _targetAllocationWad, "Allocation unchanged");
         targetAllocationWad = _targetAllocationWad;
-        _rebalance();
     }
 
     function setMinimumRebalanceAmount(uint256 _minimumRebalanceAmount)
@@ -319,8 +318,6 @@ contract MasterVault is
         if (amountToWithdraw > 0) {
             subVault.withdraw(amountToWithdraw, beneficiary, address(this));
         }
-
-        _rebalance();
 
         emit PerformanceFeesWithdrawn(beneficiary, amountToTransfer, amountToWithdraw);
     }
