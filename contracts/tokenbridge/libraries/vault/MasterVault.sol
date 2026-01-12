@@ -355,7 +355,6 @@ contract MasterVault is
             subVault.withdraw(assetsToWithdraw, address(this), address(this));
         }
         super._withdraw(caller, receiver, _owner, assets, shares);
-        _rebalance();
     }
 
     function _totalAssets(MathUpgradeable.Rounding rounding) internal view returns (uint256) {
