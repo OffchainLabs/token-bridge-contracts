@@ -50,7 +50,6 @@ contract MasterVault is
     using MathUpgradeable for uint256;
 
     /// @notice Subvault manager role can set/revoke subvaults, set target allocation, and set minimum rebalance amount
-    /// @dev    Should never be granted to the zero address
     bytes32 public constant SUBVAULT_MANAGER_ROLE = keccak256("SUBVAULT_MANAGER_ROLE");
     /// @notice Fee manager role can toggle performance fees and set the performance fee beneficiary
     /// @dev    Should never be granted to the zero address
@@ -233,24 +232,6 @@ contract MasterVault is
     /** @dev See {IERC4626-totalAssets}. */
     function totalAssets() public view virtual override returns (uint256) {
         return _totalAssets(MathUpgradeable.Rounding.Down);
-    }
-
-    /** @dev See {IERC4626-maxDeposit}. */
-    function maxDeposit(address) public view virtual override returns (uint256) {
-        if (address(subVault) == address(0)) {
-            return type(uint256).max;
-        }
-        return subVault.maxDeposit(address(this));
-    }
-
-    // /** @dev See {IERC4626-maxMint}. */
-    function maxMint(address) public view virtual override returns (uint256) {
-        uint256 subShares = subVault.maxMint(address(this));
-        if (subShares == type(uint256).max) {
-            return type(uint256).max;
-        }
-        uint256 assets = _subVaultSharesToAssets(subShares, MathUpgradeable.Rounding.Down);
-        return _convertToShares(assets, MathUpgradeable.Rounding.Down);
     }
 
     function totalProfit(MathUpgradeable.Rounding rounding) public view returns (uint256) {
