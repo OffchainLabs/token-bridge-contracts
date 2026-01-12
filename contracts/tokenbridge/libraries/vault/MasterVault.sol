@@ -147,40 +147,6 @@ contract MasterVault is
         _distributePerformanceFee();
     }
 
-    /// @notice Deposit assets into the vault
-    function deposit(
-        uint256 assets,
-        address receiver
-    ) public virtual override onlyRole(GATEWAY_ROLE) returns (uint256) {
-        return super.deposit(assets, receiver);
-    }
-
-    /// @notice Mint shares from the vault
-    function mint(
-        uint256 shares,
-        address receiver
-    ) public virtual override onlyRole(GATEWAY_ROLE) returns (uint256) {
-        return super.mint(shares, receiver);
-    }
-
-    /// @notice Withdraw assets from the vault
-    function withdraw(
-        uint256 assets,
-        address receiver,
-        address owner
-    ) public virtual override onlyRole(GATEWAY_ROLE) returns (uint256) {
-        return super.withdraw(assets, receiver, owner);
-    }
-
-    /// @notice Redeem shares from the vault
-    function redeem(
-        uint256 shares,
-        address receiver,
-        address owner
-    ) public virtual override onlyRole(GATEWAY_ROLE) returns (uint256) {
-        return super.redeem(shares, receiver, owner);
-    }
-
     /// @notice Set a new subvault
     /// @param  _subVault The subvault to set. Must be an ERC4626 vault with the same asset as this MasterVault.
     function setSubVault(IERC4626 _subVault) external nonReentrant onlyRole(SUBVAULT_MANAGER_ROLE) {
@@ -331,7 +297,7 @@ contract MasterVault is
         address receiver,
         uint256 assets,
         uint256 shares
-    ) internal override whenNotPaused nonReentrant {
+    ) internal override whenNotPaused nonReentrant onlyRole(GATEWAY_ROLE) {
         super._deposit(caller, receiver, assets, shares);
         totalPrincipal += assets;
     }
@@ -345,7 +311,7 @@ contract MasterVault is
         address _owner,
         uint256 assets,
         uint256 shares
-    ) internal override whenNotPaused nonReentrant {
+    ) internal override whenNotPaused nonReentrant onlyRole(GATEWAY_ROLE) {
         totalPrincipal -= assets;
         uint256 idleAssets = IERC20(asset()).balanceOf(address(this));
         if (idleAssets < assets) {
