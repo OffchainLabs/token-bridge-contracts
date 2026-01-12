@@ -12,8 +12,6 @@ contract MasterVaultScenarioCoreTest is MasterVaultCoreTest {
 
     function setUp() public virtual override {
         super.setUp();
-        // Enable performance fee for this scenario
-        vault.setPerformanceFee(true);
         vault.setBeneficiary(beneficiaryAddress);
     }
 

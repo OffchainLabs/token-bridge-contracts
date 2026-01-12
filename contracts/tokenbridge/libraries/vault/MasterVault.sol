@@ -52,8 +52,9 @@ contract MasterVault is
     /// @notice Subvault manager role can set/revoke subvaults, set target allocation, and set minimum rebalance amount
     bytes32 public constant SUBVAULT_MANAGER_ROLE = keccak256("SUBVAULT_MANAGER_ROLE");
     /// @notice Fee manager role can toggle performance fees and set the performance fee beneficiary
-    /// @dev    Should never be granted to the zero address
     bytes32 public constant FEE_MANAGER_ROLE = keccak256("FEE_MANAGER_ROLE");
+    /// @notice  role can call deposit, mint, withdraw, and redeem functions
+    bytes32 public constant GATEWAY_ROLE = keccak256("GATEWAY_ROLE");
     /// @notice Pauser role can pause/unpause deposits and withdrawals (todo: pause should pause EVERYTHING)
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
     /// @notice Keeper role can rebalance the vault and distribute performance fees
@@ -65,7 +66,6 @@ contract MasterVault is
     uint8 public constant EXTRA_DECIMALS = 18;
 
     error SubVaultAssetMismatch();
-    error PerformanceFeeDisabled();
     error BeneficiaryNotSet();
     error InvalidAsset();
     error InvalidOwner();
@@ -84,18 +84,13 @@ contract MasterVault is
     /// @dev    Defaults to 1e6, but can be set by the vault manager to any value.
     uint256 public minimumRebalanceAmount;
 
-    /// @notice Flag indicating if performance fee is enabled
-    bool public enablePerformanceFee;
-
     /// @notice Address that receives performance fees
     address public beneficiary;
 
     /// @notice totalPrincipal tracks the total assets deposited into the vault (minus withdrawals)
-    /// @dev    When performance fees are disabled, totalPrincipal is 0
     uint256 public totalPrincipal;
 
     event SubvaultChanged(address indexed oldSubvault, address indexed newSubvault);
-    event PerformanceFeeToggled(bool enabled);
     event BeneficiaryUpdated(address indexed oldBeneficiary, address indexed newBeneficiary);
     event MinimumRebalanceAmountUpdated(uint256 oldAmount, uint256 newAmount);
     event PerformanceFeesWithdrawn(
@@ -123,6 +118,7 @@ contract MasterVault is
 
         _setRoleAdmin(SUBVAULT_MANAGER_ROLE, DEFAULT_ADMIN_ROLE);
         _setRoleAdmin(FEE_MANAGER_ROLE, DEFAULT_ADMIN_ROLE);
+        _setRoleAdmin(GATEWAY_ROLE, DEFAULT_ADMIN_ROLE);
         _setRoleAdmin(PAUSER_ROLE, DEFAULT_ADMIN_ROLE);
         _setRoleAdmin(KEEPER_ROLE, DEFAULT_ADMIN_ROLE);
 
@@ -149,6 +145,40 @@ contract MasterVault is
 
     function distributePerformanceFee() external whenNotPaused nonReentrant onlyRole(KEEPER_ROLE) {
         _distributePerformanceFee();
+    }
+
+    /// @notice Deposit assets into the vault
+    function deposit(
+        uint256 assets,
+        address receiver
+    ) public virtual override onlyRole(GATEWAY_ROLE) returns (uint256) {
+        return super.deposit(assets, receiver);
+    }
+
+    /// @notice Mint shares from the vault
+    function mint(
+        uint256 shares,
+        address receiver
+    ) public virtual override onlyRole(GATEWAY_ROLE) returns (uint256) {
+        return super.mint(shares, receiver);
+    }
+
+    /// @notice Withdraw assets from the vault
+    function withdraw(
+        uint256 assets,
+        address receiver,
+        address owner
+    ) public virtual override onlyRole(GATEWAY_ROLE) returns (uint256) {
+        return super.withdraw(assets, receiver, owner);
+    }
+
+    /// @notice Redeem shares from the vault
+    function redeem(
+        uint256 shares,
+        address receiver,
+        address owner
+    ) public virtual override onlyRole(GATEWAY_ROLE) returns (uint256) {
+        return super.redeem(shares, receiver, owner);
     }
 
     /// @notice Set a new subvault
@@ -189,23 +219,6 @@ contract MasterVault is
         uint256 oldAmount = minimumRebalanceAmount;
         minimumRebalanceAmount = _minimumRebalanceAmount;
         emit MinimumRebalanceAmountUpdated(oldAmount, _minimumRebalanceAmount);
-    }
-
-    /// @notice Toggle performance fee collection on/off
-    /// @param enabled True to enable performance fees, false to disable
-    function setPerformanceFee(bool enabled) external nonReentrant onlyRole(FEE_MANAGER_ROLE) {
-        // reset totalPrincipal to current totalAssets when enabling performance fee
-        // this prevents a sudden large profit
-        if (enabled) {
-            totalPrincipal = _totalAssets(MathUpgradeable.Rounding.Up);
-        } else {
-            _distributePerformanceFee();
-            totalPrincipal = 0;
-        }
-
-        enablePerformanceFee = enabled;
-
-        emit PerformanceFeeToggled(enabled);
     }
 
     /// @notice Set the beneficiary address for performance fees
@@ -286,7 +299,6 @@ contract MasterVault is
     }
 
     function _distributePerformanceFee() internal {
-        if (!enablePerformanceFee) revert PerformanceFeeDisabled();
         if (beneficiary == address(0)) {
             revert BeneficiaryNotSet();
         }
@@ -321,7 +333,7 @@ contract MasterVault is
         uint256 shares
     ) internal override whenNotPaused nonReentrant {
         super._deposit(caller, receiver, assets, shares);
-        if (enablePerformanceFee) totalPrincipal += assets;
+        totalPrincipal += assets;
     }
 
     /**
@@ -334,7 +346,7 @@ contract MasterVault is
         uint256 assets,
         uint256 shares
     ) internal override whenNotPaused nonReentrant {
-        if (enablePerformanceFee) totalPrincipal -= assets;
+        totalPrincipal -= assets;
         uint256 idleAssets = IERC20(asset()).balanceOf(address(this));
         if (idleAssets < assets) {
             uint256 assetsToWithdraw = assets - idleAssets;
@@ -386,7 +398,7 @@ contract MasterVault is
         MathUpgradeable.Rounding rounding
     ) internal view returns (uint256) {
         uint256 __totalAssets = _totalAssets(rounding);
-        if (enablePerformanceFee && __totalAssets > totalPrincipal) {
+        if (__totalAssets > totalPrincipal) {
             return totalPrincipal;
         }
         return __totalAssets;

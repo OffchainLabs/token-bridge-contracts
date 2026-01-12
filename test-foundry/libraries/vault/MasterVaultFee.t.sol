@@ -13,49 +13,6 @@ import {
 contract MasterVaultFeeTest is MasterVaultCoreTest {
     address public beneficiaryAddress = address(0x9999);
 
-    function test_setPerformanceFee_enable() public {
-        assertFalse(vault.enablePerformanceFee(), "Performance fee should be disabled by default");
-
-        vault.setPerformanceFee(true);
-
-        assertTrue(vault.enablePerformanceFee(), "Performance fee should be enabled");
-    }
-
-    function test_cannotDisableWithoutBeneficiarySet() public {
-        vault.setPerformanceFee(true);
-        assertTrue(vault.enablePerformanceFee(), "Performance fee should be enabled");
-
-        vm.expectRevert(MasterVault.BeneficiaryNotSet.selector);
-        vault.setPerformanceFee(false);
-    }
-
-    function test_setPerformanceFee_disable() public {
-        vault.setPerformanceFee(true);
-        assertTrue(vault.enablePerformanceFee(), "Performance fee should be enabled");
-        vault.setBeneficiary(beneficiaryAddress);
-        vault.setPerformanceFee(false);
-
-        assertFalse(vault.enablePerformanceFee(), "Performance fee should be disabled");
-    }
-
-    function test_setPerformanceFee_revert_NotVaultManager() public {
-        vm.prank(user);
-        vm.expectRevert();
-        vault.setPerformanceFee(true);
-    }
-
-    function test_setPerformanceFee_emitsEvent() public {
-        vault.setBeneficiary(beneficiaryAddress);
-
-        vm.expectEmit(true, true, true, true);
-        emit PerformanceFeeToggled(true);
-        vault.setPerformanceFee(true);
-
-        vm.expectEmit(true, true, true, true);
-        emit PerformanceFeeToggled(false);
-        vault.setPerformanceFee(false);
-    }
-
     function test_setBeneficiary() public {
         assertEq(vault.beneficiary(), address(0), "Beneficiary should be zero address by default");
 
@@ -81,21 +38,7 @@ contract MasterVaultFeeTest is MasterVaultCoreTest {
         vault.setBeneficiary(newBeneficiary);
     }
 
-    function test_setPerformanceFee_withVaultManagerRole() public {
-        address vaultManager = address(0x7777);
-        vault.grantRole(vault.VAULT_MANAGER_ROLE(), vaultManager);
-
-        vm.prank(vaultManager);
-        vault.setPerformanceFee(true);
-
-        assertTrue(
-            vault.enablePerformanceFee(),
-            "Vault manager should be able to set performance fee"
-        );
-    }
-
     function test_deposit_updatesTotalPrincipal() public {
-        vault.setPerformanceFee(true);
         assertEq(vault.totalPrincipal(), 0, "Total principal should be zero initially");
 
         vm.startPrank(user);
@@ -115,7 +58,6 @@ contract MasterVaultFeeTest is MasterVaultCoreTest {
     }
 
     function test_mint_updatesTotalPrincipal() public {
-        vault.setPerformanceFee(true);
         assertEq(vault.totalPrincipal(), 0, "Total principal should be zero initially");
 
         vm.startPrank(user);
@@ -131,7 +73,6 @@ contract MasterVaultFeeTest is MasterVaultCoreTest {
     }
 
     function test_withdraw_updatesTotalPrincipal() public {
-        vault.setPerformanceFee(true);
         vm.startPrank(user);
         token.mint();
         uint256 depositAmount = 200;
@@ -157,7 +98,6 @@ contract MasterVaultFeeTest is MasterVaultCoreTest {
     }
 
     function test_redeem_updatesTotalPrincipal() public {
-        vault.setPerformanceFee(true);
         vm.startPrank(user);
         token.mint();
         uint256 depositAmount = 200;
@@ -182,16 +122,7 @@ contract MasterVaultFeeTest is MasterVaultCoreTest {
         vm.stopPrank();
     }
 
-    function test_withdrawPerformanceFees_revert_PerformanceFeeDisabled() public {
-        vault.setBeneficiary(beneficiaryAddress);
-
-        vm.expectRevert(MasterVault.PerformanceFeeDisabled.selector);
-        vault.distributePerformanceFee();
-    }
-
     function test_withdrawPerformanceFees_revert_BeneficiaryNotSet() public {
-        vault.setPerformanceFee(true);
-
         vm.expectRevert(MasterVault.BeneficiaryNotSet.selector);
         vault.distributePerformanceFee();
     }
@@ -205,9 +136,7 @@ contract MasterVaultFeeTest is MasterVaultCoreTest {
             vault.setTargetAllocationWad(allocationWad);
         }
 
-        vault.setPerformanceFee(true);
         vault.setBeneficiary(beneficiaryAddress);
-        vault.setPerformanceFee(true);
 
         vm.startPrank(user);
         token.mint();
@@ -253,7 +182,11 @@ contract MasterVaultFeeTest is MasterVaultCoreTest {
             uint256 vaultBalance = token.balanceOf(address(vault));
             uint256 expectedTransferred = MathUpgradeable.min(vaultBalance, expectedProfit);
             vm.expectEmit(true, true, true, true);
-            emit PerformanceFeesWithdrawn(beneficiaryAddress, expectedTransferred, expectedProfit - expectedTransferred);
+            emit PerformanceFeesWithdrawn(
+                beneficiaryAddress,
+                expectedTransferred,
+                expectedProfit - expectedTransferred
+            );
         }
         vault.distributePerformanceFee();
 
@@ -280,7 +213,6 @@ contract MasterVaultFeeTest is MasterVaultCoreTest {
             vault.setTargetAllocationWad(allocationWad);
         }
 
-        vault.setPerformanceFee(true);
         vault.setBeneficiary(beneficiaryAddress);
 
         vm.startPrank(user);
@@ -327,7 +259,11 @@ contract MasterVaultFeeTest is MasterVaultCoreTest {
             uint256 vaultBalance = token.balanceOf(address(vault));
             uint256 expectedTransferred = MathUpgradeable.min(vaultBalance, expectedProfit);
             vm.expectEmit(true, true, true, true);
-            emit PerformanceFeesWithdrawn(beneficiaryAddress, expectedTransferred, expectedProfit - expectedTransferred);
+            emit PerformanceFeesWithdrawn(
+                beneficiaryAddress,
+                expectedTransferred,
+                expectedProfit - expectedTransferred
+            );
         }
         vault.distributePerformanceFee();
 
@@ -346,7 +282,11 @@ contract MasterVaultFeeTest is MasterVaultCoreTest {
 
     event PerformanceFeeToggled(bool enabled);
     event BeneficiaryUpdated(address indexed oldBeneficiary, address indexed newBeneficiary);
-    event PerformanceFeesWithdrawn(address indexed beneficiary, uint256 amountTransferred, uint256 amountWithdrawn);
+    event PerformanceFeesWithdrawn(
+        address indexed beneficiary,
+        uint256 amountTransferred,
+        uint256 amountWithdrawn
+    );
 }
 
 contract MasterVaultFeeTestWithSubvaultFresh is MasterVaultFeeTest {
