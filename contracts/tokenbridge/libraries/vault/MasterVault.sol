@@ -49,9 +49,12 @@ contract MasterVault is
     using SafeERC20 for IERC20;
     using MathUpgradeable for uint256;
 
-    /// @notice Vault manager role can set/revoke subvaults, toggle performance fees and set the performance fee beneficiary
+    /// @notice Subvault manager role can set/revoke subvaults, set target allocation, and set minimum rebalance amount
     /// @dev    Should never be granted to the zero address
-    bytes32 public constant VAULT_MANAGER_ROLE = keccak256("VAULT_MANAGER_ROLE");
+    bytes32 public constant SUBVAULT_MANAGER_ROLE = keccak256("SUBVAULT_MANAGER_ROLE");
+    /// @notice Fee manager role can toggle performance fees and set the performance fee beneficiary
+    /// @dev    Should never be granted to the zero address
+    bytes32 public constant FEE_MANAGER_ROLE = keccak256("FEE_MANAGER_ROLE");
     /// @notice Pauser role can pause/unpause deposits and withdrawals (todo: pause should pause EVERYTHING)
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
     /// @notice Keeper role can rebalance the vault and distribute performance fees
@@ -119,11 +122,14 @@ contract MasterVault is
         __AccessControl_init();
         __Pausable_init();
 
-        _setRoleAdmin(VAULT_MANAGER_ROLE, DEFAULT_ADMIN_ROLE);
+        _setRoleAdmin(SUBVAULT_MANAGER_ROLE, DEFAULT_ADMIN_ROLE);
+        _setRoleAdmin(FEE_MANAGER_ROLE, DEFAULT_ADMIN_ROLE);
         _setRoleAdmin(PAUSER_ROLE, DEFAULT_ADMIN_ROLE);
+        _setRoleAdmin(KEEPER_ROLE, DEFAULT_ADMIN_ROLE);
 
         _grantRole(DEFAULT_ADMIN_ROLE, _owner);
-        _grantRole(VAULT_MANAGER_ROLE, _owner);
+        _grantRole(SUBVAULT_MANAGER_ROLE, _owner);
+        _grantRole(FEE_MANAGER_ROLE, _owner);
         _grantRole(PAUSER_ROLE, _owner);
 
         // mint some dead shares to avoid first depositor issues
@@ -148,7 +154,7 @@ contract MasterVault is
 
     /// @notice Set a new subvault
     /// @param  _subVault The subvault to set. Must be an ERC4626 vault with the same asset as this MasterVault.
-    function setSubVault(IERC4626 _subVault) external nonReentrant onlyRole(VAULT_MANAGER_ROLE) {
+    function setSubVault(IERC4626 _subVault) external nonReentrant onlyRole(SUBVAULT_MANAGER_ROLE) {
         IERC20 underlyingAsset = IERC20(asset());
         if (address(_subVault.asset()) != address(underlyingAsset)) revert SubVaultAssetMismatch();
 
@@ -171,7 +177,7 @@ contract MasterVault is
 
     function setTargetAllocationWad(
         uint256 _targetAllocationWad
-    ) external nonReentrant onlyRole(VAULT_MANAGER_ROLE) {
+    ) external nonReentrant onlyRole(SUBVAULT_MANAGER_ROLE) {
         require(_targetAllocationWad <= 1e18, "Target allocation must be <= 100%");
         require(targetAllocationWad != _targetAllocationWad, "Allocation unchanged");
         targetAllocationWad = _targetAllocationWad;
@@ -180,7 +186,7 @@ contract MasterVault is
 
     function setMinimumRebalanceAmount(
         uint256 _minimumRebalanceAmount
-    ) external onlyRole(VAULT_MANAGER_ROLE) {
+    ) external onlyRole(SUBVAULT_MANAGER_ROLE) {
         uint256 oldAmount = minimumRebalanceAmount;
         minimumRebalanceAmount = _minimumRebalanceAmount;
         emit MinimumRebalanceAmountUpdated(oldAmount, _minimumRebalanceAmount);
@@ -188,7 +194,7 @@ contract MasterVault is
 
     /// @notice Toggle performance fee collection on/off
     /// @param enabled True to enable performance fees, false to disable
-    function setPerformanceFee(bool enabled) external nonReentrant onlyRole(VAULT_MANAGER_ROLE) {
+    function setPerformanceFee(bool enabled) external nonReentrant onlyRole(FEE_MANAGER_ROLE) {
         // reset totalPrincipal to current totalAssets when enabling performance fee
         // this prevents a sudden large profit
         if (enabled) {
@@ -205,7 +211,7 @@ contract MasterVault is
 
     /// @notice Set the beneficiary address for performance fees
     /// @param newBeneficiary Address to receive performance fees
-    function setBeneficiary(address newBeneficiary) external onlyRole(VAULT_MANAGER_ROLE) {
+    function setBeneficiary(address newBeneficiary) external onlyRole(FEE_MANAGER_ROLE) {
         address oldBeneficiary = beneficiary;
         beneficiary = newBeneficiary;
         emit BeneficiaryUpdated(oldBeneficiary, newBeneficiary);
