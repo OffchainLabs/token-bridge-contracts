@@ -22,6 +22,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {
     ReentrancyGuardUpgradeable
 } from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+import {IGatewayRouter} from "../gateway/IGatewayRouter.sol";
 
 // todo: should we have an arbitrary call function for the vault manager to do stuff with the subvault? like queue withdrawals etc
 
@@ -67,8 +68,12 @@ contract MasterVault is
     error InvalidOwner();
     error NonZeroTargetAllocation(uint256 targetAllocationWad);
     error NonZeroSubVaultShares(uint256 subVaultShares);
+    error NotGateway();
 
     IERC20 public asset;
+
+    /// @notice Gateway router used to verify deposit calls
+    IGatewayRouter public gatewayRouter;
 
     // todo: avoid inflation, rounding, other common 4626 vulns
     // we may need a minimum asset or master share amount when setting subvaults (bc of exchange rate calc)
@@ -105,7 +110,8 @@ contract MasterVault is
         IERC4626 _subVault,
         string memory _name,
         string memory _symbol,
-        address _owner
+        address _owner,
+        IGatewayRouter _gatewayRouter
     ) external initializer {
         __ERC20_init(_name, _symbol);
 
@@ -128,6 +134,8 @@ contract MasterVault is
         _grantRole(FEE_MANAGER_ROLE, _owner);
         _grantRole(PAUSER_ROLE, _owner);
 
+        gatewayRouter = _gatewayRouter;
+
         // mint some dead shares to avoid first depositor issues
         // for more information on the mitigation:
         // https://web.archive.org/web/20250609034056/https://docs.openzeppelin.com/contracts/4.x/erc4626#fees
@@ -140,8 +148,22 @@ contract MasterVault is
         minimumRebalanceAmount = 1e6;
     }
 
+    /// @notice Modifier to ensure only the registered gateway can call
+    modifier onlyGateway() {
+        if (gatewayRouter.getGateway(address(asset)) != msg.sender) {
+            revert NotGateway();
+        }
+        _;
+    }
+
     /// @notice Deposit some underlying assets in exchange for vault shares
-    function deposit(uint256 assets) external whenNotPaused nonReentrant returns (uint256 shares) {
+    function deposit(uint256 assets)
+        external
+        whenNotPaused
+        nonReentrant
+        onlyGateway
+        returns (uint256 shares)
+    {
         shares = _convertToShares(assets, MathUpgradeable.Rounding.Down);
         if (enablePerformanceFee) totalPrincipal += assets;
         _mint(msg.sender, shares);
