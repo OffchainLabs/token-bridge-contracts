@@ -5,6 +5,9 @@ import {
     AccessControlEnumerableUpgradeable
 } from "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgradeable.sol";
 
+/// @notice Roles system for MasterVaults.
+///         Each MasterVault will have a reference to a singleton MasterVaultRoles contract, in addition to inheriting MasterVaultRoles directly.
+///         This allows for easier management of roles across multiple vaults.
 contract MasterVaultRoles is AccessControlEnumerableUpgradeable {
     /// @notice Subvault manager role can set/revoke subvaults, set target allocation, and set minimum rebalance amount
     /// @dev    Should never be granted to the zero address
