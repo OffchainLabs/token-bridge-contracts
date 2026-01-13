@@ -9,6 +9,7 @@ import "../ClonableBeaconProxy.sol";
 import "./IMasterVault.sol";
 import "./IMasterVaultFactory.sol";
 import "./MasterVault.sol";
+import "../gateway/IGatewayRouter.sol";
 
 contract DefaultSubVault is ERC4626 {
     constructor(address token) ERC4626(IERC20(token)) ERC20("Default SubVault", "DSV") {}
@@ -21,9 +22,11 @@ contract MasterVaultFactory is IMasterVaultFactory, Initializable {
 
     BeaconProxyFactory public beaconProxyFactory;
     address public owner;
+    IGatewayRouter public gatewayRouter;
 
-    function initialize(address _owner) public initializer {
+    function initialize(address _owner, IGatewayRouter _gatewayRouter) public initializer {
         owner = _owner;
+        gatewayRouter = _gatewayRouter;
         MasterVault masterVaultImplementation = new MasterVault();
         UpgradeableBeacon beacon = new UpgradeableBeacon(address(masterVaultImplementation));
         beaconProxyFactory = new BeaconProxyFactory();
@@ -38,7 +41,8 @@ contract MasterVaultFactory is IMasterVaultFactory, Initializable {
         string memory name = string(abi.encodePacked("Master ", _tryGetTokenName(token)));
         string memory symbol = string(abi.encodePacked("m", _tryGetTokenSymbol(token)));
 
-        MasterVault(vault).initialize(new DefaultSubVault(token), name, symbol, owner);
+        MasterVault(vault)
+            .initialize(new DefaultSubVault(token), name, symbol, owner, gatewayRouter);
 
         emit VaultDeployed(token, vault);
     }
