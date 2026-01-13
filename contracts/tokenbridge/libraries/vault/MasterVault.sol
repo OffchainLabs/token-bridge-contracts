@@ -69,11 +69,15 @@ contract MasterVault is
     error NonZeroTargetAllocation(uint256 targetAllocationWad);
     error NonZeroSubVaultShares(uint256 subVaultShares);
     error NotGateway(address caller);
+    error SubVaultNotWhitelisted(address subVault);
 
     IERC20 public asset;
 
     /// @notice Gateway router used to verify deposit calls
     IGatewayRouter public gatewayRouter;
+
+    /// @notice Mapping of whitelisted subvaults
+    mapping(address => bool) public whitelistedSubVaults;
 
     // todo: avoid inflation, rounding, other common 4626 vulns
     // we may need a minimum asset or master share amount when setting subvaults (bc of exchange rate calc)
@@ -105,6 +109,7 @@ contract MasterVault is
         address indexed beneficiary, uint256 amountTransferred, uint256 amountWithdrawn
     );
     event Rebalanced(bool deposited, uint256 desiredAmount, uint256 actualAmount);
+    event SubVaultWhitelistUpdated(address indexed subVault, bool whitelisted);
 
     function initialize(
         IERC4626 _subVault,
@@ -196,6 +201,9 @@ contract MasterVault is
     /// @notice Set a new subvault
     /// @param  _subVault The subvault to set. Must be an ERC4626 vault with the same asset as this MasterVault.
     function setSubVault(IERC4626 _subVault) external nonReentrant onlyRole(SUBVAULT_MANAGER_ROLE) {
+        if (!whitelistedSubVaults[address(_subVault)]) {
+            revert SubVaultNotWhitelisted(address(_subVault));
+        }
         if (address(_subVault.asset()) != address(asset)) revert SubVaultAssetMismatch();
 
         // we ensure target allocation is zero, therefore the master vault holds no subvault shares
@@ -257,6 +265,17 @@ contract MasterVault is
         address oldBeneficiary = beneficiary;
         beneficiary = newBeneficiary;
         emit BeneficiaryUpdated(oldBeneficiary, newBeneficiary);
+    }
+
+    /// @notice Add or remove a subvault from the whitelist
+    /// @param _subVault The subvault address to update
+    /// @param _whitelisted True to whitelist the subvault, false to remove it
+    function setSubVaultWhitelist(address _subVault, bool _whitelisted)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        whitelistedSubVaults[_subVault] = _whitelisted;
+        emit SubVaultWhitelistUpdated(_subVault, _whitelisted);
     }
 
     function pause() external onlyRole(PAUSER_ROLE) {
