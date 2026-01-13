@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.0;
 
+import {MasterVaultRoles} from "./MasterVaultRoles.sol";
 import {
     ERC20Upgradeable
 } from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
@@ -35,25 +36,13 @@ import {
 ///         - convertToAssets and convertToShares must not be manipulable
 ///         - must not have deposit / withdrawal fees (todo: verify this requirement is necessary)
 contract MasterVault is
-    Initializable,
+    MasterVaultRoles,
     ReentrancyGuardUpgradeable,
     ERC20Upgradeable,
-    AccessControlUpgradeable,
     PausableUpgradeable
 {
     using SafeERC20 for IERC20;
     using MathUpgradeable for uint256;
-
-    /// @notice Subvault manager role can set/revoke subvaults, set target allocation, and set minimum rebalance amount
-    /// @dev    Should never be granted to the zero address
-    bytes32 public constant SUBVAULT_MANAGER_ROLE = keccak256("SUBVAULT_MANAGER_ROLE");
-    /// @notice Fee manager role can toggle performance fees and set the performance fee beneficiary
-    /// @dev    Should never be granted to the zero address
-    bytes32 public constant FEE_MANAGER_ROLE = keccak256("FEE_MANAGER_ROLE");
-    /// @notice Pauser role can pause/unpause deposits and withdrawals (todo: pause should pause EVERYTHING)
-    bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
-    /// @notice Keeper role can rebalance the vault and distribute performance fees
-    bytes32 public constant KEEPER_ROLE = keccak256("KEEPER");
 
     /// @notice Extra decimals added to the ERC20 decimals of the underlying asset to determine the decimals of the MasterVault
     /// @dev    This is done to mitigate the "first depositor" problem described in the OpenZeppelin ERC4626 documentation.
@@ -117,16 +106,7 @@ contract MasterVault is
         __ReentrancyGuard_init();
         __AccessControl_init();
         __Pausable_init();
-
-        _setRoleAdmin(SUBVAULT_MANAGER_ROLE, DEFAULT_ADMIN_ROLE);
-        _setRoleAdmin(FEE_MANAGER_ROLE, DEFAULT_ADMIN_ROLE);
-        _setRoleAdmin(PAUSER_ROLE, DEFAULT_ADMIN_ROLE);
-        _setRoleAdmin(KEEPER_ROLE, DEFAULT_ADMIN_ROLE);
-
-        _grantRole(DEFAULT_ADMIN_ROLE, _owner);
-        _grantRole(SUBVAULT_MANAGER_ROLE, _owner);
-        _grantRole(FEE_MANAGER_ROLE, _owner);
-        _grantRole(PAUSER_ROLE, _owner);
+        __MasterVaultRoles_init(_owner);
 
         // mint some dead shares to avoid first depositor issues
         // for more information on the mitigation:
