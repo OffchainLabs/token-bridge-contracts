@@ -218,7 +218,7 @@ contract MasterVault is
         // reset totalPrincipal to current totalAssets when enabling performance fee
         // this prevents a sudden large profit
         if (enabled) {
-            totalPrincipal = _totalAssets(MathUpgradeable.Rounding.Up);
+            totalPrincipal = _totalAssets(MathUpgradeable.Rounding.Up); // todo: confirm rounding direction
         } else {
             _distributePerformanceFee();
             totalPrincipal = 0;
