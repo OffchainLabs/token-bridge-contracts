@@ -17,8 +17,11 @@ contract MasterVaultRoles is AccessControlEnumerableUpgradeable {
     /// @notice Keeper role can rebalance the vault and distribute performance fees
     bytes32 public constant KEEPER_ROLE = keccak256("KEEPER");
 
-    function __MasterVaultRoles_init(address admin) internal onlyInitializing {
+    function __MasterVaultRoles_init() internal onlyInitializing {
         __AccessControlEnumerable_init();
+    }
+
+    function initialize(address admin) external initializer {
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(FEE_MANAGER_ROLE, admin);
         _grantRole(PAUSER_ROLE, admin);

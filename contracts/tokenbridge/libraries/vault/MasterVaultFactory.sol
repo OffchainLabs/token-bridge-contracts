@@ -21,11 +21,13 @@ contract MasterVaultFactory is IMasterVaultFactory, Initializable {
     error BeaconNotDeployed();
 
     BeaconProxyFactory public beaconProxyFactory;
-    address public owner;
+    MasterVaultRoles public rolesRegistry;
     IGatewayRouter public gatewayRouter;
 
     function initialize(address _owner, IGatewayRouter _gatewayRouter) public initializer {
-        owner = _owner;
+        rolesRegistry = new MasterVaultRoles();
+        rolesRegistry.initialize(_owner);
+
         gatewayRouter = _gatewayRouter;
         MasterVault masterVaultImplementation = new MasterVault();
         UpgradeableBeacon beacon = new UpgradeableBeacon(address(masterVaultImplementation));
@@ -42,7 +44,7 @@ contract MasterVaultFactory is IMasterVaultFactory, Initializable {
         string memory symbol = string(abi.encodePacked("m", _tryGetTokenSymbol(token)));
 
         MasterVault(vault)
-            .initialize(new DefaultSubVault(token), name, symbol, owner, gatewayRouter);
+            .initialize(new DefaultSubVault(token), name, symbol, rolesRegistry, gatewayRouter);
 
         emit VaultDeployed(token, vault);
     }

@@ -11,7 +11,8 @@ import {
 } from "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import {
-    AccessControlUpgradeable
+    AccessControlUpgradeable,
+    IAccessControlUpgradeable
 } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import {
     PausableUpgradeable
@@ -37,6 +38,11 @@ import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet
 ///         For a subVault to be compatible with the MasterVault, it must adhere to the following:
 ///         - convertToAssets and convertToShares must not be manipulable
 ///         - must not have deposit / withdrawal fees (todo: verify this requirement is necessary)
+///
+///         Roles are primarily managed via an external MasterVaultRoles contract,
+///         which allows multiple vaults to share a common roles registry.
+///         Individual MasterVaults can also have local roles assigned, which are checked in addition to the roles registry.
+///         If an account is granted a role in either the local vault or the roles registry, it is considered to have that role.
 contract MasterVault is
     MasterVaultRoles,
     ReentrancyGuardUpgradeable,
@@ -62,6 +68,7 @@ contract MasterVault is
     error NotGateway(address caller);
     error SubVaultNotWhitelisted(address subVault);
 
+    // todo: packing
     IERC20 public asset;
 
     /// @notice Gateway router used to verify deposit calls
@@ -69,6 +76,10 @@ contract MasterVault is
 
     /// @notice Set of whitelisted subvaults
     EnumerableSet.AddressSet private _whitelistedSubVaults;
+
+    /// @notice Roles registry contract. This contract is checked in addition to local roles.
+    ///         If an account has a role in either the local vault or the roles registry, it is considered to have that role.
+    MasterVaultRoles public rolesRegistry;
 
     // todo: avoid inflation, rounding, other common 4626 vulns
     // we may need a minimum asset or master share amount when setting subvaults (bc of exchange rate calc)
@@ -106,12 +117,13 @@ contract MasterVault is
         IERC4626 _subVault,
         string memory _name,
         string memory _symbol,
-        address _owner,
+        MasterVaultRoles _rolesRegistry,
         IGatewayRouter _gatewayRouter
     ) external initializer {
         __ERC20_init(_name, _symbol);
 
         asset = IERC20(address(_subVault.asset()));
+        rolesRegistry = _rolesRegistry;
 
         // call decimals() to ensure underlying has reasonable decimals and we won't have overflow
         decimals();
@@ -119,7 +131,7 @@ contract MasterVault is
         __ReentrancyGuard_init();
         __AccessControl_init();
         __Pausable_init();
-        __MasterVaultRoles_init(_owner);
+        __MasterVaultRoles_init();
 
         gatewayRouter = _gatewayRouter;
 
@@ -296,6 +308,17 @@ contract MasterVault is
     function totalProfit(MathUpgradeable.Rounding rounding) public view returns (uint256) {
         uint256 __totalAssets = _totalAssets(rounding);
         return __totalAssets > totalPrincipal ? __totalAssets - totalPrincipal : 0;
+    }
+
+    /// @dev Overriden to check MasterVaultRoles registry in addition to local roles
+    function hasRole(bytes32 role, address account)
+        public
+        view
+        virtual
+        override(AccessControlUpgradeable, IAccessControlUpgradeable)
+        returns (bool)
+    {
+        return super.hasRole(role, account) || rolesRegistry.hasRole(role, account);
     }
 
     function _rebalance() internal {
