@@ -23,6 +23,7 @@ import {
     ReentrancyGuardUpgradeable
 } from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import {IGatewayRouter} from "../gateway/IGatewayRouter.sol";
+import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 // todo: should we have an arbitrary call function for the vault manager to do stuff with the subvault? like queue withdrawals etc
 
@@ -44,6 +45,7 @@ contract MasterVault is
 {
     using SafeERC20 for IERC20;
     using MathUpgradeable for uint256;
+    using EnumerableSet for EnumerableSet.AddressSet;
 
     /// @notice Subvault manager role can set/revoke subvaults, set target allocation, and set minimum rebalance amount
     /// @dev    Should never be granted to the zero address
@@ -76,8 +78,8 @@ contract MasterVault is
     /// @notice Gateway router used to verify deposit calls
     IGatewayRouter public gatewayRouter;
 
-    /// @notice Mapping of whitelisted subvaults
-    mapping(address => bool) public whitelistedSubVaults;
+    /// @notice Set of whitelisted subvaults
+    EnumerableSet.AddressSet private _whitelistedSubVaults;
 
     // todo: avoid inflation, rounding, other common 4626 vulns
     // we may need a minimum asset or master share amount when setting subvaults (bc of exchange rate calc)
@@ -149,6 +151,7 @@ contract MasterVault is
         asset.safeApprove(address(_subVault), type(uint256).max);
 
         subVault = _subVault;
+        _setSubVaultWhitelist(address(_subVault), true);
 
         minimumRebalanceAmount = 1e6;
     }
@@ -201,7 +204,7 @@ contract MasterVault is
     /// @notice Set a new subvault
     /// @param  _subVault The subvault to set. Must be an ERC4626 vault with the same asset as this MasterVault.
     function setSubVault(IERC4626 _subVault) external nonReentrant onlyRole(SUBVAULT_MANAGER_ROLE) {
-        if (!whitelistedSubVaults[address(_subVault)]) {
+        if (!_whitelistedSubVaults.contains(address(_subVault))) {
             revert SubVaultNotWhitelisted(address(_subVault));
         }
         if (address(_subVault.asset()) != address(asset)) revert SubVaultAssetMismatch();
@@ -274,8 +277,14 @@ contract MasterVault is
         external
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
-        whitelistedSubVaults[_subVault] = _whitelisted;
-        emit SubVaultWhitelistUpdated(_subVault, _whitelisted);
+        _setSubVaultWhitelist(_subVault, _whitelisted);
+    }
+
+    /// @notice Check if a subvault is whitelisted
+    /// @param _subVault The subvault address to check
+    /// @return True if the subvault is whitelisted
+    function isSubVaultWhitelisted(address _subVault) external view returns (bool) {
+        return _whitelistedSubVaults.contains(_subVault);
     }
 
     function pause() external onlyRole(PAUSER_ROLE) {
@@ -432,5 +441,14 @@ contract MasterVault is
         return rounding == MathUpgradeable.Rounding.Up
             ? MathUpgradeable.Rounding.Down
             : MathUpgradeable.Rounding.Up;
+    }
+
+    function _setSubVaultWhitelist(address _subVault, bool _whitelisted) internal {
+        if (_whitelisted) {
+            _whitelistedSubVaults.add(_subVault);
+        } else {
+            _whitelistedSubVaults.remove(_subVault);
+        }
+        emit SubVaultWhitelistUpdated(_subVault, _whitelisted);
     }
 }
