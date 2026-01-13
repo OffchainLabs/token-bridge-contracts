@@ -68,7 +68,7 @@ contract MasterVault is
     error InvalidOwner();
     error NonZeroTargetAllocation(uint256 targetAllocationWad);
     error NonZeroSubVaultShares(uint256 subVaultShares);
-    error NotGateway();
+    error NotGateway(address caller);
 
     IERC20 public asset;
 
@@ -151,7 +151,7 @@ contract MasterVault is
     /// @notice Modifier to ensure only the registered gateway can call
     modifier onlyGateway() {
         if (gatewayRouter.getGateway(address(asset)) != msg.sender) {
-            revert NotGateway();
+            revert NotGateway(msg.sender);
         }
         _;
     }
