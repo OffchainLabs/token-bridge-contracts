@@ -195,7 +195,7 @@ contract MasterVault is
 
     /// @notice Set a new subvault
     /// @param  _subVault The subvault to set. Must be an ERC4626 vault with the same asset as this MasterVault.
-    function setSubVault(IERC4626 _subVault) external nonReentrant onlyRole(SUBVAULT_MANAGER_ROLE) {
+    function setSubVault(IERC4626 _subVault) external nonReentrant onlyRole(GENERAL_MANAGER_ROLE) {
         if (!isSubVaultWhitelisted(address(_subVault))) {
             revert SubVaultNotWhitelisted(address(_subVault));
         }
@@ -221,7 +221,7 @@ contract MasterVault is
     function setTargetAllocationWad(uint256 _targetAllocationWad)
         external
         nonReentrant
-        onlyRole(SUBVAULT_MANAGER_ROLE)
+        onlyRole(GENERAL_MANAGER_ROLE)
     {
         require(_targetAllocationWad <= 1e18, "Target allocation must be <= 100%");
         require(targetAllocationWad != _targetAllocationWad, "Allocation unchanged");
@@ -230,7 +230,7 @@ contract MasterVault is
 
     function setMinimumRebalanceAmount(uint256 _minimumRebalanceAmount)
         external
-        onlyRole(SUBVAULT_MANAGER_ROLE)
+        onlyRole(GENERAL_MANAGER_ROLE)
     {
         uint256 oldAmount = minimumRebalanceAmount;
         minimumRebalanceAmount = _minimumRebalanceAmount;
@@ -267,7 +267,7 @@ contract MasterVault is
     /// @param _whitelisted True to whitelist the subvault, false to remove it
     function setSubVaultWhitelist(address _subVault, bool _whitelisted)
         external
-        onlyRole(DEFAULT_ADMIN_ROLE)
+        onlyRole(ADMIN_ROLE)
     {
         _setSubVaultWhitelist(_subVault, _whitelisted);
     }
