@@ -204,7 +204,7 @@ contract MasterVault is
     /// @notice Set a new subvault
     /// @param  _subVault The subvault to set. Must be an ERC4626 vault with the same asset as this MasterVault.
     function setSubVault(IERC4626 _subVault) external nonReentrant onlyRole(SUBVAULT_MANAGER_ROLE) {
-        if (!_whitelistedSubVaults.contains(address(_subVault))) {
+        if (!isSubVaultWhitelisted(address(_subVault))) {
             revert SubVaultNotWhitelisted(address(_subVault));
         }
         if (address(_subVault.asset()) != address(asset)) revert SubVaultAssetMismatch();
@@ -283,8 +283,14 @@ contract MasterVault is
     /// @notice Check if a subvault is whitelisted
     /// @param _subVault The subvault address to check
     /// @return True if the subvault is whitelisted
-    function isSubVaultWhitelisted(address _subVault) external view returns (bool) {
+    function isSubVaultWhitelisted(address _subVault) public view returns (bool) {
         return _whitelistedSubVaults.contains(_subVault);
+    }
+
+    /// @notice Get all whitelisted subvaults
+    /// @return Array of all whitelisted subvault addresses
+    function whitelistedSubVaults() external view returns (address[] memory) {
+        return _whitelistedSubVaults.values();
     }
 
     function pause() external onlyRole(PAUSER_ROLE) {
@@ -444,11 +450,9 @@ contract MasterVault is
     }
 
     function _setSubVaultWhitelist(address _subVault, bool _whitelisted) internal {
-        if (_whitelisted) {
-            _whitelistedSubVaults.add(_subVault);
-        } else {
-            _whitelistedSubVaults.remove(_subVault);
-        }
+        _whitelisted
+            ? _whitelistedSubVaults.add(_subVault)
+            : _whitelistedSubVaults.remove(_subVault);
         emit SubVaultWhitelistUpdated(_subVault, _whitelisted);
     }
 }
