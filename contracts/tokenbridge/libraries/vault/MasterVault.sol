@@ -170,7 +170,7 @@ contract MasterVault is
     }
 
     /// @notice Redeem some vault shares in exchange for underlying assets
-    function redeem(uint256 shares) internal whenNotPaused nonReentrant returns (uint256 assets) {
+    function redeem(uint256 shares) external whenNotPaused nonReentrant returns (uint256 assets) {
         assets = _convertToAssets(shares, MathUpgradeable.Rounding.Down);
         if (enablePerformanceFee) totalPrincipal -= assets;
 
