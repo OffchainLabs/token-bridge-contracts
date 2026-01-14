@@ -328,10 +328,12 @@ contract MasterVault is
         return _whitelistedSubVaults.values();
     }
 
+    /// @notice Pause deposits and withdrawals
     function pause() external onlyRole(PAUSER_ROLE) {
         _pause();
     }
 
+    /// @notice Unpause deposits and withdrawals
     function unpause() external onlyRole(PAUSER_ROLE) {
         _unpause();
     }
@@ -341,13 +343,13 @@ contract MasterVault is
         return IERC20Metadata(address(asset)).decimals() + EXTRA_DECIMALS;
     }
 
-    /**
-     * @dev See {IERC4626-totalAssets}.
-     */
+    /// @notice Get the total assets managed by the vault
     function totalAssets() public view returns (uint256) {
         return _totalAssets(MathUpgradeable.Rounding.Down);
     }
 
+    /// @notice Get the total profit earned by the vault
+    /// @dev    When performance fees are disabled, this will always return totalAssets
     function totalProfit() public view returns (uint256) {
         uint256 __totalAssets = _totalAssets(MathUpgradeable.Rounding.Down);
         uint256 __totalPrincipal = _totalPrincipal(MathUpgradeable.Rounding.Up);
