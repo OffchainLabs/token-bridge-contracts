@@ -201,8 +201,9 @@ contract MasterVault is
     }
 
     /// @notice Rebalance assets between idle and the subvault to maintain target allocation
-    /// @dev    Rebalance will only occur if the cooldown period has passed and the amount to deposit/withdraw
-    ///         is greater than the minimumRebalanceAmount.
+    /// @dev    Rebalancing will revert if the cooldown period has not passed
+    ///         Rebalancing will silently skip if the amount to deposit/withdraw
+    ///         is less than the minimumRebalanceAmount.
     function rebalance() external whenNotPaused nonReentrant onlyRole(KEEPER_ROLE) {
         _rebalance();
     }
@@ -362,6 +363,7 @@ contract MasterVault is
         return super.hasRole(role, account) || rolesRegistry.hasRole(role, account);
     }
 
+    /// @dev Internal rebalancing function
     function _rebalance() internal {
         // Check cooldown
         uint256 timeSinceLastRebalance = block.timestamp - lastRebalanceTime;
@@ -408,6 +410,8 @@ contract MasterVault is
         lastRebalanceTime = block.timestamp;
     }
 
+    /// @dev Internal fee distribution function
+    ///      Will revert if performance fees are disabled or beneficiary is not set
     function _distributePerformanceFee() internal {
         if (!enablePerformanceFee) revert PerformanceFeeDisabled();
         if (beneficiary == address(0)) {
@@ -432,17 +436,13 @@ contract MasterVault is
         emit PerformanceFeesWithdrawn(beneficiary, amountToTransfer, amountToWithdraw);
     }
 
+    /// @dev Internal total assets function supporting a specific rounding direction
     function _totalAssets(MathUpgradeable.Rounding rounding) internal view returns (uint256) {
         return asset.balanceOf(address(this))
             + _subVaultSharesToAssets(subVault.balanceOf(address(this)), rounding);
     }
 
-    /**
-     * @dev Internal conversion function (from assets to shares) with support for rounding direction.
-     *
-     * Will revert if assets > 0, totalSupply > 0 and totalAssets = 0. That corresponds to a case where any asset
-     * would represent an infinite amount of shares.
-     */
+    /// @dev Converts assets to shares using totalSupply and totalAssetsLessProfit, rounding down
     function _convertToSharesRoundDown(uint256 assets) internal view returns (uint256 shares) {
         // we add one as part of the first deposit mitigation
         // see for details: https://docs.openzeppelin.com/contracts/5.x/erc4626
@@ -453,7 +453,7 @@ contract MasterVault is
         );
     }
 
-    /// @dev Internal conversion function (from shares to assets) that always rounds down
+    /// @dev Converts shares to assets using totalSupply and totalAssetsLessProfit, rounding down
     function _convertToAssetsRoundDown(uint256 shares) internal view returns (uint256 assets) {
         // we add one as part of the first deposit mitigation
         // see for details: https://docs.openzeppelin.com/contracts/5.x/erc4626
@@ -464,6 +464,7 @@ contract MasterVault is
         );
     }
 
+    /// @dev Gets total assets less profit, supporting a specific rounding direction
     function _totalAssetsLessProfit(MathUpgradeable.Rounding rounding)
         internal
         view
@@ -476,6 +477,8 @@ contract MasterVault is
         return __totalAssets;
     }
 
+    /// @dev Converts subvault shares to assets using the subvault's preview functions
+    ///      If rounding is Up, uses previewMint; if Down, uses previewRedeem
     function _subVaultSharesToAssets(uint256 subShares, MathUpgradeable.Rounding rounding)
         internal
         view
@@ -486,6 +489,7 @@ contract MasterVault is
             : subVault.previewRedeem(subShares);
     }
 
+    /// @dev Helper to add/remove a subvault from the whitelist
     function _setSubVaultWhitelist(address _subVault, bool _whitelisted) internal {
         _whitelisted
             ? _whitelistedSubVaults.add(_subVault)
