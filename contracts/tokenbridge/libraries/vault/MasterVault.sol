@@ -54,7 +54,8 @@ contract MasterVault is
     /// @notice Extra decimals added to the ERC20 decimals of the underlying asset to determine the decimals of the MasterVault
     /// @dev    This is done to mitigate the "first depositor" problem described in the OpenZeppelin ERC4626 documentation.
     ///         See https://docs.openzeppelin.com/contracts/5.x/erc4626 for more details on the mitigation.
-    uint8 public constant EXTRA_DECIMALS = 18;
+    ///         Should be << 18 to maintain precision in profit calculations.
+    uint8 public constant EXTRA_DECIMALS = 6;
 
     error SubVaultAssetMismatch();
     error PerformanceFeeDisabled();
@@ -107,9 +108,12 @@ contract MasterVault is
     /// @notice Address that receives performance fees
     address public beneficiary;
 
-    /// @notice totalPrincipal tracks the total assets deposited into the vault (minus withdrawals)
-    /// @dev    When performance fees are disabled, totalPrincipal is 0
-    uint256 public totalPrincipal;
+    /// @notice The price of masterVault shares (in assets per share times 1e18)
+    ///         at the time of turning on performance fees.
+    ///         It is used to calculate profit for performance fee distribution.
+    ///         It's akin to a price water mark.
+    /// @dev    When performance fees are disabled, principalPriceWad is 0
+    uint256 public principalPriceWad;
 
     event SubvaultChanged(address indexed oldSubvault, address indexed newSubvault);
     event PerformanceFeeToggled(bool enabled);
@@ -177,7 +181,6 @@ contract MasterVault is
         returns (uint256 shares)
     {
         shares = _convertToSharesRoundDown(assets);
-        if (enablePerformanceFee) totalPrincipal += assets;
         _mint(msg.sender, shares);
         asset.safeTransferFrom(msg.sender, address(this), assets);
     }
@@ -188,7 +191,6 @@ contract MasterVault is
     /// @return assets The amount of underlying assets transferred to the redeemer
     function redeem(uint256 shares) external whenNotPaused nonReentrant returns (uint256 assets) {
         assets = _convertToAssetsRoundDown(shares);
-        if (enablePerformanceFee) totalPrincipal -= assets;
 
         uint256 idleAssets = asset.balanceOf(address(this));
         if (idleAssets < assets) {
@@ -277,15 +279,17 @@ contract MasterVault is
     /// @notice Toggle performance fee collection on/off
     /// @param enabled True to enable performance fees, false to disable
     function setPerformanceFee(bool enabled) external nonReentrant onlyRole(FEE_MANAGER_ROLE) {
-        // reset totalPrincipal to current totalAssets when enabling performance fee
+        // reset principalPriceWad to current totalAssets when enabling performance fee
         // this prevents a sudden large profit
         if (enabled) {
-            // round down to avoid overcounting principal
-            // actual profit calculation rounds down as well
-            totalPrincipal = _totalAssets(MathUpgradeable.Rounding.Down);
+            // todo: require not already enabled
+        // round up to avoid overcounting profit
+            // this works against the fee collector
+            principalPriceWad = _totalAssets(MathUpgradeable.Rounding.Up)
+                .mulDiv(1e18, totalSupply(), MathUpgradeable.Rounding.Up);
         } else {
             _distributePerformanceFee();
-            totalPrincipal = 0;
+            principalPriceWad = 0;
         }
 
         enablePerformanceFee = enabled;
@@ -346,7 +350,8 @@ contract MasterVault is
 
     function totalProfit() public view returns (uint256) {
         uint256 __totalAssets = _totalAssets(MathUpgradeable.Rounding.Down);
-        return __totalAssets > totalPrincipal ? __totalAssets - totalPrincipal : 0;
+        uint256 __totalPrincipal = _totalPrincipal(MathUpgradeable.Rounding.Up);
+        return __totalAssets > __totalPrincipal ? __totalAssets - __totalPrincipal : 0;
     }
 
     /// @dev Overriden to check MasterVaultRoles registry in addition to local roles
@@ -435,6 +440,10 @@ contract MasterVault is
             + _subVaultSharesToAssets(subVault.balanceOf(address(this)), rounding);
     }
 
+    function _totalPrincipal(MathUpgradeable.Rounding rounding) public view returns (uint256) {
+        return principalPriceWad.mulDiv(totalSupply(), 1e18, rounding);
+    }
+
     /**
      * @dev Internal conversion function (from assets to shares) with support for rounding direction.
      *
@@ -468,8 +477,9 @@ contract MasterVault is
         returns (uint256)
     {
         uint256 __totalAssets = _totalAssets(rounding);
-        if (enablePerformanceFee && __totalAssets > totalPrincipal) {
-            return totalPrincipal;
+        uint256 __totalPrincipal = _totalPrincipal(rounding);
+        if (enablePerformanceFee && __totalAssets > __totalPrincipal) {
+            return __totalPrincipal;
         }
         return __totalAssets;
     }
