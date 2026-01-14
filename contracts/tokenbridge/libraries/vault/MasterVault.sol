@@ -37,7 +37,7 @@ import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet
 ///
 ///         For a subVault to be compatible with the MasterVault, it must adhere to the following:
 ///         - convertToAssets and convertToShares must not be manipulable
-///         - must not have deposit / withdrawal fees (todo: verify this requirement is necessary)
+///         - must not have deposit / withdrawal fees (because rebalancing can happen frequently)
 ///
 ///         Roles are primarily managed via an external MasterVaultRoles contract,
 ///         which allows multiple vaults to share a common roles registry.
