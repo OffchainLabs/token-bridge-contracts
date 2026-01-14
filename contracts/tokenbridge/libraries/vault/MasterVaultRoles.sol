@@ -18,6 +18,7 @@ contract MasterVaultRoles is AccessControlEnumerableUpgradeable {
     ///         - Set the subVault to any whitelisted subVault
     ///         - Set the target allocation
     ///         - Set the minimum rebalance amount
+    ///         - Set the rebalance cooldown
     bytes32 public constant GENERAL_MANAGER_ROLE = keccak256("GENERAL_MANAGER_ROLE");
     /// @notice The fee manager can:
     ///         - Toggle performance fees on/off
