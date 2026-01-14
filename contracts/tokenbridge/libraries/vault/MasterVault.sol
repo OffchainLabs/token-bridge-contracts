@@ -68,6 +68,7 @@ contract MasterVault is
     error RebalanceCooldownNotMet(uint256 timeSinceLastRebalance, uint256 cooldownRequired);
 
     // todo: packing
+    /// @notice The underlying asset of the vault
     IERC20 public asset;
 
     /// @notice Gateway router used to verify deposit calls
@@ -80,8 +81,11 @@ contract MasterVault is
     ///         If an account has a role in either the local vault or the roles registry, it is considered to have that role.
     MasterVaultRoles public rolesRegistry;
 
+    /// @notice The current subvault. Assets are deposited into this vault to earn yield.
     IERC4626 public subVault;
 
+    /// @notice Target allocation of assets to keep in the subvault, expressed in wad (1e18 = 100%)
+    ///         Rebalances will attempt to maintain this allocation.
     uint256 public targetAllocationWad;
 
     /// @notice The minimum amount of assets that must be deposited/withdrawn when rebalancing.
@@ -162,6 +166,9 @@ contract MasterVault is
     }
 
     /// @notice Deposit some underlying assets in exchange for vault shares
+    /// @dev    Can only be called by the token bridge gateway
+    /// @param  assets The amount of underlying assets to deposit
+    /// @return shares The amount of vault shares minted to the depositor
     function deposit(uint256 assets)
         external
         whenNotPaused
@@ -176,6 +183,9 @@ contract MasterVault is
     }
 
     /// @notice Redeem some vault shares in exchange for underlying assets
+    /// @dev    Anyone can redeem their shares at any time
+    /// @param  shares The amount of vault shares to redeem
+    /// @return assets The amount of underlying assets transferred to the redeemer
     function redeem(uint256 shares) external whenNotPaused nonReentrant returns (uint256 assets) {
         assets = _convertToAssetsRoundDown(shares);
         if (enablePerformanceFee) totalPrincipal -= assets;
@@ -190,15 +200,21 @@ contract MasterVault is
         asset.safeTransfer(msg.sender, assets);
     }
 
+    /// @notice Rebalance assets between idle and the subvault to maintain target allocation
+    /// @dev    Rebalance will only occur if the cooldown period has passed and the amount to deposit/withdraw
+    ///         is greater than the minimumRebalanceAmount.
     function rebalance() external whenNotPaused nonReentrant onlyRole(KEEPER_ROLE) {
         _rebalance();
     }
 
+    /// @notice Distribute performance fees to the beneficiary
     function distributePerformanceFee() external whenNotPaused nonReentrant onlyRole(KEEPER_ROLE) {
         _distributePerformanceFee();
     }
 
     /// @notice Set a new subvault
+    /// @dev    Target allocation must be zero and there must be no existing subvault shares held.
+    ///         The new subvault must be whitelisted and have the same asset as this MasterVault.
     /// @param  _subVault The subvault to set. Must be an ERC4626 vault with the same asset as this MasterVault.
     function setSubVault(IERC4626 _subVault) external nonReentrant onlyRole(GENERAL_MANAGER_ROLE) {
         if (!isSubVaultWhitelisted(address(_subVault))) {
@@ -223,6 +239,9 @@ contract MasterVault is
         emit SubvaultChanged(oldSubVault, address(_subVault));
     }
 
+    /// @notice Set the target allocation of assets to keep in the subvault
+    /// @dev    Target allocation must be between 0 and 1e18 (100%).
+    /// @param  _targetAllocationWad The target allocation in wad (1e18 = 100%)
     function setTargetAllocationWad(uint256 _targetAllocationWad)
         external
         nonReentrant
@@ -233,6 +252,8 @@ contract MasterVault is
         targetAllocationWad = _targetAllocationWad;
     }
 
+    /// @notice Set the minimum amount of assets that must be deposited/withdrawn when rebalancing
+    /// @param _minimumRebalanceAmount The minimum amount of assets for rebalancing
     function setMinimumRebalanceAmount(uint256 _minimumRebalanceAmount)
         external
         onlyRole(GENERAL_MANAGER_ROLE)
