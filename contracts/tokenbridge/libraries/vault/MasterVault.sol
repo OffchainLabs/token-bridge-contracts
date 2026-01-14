@@ -95,6 +95,7 @@ contract MasterVault is
     uint256 public minimumRebalanceAmount;
 
     /// @notice The minimum time in seconds that must pass between rebalances
+    /// @dev    Defaults to 1 second. Set to 0 to disable cooldown.
     uint256 public rebalanceCooldown;
 
     /// @notice Timestamp of the last rebalance
@@ -153,6 +154,7 @@ contract MasterVault is
         _setSubVaultWhitelist(address(_subVault), true);
 
         minimumRebalanceAmount = 1e6;
+        rebalanceCooldown = 1;
     }
 
     /// @notice Modifier to ensure only the registered gateway can call
