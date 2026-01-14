@@ -10,7 +10,7 @@ import {
 ///         This allows for easier management of roles across multiple vaults.
 contract MasterVaultRoles is AccessControlEnumerableUpgradeable {
     /// @notice The admin can:
-    ///         - Grant/revoke all roles (besides DEFAULT_ADMIN_ROLE, which is unused)
+    ///         - Grant/revoke GENERAL_MANAGER_ROLE and ADMIN_ROLE
     ///         - Add/remove whitelisted subvaults
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     /// @notice The general manager can:
@@ -36,12 +36,9 @@ contract MasterVaultRoles is AccessControlEnumerableUpgradeable {
     }
 
     function initialize(address admin) external initializer {
-        // set ADMIN_ROLE as admin of all roles
+        // set ADMIN_ROLE as admin of appropriate roles
         _setRoleAdmin(ADMIN_ROLE, ADMIN_ROLE);
         _setRoleAdmin(GENERAL_MANAGER_ROLE, ADMIN_ROLE);
-        _setRoleAdmin(FEE_MANAGER_ROLE, ADMIN_ROLE);
-        _setRoleAdmin(PAUSER_ROLE, ADMIN_ROLE);
-        _setRoleAdmin(KEEPER_ROLE, ADMIN_ROLE);
 
         // set GENERAL_MANAGER_ROLE as admin of appropriate roles
         _setRoleAdmin(GENERAL_MANAGER_ROLE, GENERAL_MANAGER_ROLE);
