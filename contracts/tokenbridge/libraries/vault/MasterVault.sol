@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.0;
 
+import {MasterVaultRoles} from "./MasterVaultRoles.sol";
 import {
     ERC20Upgradeable
 } from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
@@ -10,7 +11,8 @@ import {
 } from "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import {
-    AccessControlUpgradeable
+    AccessControlUpgradeable,
+    IAccessControlUpgradeable
 } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import {
     PausableUpgradeable
@@ -36,27 +38,20 @@ import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet
 ///         For a subVault to be compatible with the MasterVault, it must adhere to the following:
 ///         - convertToAssets and convertToShares must not be manipulable
 ///         - must not have deposit / withdrawal fees (todo: verify this requirement is necessary)
+///
+///         Roles are primarily managed via an external MasterVaultRoles contract,
+///         which allows multiple vaults to share a common roles registry.
+///         Individual MasterVaults can also have local roles assigned, which are checked in addition to the roles registry.
+///         If an account is granted a role in either the local vault or the roles registry, it is considered to have that role.
 contract MasterVault is
-    Initializable,
+    MasterVaultRoles,
     ReentrancyGuardUpgradeable,
     ERC20Upgradeable,
-    AccessControlUpgradeable,
     PausableUpgradeable
 {
     using SafeERC20 for IERC20;
     using MathUpgradeable for uint256;
     using EnumerableSet for EnumerableSet.AddressSet;
-
-    /// @notice Subvault manager role can set/revoke subvaults, set target allocation, and set minimum rebalance amount
-    /// @dev    Should never be granted to the zero address
-    bytes32 public constant SUBVAULT_MANAGER_ROLE = keccak256("SUBVAULT_MANAGER_ROLE");
-    /// @notice Fee manager role can toggle performance fees and set the performance fee beneficiary
-    /// @dev    Should never be granted to the zero address
-    bytes32 public constant FEE_MANAGER_ROLE = keccak256("FEE_MANAGER_ROLE");
-    /// @notice Pauser role can pause/unpause deposits and withdrawals (todo: pause should pause EVERYTHING)
-    bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
-    /// @notice Keeper role can rebalance the vault and distribute performance fees
-    bytes32 public constant KEEPER_ROLE = keccak256("KEEPER");
 
     /// @notice Extra decimals added to the ERC20 decimals of the underlying asset to determine the decimals of the MasterVault
     /// @dev    This is done to mitigate the "first depositor" problem described in the OpenZeppelin ERC4626 documentation.
@@ -73,6 +68,7 @@ contract MasterVault is
     error NotGateway(address caller);
     error SubVaultNotWhitelisted(address subVault);
 
+    // todo: packing
     IERC20 public asset;
 
     /// @notice Gateway router used to verify deposit calls
@@ -80,6 +76,10 @@ contract MasterVault is
 
     /// @notice Set of whitelisted subvaults
     EnumerableSet.AddressSet private _whitelistedSubVaults;
+
+    /// @notice Roles registry contract. This contract is checked in addition to local roles.
+    ///         If an account has a role in either the local vault or the roles registry, it is considered to have that role.
+    MasterVaultRoles public rolesRegistry;
 
     // todo: avoid inflation, rounding, other common 4626 vulns
     // we may need a minimum asset or master share amount when setting subvaults (bc of exchange rate calc)
@@ -117,29 +117,20 @@ contract MasterVault is
         IERC4626 _subVault,
         string memory _name,
         string memory _symbol,
-        address _owner,
+        MasterVaultRoles _rolesRegistry,
         IGatewayRouter _gatewayRouter
     ) external initializer {
         __ERC20_init(_name, _symbol);
 
         asset = IERC20(address(_subVault.asset()));
+        rolesRegistry = _rolesRegistry;
 
         // call decimals() to ensure underlying has reasonable decimals and we won't have overflow
         decimals();
 
         __ReentrancyGuard_init();
-        __AccessControl_init();
         __Pausable_init();
-
-        _setRoleAdmin(SUBVAULT_MANAGER_ROLE, DEFAULT_ADMIN_ROLE);
-        _setRoleAdmin(FEE_MANAGER_ROLE, DEFAULT_ADMIN_ROLE);
-        _setRoleAdmin(PAUSER_ROLE, DEFAULT_ADMIN_ROLE);
-        _setRoleAdmin(KEEPER_ROLE, DEFAULT_ADMIN_ROLE);
-
-        _grantRole(DEFAULT_ADMIN_ROLE, _owner);
-        _grantRole(SUBVAULT_MANAGER_ROLE, _owner);
-        _grantRole(FEE_MANAGER_ROLE, _owner);
-        _grantRole(PAUSER_ROLE, _owner);
+        __MasterVaultRoles_init();
 
         gatewayRouter = _gatewayRouter;
 
@@ -203,7 +194,7 @@ contract MasterVault is
 
     /// @notice Set a new subvault
     /// @param  _subVault The subvault to set. Must be an ERC4626 vault with the same asset as this MasterVault.
-    function setSubVault(IERC4626 _subVault) external nonReentrant onlyRole(SUBVAULT_MANAGER_ROLE) {
+    function setSubVault(IERC4626 _subVault) external nonReentrant onlyRole(GENERAL_MANAGER_ROLE) {
         if (!isSubVaultWhitelisted(address(_subVault))) {
             revert SubVaultNotWhitelisted(address(_subVault));
         }
@@ -229,7 +220,7 @@ contract MasterVault is
     function setTargetAllocationWad(uint256 _targetAllocationWad)
         external
         nonReentrant
-        onlyRole(SUBVAULT_MANAGER_ROLE)
+        onlyRole(GENERAL_MANAGER_ROLE)
     {
         require(_targetAllocationWad <= 1e18, "Target allocation must be <= 100%");
         require(targetAllocationWad != _targetAllocationWad, "Allocation unchanged");
@@ -238,7 +229,7 @@ contract MasterVault is
 
     function setMinimumRebalanceAmount(uint256 _minimumRebalanceAmount)
         external
-        onlyRole(SUBVAULT_MANAGER_ROLE)
+        onlyRole(GENERAL_MANAGER_ROLE)
     {
         uint256 oldAmount = minimumRebalanceAmount;
         minimumRebalanceAmount = _minimumRebalanceAmount;
@@ -275,7 +266,7 @@ contract MasterVault is
     /// @param _whitelisted True to whitelist the subvault, false to remove it
     function setSubVaultWhitelist(address _subVault, bool _whitelisted)
         external
-        onlyRole(DEFAULT_ADMIN_ROLE)
+        onlyRole(ADMIN_ROLE)
     {
         _setSubVaultWhitelist(_subVault, _whitelisted);
     }
@@ -316,6 +307,17 @@ contract MasterVault is
     function totalProfit(MathUpgradeable.Rounding rounding) public view returns (uint256) {
         uint256 __totalAssets = _totalAssets(rounding);
         return __totalAssets > totalPrincipal ? __totalAssets - totalPrincipal : 0;
+    }
+
+    /// @dev Overriden to check MasterVaultRoles registry in addition to local roles
+    function hasRole(bytes32 role, address account)
+        public
+        view
+        virtual
+        override(AccessControlUpgradeable, IAccessControlUpgradeable)
+        returns (bool)
+    {
+        return super.hasRole(role, account) || rolesRegistry.hasRole(role, account);
     }
 
     function _rebalance() internal {
