@@ -28,7 +28,7 @@ contract MasterVaultRoles is AccessControlEnumerableUpgradeable {
     ///         - pause/unpause deposits and withdrawals
     bytes32 public constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
     /// @notice The keeper can:
-    ///         - rebalance 
+    ///         - rebalance
     ///         - distribute performance fees
     bytes32 public constant KEEPER_ROLE = keccak256("KEEPER_ROLE");
 

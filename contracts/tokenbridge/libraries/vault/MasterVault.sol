@@ -441,28 +441,25 @@ contract MasterVault is
      * Will revert if assets > 0, totalSupply > 0 and totalAssets = 0. That corresponds to a case where any asset
      * would represent an infinite amount of shares.
      */
-    function _convertToSharesRoundDown(uint256 assets)
-        internal
-        view
-        returns (uint256 shares)
-    {
+    function _convertToSharesRoundDown(uint256 assets) internal view returns (uint256 shares) {
         // we add one as part of the first deposit mitigation
         // see for details: https://docs.openzeppelin.com/contracts/5.x/erc4626
-        return
-            assets.mulDiv(
-                totalSupply(), _totalAssetsLessProfit(MathUpgradeable.Rounding.Up) + 1, MathUpgradeable.Rounding.Down
-            );
+        return assets.mulDiv(
+            totalSupply(),
+            _totalAssetsLessProfit(MathUpgradeable.Rounding.Up) + 1,
+            MathUpgradeable.Rounding.Down
+        );
     }
 
     /// @dev Internal conversion function (from shares to assets) that always rounds down
-    function _convertToAssetsRoundDown(uint256 shares)
-        internal
-        view
-        returns (uint256 assets)
-    {
+    function _convertToAssetsRoundDown(uint256 shares) internal view returns (uint256 assets) {
         // we add one as part of the first deposit mitigation
         // see for details: https://docs.openzeppelin.com/contracts/5.x/erc4626
-        return shares.mulDiv(_totalAssetsLessProfit(MathUpgradeable.Rounding.Down) + 1, totalSupply(), MathUpgradeable.Rounding.Down);
+        return shares.mulDiv(
+            _totalAssetsLessProfit(MathUpgradeable.Rounding.Down) + 1,
+            totalSupply(),
+            MathUpgradeable.Rounding.Down
+        );
     }
 
     function _totalAssetsLessProfit(MathUpgradeable.Rounding rounding)
