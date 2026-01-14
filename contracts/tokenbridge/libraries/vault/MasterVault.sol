@@ -27,8 +27,6 @@ import {
 import {IGatewayRouter} from "../gateway/IGatewayRouter.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
-// todo: should we have an arbitrary call function for the vault manager to do stuff with the subvault? like queue withdrawals etc
-
 /// @notice MasterVault is a metavault that deposits assets to an admin defined ERC4626 compliant subVault.
 /// @dev    The MasterVault keeps some fraction of assets idle and deposits the rest into the subVault to earn yield.
 ///         A 100% performance fee can be enabled/disabled by the vault manager, and are collected on demand.
