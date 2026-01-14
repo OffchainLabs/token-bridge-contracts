@@ -173,7 +173,7 @@ contract MasterVault is
         onlyGateway
         returns (uint256 shares)
     {
-        shares = _convertToShares(assets, MathUpgradeable.Rounding.Down);
+        shares = _convertToSharesRoundDown(assets);
         if (enablePerformanceFee) totalPrincipal += assets;
         _mint(msg.sender, shares);
         asset.safeTransferFrom(msg.sender, address(this), assets);
@@ -181,7 +181,7 @@ contract MasterVault is
 
     /// @notice Redeem some vault shares in exchange for underlying assets
     function redeem(uint256 shares) external whenNotPaused nonReentrant returns (uint256 assets) {
-        assets = _convertToAssets(shares, MathUpgradeable.Rounding.Down);
+        assets = _convertToAssetsRoundDown(shares);
         if (enablePerformanceFee) totalPrincipal -= assets;
 
         uint256 idleAssets = asset.balanceOf(address(this));
@@ -263,7 +263,9 @@ contract MasterVault is
         // reset totalPrincipal to current totalAssets when enabling performance fee
         // this prevents a sudden large profit
         if (enabled) {
-            totalPrincipal = _totalAssets(MathUpgradeable.Rounding.Up); // todo: confirm rounding direction
+            // round down to avoid overcounting principal
+            // actual profit calculation rounds down as well
+            totalPrincipal = _totalAssets(MathUpgradeable.Rounding.Down);
         } else {
             _distributePerformanceFee();
             totalPrincipal = 0;
@@ -325,8 +327,8 @@ contract MasterVault is
         return _totalAssets(MathUpgradeable.Rounding.Down);
     }
 
-    function totalProfit(MathUpgradeable.Rounding rounding) public view returns (uint256) {
-        uint256 __totalAssets = _totalAssets(rounding);
+    function totalProfit() public view returns (uint256) {
+        uint256 __totalAssets = _totalAssets(MathUpgradeable.Rounding.Down);
         return __totalAssets > totalPrincipal ? __totalAssets - totalPrincipal : 0;
     }
 
@@ -393,7 +395,7 @@ contract MasterVault is
             revert BeneficiaryNotSet();
         }
 
-        uint256 profit = totalProfit(MathUpgradeable.Rounding.Down);
+        uint256 profit = totalProfit();
         if (profit == 0) return;
 
         uint256 totalIdle = asset.balanceOf(address(this));
@@ -422,7 +424,7 @@ contract MasterVault is
      * Will revert if assets > 0, totalSupply > 0 and totalAssets = 0. That corresponds to a case where any asset
      * would represent an infinite amount of shares.
      */
-    function _convertToShares(uint256 assets, MathUpgradeable.Rounding rounding)
+    function _convertToSharesRoundDown(uint256 assets)
         internal
         view
         returns (uint256 shares)
@@ -431,21 +433,19 @@ contract MasterVault is
         // see for details: https://docs.openzeppelin.com/contracts/5.x/erc4626
         return
             assets.mulDiv(
-                totalSupply(), _totalAssetsLessProfit(_flipRounding(rounding)) + 1, rounding
+                totalSupply(), _totalAssetsLessProfit(MathUpgradeable.Rounding.Up) + 1, MathUpgradeable.Rounding.Down
             );
     }
 
-    /**
-     * @dev Internal conversion function (from shares to assets) with support for rounding direction.
-     */
-    function _convertToAssets(uint256 shares, MathUpgradeable.Rounding rounding)
+    /// @dev Internal conversion function (from shares to assets) that always rounds down
+    function _convertToAssetsRoundDown(uint256 shares)
         internal
         view
         returns (uint256 assets)
     {
         // we add one as part of the first deposit mitigation
         // see for details: https://docs.openzeppelin.com/contracts/5.x/erc4626
-        return shares.mulDiv(_totalAssetsLessProfit(rounding) + 1, totalSupply(), rounding);
+        return shares.mulDiv(_totalAssetsLessProfit(MathUpgradeable.Rounding.Down) + 1, totalSupply(), MathUpgradeable.Rounding.Down);
     }
 
     function _totalAssetsLessProfit(MathUpgradeable.Rounding rounding)
@@ -468,16 +468,6 @@ contract MasterVault is
         return rounding == MathUpgradeable.Rounding.Up
             ? subVault.previewMint(subShares)
             : subVault.previewRedeem(subShares);
-    }
-
-    function _flipRounding(MathUpgradeable.Rounding rounding)
-        internal
-        pure
-        returns (MathUpgradeable.Rounding)
-    {
-        return rounding == MathUpgradeable.Rounding.Up
-            ? MathUpgradeable.Rounding.Down
-            : MathUpgradeable.Rounding.Up;
     }
 
     function _setSubVaultWhitelist(address _subVault, bool _whitelisted) internal {
