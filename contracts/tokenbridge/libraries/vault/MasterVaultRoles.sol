@@ -14,7 +14,7 @@ contract MasterVaultRoles is AccessControlEnumerableUpgradeable {
     ///         - Add/remove whitelisted subvaults
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     /// @notice The general manager can:
-    ///         - Grant/revoke GENERAL_MANAGER_ROLE, FEE_MANAGER_ROLE, PAUSER_ROLE, and KEEPER_ROLE
+    ///         - Grant/revoke FEE_MANAGER_ROLE, PAUSER_ROLE, and KEEPER_ROLE
     ///         - Set the subVault to any whitelisted subVault
     ///         - Set the target allocation
     ///         - Set the minimum rebalance amount
@@ -41,7 +41,6 @@ contract MasterVaultRoles is AccessControlEnumerableUpgradeable {
         _setRoleAdmin(GENERAL_MANAGER_ROLE, ADMIN_ROLE);
 
         // set GENERAL_MANAGER_ROLE as admin of appropriate roles
-        _setRoleAdmin(GENERAL_MANAGER_ROLE, GENERAL_MANAGER_ROLE);
         _setRoleAdmin(FEE_MANAGER_ROLE, GENERAL_MANAGER_ROLE);
         _setRoleAdmin(PAUSER_ROLE, GENERAL_MANAGER_ROLE);
         _setRoleAdmin(KEEPER_ROLE, GENERAL_MANAGER_ROLE);
