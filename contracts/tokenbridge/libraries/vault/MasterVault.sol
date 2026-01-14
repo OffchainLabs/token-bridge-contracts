@@ -80,8 +80,6 @@ contract MasterVault is
     ///         If an account has a role in either the local vault or the roles registry, it is considered to have that role.
     MasterVaultRoles public rolesRegistry;
 
-    // todo: avoid inflation, rounding, other common 4626 vulns
-    // we may need a minimum asset or master share amount when setting subvaults (bc of exchange rate calc)
     IERC4626 public subVault;
 
     uint256 public targetAllocationWad;
