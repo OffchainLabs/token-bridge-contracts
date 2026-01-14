@@ -129,7 +129,6 @@ contract MasterVault is
         decimals();
 
         __ReentrancyGuard_init();
-        __AccessControl_init();
         __Pausable_init();
         __MasterVaultRoles_init();
 
