@@ -345,6 +345,7 @@ contract MasterVault is
         if (timeSinceLastRebalance < rebalanceCooldown) {
             revert RebalanceCooldownNotMet(timeSinceLastRebalance, rebalanceCooldown);
         }
+        lastRebalanceTime = block.timestamp;
 
         uint256 totalAssetsUp = _totalAssetsLessProfit(MathUpgradeable.Rounding.Up);
         uint256 totalAssetsDown = _totalAssetsLessProfit(MathUpgradeable.Rounding.Down);
@@ -381,8 +382,6 @@ contract MasterVault is
             subVault.deposit(depositAmount, address(this));
             emit Rebalanced(true, desiredDeposit, depositAmount);
         }
-
-        lastRebalanceTime = block.timestamp;
     }
 
     function _distributePerformanceFee() internal {
