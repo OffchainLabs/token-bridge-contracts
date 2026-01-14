@@ -67,6 +67,7 @@ contract MasterVault is
     error NonZeroSubVaultShares(uint256 subVaultShares);
     error NotGateway(address caller);
     error SubVaultNotWhitelisted(address subVault);
+    error RebalanceCooldownNotMet(uint256 timeSinceLastRebalance, uint256 cooldownRequired);
 
     // todo: packing
     IERC20 public asset;
@@ -93,6 +94,12 @@ contract MasterVault is
     /// @dev    Defaults to 1e6, but can be set by the vault manager to any value.
     uint256 public minimumRebalanceAmount;
 
+    /// @notice The minimum time in seconds that must pass between rebalances
+    uint256 public rebalanceCooldown;
+
+    /// @notice Timestamp of the last rebalance
+    uint256 public lastRebalanceTime;
+
     /// @notice Flag indicating if performance fee is enabled
     bool public enablePerformanceFee;
 
@@ -112,6 +119,7 @@ contract MasterVault is
     );
     event Rebalanced(bool deposited, uint256 desiredAmount, uint256 actualAmount);
     event SubVaultWhitelistUpdated(address indexed subVault, bool whitelisted);
+    event RebalanceCooldownUpdated(uint256 oldCooldown, uint256 newCooldown);
 
     function initialize(
         IERC4626 _subVault,
@@ -236,6 +244,17 @@ contract MasterVault is
         emit MinimumRebalanceAmountUpdated(oldAmount, _minimumRebalanceAmount);
     }
 
+    /// @notice Set the rebalance cooldown period
+    /// @param _rebalanceCooldown The minimum time in seconds that must pass between rebalances
+    function setRebalanceCooldown(uint256 _rebalanceCooldown)
+        external
+        onlyRole(GENERAL_MANAGER_ROLE)
+    {
+        uint256 oldCooldown = rebalanceCooldown;
+        rebalanceCooldown = _rebalanceCooldown;
+        emit RebalanceCooldownUpdated(oldCooldown, _rebalanceCooldown);
+    }
+
     /// @notice Toggle performance fee collection on/off
     /// @param enabled True to enable performance fees, false to disable
     function setPerformanceFee(bool enabled) external nonReentrant onlyRole(FEE_MANAGER_ROLE) {
@@ -321,6 +340,12 @@ contract MasterVault is
     }
 
     function _rebalance() internal {
+        // Check cooldown
+        uint256 timeSinceLastRebalance = block.timestamp - lastRebalanceTime;
+        if (timeSinceLastRebalance < rebalanceCooldown) {
+            revert RebalanceCooldownNotMet(timeSinceLastRebalance, rebalanceCooldown);
+        }
+
         uint256 totalAssetsUp = _totalAssetsLessProfit(MathUpgradeable.Rounding.Up);
         uint256 totalAssetsDown = _totalAssetsLessProfit(MathUpgradeable.Rounding.Down);
         uint256 idleTargetUp =
@@ -356,6 +381,8 @@ contract MasterVault is
             subVault.deposit(depositAmount, address(this));
             emit Rebalanced(true, desiredDeposit, depositAmount);
         }
+
+        lastRebalanceTime = block.timestamp;
     }
 
     function _distributePerformanceFee() internal {
