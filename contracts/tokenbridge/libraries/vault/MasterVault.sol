@@ -284,7 +284,7 @@ contract MasterVault is
         // this prevents a sudden large profit
         if (enabled) {
             // todo: require not already enabled
-        // round up to avoid overcounting profit
+            // round up to avoid overcounting profit
             // this works against the fee collector
             principalPriceWad = _totalAssets(MathUpgradeable.Rounding.Up)
                 .mulDiv(1e18, totalSupply(), MathUpgradeable.Rounding.Up);
