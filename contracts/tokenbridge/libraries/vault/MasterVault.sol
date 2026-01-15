@@ -81,7 +81,7 @@ contract MasterVault is
     - redeem
     - rebalance
 
-    Below is the list of state variables accessed in each hot path. 
+    Below is the list of state variables accessed in each hot path.
     They are listed to see which variables should be packed together.
 
     deposit (3 slots):
@@ -99,7 +99,7 @@ contract MasterVault is
     - address subVault ------------------|
     - bool enablePerformanceFee          |
     - uint88 principalPriceWad ----------|
-    - uint40 lastRebalanceTime (r/w) ----| <- timestamp, uint40 gives up to year 36812 
+    - uint40 lastRebalanceTime (r/w) ----| <- timestamp, uint40 gives up to year 36812
     - uint32 rebalanceCooldown           | <- timer, uint32 gives up to ~136 years
     - uint64 targetAllocationWad         | <- <=1e18, so uint64
     - uint120 minimumRebalanceAmount ----| <- uint120 remaining, should be enough for any asset
@@ -373,8 +373,10 @@ contract MasterVault is
             // todo: require not already enabled
             // round up to avoid overcounting profit
             // this works against the fee collector
-            principalPriceWad = uint88(_totalAssets(MathUpgradeable.Rounding.Up)
-                .mulDiv(1e18, totalSupply(), MathUpgradeable.Rounding.Up));
+            principalPriceWad = uint88(
+                _totalAssets(MathUpgradeable.Rounding.Up)
+                    .mulDiv(1e18, totalSupply(), MathUpgradeable.Rounding.Up)
+            );
         } else {
             _distributePerformanceFee();
             principalPriceWad = 0;
