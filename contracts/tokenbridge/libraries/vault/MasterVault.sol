@@ -61,8 +61,6 @@ contract MasterVault is
     error SubVaultAssetMismatch();
     error PerformanceFeeDisabled();
     error BeneficiaryNotSet();
-    error InvalidAsset();
-    error InvalidOwner();
     error NonZeroTargetAllocation(uint256 targetAllocationWad);
     error NonZeroSubVaultShares(uint256 subVaultShares);
     error NotGateway(address caller);
@@ -72,6 +70,7 @@ contract MasterVault is
     error RebalanceAmountTooSmall(
         bool isDeposit, uint256 amount, uint256 desiredAmount, uint256 minimumRebalanceAmount
     );
+    error PerformanceFeeUnchanged(bool enabled);
 
     /*
     Storage layout notes:
@@ -367,10 +366,13 @@ contract MasterVault is
     /// @notice Toggle performance fee collection on/off
     /// @param enabled True to enable performance fees, false to disable
     function setPerformanceFee(bool enabled) external nonReentrant onlyRole(FEE_MANAGER_ROLE) {
+        if (enablePerformanceFee == enabled) {
+            revert PerformanceFeeUnchanged(enabled);
+        }
+
         // reset principalPriceWad to current totalAssets when enabling performance fee
         // this prevents a sudden large profit
         if (enabled) {
-            // todo: require not already enabled
             // round up to avoid overcounting profit
             // this works against the fee collector
             principalPriceWad = uint88(
