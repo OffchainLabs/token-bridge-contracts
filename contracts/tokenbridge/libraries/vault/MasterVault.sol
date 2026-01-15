@@ -73,7 +73,73 @@ contract MasterVault is
         bool isDeposit, uint256 amount, uint256 desiredAmount, uint256 minimumRebalanceAmount
     );
 
-    // todo: packing
+    /*
+    Storage layout notes:
+
+    We have three hot paths that should be optimized:
+    - deposit
+    - redeem
+    - rebalance
+
+    Below is the list of state variables accessed in each hot path. 
+    They are listed to see which variables should be packed together.
+
+    deposit (3 slots):
+    - address subVault ------------------| <- these three show up in each path, so pack them together
+    - bool enablePerformanceFee          |
+    - uint88 principalPriceWad ----------|
+    - address asset
+    - address gatewayRouter
+    redeem (2 slots):
+    - address subVault ------------------|
+    - bool enablePerformanceFee          |
+    - uint88 principalPriceWad ----------|
+    - address asset
+    rebalance (3 slots):
+    - address subVault ------------------|
+    - bool enablePerformanceFee          |
+    - uint88 principalPriceWad ----------|
+    - uint40 lastRebalanceTime (r/w) ----| <- timestamp, uint40 gives up to year 36812 
+    - uint32 rebalanceCooldown           | <- timer, uint32 gives up to ~136 years
+    - uint64 targetAllocationWad         | <- <=1e18, so uint64
+    - uint120 minimumRebalanceAmount ----| <- uint120 remaining, should be enough for any asset
+    - address asset
+    - address rolesRegistry
+    */
+
+    /// @notice The current subvault. Assets are deposited into this vault to earn yield.
+    IERC4626 public subVault;
+
+    /// @notice Flag indicating if performance fee is enabled
+    bool public enablePerformanceFee;
+
+    /// @notice The price of masterVault shares (in assets per share times 1e18)
+    ///         at the time of turning on performance fees.
+    ///         It is used to calculate profit for performance fee distribution.
+    ///         It's akin to a price water mark.
+    /// @dev    When performance fees are disabled, principalPriceWad is 0
+    ///         88 bits is enough size. The initial value is "1 to 1", which is 1e18 / 1e6 = 1e12.
+    ///         To overflow, the principal price must increase by 2^88 / 1e12 = 3.1e14 times,
+    ///         which is unrealistic.
+    uint88 public principalPriceWad;
+
+    /// @notice Timestamp of the last rebalance
+    uint40 public lastRebalanceTime;
+
+    /// @notice The minimum time in seconds that must pass between rebalances
+    /// @dev    Defaults to 1 second. Set to 0 to disable cooldown.
+    uint32 public rebalanceCooldown;
+
+    /// @notice Target allocation of assets to keep in the subvault, expressed in wad (1e18 = 100%)
+    ///         Rebalances will attempt to maintain this allocation.
+    uint64 public targetAllocationWad;
+
+    /// @notice The minimum amount of assets that must be deposited/withdrawn when rebalancing.
+    ///         If the amount to deposit or withdraw is less than this amount, no action is taken.
+    ///         This prevents dust rebalances.
+    /// @dev    Defaults to 1e6, but can be set by the vault manager to any value.
+    uint120 public minimumRebalanceAmount;
+
     /// @notice The underlying asset of the vault
     IERC20 public asset;
 
@@ -87,38 +153,8 @@ contract MasterVault is
     ///         If an account has a role in either the local vault or the roles registry, it is considered to have that role.
     MasterVaultRoles public rolesRegistry;
 
-    /// @notice The current subvault. Assets are deposited into this vault to earn yield.
-    IERC4626 public subVault;
-
-    /// @notice Target allocation of assets to keep in the subvault, expressed in wad (1e18 = 100%)
-    ///         Rebalances will attempt to maintain this allocation.
-    uint256 public targetAllocationWad;
-
-    /// @notice The minimum amount of assets that must be deposited/withdrawn when rebalancing.
-    ///         If the amount to deposit or withdraw is less than this amount, no action is taken.
-    ///         This prevents dust rebalances.
-    /// @dev    Defaults to 1e6, but can be set by the vault manager to any value.
-    uint256 public minimumRebalanceAmount;
-
-    /// @notice The minimum time in seconds that must pass between rebalances
-    /// @dev    Defaults to 1 second. Set to 0 to disable cooldown.
-    uint256 public rebalanceCooldown;
-
-    /// @notice Timestamp of the last rebalance
-    uint256 public lastRebalanceTime;
-
-    /// @notice Flag indicating if performance fee is enabled
-    bool public enablePerformanceFee;
-
     /// @notice Address that receives performance fees
     address public beneficiary;
-
-    /// @notice The price of masterVault shares (in assets per share times 1e18)
-    ///         at the time of turning on performance fees.
-    ///         It is used to calculate profit for performance fee distribution.
-    ///         It's akin to a price water mark.
-    /// @dev    When performance fees are disabled, principalPriceWad is 0
-    uint256 public principalPriceWad;
 
     event SubvaultChanged(address indexed oldSubvault, address indexed newSubvault);
     event PerformanceFeeToggled(bool enabled);
@@ -258,7 +294,7 @@ contract MasterVault is
             emit Rebalanced(true, desiredDeposit, depositAmount);
         }
 
-        lastRebalanceTime = block.timestamp;
+        lastRebalanceTime = uint40(block.timestamp);
     }
 
     /// @notice Distribute performance fees to the beneficiary
@@ -296,7 +332,7 @@ contract MasterVault is
     /// @notice Set the target allocation of assets to keep in the subvault
     /// @dev    Target allocation must be between 0 and 1e18 (100%).
     /// @param  _targetAllocationWad The target allocation in wad (1e18 = 100%)
-    function setTargetAllocationWad(uint256 _targetAllocationWad)
+    function setTargetAllocationWad(uint64 _targetAllocationWad)
         external
         nonReentrant
         onlyRole(GENERAL_MANAGER_ROLE)
@@ -308,7 +344,7 @@ contract MasterVault is
 
     /// @notice Set the minimum amount of assets that must be deposited/withdrawn when rebalancing
     /// @param _minimumRebalanceAmount The minimum amount of assets for rebalancing
-    function setMinimumRebalanceAmount(uint256 _minimumRebalanceAmount)
+    function setMinimumRebalanceAmount(uint120 _minimumRebalanceAmount)
         external
         onlyRole(GENERAL_MANAGER_ROLE)
     {
@@ -319,7 +355,7 @@ contract MasterVault is
 
     /// @notice Set the rebalance cooldown period
     /// @param _rebalanceCooldown The minimum time in seconds that must pass between rebalances
-    function setRebalanceCooldown(uint256 _rebalanceCooldown)
+    function setRebalanceCooldown(uint32 _rebalanceCooldown)
         external
         onlyRole(GENERAL_MANAGER_ROLE)
     {
@@ -337,8 +373,8 @@ contract MasterVault is
             // todo: require not already enabled
             // round up to avoid overcounting profit
             // this works against the fee collector
-            principalPriceWad = _totalAssets(MathUpgradeable.Rounding.Up)
-                .mulDiv(1e18, totalSupply(), MathUpgradeable.Rounding.Up);
+            principalPriceWad = uint88(_totalAssets(MathUpgradeable.Rounding.Up)
+                .mulDiv(1e18, totalSupply(), MathUpgradeable.Rounding.Up));
         } else {
             _distributePerformanceFee();
             principalPriceWad = 0;
@@ -455,7 +491,7 @@ contract MasterVault is
     ///      When performance fees are disabled, total principal is 0
     ///      When performance fees are enabled, total principal is principalPriceWad * totalSupply / 1e18
     function _totalPrincipal(MathUpgradeable.Rounding rounding) internal view returns (uint256) {
-        return principalPriceWad.mulDiv(totalSupply(), 1e18, rounding);
+        return uint256(principalPriceWad).mulDiv(totalSupply(), 1e18, rounding);
     }
 
     /// @dev Converts assets to shares using totalSupply and totalAssetsLessProfit, rounding down
