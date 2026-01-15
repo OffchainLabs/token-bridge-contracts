@@ -17,7 +17,7 @@ contract L1ReverseCustomGatewayTest is L1CustomGatewayTest {
         inbox = address(new InboxMock());
 
         l1Gateway = new L1ReverseCustomGateway();
-        L1ReverseCustomGateway(address(l1Gateway)).initialize(l2Gateway, router, inbox, owner);
+        L1ReverseCustomGateway(address(l1Gateway)).initialize(l2Gateway, router, inbox, owner, address(0));
 
         token = IERC20(address(new TestERC20()));
 

@@ -76,7 +76,8 @@ contract IntegrationTest is Test {
             address(router),
             address(inbox),
             cloneableProxyHash,
-            l2BeaconProxyFactory
+            l2BeaconProxyFactory,
+            address(0)
         );
 
         nativeTokenTotalFee = maxGas * gasPriceBid;
@@ -202,7 +203,8 @@ contract IntegrationTest is Test {
             makeAddr("l2Gateway"),
             address(router),
             address(inbox),
-            owner
+            owner,
+            address(0)
         );
 
         // create token and register it

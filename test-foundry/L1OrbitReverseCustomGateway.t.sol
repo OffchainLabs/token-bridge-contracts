@@ -27,7 +27,7 @@ contract L1OrbitReverseCustomGatewayTest is L1OrbitCustomGatewayTest {
         ERC20InboxMock(inbox).setMockNativeToken(address(nativeToken));
 
         l1Gateway = new L1OrbitReverseCustomGateway();
-        L1OrbitReverseCustomGateway(address(l1Gateway)).initialize(l2Gateway, router, inbox, owner);
+        L1OrbitReverseCustomGateway(address(l1Gateway)).initialize(l2Gateway, router, inbox, owner, address(0));
 
         token = IERC20(address(new TestERC20()));
 
