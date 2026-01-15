@@ -68,6 +68,10 @@ contract MasterVault is
     error NotGateway(address caller);
     error SubVaultNotWhitelisted(address subVault);
     error RebalanceCooldownNotMet(uint256 timeSinceLastRebalance, uint256 cooldownRequired);
+    error TargetAllocationMet();
+    error RebalanceAmountTooSmall(
+        bool isDeposit, uint256 amount, uint256 desiredAmount, uint256 minimumRebalanceAmount
+    );
 
     // todo: packing
     /// @notice The underlying asset of the vault
@@ -204,11 +208,57 @@ contract MasterVault is
     }
 
     /// @notice Rebalance assets between idle and the subvault to maintain target allocation
-    /// @dev    Rebalancing will revert if the cooldown period has not passed
-    ///         Rebalancing will silently skip if the amount to deposit/withdraw
-    ///         is less than the minimumRebalanceAmount.
+    /// @dev    Will revert if the cooldown period has not passed
+    ///         Will revert if the target allocation is already met
+    ///         Will revert if the amount to deposit/withdraw is less than the minimumRebalanceAmount.
     function rebalance() external whenNotPaused nonReentrant onlyRole(KEEPER_ROLE) {
-        _rebalance();
+        // Check cooldown
+        uint256 timeSinceLastRebalance = block.timestamp - lastRebalanceTime;
+        if (timeSinceLastRebalance < rebalanceCooldown) {
+            revert RebalanceCooldownNotMet(timeSinceLastRebalance, rebalanceCooldown);
+        }
+
+        uint256 totalAssetsUp = _totalAssetsLessProfit(MathUpgradeable.Rounding.Up);
+        uint256 totalAssetsDown = _totalAssetsLessProfit(MathUpgradeable.Rounding.Down);
+        uint256 idleTargetUp =
+            totalAssetsUp.mulDiv(1e18 - targetAllocationWad, 1e18, MathUpgradeable.Rounding.Up);
+        uint256 idleTargetDown =
+            totalAssetsDown.mulDiv(1e18 - targetAllocationWad, 1e18, MathUpgradeable.Rounding.Down);
+        uint256 idleBalance = asset.balanceOf(address(this));
+
+        if (idleTargetDown <= idleBalance && idleBalance <= idleTargetUp) {
+            revert TargetAllocationMet();
+        }
+
+        if (idleBalance < idleTargetDown) {
+            // we need to withdraw from subvault
+            uint256 desiredWithdraw = idleTargetDown - idleBalance;
+            uint256 maxWithdrawable = subVault.maxWithdraw(address(this));
+            uint256 withdrawAmount =
+                desiredWithdraw < maxWithdrawable ? desiredWithdraw : maxWithdrawable;
+            if (withdrawAmount < minimumRebalanceAmount) {
+                revert RebalanceAmountTooSmall(
+                    false, withdrawAmount, desiredWithdraw, minimumRebalanceAmount
+                );
+            }
+            subVault.withdraw(withdrawAmount, address(this), address(this));
+            emit Rebalanced(false, desiredWithdraw, withdrawAmount);
+        } else {
+            // we need to deposit into subvault
+            uint256 desiredDeposit = idleBalance - idleTargetUp;
+            uint256 maxDepositable = subVault.maxDeposit(address(this));
+            uint256 depositAmount =
+                desiredDeposit < maxDepositable ? desiredDeposit : maxDepositable;
+            if (depositAmount < minimumRebalanceAmount) {
+                revert RebalanceAmountTooSmall(
+                    true, depositAmount, desiredDeposit, minimumRebalanceAmount
+                );
+            }
+            subVault.deposit(depositAmount, address(this));
+            emit Rebalanced(true, desiredDeposit, depositAmount);
+        }
+
+        lastRebalanceTime = block.timestamp;
     }
 
     /// @notice Distribute performance fees to the beneficiary
@@ -367,53 +417,6 @@ contract MasterVault is
         returns (bool)
     {
         return super.hasRole(role, account) || rolesRegistry.hasRole(role, account);
-    }
-
-    /// @dev Internal rebalancing function
-    function _rebalance() internal {
-        // Check cooldown
-        uint256 timeSinceLastRebalance = block.timestamp - lastRebalanceTime;
-        if (timeSinceLastRebalance < rebalanceCooldown) {
-            revert RebalanceCooldownNotMet(timeSinceLastRebalance, rebalanceCooldown);
-        }
-
-        uint256 totalAssetsUp = _totalAssetsLessProfit(MathUpgradeable.Rounding.Up);
-        uint256 totalAssetsDown = _totalAssetsLessProfit(MathUpgradeable.Rounding.Down);
-        uint256 idleTargetUp =
-            totalAssetsUp.mulDiv(1e18 - targetAllocationWad, 1e18, MathUpgradeable.Rounding.Up);
-        uint256 idleTargetDown =
-            totalAssetsDown.mulDiv(1e18 - targetAllocationWad, 1e18, MathUpgradeable.Rounding.Down);
-        uint256 idleBalance = asset.balanceOf(address(this));
-
-        if (idleTargetDown <= idleBalance && idleBalance <= idleTargetUp) {
-            return;
-        }
-
-        if (idleBalance < idleTargetDown) {
-            // we need to withdraw from subvault
-            uint256 desiredWithdraw = idleTargetDown - idleBalance;
-            uint256 maxWithdrawable = subVault.maxWithdraw(address(this));
-            uint256 withdrawAmount =
-                desiredWithdraw < maxWithdrawable ? desiredWithdraw : maxWithdrawable;
-            if (withdrawAmount < minimumRebalanceAmount) {
-                return;
-            }
-            subVault.withdraw(withdrawAmount, address(this), address(this));
-            emit Rebalanced(false, desiredWithdraw, withdrawAmount);
-        } else {
-            // we need to deposit into subvault
-            uint256 desiredDeposit = idleBalance - idleTargetUp;
-            uint256 maxDepositable = subVault.maxDeposit(address(this));
-            uint256 depositAmount =
-                desiredDeposit < maxDepositable ? desiredDeposit : maxDepositable;
-            if (depositAmount < minimumRebalanceAmount) {
-                return;
-            }
-            subVault.deposit(depositAmount, address(this));
-            emit Rebalanced(true, desiredDeposit, depositAmount);
-        }
-
-        lastRebalanceTime = block.timestamp;
     }
 
     /// @dev Internal fee distribution function
