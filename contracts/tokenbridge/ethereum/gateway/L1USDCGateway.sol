@@ -83,7 +83,6 @@ contract L1USDCGateway is L1ArbitrumExtendedGateway {
             revert L1USDCGateway_InvalidOwner();
         }
         // address(0) master vault factory indicates no YBB functionality
-        // todo: ensure this is what we want here
         L1ArbitrumGateway._initialize(_l2Counterpart, _l1Router, _inbox, address(0));
         l1USDC = _l1USDC;
         l2USDC = _l2USDC;

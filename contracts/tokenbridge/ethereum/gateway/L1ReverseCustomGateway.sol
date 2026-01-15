@@ -34,6 +34,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
  *          if minting is also occuring on L2
  */
 contract L1ReverseCustomGateway is L1CustomGateway {
+    /// @dev Initialize is overridden to prevent yield bearing bridging functionality
     function initialize(
         address _l1Counterpart,
         address _l1Router,
@@ -41,6 +42,7 @@ contract L1ReverseCustomGateway is L1CustomGateway {
         address _owner,
         address _masterVaultFactory
     ) public override {
+        // the reverse gateway does not support yield bearing bridging
         require(_masterVaultFactory == address(0), "MASTER_VAULT_FACTORY_MUST_BE_ZERO");
         super.initialize(_l1Counterpart, _l1Router, _inbox, _owner, _masterVaultFactory);
     }

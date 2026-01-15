@@ -45,6 +45,11 @@ abstract contract L1ArbitrumGateway is
     using Address for address;
 
     address public override inbox;
+
+    /// @notice Address of the MasterVaultFactory contract
+    ///         If set to zero, the yield bearing bridge (YBB) feature is disabled
+    ///         If set, this contract is called to create and lookup MasterVaults for each L1 token
+    /// @dev    There is no setter for this variable. YBB must be enabled/disabled at deployment time.
     address public masterVaultFactory;
 
     event DepositInitiated(
