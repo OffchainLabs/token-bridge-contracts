@@ -68,7 +68,9 @@ contract MasterVault is
     error SubVaultNotWhitelisted(address subVault);
     error RebalanceCooldownNotMet(uint256 timeSinceLastRebalance, uint256 cooldownRequired);
     error TargetAllocationMet();
-    error RebalanceAmountTooSmall(bool isDeposit, uint256 amount, uint256 desiredAmount, uint256 minimumRebalanceAmount);
+    error RebalanceAmountTooSmall(
+        bool isDeposit, uint256 amount, uint256 desiredAmount, uint256 minimumRebalanceAmount
+    );
 
     // todo: packing
     /// @notice The underlying asset of the vault
@@ -234,7 +236,9 @@ contract MasterVault is
             uint256 withdrawAmount =
                 desiredWithdraw < maxWithdrawable ? desiredWithdraw : maxWithdrawable;
             if (withdrawAmount < minimumRebalanceAmount) {
-                revert RebalanceAmountTooSmall(false, withdrawAmount, desiredWithdraw, minimumRebalanceAmount);
+                revert RebalanceAmountTooSmall(
+                    false, withdrawAmount, desiredWithdraw, minimumRebalanceAmount
+                );
             }
             subVault.withdraw(withdrawAmount, address(this), address(this));
             emit Rebalanced(false, desiredWithdraw, withdrawAmount);
@@ -245,7 +249,9 @@ contract MasterVault is
             uint256 depositAmount =
                 desiredDeposit < maxDepositable ? desiredDeposit : maxDepositable;
             if (depositAmount < minimumRebalanceAmount) {
-                revert RebalanceAmountTooSmall(true, depositAmount, desiredDeposit, minimumRebalanceAmount);
+                revert RebalanceAmountTooSmall(
+                    true, depositAmount, desiredDeposit, minimumRebalanceAmount
+                );
             }
             subVault.deposit(depositAmount, address(this));
             emit Rebalanced(true, desiredDeposit, depositAmount);
@@ -411,7 +417,6 @@ contract MasterVault is
     {
         return super.hasRole(role, account) || rolesRegistry.hasRole(role, account);
     }
-
 
     /// @dev Internal fee distribution function
     ///      Will revert if performance fees are disabled or beneficiary is not set
