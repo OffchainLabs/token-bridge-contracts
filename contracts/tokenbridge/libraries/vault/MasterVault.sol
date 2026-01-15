@@ -67,6 +67,8 @@ contract MasterVault is
     error NotGateway(address caller);
     error SubVaultNotWhitelisted(address subVault);
     error RebalanceCooldownNotMet(uint256 timeSinceLastRebalance, uint256 cooldownRequired);
+    error TargetAllocationMet();
+    error RebalanceAmountTooSmall(bool isDeposit, uint256 amount, uint256 desiredAmount, uint256 minimumRebalanceAmount);
 
     // todo: packing
     /// @notice The underlying asset of the vault
@@ -203,9 +205,9 @@ contract MasterVault is
     }
 
     /// @notice Rebalance assets between idle and the subvault to maintain target allocation
-    /// @dev    Rebalancing will revert if the cooldown period has not passed
-    ///         Rebalancing will silently skip if the amount to deposit/withdraw
-    ///         is less than the minimumRebalanceAmount.
+    /// @dev    Will revert if the cooldown period has not passed
+    ///         Will revert if the target allocation is already met
+    ///         Will revert if the amount to deposit/withdraw is less than the minimumRebalanceAmount.
     function rebalance() external whenNotPaused nonReentrant onlyRole(KEEPER_ROLE) {
         // Check cooldown
         uint256 timeSinceLastRebalance = block.timestamp - lastRebalanceTime;
@@ -222,7 +224,7 @@ contract MasterVault is
         uint256 idleBalance = asset.balanceOf(address(this));
 
         if (idleTargetDown <= idleBalance && idleBalance <= idleTargetUp) {
-            return;
+            revert TargetAllocationMet();
         }
 
         if (idleBalance < idleTargetDown) {
@@ -232,7 +234,7 @@ contract MasterVault is
             uint256 withdrawAmount =
                 desiredWithdraw < maxWithdrawable ? desiredWithdraw : maxWithdrawable;
             if (withdrawAmount < minimumRebalanceAmount) {
-                return;
+                revert RebalanceAmountTooSmall(false, withdrawAmount, desiredWithdraw, minimumRebalanceAmount);
             }
             subVault.withdraw(withdrawAmount, address(this), address(this));
             emit Rebalanced(false, desiredWithdraw, withdrawAmount);
@@ -243,7 +245,7 @@ contract MasterVault is
             uint256 depositAmount =
                 desiredDeposit < maxDepositable ? desiredDeposit : maxDepositable;
             if (depositAmount < minimumRebalanceAmount) {
-                return;
+                revert RebalanceAmountTooSmall(true, depositAmount, desiredDeposit, minimumRebalanceAmount);
             }
             subVault.deposit(depositAmount, address(this));
             emit Rebalanced(true, desiredDeposit, depositAmount);
