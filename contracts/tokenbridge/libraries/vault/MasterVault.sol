@@ -54,7 +54,8 @@ contract MasterVault is
     /// @notice Extra decimals added to the ERC20 decimals of the underlying asset to determine the decimals of the MasterVault
     /// @dev    This is done to mitigate the "first depositor" problem described in the OpenZeppelin ERC4626 documentation.
     ///         See https://docs.openzeppelin.com/contracts/5.x/erc4626 for more details on the mitigation.
-    ///         Should be << 18 to maintain precision in profit calculations.
+    ///         Should be << 18 to maintain precision in profit calculations. (see principalPriceWad)
+    ///         Should be > 0 to meaningfully mitigate the first depositor problem.
     uint8 public constant EXTRA_DECIMALS = 6;
 
     error SubVaultAssetMismatch();
