@@ -448,7 +448,7 @@ contract MasterVault is
             + _subVaultSharesToAssets(subVault.balanceOf(address(this)), rounding);
     }
 
-    function _totalPrincipal(MathUpgradeable.Rounding rounding) public view returns (uint256) {
+    function _totalPrincipal(MathUpgradeable.Rounding rounding) internal view returns (uint256) {
         return principalPriceWad.mulDiv(totalSupply(), 1e18, rounding);
     }
 
