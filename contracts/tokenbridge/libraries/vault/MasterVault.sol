@@ -448,6 +448,9 @@ contract MasterVault is
             + _subVaultSharesToAssets(subVault.balanceOf(address(this)), rounding);
     }
 
+    /// @dev Internal total principal function supporting a specific rounding direction
+    ///      When performance fees are disabled, total principal is 0
+    ///      When performance fees are enabled, total principal is principalPriceWad * totalSupply / 1e18
     function _totalPrincipal(MathUpgradeable.Rounding rounding) internal view returns (uint256) {
         return principalPriceWad.mulDiv(totalSupply(), 1e18, rounding);
     }
