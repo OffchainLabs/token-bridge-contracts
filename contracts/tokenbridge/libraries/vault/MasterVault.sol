@@ -84,18 +84,18 @@ contract MasterVault is
     Below is the list of state variables accessed in each hot path.
     They are listed to see which variables should be packed together.
 
-    deposit (3 slots):
+    deposit:
     - address subVault ------------------| <- these three show up in each path, so pack them together
     - bool enablePerformanceFee          |
     - uint88 principalPriceWad ----------|
     - address asset
     - address gatewayRouter
-    redeem (2 slots):
+    redeem:
     - address subVault ------------------|
     - bool enablePerformanceFee          |
     - uint88 principalPriceWad ----------|
     - address asset
-    rebalance (3 slots):
+    rebalance:
     - address subVault ------------------|
     - bool enablePerformanceFee          |
     - uint88 principalPriceWad ----------|
