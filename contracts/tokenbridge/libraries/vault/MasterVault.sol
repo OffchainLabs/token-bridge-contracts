@@ -54,7 +54,9 @@ contract MasterVault is
     /// @notice Extra decimals added to the ERC20 decimals of the underlying asset to determine the decimals of the MasterVault
     /// @dev    This is done to mitigate the "first depositor" problem described in the OpenZeppelin ERC4626 documentation.
     ///         See https://docs.openzeppelin.com/contracts/5.x/erc4626 for more details on the mitigation.
-    uint8 public constant EXTRA_DECIMALS = 18;
+    ///         Should be << 18 to maintain precision in profit calculations. (see principalPriceWad)
+    ///         Should be > 0 to meaningfully mitigate the first depositor problem.
+    uint8 public constant EXTRA_DECIMALS = 6;
 
     error SubVaultAssetMismatch();
     error PerformanceFeeDisabled();
@@ -66,6 +68,10 @@ contract MasterVault is
     error NotGateway(address caller);
     error SubVaultNotWhitelisted(address subVault);
     error RebalanceCooldownNotMet(uint256 timeSinceLastRebalance, uint256 cooldownRequired);
+    error TargetAllocationMet();
+    error RebalanceAmountTooSmall(
+        bool isDeposit, uint256 amount, uint256 desiredAmount, uint256 minimumRebalanceAmount
+    );
 
     // todo: packing
     /// @notice The underlying asset of the vault
@@ -107,9 +113,12 @@ contract MasterVault is
     /// @notice Address that receives performance fees
     address public beneficiary;
 
-    /// @notice totalPrincipal tracks the total assets deposited into the vault (minus withdrawals)
-    /// @dev    When performance fees are disabled, totalPrincipal is 0
-    uint256 public totalPrincipal;
+    /// @notice The price of masterVault shares (in assets per share times 1e18)
+    ///         at the time of turning on performance fees.
+    ///         It is used to calculate profit for performance fee distribution.
+    ///         It's akin to a price water mark.
+    /// @dev    When performance fees are disabled, principalPriceWad is 0
+    uint256 public principalPriceWad;
 
     event SubvaultChanged(address indexed oldSubvault, address indexed newSubvault);
     event PerformanceFeeToggled(bool enabled);
@@ -177,7 +186,6 @@ contract MasterVault is
         returns (uint256 shares)
     {
         shares = _convertToSharesRoundDown(assets);
-        if (enablePerformanceFee) totalPrincipal += assets;
         _mint(msg.sender, shares);
         asset.safeTransferFrom(msg.sender, address(this), assets);
     }
@@ -188,7 +196,6 @@ contract MasterVault is
     /// @return assets The amount of underlying assets transferred to the redeemer
     function redeem(uint256 shares) external whenNotPaused nonReentrant returns (uint256 assets) {
         assets = _convertToAssetsRoundDown(shares);
-        if (enablePerformanceFee) totalPrincipal -= assets;
 
         uint256 idleAssets = asset.balanceOf(address(this));
         if (idleAssets < assets) {
@@ -201,11 +208,57 @@ contract MasterVault is
     }
 
     /// @notice Rebalance assets between idle and the subvault to maintain target allocation
-    /// @dev    Rebalancing will revert if the cooldown period has not passed
-    ///         Rebalancing will silently skip if the amount to deposit/withdraw
-    ///         is less than the minimumRebalanceAmount.
+    /// @dev    Will revert if the cooldown period has not passed
+    ///         Will revert if the target allocation is already met
+    ///         Will revert if the amount to deposit/withdraw is less than the minimumRebalanceAmount.
     function rebalance() external whenNotPaused nonReentrant onlyRole(KEEPER_ROLE) {
-        _rebalance();
+        // Check cooldown
+        uint256 timeSinceLastRebalance = block.timestamp - lastRebalanceTime;
+        if (timeSinceLastRebalance < rebalanceCooldown) {
+            revert RebalanceCooldownNotMet(timeSinceLastRebalance, rebalanceCooldown);
+        }
+
+        uint256 totalAssetsUp = _totalAssetsLessProfit(MathUpgradeable.Rounding.Up);
+        uint256 totalAssetsDown = _totalAssetsLessProfit(MathUpgradeable.Rounding.Down);
+        uint256 idleTargetUp =
+            totalAssetsUp.mulDiv(1e18 - targetAllocationWad, 1e18, MathUpgradeable.Rounding.Up);
+        uint256 idleTargetDown =
+            totalAssetsDown.mulDiv(1e18 - targetAllocationWad, 1e18, MathUpgradeable.Rounding.Down);
+        uint256 idleBalance = asset.balanceOf(address(this));
+
+        if (idleTargetDown <= idleBalance && idleBalance <= idleTargetUp) {
+            revert TargetAllocationMet();
+        }
+
+        if (idleBalance < idleTargetDown) {
+            // we need to withdraw from subvault
+            uint256 desiredWithdraw = idleTargetDown - idleBalance;
+            uint256 maxWithdrawable = subVault.maxWithdraw(address(this));
+            uint256 withdrawAmount =
+                desiredWithdraw < maxWithdrawable ? desiredWithdraw : maxWithdrawable;
+            if (withdrawAmount < minimumRebalanceAmount) {
+                revert RebalanceAmountTooSmall(
+                    false, withdrawAmount, desiredWithdraw, minimumRebalanceAmount
+                );
+            }
+            subVault.withdraw(withdrawAmount, address(this), address(this));
+            emit Rebalanced(false, desiredWithdraw, withdrawAmount);
+        } else {
+            // we need to deposit into subvault
+            uint256 desiredDeposit = idleBalance - idleTargetUp;
+            uint256 maxDepositable = subVault.maxDeposit(address(this));
+            uint256 depositAmount =
+                desiredDeposit < maxDepositable ? desiredDeposit : maxDepositable;
+            if (depositAmount < minimumRebalanceAmount) {
+                revert RebalanceAmountTooSmall(
+                    true, depositAmount, desiredDeposit, minimumRebalanceAmount
+                );
+            }
+            subVault.deposit(depositAmount, address(this));
+            emit Rebalanced(true, desiredDeposit, depositAmount);
+        }
+
+        lastRebalanceTime = block.timestamp;
     }
 
     /// @notice Distribute performance fees to the beneficiary
@@ -278,15 +331,17 @@ contract MasterVault is
     /// @notice Toggle performance fee collection on/off
     /// @param enabled True to enable performance fees, false to disable
     function setPerformanceFee(bool enabled) external nonReentrant onlyRole(FEE_MANAGER_ROLE) {
-        // reset totalPrincipal to current totalAssets when enabling performance fee
+        // reset principalPriceWad to current totalAssets when enabling performance fee
         // this prevents a sudden large profit
         if (enabled) {
-            // round down to avoid overcounting principal
-            // actual profit calculation rounds down as well
-            totalPrincipal = _totalAssets(MathUpgradeable.Rounding.Down);
+            // todo: require not already enabled
+            // round up to avoid overcounting profit
+            // this works against the fee collector
+            principalPriceWad = _totalAssets(MathUpgradeable.Rounding.Up)
+                .mulDiv(1e18, totalSupply(), MathUpgradeable.Rounding.Up);
         } else {
             _distributePerformanceFee();
-            totalPrincipal = 0;
+            principalPriceWad = 0;
         }
 
         enablePerformanceFee = enabled;
@@ -349,7 +404,8 @@ contract MasterVault is
     /// @dev    When performance fees are disabled, this will always return totalAssets
     function totalProfit() public view returns (uint256) {
         uint256 __totalAssets = _totalAssets(MathUpgradeable.Rounding.Down);
-        return __totalAssets > totalPrincipal ? __totalAssets - totalPrincipal : 0;
+        uint256 __totalPrincipal = _totalPrincipal(MathUpgradeable.Rounding.Up);
+        return __totalAssets > __totalPrincipal ? __totalAssets - __totalPrincipal : 0;
     }
 
     /// @dev Overriden to check MasterVaultRoles registry in addition to local roles
@@ -361,53 +417,6 @@ contract MasterVault is
         returns (bool)
     {
         return super.hasRole(role, account) || rolesRegistry.hasRole(role, account);
-    }
-
-    /// @dev Internal rebalancing function
-    function _rebalance() internal {
-        // Check cooldown
-        uint256 timeSinceLastRebalance = block.timestamp - lastRebalanceTime;
-        if (timeSinceLastRebalance < rebalanceCooldown) {
-            revert RebalanceCooldownNotMet(timeSinceLastRebalance, rebalanceCooldown);
-        }
-
-        uint256 totalAssetsUp = _totalAssetsLessProfit(MathUpgradeable.Rounding.Up);
-        uint256 totalAssetsDown = _totalAssetsLessProfit(MathUpgradeable.Rounding.Down);
-        uint256 idleTargetUp =
-            totalAssetsUp.mulDiv(1e18 - targetAllocationWad, 1e18, MathUpgradeable.Rounding.Up);
-        uint256 idleTargetDown =
-            totalAssetsDown.mulDiv(1e18 - targetAllocationWad, 1e18, MathUpgradeable.Rounding.Down);
-        uint256 idleBalance = asset.balanceOf(address(this));
-
-        if (idleTargetDown <= idleBalance && idleBalance <= idleTargetUp) {
-            return;
-        }
-
-        if (idleBalance < idleTargetDown) {
-            // we need to withdraw from subvault
-            uint256 desiredWithdraw = idleTargetDown - idleBalance;
-            uint256 maxWithdrawable = subVault.maxWithdraw(address(this));
-            uint256 withdrawAmount =
-                desiredWithdraw < maxWithdrawable ? desiredWithdraw : maxWithdrawable;
-            if (withdrawAmount < minimumRebalanceAmount) {
-                return;
-            }
-            subVault.withdraw(withdrawAmount, address(this), address(this));
-            emit Rebalanced(false, desiredWithdraw, withdrawAmount);
-        } else {
-            // we need to deposit into subvault
-            uint256 desiredDeposit = idleBalance - idleTargetUp;
-            uint256 maxDepositable = subVault.maxDeposit(address(this));
-            uint256 depositAmount =
-                desiredDeposit < maxDepositable ? desiredDeposit : maxDepositable;
-            if (depositAmount < minimumRebalanceAmount) {
-                return;
-            }
-            subVault.deposit(depositAmount, address(this));
-            emit Rebalanced(true, desiredDeposit, depositAmount);
-        }
-
-        lastRebalanceTime = block.timestamp;
     }
 
     /// @dev Internal fee distribution function
@@ -442,6 +451,13 @@ contract MasterVault is
             + _subVaultSharesToAssets(subVault.balanceOf(address(this)), rounding);
     }
 
+    /// @dev Internal total principal function supporting a specific rounding direction
+    ///      When performance fees are disabled, total principal is 0
+    ///      When performance fees are enabled, total principal is principalPriceWad * totalSupply / 1e18
+    function _totalPrincipal(MathUpgradeable.Rounding rounding) internal view returns (uint256) {
+        return principalPriceWad.mulDiv(totalSupply(), 1e18, rounding);
+    }
+
     /// @dev Converts assets to shares using totalSupply and totalAssetsLessProfit, rounding down
     function _convertToSharesRoundDown(uint256 assets) internal view returns (uint256 shares) {
         // we add one as part of the first deposit mitigation
@@ -471,8 +487,9 @@ contract MasterVault is
         returns (uint256)
     {
         uint256 __totalAssets = _totalAssets(rounding);
-        if (enablePerformanceFee && __totalAssets > totalPrincipal) {
-            return totalPrincipal;
+        uint256 __totalPrincipal = _totalPrincipal(rounding);
+        if (enablePerformanceFee && __totalAssets > __totalPrincipal) {
+            return __totalPrincipal;
         }
         return __totalAssets;
     }
