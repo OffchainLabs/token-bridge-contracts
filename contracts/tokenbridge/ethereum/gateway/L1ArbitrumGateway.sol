@@ -44,8 +44,6 @@ abstract contract L1ArbitrumGateway is
     using SafeERC20 for IERC20;
     using Address for address;
 
-    error InsufficientAmountReceived(uint256 received, uint256 minimum);
-
     address public override inbox;
 
     /// @notice Address of the MasterVaultFactory contract
@@ -285,12 +283,19 @@ abstract contract L1ArbitrumGateway is
             address l2Token = calculateL2TokenAddress(_l1Token);
             require(l2Token != address(0), "NO_L2_TOKEN_SET");
 
-            uint256 minimumReceived = 0;
-            if (extraData.length == 64) {
-                (,minimumReceived) = abi.decode(extraData, (uint256, uint256));
-            }
+            _amount = outboundEscrowTransfer(_l1Token, _from, _amount);
 
-            _amount = outboundEscrowTransfer(_l1Token, _from, _amount, minimumReceived);
+            if (extraData.length == 64) {
+                (uint256 zero, uint256 minimumReceived) = abi.decode(extraData, (uint256, uint256));
+                require(zero == 0, "INVALID_EXTRA_DATA");
+                require(
+                    _amount >= minimumReceived,
+                    "INSUFFICIENT_AMOUNT_RECEIVED"
+                );
+            }
+            else if (extraData.length != 0) {
+                revert("INVALID_EXTRA_DATA_LENGTH");
+            }
 
             // we override the res field to save on the stack
             // we never pass extra data through to L2
@@ -314,8 +319,7 @@ abstract contract L1ArbitrumGateway is
     function outboundEscrowTransfer(
         address _l1Token,
         address _from,
-        uint256 _amount,
-        uint256 _minimumReceived
+        uint256 _amount
     ) internal virtual returns (uint256 amountReceived) {
         // this method is virtual since different subclasses can handle escrow differently
         // user funds are escrowed on the gateway using this function
@@ -327,10 +331,6 @@ abstract contract L1ArbitrumGateway is
         if (masterVaultFactory != address(0)) {
             address masterVault = IMasterVaultFactory(masterVaultFactory).getVault(_l1Token);
             amountReceived = IERC4626(masterVault).deposit(amountReceived, address(this));
-        }
-
-        if (amountReceived < _minimumReceived) {
-            revert InsufficientAmountReceived(amountReceived, _minimumReceived);
         }
     }
 
