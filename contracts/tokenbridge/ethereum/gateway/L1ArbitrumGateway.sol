@@ -44,6 +44,8 @@ abstract contract L1ArbitrumGateway is
     using SafeERC20 for IERC20;
     using Address for address;
 
+    error InsufficientAmountReceived(uint256 received, uint256 minimum);
+
     address public override inbox;
 
     /// @notice Address of the MasterVaultFactory contract
@@ -279,17 +281,20 @@ abstract contract L1ArbitrumGateway is
             // unpack user encoded data
             (_maxSubmissionCost, extraData, tokenTotalFeeAmount) = _parseUserEncodedData(extraData);
 
-            // the inboundEscrowAndCall functionality has been disabled, so no data is allowed
-            require(extraData.length == 0, "EXTRA_DATA_DISABLED");
-
             require(_l1Token.isContract(), "L1_NOT_CONTRACT");
             address l2Token = calculateL2TokenAddress(_l1Token);
             require(l2Token != address(0), "NO_L2_TOKEN_SET");
 
-            _amount = outboundEscrowTransfer(_l1Token, _from, _amount);
+            uint256 minimumReceived = 0;
+            if (extraData.length == 64) {
+                (,minimumReceived) = abi.decode(extraData, (uint256, uint256));
+            }
+
+            _amount = outboundEscrowTransfer(_l1Token, _from, _amount, minimumReceived);
 
             // we override the res field to save on the stack
-            res = getOutboundCalldata(_l1Token, _from, _to, _amount, extraData);
+            // we never pass extra data through to L2
+            res = getOutboundCalldata(_l1Token, _from, _to, _amount, "");
 
             seqNum = _initiateDeposit(
                 _refundTo,
@@ -309,7 +314,8 @@ abstract contract L1ArbitrumGateway is
     function outboundEscrowTransfer(
         address _l1Token,
         address _from,
-        uint256 _amount
+        uint256 _amount,
+        uint256 _minimumReceived
     ) internal virtual returns (uint256 amountReceived) {
         // this method is virtual since different subclasses can handle escrow differently
         // user funds are escrowed on the gateway using this function
@@ -321,6 +327,10 @@ abstract contract L1ArbitrumGateway is
         if (masterVaultFactory != address(0)) {
             address masterVault = IMasterVaultFactory(masterVaultFactory).getVault(_l1Token);
             amountReceived = IERC4626(masterVault).deposit(amountReceived, address(this));
+        }
+
+        if (amountReceived < _minimumReceived) {
+            revert InsufficientAmountReceived(amountReceived, _minimumReceived);
         }
     }
 
