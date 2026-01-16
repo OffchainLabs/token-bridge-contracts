@@ -302,7 +302,7 @@ contract L1GatewayRouter is
      * @param _amount Token Amount
      * @param _maxGas Max gas deducted from user's L2 balance to cover L2 execution
      * @param _gasPriceBid Gas price for L2 execution
-     * @param _data encoded data from router and user
+     * @param _data Optional minimum amount received on L2 encoded as abi.encode(uint256(0), uint256(minimumAmount))
      * @return res abi encoded inbox sequence number
      */
     function outboundTransferCustomRefund(

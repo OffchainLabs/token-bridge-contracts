@@ -279,17 +279,27 @@ abstract contract L1ArbitrumGateway is
             // unpack user encoded data
             (_maxSubmissionCost, extraData, tokenTotalFeeAmount) = _parseUserEncodedData(extraData);
 
-            // the inboundEscrowAndCall functionality has been disabled, so no data is allowed
-            require(extraData.length == 0, "EXTRA_DATA_DISABLED");
-
             require(_l1Token.isContract(), "L1_NOT_CONTRACT");
             address l2Token = calculateL2TokenAddress(_l1Token);
             require(l2Token != address(0), "NO_L2_TOKEN_SET");
 
             _amount = outboundEscrowTransfer(_l1Token, _from, _amount);
 
+            if (extraData.length == 64) {
+                (uint256 zero, uint256 minimumReceived) = abi.decode(extraData, (uint256, uint256));
+                require(zero == 0, "INVALID_EXTRA_DATA");
+                require(
+                    _amount >= minimumReceived,
+                    "INSUFFICIENT_AMOUNT_RECEIVED"
+                );
+            }
+            else if (extraData.length != 0) {
+                revert("INVALID_EXTRA_DATA_LENGTH");
+            }
+
             // we override the res field to save on the stack
-            res = getOutboundCalldata(_l1Token, _from, _to, _amount, extraData);
+            // we never pass extra data through to L2
+            res = getOutboundCalldata(_l1Token, _from, _to, _amount, "");
 
             seqNum = _initiateDeposit(
                 _refundTo,
