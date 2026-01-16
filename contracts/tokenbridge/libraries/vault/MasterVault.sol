@@ -34,7 +34,9 @@ import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet
 ///         i.e. if the underlying asset has 6 decimals, the MasterVault will have 24 decimals.
 ///
 ///         For a subVault to be compatible with the MasterVault, it must adhere to the following:
-///         - convertToAssets and convertToShares must not be manipulable
+///         - previewMint and previewDeposit must not be manipulable
+///         - previewMint and previewDeposit must be roughly linear with respect to amounts.
+///           Superlinear previewMint or sublinear previewDeposit may cause the MasterVault to overcharge on deposits and underpay on withdrawals.
 ///         - must not have deposit / withdrawal fees (because rebalancing can happen frequently)
 ///
 ///         Roles are primarily managed via an external MasterVaultRoles contract,
@@ -58,11 +60,15 @@ contract MasterVault is
     ///         Should be > 0 to meaningfully mitigate the first depositor problem.
     uint8 public constant EXTRA_DECIMALS = 6;
 
+    /// @notice Default minimum rebalance amount
+    uint120 public constant DEFAULT_MIN_REBALANCE_AMOUNT = 1e6;
+
+    /// @notice Minimum rebalance cooldown in seconds
+    uint32 public constant MIN_REBALANCE_COOLDOWN = 1;
+
     error SubVaultAssetMismatch();
     error PerformanceFeeDisabled();
     error BeneficiaryNotSet();
-    error InvalidAsset();
-    error InvalidOwner();
     error NonZeroTargetAllocation(uint256 targetAllocationWad);
     error NonZeroSubVaultShares(uint256 subVaultShares);
     error NotGateway(address caller);
@@ -72,6 +78,8 @@ contract MasterVault is
     error RebalanceAmountTooSmall(
         bool isDeposit, uint256 amount, uint256 desiredAmount, uint256 minimumRebalanceAmount
     );
+    error PerformanceFeeUnchanged(bool enabled);
+    error RebalanceCooldownTooLow(uint32 requested, uint32 minimum);
 
     /*
     Storage layout notes:
@@ -127,7 +135,7 @@ contract MasterVault is
     uint40 public lastRebalanceTime;
 
     /// @notice The minimum time in seconds that must pass between rebalances
-    /// @dev    Defaults to 1 second. Set to 0 to disable cooldown.
+    /// @dev    Defaults to 1 second. Cannot be 0.
     uint32 public rebalanceCooldown;
 
     /// @notice Target allocation of assets to keep in the subvault, expressed in wad (1e18 = 100%)
@@ -198,8 +206,8 @@ contract MasterVault is
         subVault = _subVault;
         _setSubVaultWhitelist(address(_subVault), true);
 
-        minimumRebalanceAmount = 1e6;
-        rebalanceCooldown = 1;
+        minimumRebalanceAmount = DEFAULT_MIN_REBALANCE_AMOUNT;
+        rebalanceCooldown = MIN_REBALANCE_COOLDOWN;
     }
 
     /// @notice Modifier to ensure only the registered gateway can call
@@ -359,18 +367,26 @@ contract MasterVault is
         external
         onlyRole(GENERAL_MANAGER_ROLE)
     {
+        if (_rebalanceCooldown < MIN_REBALANCE_COOLDOWN) {
+            revert RebalanceCooldownTooLow(_rebalanceCooldown, MIN_REBALANCE_COOLDOWN);
+        }
         uint256 oldCooldown = rebalanceCooldown;
         rebalanceCooldown = _rebalanceCooldown;
         emit RebalanceCooldownUpdated(oldCooldown, _rebalanceCooldown);
     }
 
     /// @notice Toggle performance fee collection on/off
+    ///         When enabling, principalPriceWad snaps to the current price. 
+    ///         When price increases afterwards, profit is earned for the beneficiary.
+    ///         If disabling, any pending performance fees are distributed immediately.
     /// @param enabled True to enable performance fees, false to disable
     function setPerformanceFee(bool enabled) external nonReentrant onlyRole(FEE_MANAGER_ROLE) {
+        if (enablePerformanceFee == enabled) {
+            revert PerformanceFeeUnchanged(enabled);
+        }
+
         // reset principalPriceWad to current totalAssets when enabling performance fee
-        // this prevents a sudden large profit
         if (enabled) {
-            // todo: require not already enabled
             // round up to avoid overcounting profit
             // this works against the fee collector
             principalPriceWad = uint88(
@@ -395,7 +411,8 @@ contract MasterVault is
         emit BeneficiaryUpdated(oldBeneficiary, newBeneficiary);
     }
 
-    /// @notice Add or remove a subvault from the whitelist
+    /// @notice Add or remove a subvault from the whitelist. 
+    ///         Malicious, misconfigured, or buggy subVaults may cause total loss of funds.
     /// @param _subVault The subvault address to update
     /// @param _whitelisted True to whitelist the subvault, false to remove it
     function setSubVaultWhitelist(address _subVault, bool _whitelisted)

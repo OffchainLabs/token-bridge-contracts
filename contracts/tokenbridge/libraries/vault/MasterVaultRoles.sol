@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import {
     AccessControlEnumerableUpgradeable
 } from "@openzeppelin/contracts-upgradeable/access/AccessControlEnumerableUpgradeable.sol";
-
+//todo: document trust levels and rug abilities
 /// @notice Roles system for MasterVaults.
 ///         Each MasterVault will have a reference to a singleton MasterVaultRoles contract, in addition to inheriting MasterVaultRoles directly.
 ///         This allows for easier management of roles across multiple vaults.
