@@ -36,7 +36,7 @@ import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet
 ///         For a subVault to be compatible with the MasterVault, it must adhere to the following:
 ///         - previewMint and previewDeposit must not be manipulable
 ///         - previewMint and previewDeposit must be roughly linear with respect to amounts.
-///           Superlinear previewMint/previewDeposit may cause the MasterVault to overcharge on deposits and underpay on withdrawals.
+///           Superlinear previewMint or sublinear previewDeposit may cause the MasterVault to overcharge on deposits and underpay on withdrawals.
 ///         - must not have deposit / withdrawal fees (because rebalancing can happen frequently)
 ///
 ///         Roles are primarily managed via an external MasterVaultRoles contract,
