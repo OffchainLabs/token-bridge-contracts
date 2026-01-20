@@ -6,6 +6,7 @@ import {MasterVaultFactory} from "../../../contracts/tokenbridge/libraries/vault
 import {MasterVault} from "../../../contracts/tokenbridge/libraries/vault/MasterVault.sol";
 import {TestERC20} from "../../../contracts/tokenbridge/test/TestERC20.sol";
 import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
+import {IGatewayRouter} from "../../../contracts/tokenbridge/libraries/gateway/IGatewayRouter.sol";
 
 contract MasterVaultFactoryTest is Test {
     MasterVaultFactory public factory;
@@ -16,16 +17,26 @@ contract MasterVaultFactoryTest is Test {
 
     event VaultDeployed(address indexed token, address indexed vault);
 
+    function factoryOwner() internal view returns (address) {
+        bytes32 adminRole = factory.rolesRegistry().ADMIN_ROLE();
+        return factory.rolesRegistry().getRoleMember(adminRole, 0);
+    }
+
+    function vaultOwner(MasterVault vault) internal view returns (address) {
+        bytes32 adminRole = vault.ADMIN_ROLE();
+        return vault.rolesRegistry().getRoleMember(adminRole, 0);
+    }
+
     function setUp() public {
         token = new TestERC20();
         factory = new MasterVaultFactory();
 
         vm.prank(owner);
-        factory.initialize(owner);
+        factory.initialize(owner, IGatewayRouter(address(0)));
     }
 
     function test_initialize() public {
-        assertEq(factory.owner(), owner, "Invalid owner");
+        assertEq(factoryOwner(), owner, "Invalid owner");
     }
 
     function test_deployVault() public {
@@ -41,7 +52,7 @@ contract MasterVaultFactoryTest is Test {
 
         MasterVault vault = MasterVault(deployedVault);
         assertEq(address(vault.asset()), address(token), "Invalid vault asset");
-        assertTrue(vault.hasRole(vault.DEFAULT_ADMIN_ROLE(), owner), "Factory owner should have DEFAULT_ADMIN_ROLE");
+        assertEq(vaultOwner(vault), owner, "Factory owner should be vault owner");
     }
 
     function test_deployVault_RevertZeroAddress() public {
@@ -72,7 +83,7 @@ contract MasterVaultFactoryTest is Test {
     }
 
     function test_beaconOwnership() public {
-        assertEq(UpgradeableBeacon(factory.beaconProxyFactory().beacon()).owner(), owner, "Beacon owner should be the factory owner");
+        assertEq(UpgradeableBeacon(factory.beaconProxyFactory().beacon()).owner(), factoryOwner(), "Beacon owner should be the factory owner");
     }
 
     function test_ownerCanUpgradeBeacon() public {
@@ -108,7 +119,7 @@ contract MasterVaultFactoryTest is Test {
 
         assertEq(UpgradeableBeacon(factory.beaconProxyFactory().beacon()).implementation(), address(newImplementation), "Beacon should point to new implementation");
 
-        assertTrue(MasterVault(vault1).hasRole(MasterVault(vault1).DEFAULT_ADMIN_ROLE(), owner), "Vault1 should have owner as admin");
-        assertTrue(MasterVault(vault2).hasRole(MasterVault(vault2).DEFAULT_ADMIN_ROLE(), owner), "Vault2 should have owner as admin");
+        assertEq(vaultOwner(MasterVault(vault1)), owner, "Vault1 should have owner as admin");
+        assertEq(vaultOwner(MasterVault(vault2)), owner, "Vault2 should have owner as admin");
     }
 }
