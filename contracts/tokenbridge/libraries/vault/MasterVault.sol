@@ -387,11 +387,10 @@ contract MasterVault is
 
         // reset principalPriceWad to current totalAssets when enabling performance fee
         if (enabled) {
-            uint256 __totalAssets = _totalAssets(MathUpgradeable.Rounding.Up);
             // round up to avoid overcounting profit
             // this works against the fee collector
             principalPriceWad = uint88(
-                __totalAssets
+                _totalAssets(MathUpgradeable.Rounding.Up)
                     .mulDiv(1e18, totalSupply(), MathUpgradeable.Rounding.Up)
             );
         } else {
@@ -502,6 +501,8 @@ contract MasterVault is
     }
 
     /// @dev Internal total assets function supporting a specific rounding direction
+    /// We add one as part of the first deposit mitigation.
+    /// See for details: https://docs.openzeppelin.com/contracts/5.x/erc4626
     function _totalAssets(MathUpgradeable.Rounding rounding) internal view returns (uint256) {
         return 1 + asset.balanceOf(address(this))
             + _subVaultSharesToAssets(subVault.balanceOf(address(this)), rounding);
@@ -516,8 +517,6 @@ contract MasterVault is
 
     /// @dev Converts assets to shares using totalSupply and totalAssetsLessProfit, rounding down
     function _convertToSharesRoundDown(uint256 assets) internal view returns (uint256 shares) {
-        // we add one as part of the first deposit mitigation
-        // see for details: https://docs.openzeppelin.com/contracts/5.x/erc4626
         return assets.mulDiv(
             totalSupply(),
             _totalAssetsLessProfit(MathUpgradeable.Rounding.Up),
@@ -527,8 +526,6 @@ contract MasterVault is
 
     /// @dev Converts shares to assets using totalSupply and totalAssetsLessProfit, rounding down
     function _convertToAssetsRoundDown(uint256 shares) internal view returns (uint256 assets) {
-        // we add one as part of the first deposit mitigation
-        // see for details: https://docs.openzeppelin.com/contracts/5.x/erc4626
         return shares.mulDiv(
             _totalAssetsLessProfit(MathUpgradeable.Rounding.Down),
             totalSupply(),
