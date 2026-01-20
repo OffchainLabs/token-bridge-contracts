@@ -388,19 +388,12 @@ contract MasterVault is
         // reset principalPriceWad to current totalAssets when enabling performance fee
         if (enabled) {
             uint256 __totalAssets = _totalAssets(MathUpgradeable.Rounding.Up);
-
-            if(__totalAssets == 0) {
-               principalPriceWad = 1e18;
-            }
-            else {
-                // round up to avoid overcounting profit
-                // this works against the fee collector
-                principalPriceWad = uint88(
-                    __totalAssets
-                        .mulDiv(1e18, totalSupply(), MathUpgradeable.Rounding.Up)
-                );
-            }
-   
+            // round up to avoid overcounting profit
+            // this works against the fee collector
+            principalPriceWad = uint88(
+                __totalAssets
+                    .mulDiv(1e18, totalSupply(), MathUpgradeable.Rounding.Up)
+            );
         } else {
             _distributePerformanceFee();
             principalPriceWad = 0;
@@ -510,7 +503,7 @@ contract MasterVault is
 
     /// @dev Internal total assets function supporting a specific rounding direction
     function _totalAssets(MathUpgradeable.Rounding rounding) internal view returns (uint256) {
-        return asset.balanceOf(address(this))
+        return 1 + asset.balanceOf(address(this))
             + _subVaultSharesToAssets(subVault.balanceOf(address(this)), rounding);
     }
 
@@ -527,7 +520,7 @@ contract MasterVault is
         // see for details: https://docs.openzeppelin.com/contracts/5.x/erc4626
         return assets.mulDiv(
             totalSupply(),
-            _totalAssetsLessProfit(MathUpgradeable.Rounding.Up) + 1,
+            _totalAssetsLessProfit(MathUpgradeable.Rounding.Up),
             MathUpgradeable.Rounding.Down
         );
     }
@@ -537,7 +530,7 @@ contract MasterVault is
         // we add one as part of the first deposit mitigation
         // see for details: https://docs.openzeppelin.com/contracts/5.x/erc4626
         return shares.mulDiv(
-            _totalAssetsLessProfit(MathUpgradeable.Rounding.Down) + 1,
+            _totalAssetsLessProfit(MathUpgradeable.Rounding.Down),
             totalSupply(),
             MathUpgradeable.Rounding.Down
         );

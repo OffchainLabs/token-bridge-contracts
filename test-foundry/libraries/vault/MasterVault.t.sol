@@ -21,7 +21,7 @@ contract MasterVaultFirstDepositTest is MasterVaultCoreTest {
         _checkState(
             State({
                 userShares: depositAmount * DEAD_SHARES,
-                masterVaultTotalAssets: depositAmount,
+                masterVaultTotalAssets: depositAmount + 1,
                 masterVaultTotalSupply: (1 + depositAmount) * DEAD_SHARES,
                 masterVaultTokenBalance: depositAmount,
                 masterVaultSubVaultShareBalance: 0,
@@ -41,7 +41,7 @@ contract MasterVaultFirstDepositTest is MasterVaultCoreTest {
         State memory beforeState = _getState();
         vm.startPrank(user);
         uint256 assets = vault.redeem(redeemAmount);
-        uint256 expectedAssets = ((1 + beforeState.masterVaultTotalAssets) * redeemAmount) /
+        uint256 expectedAssets = (beforeState.masterVaultTotalAssets * redeemAmount) /
             (beforeState.masterVaultTotalSupply);
         vm.stopPrank();
         _checkState(
@@ -106,7 +106,7 @@ contract MasterVaultTestWithSubvaultHoldingAssets is MasterVaultFirstDepositTest
         _checkState(
             State({
                 userShares: depositAmount * DEAD_SHARES,
-                masterVaultTotalAssets: depositAmount,
+                masterVaultTotalAssets: depositAmount + 1,
                 masterVaultTotalSupply: (1 + depositAmount) * DEAD_SHARES,
                 masterVaultTokenBalance: depositAmount,
                 masterVaultSubVaultShareBalance: 0,
@@ -126,7 +126,7 @@ contract MasterVaultTestWithSubvaultHoldingAssets is MasterVaultFirstDepositTest
         State memory beforeState = _getState();
         vm.startPrank(user);
         uint256 assets = vault.redeem(redeemAmount);
-        uint256 expectedAssets = ((1 + beforeState.masterVaultTotalAssets) * redeemAmount) /
+        uint256 expectedAssets = (beforeState.masterVaultTotalAssets * redeemAmount) /
             (beforeState.masterVaultTotalSupply);
         vm.stopPrank();
         _checkState(
