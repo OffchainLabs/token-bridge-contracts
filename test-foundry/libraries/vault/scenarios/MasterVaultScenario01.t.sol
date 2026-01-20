@@ -5,6 +5,7 @@ import { MasterVaultScenarioCoreTest } from "./MasterVaultScenarioCore.t.sol";
 import { MasterVault } from "../../../../contracts/tokenbridge/libraries/vault/MasterVault.sol";
 
 contract MasterVaultScenario01Test is MasterVaultScenarioCoreTest {
+
     /// @dev Scenario: 2 users deposit and redeem with no profit/loss
     /// User A deposits 100 USDC, User B deposits 300 USDC
     /// User A redeems 100 shares, User B redeems 300 shares
@@ -25,11 +26,10 @@ contract MasterVaultScenario01Test is MasterVaultScenarioCoreTest {
         _checkState(
             State({
                 userShares: 100 * DEAD_SHARES,
-                masterVaultTotalAssets: 400,
+                masterVaultTotalAssets: 401,
                 masterVaultTotalSupply: 401 * DEAD_SHARES,
                 masterVaultTokenBalance: 400,
                 masterVaultSubVaultShareBalance: 0,
-                masterVaultTotalPrincipal: 400,
                 subVaultTotalAssets: 0,
                 subVaultTotalSupply: 0,
                 subVaultTokenBalance: 0
@@ -47,11 +47,10 @@ contract MasterVaultScenario01Test is MasterVaultScenarioCoreTest {
         _checkState(
             State({
                 userShares: 0,
-                masterVaultTotalAssets: 0,
+                masterVaultTotalAssets: 1,
                 masterVaultTotalSupply: DEAD_SHARES,
                 masterVaultTokenBalance: 0,
                 masterVaultSubVaultShareBalance: 0,
-                masterVaultTotalPrincipal: 0,
                 subVaultTotalAssets: 0,
                 subVaultTotalSupply: 0,
                 subVaultTokenBalance: 0
@@ -68,6 +67,8 @@ contract MasterVaultScenario01Test is MasterVaultScenarioCoreTest {
     /// User A redeems 100 shares, User B redeems 300 shares
     /// Expected: All state variables return to 0 (except dead shares), assets moved through subvault
     function test_scenario01_noGainNoLoss_100PercentAllocation() public {
+        vault.setPerformanceFee(true);
+
         // Set target allocation to 100%
         vault.setTargetAllocationWad(1e18);
 
@@ -81,16 +82,17 @@ contract MasterVaultScenario01Test is MasterVaultScenarioCoreTest {
         // Step 2: User B deposits 300 USDC
         uint256 sharesB = _deposit(userB, 300);
 
+        vault.rebalance();
+
         // Verify intermediate state
         user = userA;
         _checkState(
             State({
                 userShares: 100 * DEAD_SHARES,
-                masterVaultTotalAssets: 400,
+                masterVaultTotalAssets: 401,
                 masterVaultTotalSupply: 401 * DEAD_SHARES,
                 masterVaultTokenBalance: 0, // 100% allocated
                 masterVaultSubVaultShareBalance: 400, // 1:1 in DefaultSubVault
-                masterVaultTotalPrincipal: 400,
                 subVaultTotalAssets: 400,
                 subVaultTotalSupply: 400,
                 subVaultTokenBalance: 400
@@ -108,11 +110,10 @@ contract MasterVaultScenario01Test is MasterVaultScenarioCoreTest {
         _checkState(
             State({
                 userShares: 0,
-                masterVaultTotalAssets: 0,
+                masterVaultTotalAssets: 1,
                 masterVaultTotalSupply: DEAD_SHARES,
                 masterVaultTokenBalance: 0,
                 masterVaultSubVaultShareBalance: 0,
-                masterVaultTotalPrincipal: 0,
                 subVaultTotalAssets: 0,
                 subVaultTotalSupply: 0,
                 subVaultTokenBalance: 0

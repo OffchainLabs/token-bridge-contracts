@@ -16,16 +16,15 @@ contract MasterVaultFirstDepositTest is MasterVaultCoreTest {
         vm.startPrank(user);
         token.mint(depositAmount);
         token.approve(address(vault), depositAmount);
-        uint256 shares = vault.deposit(depositAmount, user);
+        uint256 shares = vault.deposit(depositAmount);
         vm.stopPrank();
         _checkState(
             State({
                 userShares: depositAmount * DEAD_SHARES,
-                masterVaultTotalAssets: depositAmount,
+                masterVaultTotalAssets: depositAmount + 1,
                 masterVaultTotalSupply: (1 + depositAmount) * DEAD_SHARES,
                 masterVaultTokenBalance: depositAmount,
                 masterVaultSubVaultShareBalance: 0,
-                masterVaultTotalPrincipal: 0,
                 subVaultTotalAssets: 0,
                 subVaultTotalSupply: 0,
                 subVaultTokenBalance: 0
@@ -34,66 +33,15 @@ contract MasterVaultFirstDepositTest is MasterVaultCoreTest {
         assertEq(shares, depositAmount * DEAD_SHARES, "shares mismatch deposit return value");
     }
 
-    function test_mint(uint96 _mintAmount) public {
-        uint256 mintAmount = _mintAmount;
-        vm.startPrank(user);
-        token.mint(mintAmount);
-        token.approve(address(vault), mintAmount);
-        uint256 assets = vault.mint(mintAmount, user);
-        vm.stopPrank();
-        _checkState(
-            State({
-                userShares: mintAmount,
-                masterVaultTotalAssets: mintAmount.ceilDiv(1e18),
-                masterVaultTotalSupply: mintAmount + DEAD_SHARES,
-                masterVaultTokenBalance: mintAmount.ceilDiv(1e18),
-                masterVaultSubVaultShareBalance: 0,
-                masterVaultTotalPrincipal: 0,
-                subVaultTotalAssets: 0,
-                subVaultTotalSupply: 0,
-                subVaultTokenBalance: 0
-            })
-        );
-        assertEq(assets, mintAmount.ceilDiv(1e18), "assets mismatch mint return value");
-    }
-
-    function test_withdraw(uint96 _firstDeposit, uint96 _withdrawAmount) public {
+    function test_redeem(uint96 _firstDeposit, uint96 _redeemAmount) public {
         uint256 firstDeposit = _firstDeposit;
-        uint256 withdrawAmount = _withdrawAmount;
-        vm.assume(withdrawAmount <= firstDeposit);
-        test_deposit(_firstDeposit);
-        vm.startPrank(user);
-        uint256 sharesRedeemed = vault.withdraw(withdrawAmount, user, user);
-        vm.stopPrank();
-        _checkState(
-            State({
-                userShares: (firstDeposit - withdrawAmount) * DEAD_SHARES,
-                masterVaultTotalAssets: firstDeposit - withdrawAmount,
-                masterVaultTotalSupply: (1 + firstDeposit - withdrawAmount) * DEAD_SHARES,
-                masterVaultTokenBalance: firstDeposit - withdrawAmount,
-                masterVaultSubVaultShareBalance: 0,
-                masterVaultTotalPrincipal: 0,
-                subVaultTotalAssets: 0,
-                subVaultTotalSupply: 0,
-                subVaultTokenBalance: 0
-            })
-        );
-        assertEq(
-            sharesRedeemed,
-            withdrawAmount * DEAD_SHARES,
-            "sharesRedeemed mismatch withdraw return value"
-        );
-    }
-
-    function test_redeem(uint96 _firstMint, uint96 _redeemAmount) public {
-        uint256 firstMint = _firstMint;
         uint256 redeemAmount = _redeemAmount;
-        vm.assume(redeemAmount <= firstMint);
-        test_mint(_firstMint);
+        vm.assume(redeemAmount <= firstDeposit * DEAD_SHARES);
+        test_deposit(_firstDeposit);
         State memory beforeState = _getState();
         vm.startPrank(user);
-        uint256 assets = vault.redeem(redeemAmount, user, user);
-        uint256 expectedAssets = ((1 + beforeState.masterVaultTotalAssets) * redeemAmount) /
+        uint256 assets = vault.redeem(redeemAmount);
+        uint256 expectedAssets = (beforeState.masterVaultTotalAssets * redeemAmount) /
             (beforeState.masterVaultTotalSupply);
         vm.stopPrank();
         _checkState(
@@ -103,7 +51,6 @@ contract MasterVaultFirstDepositTest is MasterVaultCoreTest {
                 masterVaultTotalSupply: beforeState.masterVaultTotalSupply - redeemAmount,
                 masterVaultTokenBalance: beforeState.masterVaultTokenBalance - expectedAssets,
                 masterVaultSubVaultShareBalance: 0,
-                masterVaultTotalPrincipal: 0,
                 subVaultTotalAssets: 0,
                 subVaultTotalSupply: 0,
                 subVaultTokenBalance: 0
@@ -113,34 +60,87 @@ contract MasterVaultFirstDepositTest is MasterVaultCoreTest {
     }
 }
 
-// contract MasterVaultTestWithSubvaultFresh is MasterVaultFirstDepositTest {
-//     function setUp() public override {
-//         super.setUp();
-//         MockSubVault _subvault = new MockSubVault(IERC20(address(token)), "TestSubvault", "TSV");
-//         vault.setSubVault(IERC4626(address(_subvault)));
-//     }
-// }
+contract MasterVaultTestWithSubvaultFresh is MasterVaultFirstDepositTest {
+    function setUp() public override {
+        super.setUp();
+        MockSubVault _subvault = new MockSubVault(IERC20(address(token)), "TestSubvault", "TSV");
 
-// contract MasterVaultTestWithSubvaultHoldingAssets is MasterVaultFirstDepositTest {
-//     function setUp() public override {
-//         super.setUp();
+        vault.rolesRegistry().grantRole(vault.GENERAL_MANAGER_ROLE(), address(this));
+        vault.setSubVaultWhitelist(address(_subvault), true);
+        vault.setSubVault(IERC4626(address(_subvault)));
+    }
+}
 
-//         MockSubVault _subvault = new MockSubVault(IERC20(address(token)), "TestSubvault", "TSV");
-//         uint256 _initAmount = 97659743;
-//         token.mint(_initAmount);
-//         token.approve(address(_subvault), _initAmount);
-//         _subvault.deposit(_initAmount, address(this));
-//         assertEq(
-//             _initAmount,
-//             _subvault.totalAssets(),
-//             "subvault should be initiated with assets = _initAmount"
-//         );
-//         assertEq(
-//             _initAmount,
-//             _subvault.totalSupply(),
-//             "subvault should be initiated with shares = _initAmount"
-//         );
+contract MasterVaultTestWithSubvaultHoldingAssets is MasterVaultFirstDepositTest {
+    function _setupSubvaultWithAssets(uint256 _initAmount) internal {
+        MockSubVault _subvault = new MockSubVault(IERC20(address(token)), "TestSubvault", "TSV");
+        token.mint(_initAmount);
+        token.approve(address(_subvault), _initAmount);
+        _subvault.deposit(_initAmount, address(this));
+        assertEq(
+            _initAmount,
+            _subvault.totalAssets(),
+            "subvault should be initiated with assets = _initAmount"
+        );
+        assertEq(
+            _initAmount,
+            _subvault.totalSupply(),
+            "subvault should be initiated with shares = _initAmount"
+        );
 
-//         vault.setSubVault(IERC4626(address(_subvault)));
-//     }
-// }
+        vault.rolesRegistry().grantRole(vault.GENERAL_MANAGER_ROLE(), address(this));
+        vault.setSubVaultWhitelist(address(_subvault), true);
+        vault.setSubVault(IERC4626(address(_subvault)));
+    }
+
+    function test_deposit(uint96 _depositAmount, uint96 _initAmount) public {
+        uint256 depositAmount = _depositAmount;
+        uint256 initAmount = _initAmount;
+        _setupSubvaultWithAssets(initAmount);
+
+        vm.startPrank(user);
+        token.mint(depositAmount);
+        token.approve(address(vault), depositAmount);
+        uint256 shares = vault.deposit(depositAmount);
+        vm.stopPrank();
+        _checkState(
+            State({
+                userShares: depositAmount * DEAD_SHARES,
+                masterVaultTotalAssets: depositAmount + 1,
+                masterVaultTotalSupply: (1 + depositAmount) * DEAD_SHARES,
+                masterVaultTokenBalance: depositAmount,
+                masterVaultSubVaultShareBalance: 0,
+                subVaultTotalAssets: initAmount,
+                subVaultTotalSupply: initAmount,
+                subVaultTokenBalance: initAmount
+            })
+        );
+        assertEq(shares, depositAmount * DEAD_SHARES, "shares mismatch deposit return value");
+    }
+
+    function test_redeem(uint96 _firstDeposit, uint96 _redeemAmount, uint96 _initAmount) public {
+        uint256 firstDeposit = _firstDeposit;
+        uint256 redeemAmount = _redeemAmount;
+        vm.assume(redeemAmount <= firstDeposit * DEAD_SHARES);
+        test_deposit(_firstDeposit, _initAmount);
+        State memory beforeState = _getState();
+        vm.startPrank(user);
+        uint256 assets = vault.redeem(redeemAmount);
+        uint256 expectedAssets = (beforeState.masterVaultTotalAssets * redeemAmount) /
+            (beforeState.masterVaultTotalSupply);
+        vm.stopPrank();
+        _checkState(
+            State({
+                userShares: beforeState.userShares - redeemAmount,
+                masterVaultTotalAssets: beforeState.masterVaultTotalAssets - expectedAssets,
+                masterVaultTotalSupply: beforeState.masterVaultTotalSupply - redeemAmount,
+                masterVaultTokenBalance: beforeState.masterVaultTokenBalance - expectedAssets,
+                masterVaultSubVaultShareBalance: 0,
+                subVaultTotalAssets: beforeState.subVaultTotalAssets,
+                subVaultTotalSupply: beforeState.subVaultTotalSupply,
+                subVaultTokenBalance: beforeState.subVaultTokenBalance
+            })
+        );
+        assertEq(assets, expectedAssets, "assets mismatch redeem return value");
+    }
+}

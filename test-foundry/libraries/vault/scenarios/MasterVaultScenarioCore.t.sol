@@ -12,8 +12,10 @@ contract MasterVaultScenarioCoreTest is MasterVaultCoreTest {
 
     function setUp() public virtual override {
         super.setUp();
-        // Enable performance fee for this scenario
-        vault.setPerformanceFee(true);
+        vault.rolesRegistry().grantRole(vault.GENERAL_MANAGER_ROLE(), address(this));
+        vault.rolesRegistry().grantRole(vault.FEE_MANAGER_ROLE(), address(this));
+        vault.rolesRegistry().grantRole(vault.KEEPER_ROLE(), address(this));
+        vault.setMinimumRebalanceAmount(1);
         vault.setBeneficiary(beneficiaryAddress);
     }
 
@@ -25,16 +27,28 @@ contract MasterVaultScenarioCoreTest is MasterVaultCoreTest {
     }
 
     function _deposit(address _user, uint256 _amount) internal returns (uint256) {
-        vm.startPrank(_user);
+        vm.prank(_user);
+        token.transfer(user, _amount);
+
+        vm.startPrank(user);
         token.approve(address(vault), _amount);
-        uint256 shares = vault.deposit(_amount, _user);
+        uint256 shares = vault.deposit(_amount);
+        vault.transfer(_user, shares);
         vm.stopPrank();
+
         return shares;
     }
 
     function _redeem(address _user, uint256 _shares) internal returns (uint256) {
         vm.prank(_user);
-        return vault.redeem(_shares, _user, _user);
+        vault.transfer(user, _shares);
+
+        vm.startPrank(user);
+        uint256 assets = vault.redeem(_shares);
+        token.transfer(_user, assets);
+        vm.stopPrank();
+
+        return assets;
     }
 
     function _simulateProfit(uint256 _amount) internal {

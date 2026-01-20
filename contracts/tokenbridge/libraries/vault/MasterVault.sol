@@ -501,8 +501,10 @@ contract MasterVault is
     }
 
     /// @dev Internal total assets function supporting a specific rounding direction
+    /// We add one as part of the first deposit mitigation.
+    /// See for details: https://docs.openzeppelin.com/contracts/5.x/erc4626
     function _totalAssets(MathUpgradeable.Rounding rounding) internal view returns (uint256) {
-        return asset.balanceOf(address(this))
+        return 1 + asset.balanceOf(address(this))
             + _subVaultSharesToAssets(subVault.balanceOf(address(this)), rounding);
     }
 
@@ -515,21 +517,17 @@ contract MasterVault is
 
     /// @dev Converts assets to shares using totalSupply and totalAssetsLessProfit, rounding down
     function _convertToSharesRoundDown(uint256 assets) internal view returns (uint256 shares) {
-        // we add one as part of the first deposit mitigation
-        // see for details: https://docs.openzeppelin.com/contracts/5.x/erc4626
         return assets.mulDiv(
             totalSupply(),
-            _totalAssetsLessProfit(MathUpgradeable.Rounding.Up) + 1,
+            _totalAssetsLessProfit(MathUpgradeable.Rounding.Up),
             MathUpgradeable.Rounding.Down
         );
     }
 
     /// @dev Converts shares to assets using totalSupply and totalAssetsLessProfit, rounding down
     function _convertToAssetsRoundDown(uint256 shares) internal view returns (uint256 assets) {
-        // we add one as part of the first deposit mitigation
-        // see for details: https://docs.openzeppelin.com/contracts/5.x/erc4626
         return shares.mulDiv(
-            _totalAssetsLessProfit(MathUpgradeable.Rounding.Down) + 1,
+            _totalAssetsLessProfit(MathUpgradeable.Rounding.Down),
             totalSupply(),
             MathUpgradeable.Rounding.Down
         );
