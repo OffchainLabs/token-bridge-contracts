@@ -387,12 +387,20 @@ contract MasterVault is
 
         // reset principalPriceWad to current totalAssets when enabling performance fee
         if (enabled) {
-            // round up to avoid overcounting profit
-            // this works against the fee collector
-            principalPriceWad = uint88(
-                _totalAssets(MathUpgradeable.Rounding.Up)
-                    .mulDiv(1e18, totalSupply(), MathUpgradeable.Rounding.Up)
-            );
+            uint256 __totalAssets = _totalAssets(MathUpgradeable.Rounding.Up);
+
+            if(__totalAssets == 0) {
+               principalPriceWad = 1e18;
+            }
+            else {
+                // round up to avoid overcounting profit
+                // this works against the fee collector
+                principalPriceWad = uint88(
+                    __totalAssets
+                        .mulDiv(1e18, totalSupply(), MathUpgradeable.Rounding.Up)
+                );
+            }
+   
         } else {
             _distributePerformanceFee();
             principalPriceWad = 0;
