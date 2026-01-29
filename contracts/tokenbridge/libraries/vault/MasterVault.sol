@@ -35,7 +35,9 @@ import {IMasterVault} from "./IMasterVault.sol";
 ///         i.e. if the underlying asset has 6 decimals, the MasterVault will have 24 decimals.
 ///
 ///         For a subVault to be compatible with the MasterVault, it must adhere to the following:
+///         - must be fully ERC4626 compliant
 ///         - previewMint and previewDeposit must not be manipulable
+///         - deposit and withdraw must not be manipulable / sandwichable
 ///         - previewMint and previewDeposit must be roughly linear with respect to amounts.
 ///           Superlinear previewMint or sublinear previewDeposit may cause the MasterVault to overcharge on deposits and underpay on withdrawals.
 ///         - must not have deposit / withdrawal fees (because rebalancing can happen frequently)
@@ -82,6 +84,10 @@ contract MasterVault is
     );
     error PerformanceFeeUnchanged(bool enabled);
     error RebalanceCooldownTooLow(uint32 requested, uint32 minimum);
+    error RebalanceExchRateTooLow(
+        int256 minExchRateWad, int256 deltaAssets, uint256 subVaultShares
+    );
+    error RebalanceExchRateWrongSign(int256 minExchRateWad);
 
     /*
     Storage layout notes:
@@ -255,7 +261,15 @@ contract MasterVault is
     /// @dev    Will revert if the cooldown period has not passed
     ///         Will revert if the target allocation is already met
     ///         Will revert if the amount to deposit/withdraw is less than the minimumRebalanceAmount.
-    function rebalance() external whenNotPaused nonReentrant onlyRole(KEEPER_ROLE) {
+    /// @param  minExchRateWad Minimum exchange rate (1e18 * deltaAssets / abs(subVaultShares)) for the deposit/withdraw operation
+    ///                        Negative indicates a subVault deposit (negative deltaAssets),
+    ///                        positive indicates a subVault withdraw (positive deltaAssets).
+    function rebalance(int256 minExchRateWad)
+        external
+        whenNotPaused
+        nonReentrant
+        onlyRole(KEEPER_ROLE)
+    {
         // Check cooldown
         uint256 timeSinceLastRebalance = block.timestamp - lastRebalanceTime;
         if (timeSinceLastRebalance < rebalanceCooldown) {
@@ -275,31 +289,61 @@ contract MasterVault is
         }
 
         if (idleBalance < idleTargetDown) {
-            // we need to withdraw from subvault
+            // we are withdrawing, so slippage tolerance must be non negative
+            if (minExchRateWad < 0) {
+                revert RebalanceExchRateWrongSign(minExchRateWad);
+            }
+
             uint256 desiredWithdraw = idleTargetDown - idleBalance;
             uint256 maxWithdrawable = subVault.maxWithdraw(address(this));
             uint256 withdrawAmount =
                 desiredWithdraw < maxWithdrawable ? desiredWithdraw : maxWithdrawable;
+
             if (withdrawAmount < minimumRebalanceAmount) {
                 revert RebalanceAmountTooSmall(
                     false, withdrawAmount, desiredWithdraw, minimumRebalanceAmount
                 );
             }
-            subVault.withdraw(withdrawAmount, address(this), address(this));
+
+            uint256 subVaultShares = subVault.withdraw(withdrawAmount, address(this), address(this));
+            uint256 actualExchRate =
+                withdrawAmount.mulDiv(1e18, subVaultShares, MathUpgradeable.Rounding.Down);
+
+            if (actualExchRate < uint256(minExchRateWad)) {
+                revert RebalanceExchRateTooLow(
+                    minExchRateWad, int256(withdrawAmount), subVaultShares
+                );
+            }
+
             emit Rebalanced(false, desiredWithdraw, withdrawAmount);
         } else {
-            // we need to deposit into subvault
+            // we are depositing, so slippage tolerance must be non positive
+            if (minExchRateWad > 0) {
+                revert RebalanceExchRateWrongSign(minExchRateWad);
+            }
+
             uint256 desiredDeposit = idleBalance - idleTargetUp;
             uint256 maxDepositable = subVault.maxDeposit(address(this));
             uint256 depositAmount =
                 desiredDeposit < maxDepositable ? desiredDeposit : maxDepositable;
+
             if (depositAmount < minimumRebalanceAmount) {
                 revert RebalanceAmountTooSmall(
                     true, depositAmount, desiredDeposit, minimumRebalanceAmount
                 );
             }
+
             asset.safeApprove(address(subVault), depositAmount);
-            subVault.deposit(depositAmount, address(this));
+            uint256 subVaultShares = subVault.deposit(depositAmount, address(this));
+            uint256 actualExchRate =
+                depositAmount.mulDiv(1e18, subVaultShares, MathUpgradeable.Rounding.Up);
+
+            if (actualExchRate > uint256(-minExchRateWad)) {
+                revert RebalanceExchRateTooLow(
+                    minExchRateWad, -int256(depositAmount), subVaultShares
+                );
+            }
+
             emit Rebalanced(true, desiredDeposit, depositAmount);
         }
 
@@ -374,7 +418,7 @@ contract MasterVault is
     }
 
     /// @notice Toggle performance fee collection on/off
-    ///         When enabling, principalPriceWad snaps to the current price. 
+    ///         When enabling, principalPriceWad snaps to the current price.
     ///         When price increases afterwards, profit is earned for the beneficiary.
     ///         If disabling, any pending performance fees are distributed immediately.
     /// @param enabled True to enable performance fees, false to disable
@@ -409,7 +453,7 @@ contract MasterVault is
         emit BeneficiaryUpdated(oldBeneficiary, newBeneficiary);
     }
 
-    /// @notice Add or remove a subvault from the whitelist. 
+    /// @notice Add or remove a subvault from the whitelist.
     ///         Malicious, misconfigured, or buggy subVaults may cause total loss of funds.
     /// @param _subVault The subvault address to update
     /// @param _whitelisted True to whitelist the subvault, false to remove it
