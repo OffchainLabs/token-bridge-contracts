@@ -69,6 +69,7 @@ contract MasterVault is
     error SubVaultAssetMismatch();
     error PerformanceFeeDisabled();
     error BeneficiaryNotSet();
+    error NotKeeper();
     error NonZeroTargetAllocation(uint256 targetAllocationWad);
     error NonZeroSubVaultShares(uint256 subVaultShares);
     error NotGateway(address caller);
@@ -218,6 +219,15 @@ contract MasterVault is
         _;
     }
 
+    /// @notice Modifier to ensure only keeper
+    // if KEEPER_ROLE is granted to address(0), anyone can call
+    modifier onlyKeeper() {
+        if (!hasRole(KEEPER_ROLE, address(0)) && !hasRole(KEEPER_ROLE, msg.sender)) {
+            revert NotKeeper();
+        }
+        _;
+    }
+
     /// @notice Deposit some underlying assets in exchange for vault shares
     /// @dev    Can only be called by the token bridge gateway
     /// @param  assets The amount of underlying assets to deposit
@@ -255,7 +265,7 @@ contract MasterVault is
     /// @dev    Will revert if the cooldown period has not passed
     ///         Will revert if the target allocation is already met
     ///         Will revert if the amount to deposit/withdraw is less than the minimumRebalanceAmount.
-    function rebalance() external whenNotPaused nonReentrant onlyRole(KEEPER_ROLE) {
+    function rebalance() external whenNotPaused nonReentrant onlyKeeper {
         // Check cooldown
         uint256 timeSinceLastRebalance = block.timestamp - lastRebalanceTime;
         if (timeSinceLastRebalance < rebalanceCooldown) {
@@ -306,7 +316,7 @@ contract MasterVault is
     }
 
     /// @notice Distribute performance fees to the beneficiary
-    function distributePerformanceFee() external whenNotPaused nonReentrant onlyRole(KEEPER_ROLE) {
+    function distributePerformanceFee() external whenNotPaused nonReentrant onlyKeeper {
         _distributePerformanceFee();
     }
 
