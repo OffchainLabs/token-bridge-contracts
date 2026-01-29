@@ -35,7 +35,9 @@ import {IMasterVault} from "./IMasterVault.sol";
 ///         i.e. if the underlying asset has 6 decimals, the MasterVault will have 24 decimals.
 ///
 ///         For a subVault to be compatible with the MasterVault, it must adhere to the following:
+///         - must be fully ERC4626 compliant
 ///         - previewMint and previewDeposit must not be manipulable
+///         - deposit and withdraw must not be manipulable / sandwichable
 ///         - previewMint and previewDeposit must be roughly linear with respect to amounts.
 ///           Superlinear previewMint or sublinear previewDeposit may cause the MasterVault to overcharge on deposits and underpay on withdrawals.
 ///         - must not have deposit / withdrawal fees (because rebalancing can happen frequently)
