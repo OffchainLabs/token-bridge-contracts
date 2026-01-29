@@ -308,7 +308,9 @@ contract MasterVault is
                 withdrawAmount.mulDiv(1e18, subVaultShares, MathUpgradeable.Rounding.Down);
 
             if (actualExchRate < uint256(minExchRateWad)) {
-                revert RebalanceExchRateTooLow(minExchRateWad, int256(withdrawAmount), subVaultShares);
+                revert RebalanceExchRateTooLow(
+                    minExchRateWad, int256(withdrawAmount), subVaultShares
+                );
             }
 
             emit Rebalanced(false, desiredWithdraw, withdrawAmount);
@@ -335,7 +337,9 @@ contract MasterVault is
                 depositAmount.mulDiv(1e18, subVaultShares, MathUpgradeable.Rounding.Up);
 
             if (actualExchRate > uint256(-minExchRateWad)) {
-                revert RebalanceExchRateTooLow(minExchRateWad, -int256(depositAmount), subVaultShares);
+                revert RebalanceExchRateTooLow(
+                    minExchRateWad, -int256(depositAmount), subVaultShares
+                );
             }
 
             emit Rebalanced(true, desiredDeposit, depositAmount);
