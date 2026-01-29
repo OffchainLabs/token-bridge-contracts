@@ -105,7 +105,7 @@ contract MasterVaultScenario04Test is MasterVaultScenarioCoreTest {
         // Step 2: User B deposits 300 USDC
         uint256 sharesB1 = _deposit(userB, 300);
 
-        vault.rebalance();
+        vault.rebalance(0);
 
         // Step 3: Subvault wins 100 USDC (25% profit)
         _simulateProfit(100);

@@ -136,7 +136,7 @@ contract MasterVaultScenario10Test is MasterVaultScenarioCoreTest {
         // Step 2: User B deposits 300 USDC
         uint256 sharesB = _deposit(userB, 300);
 
-        vault.rebalance();
+        vault.rebalance(0);
 
         // Verify intermediate state 1
         user = userA;
@@ -164,7 +164,7 @@ contract MasterVaultScenario10Test is MasterVaultScenarioCoreTest {
         uint256 sharesC = _deposit(userC, 100);
 
         vm.warp(block.timestamp + 2);
-        vault.rebalance();
+        vault.rebalance(0);
 
         // C should get 100 * DEAD_SHARES because they deposit at principal value
         assertEq(sharesC, 100 * DEAD_SHARES, "User C should get 100 shares at principal price");

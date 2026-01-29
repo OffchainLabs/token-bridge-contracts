@@ -156,7 +156,7 @@ contract MasterVaultScenario08Test is MasterVaultScenarioCoreTest {
         // Step 2: User B deposits 300 USDC
         uint256 sharesB1 = _deposit(userB, 300);
 
-        vault.rebalance();
+        vault.rebalance(0);
 
         // Verify intermediate state 1
         user = userA;
@@ -198,7 +198,7 @@ contract MasterVaultScenario08Test is MasterVaultScenarioCoreTest {
         uint256 sharesB2 = _deposit(userB, 300);
 
         vm.warp(block.timestamp + 2);
-        vault.rebalance();
+        vault.rebalance(0);
 
         // Calculate expected shares for second deposit
         // After loss, totalAssets = 301, totalSupply = 401 * DEAD_SHARES

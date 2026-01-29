@@ -82,6 +82,9 @@ contract MasterVault is
     );
     error PerformanceFeeUnchanged(bool enabled);
     error RebalanceCooldownTooLow(uint32 requested, uint32 minimum);
+    error RebalanceExchRateTooLow(
+        uint256 minExchRateWad, uint256 assetsExchanged, uint256 sharesExchanged
+    );
 
     /*
     Storage layout notes:
@@ -255,7 +258,13 @@ contract MasterVault is
     /// @dev    Will revert if the cooldown period has not passed
     ///         Will revert if the target allocation is already met
     ///         Will revert if the amount to deposit/withdraw is less than the minimumRebalanceAmount.
-    function rebalance() external whenNotPaused nonReentrant onlyRole(KEEPER_ROLE) {
+    /// @param  minExchRateWad Minimum exchange rate (assets / subVaultShares * 1e18) for the deposit/withdraw operation
+    function rebalance(uint256 minExchRateWad)
+        external
+        whenNotPaused
+        nonReentrant
+        onlyRole(KEEPER_ROLE)
+    {
         // Check cooldown
         uint256 timeSinceLastRebalance = block.timestamp - lastRebalanceTime;
         if (timeSinceLastRebalance < rebalanceCooldown) {
@@ -280,12 +289,22 @@ contract MasterVault is
             uint256 maxWithdrawable = subVault.maxWithdraw(address(this));
             uint256 withdrawAmount =
                 desiredWithdraw < maxWithdrawable ? desiredWithdraw : maxWithdrawable;
+
             if (withdrawAmount < minimumRebalanceAmount) {
                 revert RebalanceAmountTooSmall(
                     false, withdrawAmount, desiredWithdraw, minimumRebalanceAmount
                 );
             }
-            subVault.withdraw(withdrawAmount, address(this), address(this));
+
+            uint256 subVaultShares = subVault.withdraw(withdrawAmount, address(this), address(this));
+
+            if (
+                withdrawAmount.mulDiv(1e18, subVaultShares, MathUpgradeable.Rounding.Down)
+                    < minExchRateWad
+            ) {
+                revert RebalanceExchRateTooLow(minExchRateWad, withdrawAmount, subVaultShares);
+            }
+
             emit Rebalanced(false, desiredWithdraw, withdrawAmount);
         } else {
             // we need to deposit into subvault
@@ -293,13 +312,23 @@ contract MasterVault is
             uint256 maxDepositable = subVault.maxDeposit(address(this));
             uint256 depositAmount =
                 desiredDeposit < maxDepositable ? desiredDeposit : maxDepositable;
+
             if (depositAmount < minimumRebalanceAmount) {
                 revert RebalanceAmountTooSmall(
                     true, depositAmount, desiredDeposit, minimumRebalanceAmount
                 );
             }
+
             asset.safeApprove(address(subVault), depositAmount);
-            subVault.deposit(depositAmount, address(this));
+            uint256 subVaultShares = subVault.deposit(depositAmount, address(this));
+
+            if (
+                depositAmount.mulDiv(1e18, subVaultShares, MathUpgradeable.Rounding.Up)
+                    < minExchRateWad
+            ) {
+                revert RebalanceExchRateTooLow(minExchRateWad, depositAmount, subVaultShares);
+            }
+
             emit Rebalanced(true, desiredDeposit, depositAmount);
         }
 
@@ -374,7 +403,7 @@ contract MasterVault is
     }
 
     /// @notice Toggle performance fee collection on/off
-    ///         When enabling, principalPriceWad snaps to the current price. 
+    ///         When enabling, principalPriceWad snaps to the current price.
     ///         When price increases afterwards, profit is earned for the beneficiary.
     ///         If disabling, any pending performance fees are distributed immediately.
     /// @param enabled True to enable performance fees, false to disable
@@ -409,7 +438,7 @@ contract MasterVault is
         emit BeneficiaryUpdated(oldBeneficiary, newBeneficiary);
     }
 
-    /// @notice Add or remove a subvault from the whitelist. 
+    /// @notice Add or remove a subvault from the whitelist.
     ///         Malicious, misconfigured, or buggy subVaults may cause total loss of funds.
     /// @param _subVault The subvault address to update
     /// @param _whitelisted True to whitelist the subvault, false to remove it

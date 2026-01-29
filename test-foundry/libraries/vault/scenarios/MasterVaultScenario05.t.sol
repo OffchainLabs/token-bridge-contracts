@@ -153,7 +153,7 @@ contract MasterVaultScenario05Test is MasterVaultScenarioCoreTest {
         // Step 2: User B deposits 300 USDC
         _deposit(userB, 300);
 
-        vault.rebalance();
+        vault.rebalance(0);
 
         // Step 3: Subvault wins 100 USDC
         _simulateProfit(100);
@@ -172,7 +172,7 @@ contract MasterVaultScenario05Test is MasterVaultScenarioCoreTest {
         _deposit(userB, 300);
 
         vm.warp(block.timestamp + 2);
-        vault.rebalance();
+        vault.rebalance(0);
 
         // Step 7: User A redeems 200 shares
         _redeem(userA, 200 * DEAD_SHARES);
@@ -187,7 +187,7 @@ contract MasterVaultScenario05Test is MasterVaultScenarioCoreTest {
         _deposit(userB, 300);
 
         vm.warp(block.timestamp + 2);
-        vault.rebalance();
+        vault.rebalance(0);
 
         // Step 11: Subvault loses 100 USDC (25% loss)
         _simulateLoss(100);

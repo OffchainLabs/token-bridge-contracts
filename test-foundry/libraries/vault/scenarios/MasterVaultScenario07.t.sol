@@ -150,7 +150,7 @@ contract MasterVaultScenario07Test is MasterVaultScenarioCoreTest {
         // Step 2: User B deposits 300 USDC
         uint256 sharesB = _deposit(userB, 300);
 
-        vault.rebalance();
+        vault.rebalance(0);
 
         // Verify intermediate state 1
         user = userA;
@@ -216,7 +216,7 @@ contract MasterVaultScenario07Test is MasterVaultScenarioCoreTest {
         uint256 sharesA2 = _deposit(userA, 100);
 
         vm.warp(block.timestamp + 2);
-        vault.rebalance();
+        vault.rebalance(0);
 
         // Verify intermediate state 3
         user = userA;
