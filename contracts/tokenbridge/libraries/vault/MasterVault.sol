@@ -203,8 +203,6 @@ contract MasterVault is
         // https://web.archive.org/web/20250609034056/https://docs.openzeppelin.com/contracts/4.x/erc4626#fees
         _mint(address(1), 10 ** EXTRA_DECIMALS);
 
-        asset.safeApprove(address(_subVault), type(uint256).max);
-
         subVault = _subVault;
         _setSubVaultWhitelist(address(_subVault), true);
 
@@ -300,6 +298,7 @@ contract MasterVault is
                     true, depositAmount, desiredDeposit, minimumRebalanceAmount
                 );
             }
+            asset.safeApprove(address(subVault), depositAmount);
             subVault.deposit(depositAmount, address(this));
             emit Rebalanced(true, desiredDeposit, depositAmount);
         }
@@ -332,9 +331,6 @@ contract MasterVault is
 
         address oldSubVault = address(subVault);
         subVault = _subVault;
-
-        if (oldSubVault != address(0)) asset.safeApprove(address(oldSubVault), 0);
-        asset.safeApprove(address(_subVault), type(uint256).max);
 
         emit SubvaultChanged(oldSubVault, address(_subVault));
     }
