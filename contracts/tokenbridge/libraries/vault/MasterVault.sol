@@ -26,6 +26,7 @@ import {
 } from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import {IGatewayRouter} from "../gateway/IGatewayRouter.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import {IMasterVault} from "./IMasterVault.sol";
 
 /// @notice MasterVault is a metavault that deposits assets to an admin defined ERC4626 compliant subVault.
 /// @dev    The MasterVault keeps some fraction of assets idle and deposits the rest into the subVault to earn yield.
@@ -44,6 +45,7 @@ import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet
 ///         Individual MasterVaults can also have local roles assigned, which are checked in addition to the roles registry.
 ///         If an account is granted a role in either the local vault or the roles registry, it is considered to have that role.
 contract MasterVault is
+    IMasterVault,
     MasterVaultRoles,
     ReentrancyGuardUpgradeable,
     ERC20Upgradeable,
