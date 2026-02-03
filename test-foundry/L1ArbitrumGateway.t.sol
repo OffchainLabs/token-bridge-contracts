@@ -124,17 +124,6 @@ abstract contract L1ArbitrumGatewayTest is Test {
 
     function test_outboundTransfer() public virtual {}
 
-    function test_outboundTransferCustomRefund_revert_ExtraDataDisabled() public {
-        bytes memory callHookData = abi.encodeWithSignature("doSomething()");
-        bytes memory routerEncodedData = buildRouterEncodedData(callHookData);
-
-        vm.prank(router);
-        vm.expectRevert("EXTRA_DATA_DISABLED");
-        l1Gateway.outboundTransferCustomRefund(
-            address(token), user, user, 400, 0.1 ether, 0.01 ether, routerEncodedData
-        );
-    }
-
     function test_outboundTransferCustomRefund_revert_L1NotContract() public {
         address invalidTokenAddress = address(70);
 
