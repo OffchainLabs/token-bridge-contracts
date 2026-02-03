@@ -22,7 +22,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/Create2.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
+import { IMasterVault } from "../../libraries/vault/IMasterVault.sol";
 import "../L1ArbitrumMessenger.sol";
 import "./IL1ArbitrumGateway.sol";
 import "../../libraries/ProxyUtil.sol";
@@ -154,7 +154,8 @@ abstract contract L1ArbitrumGateway is
         // this method is virtual since different subclasses can handle escrow differently
         if (masterVaultFactory != address(0)) {
             address masterVault = IMasterVaultFactory(masterVaultFactory).getVault(_l1Token);
-            IERC20(masterVault).safeTransfer(_dest, _amount);
+            uint256 assets = IMasterVault(masterVault).redeem(_amount);
+            IERC20(_l1Token).safeTransfer(_dest, assets);
         } else {
             IERC20(_l1Token).safeTransfer(_dest, _amount);
         }
@@ -320,7 +321,8 @@ abstract contract L1ArbitrumGateway is
 
         if (masterVaultFactory != address(0)) {
             address masterVault = IMasterVaultFactory(masterVaultFactory).getVault(_l1Token);
-            amountReceived = IERC4626(masterVault).deposit(amountReceived, address(this));
+            IERC20(_l1Token).safeApprove(masterVault, amountReceived);
+            amountReceived = IMasterVault(masterVault).deposit(amountReceived);
         }
     }
 
