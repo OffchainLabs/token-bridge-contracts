@@ -34,7 +34,8 @@ contract YieldBearingBridgeE2ETest is Test {
     address public userA = makeAddr("userA");
     address public userB = makeAddr("userB");
 
-    bytes32 public cloneableProxyHash = 0x0000000000000000000000000000000000000000000000000000000000000001;
+    bytes32 public cloneableProxyHash =
+        0x0000000000000000000000000000000000000000000000000000000000000001;
     address public l2BeaconProxyFactory = makeAddr("l2BeaconProxyFactory");
 
     uint256 public maxSubmissionCost = 70;
@@ -83,9 +84,9 @@ contract YieldBearingBridgeE2ETest is Test {
         retryableCost = maxSubmissionCost + gasPriceBid * maxGas;
 
         vm.prank(userA);
-        token.mint(10000 ether);
+        token.mint(10_000 ether);
         vm.prank(userB);
-        token.mint(10000 ether);
+        token.mint(10_000 ether);
 
         vm.deal(userA, 100 ether);
         vm.deal(userB, 100 ether);
@@ -111,13 +112,28 @@ contract YieldBearingBridgeE2ETest is Test {
         uint256 userBalanceBefore = token.balanceOf(userA);
 
         router.outboundTransfer{value: retryableCost}(
-            address(token), userA, depositAmount, maxGas, gasPriceBid, abi.encode(maxSubmissionCost, "")
+            address(token),
+            userA,
+            depositAmount,
+            maxGas,
+            gasPriceBid,
+            abi.encode(maxSubmissionCost, "")
         );
         vm.stopPrank();
 
-        assertEq(token.balanceOf(userA), userBalanceBefore - depositAmount, "User balance should decrease");
-        assertEq(token.balanceOf(address(masterVault)), depositAmount, "MasterVault should hold tokens");
-        assertEq(masterVault.balanceOf(address(gateway)), depositAmount * DEAD_SHARES, "Gateway should hold shares");
+        assertEq(
+            token.balanceOf(userA),
+            userBalanceBefore - depositAmount,
+            "User balance should decrease"
+        );
+        assertEq(
+            token.balanceOf(address(masterVault)), depositAmount, "MasterVault should hold tokens"
+        );
+        assertEq(
+            masterVault.balanceOf(address(gateway)),
+            depositAmount * DEAD_SHARES,
+            "Gateway should hold shares"
+        );
     }
 
     function test_deposit_multipleUsers() public {
@@ -127,19 +143,37 @@ contract YieldBearingBridgeE2ETest is Test {
         vm.startPrank(userA);
         token.approve(address(gateway), depositAmountA);
         router.outboundTransfer{value: retryableCost}(
-            address(token), userA, depositAmountA, maxGas, gasPriceBid, abi.encode(maxSubmissionCost, "")
+            address(token),
+            userA,
+            depositAmountA,
+            maxGas,
+            gasPriceBid,
+            abi.encode(maxSubmissionCost, "")
         );
         vm.stopPrank();
 
         vm.startPrank(userB);
         token.approve(address(gateway), depositAmountB);
         router.outboundTransfer{value: retryableCost}(
-            address(token), userB, depositAmountB, maxGas, gasPriceBid, abi.encode(maxSubmissionCost, "")
+            address(token),
+            userB,
+            depositAmountB,
+            maxGas,
+            gasPriceBid,
+            abi.encode(maxSubmissionCost, "")
         );
         vm.stopPrank();
 
-        assertEq(token.balanceOf(address(masterVault)), depositAmountA + depositAmountB, "MasterVault should hold all tokens");
-        assertEq(masterVault.balanceOf(address(gateway)), (depositAmountA + depositAmountB) * DEAD_SHARES, "Gateway should hold all shares");
+        assertEq(
+            token.balanceOf(address(masterVault)),
+            depositAmountA + depositAmountB,
+            "MasterVault should hold all tokens"
+        );
+        assertEq(
+            masterVault.balanceOf(address(gateway)),
+            (depositAmountA + depositAmountB) * DEAD_SHARES,
+            "Gateway should hold all shares"
+        );
     }
 
     function test_deposit_withSlippageCheck() public {
@@ -150,11 +184,20 @@ contract YieldBearingBridgeE2ETest is Test {
         token.approve(address(gateway), depositAmount);
         bytes memory extraData = abi.encode(uint256(0), minimumShares);
         router.outboundTransfer{value: retryableCost}(
-            address(token), userA, depositAmount, maxGas, gasPriceBid, abi.encode(maxSubmissionCost, extraData)
+            address(token),
+            userA,
+            depositAmount,
+            maxGas,
+            gasPriceBid,
+            abi.encode(maxSubmissionCost, extraData)
         );
         vm.stopPrank();
 
-        assertEq(masterVault.balanceOf(address(gateway)), minimumShares, "Gateway should have received expected shares");
+        assertEq(
+            masterVault.balanceOf(address(gateway)),
+            minimumShares,
+            "Gateway should have received expected shares"
+        );
     }
 
     function test_deposit_slippageCheckFails() public {
@@ -177,7 +220,12 @@ contract YieldBearingBridgeE2ETest is Test {
 
         vm.expectRevert("INSUFFICIENT_AMOUNT_RECEIVED");
         router.outboundTransfer{value: retryableCost}(
-            address(token), userA, depositAmount, maxGas, gasPriceBid, abi.encode(maxSubmissionCost, extraData)
+            address(token),
+            userA,
+            depositAmount,
+            maxGas,
+            gasPriceBid,
+            abi.encode(maxSubmissionCost, extraData)
         );
         vm.stopPrank();
     }
@@ -192,7 +240,12 @@ contract YieldBearingBridgeE2ETest is Test {
         vm.startPrank(userA);
         token.approve(address(gateway), depositAmount);
         router.outboundTransfer{value: retryableCost}(
-            address(token), userA, depositAmount, maxGas, gasPriceBid, abi.encode(maxSubmissionCost, "")
+            address(token),
+            userA,
+            depositAmount,
+            maxGas,
+            gasPriceBid,
+            abi.encode(maxSubmissionCost, "")
         );
         vm.stopPrank();
 
@@ -201,9 +254,15 @@ contract YieldBearingBridgeE2ETest is Test {
 
         inbox.setL2ToL1Sender(l2Gateway);
         vm.prank(address(inbox));
-        gateway.finalizeInboundTransfer(address(token), userA, userA, sharesToRedeem, abi.encode(uint256(1), ""));
+        gateway.finalizeInboundTransfer(
+            address(token), userA, userA, sharesToRedeem, abi.encode(uint256(1), "")
+        );
 
-        assertEq(token.balanceOf(userA) - userBalanceBefore, depositAmount, "User should receive all tokens back");
+        assertEq(
+            token.balanceOf(userA) - userBalanceBefore,
+            depositAmount,
+            "User should receive all tokens back"
+        );
         assertEq(masterVault.balanceOf(address(gateway)), 0, "Gateway should have 0 shares");
     }
 
@@ -214,7 +273,12 @@ contract YieldBearingBridgeE2ETest is Test {
         vm.startPrank(userA);
         token.approve(address(gateway), depositAmountA);
         router.outboundTransfer{value: retryableCost}(
-            address(token), userA, depositAmountA, maxGas, gasPriceBid, abi.encode(maxSubmissionCost, "")
+            address(token),
+            userA,
+            depositAmountA,
+            maxGas,
+            gasPriceBid,
+            abi.encode(maxSubmissionCost, "")
         );
         vm.stopPrank();
 
@@ -223,7 +287,12 @@ contract YieldBearingBridgeE2ETest is Test {
         vm.startPrank(userB);
         token.approve(address(gateway), depositAmountB);
         router.outboundTransfer{value: retryableCost}(
-            address(token), userB, depositAmountB, maxGas, gasPriceBid, abi.encode(maxSubmissionCost, "")
+            address(token),
+            userB,
+            depositAmountB,
+            maxGas,
+            gasPriceBid,
+            abi.encode(maxSubmissionCost, "")
         );
         vm.stopPrank();
 
@@ -233,13 +302,25 @@ contract YieldBearingBridgeE2ETest is Test {
 
         uint256 userABalanceBefore = token.balanceOf(userA);
         vm.prank(address(inbox));
-        gateway.finalizeInboundTransfer(address(token), userA, userA, sharesA, abi.encode(uint256(1), ""));
-        assertEq(token.balanceOf(userA) - userABalanceBefore, depositAmountA, "User A should receive their deposit");
+        gateway.finalizeInboundTransfer(
+            address(token), userA, userA, sharesA, abi.encode(uint256(1), "")
+        );
+        assertEq(
+            token.balanceOf(userA) - userABalanceBefore,
+            depositAmountA,
+            "User A should receive their deposit"
+        );
 
         uint256 userBBalanceBefore = token.balanceOf(userB);
         vm.prank(address(inbox));
-        gateway.finalizeInboundTransfer(address(token), userB, userB, sharesB, abi.encode(uint256(2), ""));
-        assertEq(token.balanceOf(userB) - userBBalanceBefore, depositAmountB, "User B should receive their deposit");
+        gateway.finalizeInboundTransfer(
+            address(token), userB, userB, sharesB, abi.encode(uint256(2), "")
+        );
+        assertEq(
+            token.balanceOf(userB) - userBBalanceBefore,
+            depositAmountB,
+            "User B should receive their deposit"
+        );
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -257,7 +338,12 @@ contract YieldBearingBridgeE2ETest is Test {
         vm.startPrank(userA);
         token.approve(address(gateway), depositAmount);
         router.outboundTransfer{value: retryableCost}(
-            address(token), userA, depositAmount, maxGas, gasPriceBid, abi.encode(maxSubmissionCost, "")
+            address(token),
+            userA,
+            depositAmount,
+            maxGas,
+            gasPriceBid,
+            abi.encode(maxSubmissionCost, "")
         );
         vm.stopPrank();
 
@@ -273,9 +359,15 @@ contract YieldBearingBridgeE2ETest is Test {
         uint256 userBalanceBefore = token.balanceOf(userA);
 
         vm.prank(address(inbox));
-        gateway.finalizeInboundTransfer(address(token), userA, userA, shares, abi.encode(uint256(1), ""));
+        gateway.finalizeInboundTransfer(
+            address(token), userA, userA, shares, abi.encode(uint256(1), "")
+        );
 
-        assertEq(token.balanceOf(userA) - userBalanceBefore, depositAmount, "User should receive full deposit");
+        assertEq(
+            token.balanceOf(userA) - userBalanceBefore,
+            depositAmount,
+            "User should receive full deposit"
+        );
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -286,14 +378,18 @@ contract YieldBearingBridgeE2ETest is Test {
         inbox.setL2ToL1Sender(address(0));
         vm.prank(address(inbox));
         vm.expectRevert("NO_SENDER");
-        gateway.finalizeInboundTransfer(address(token), userA, userA, 100, abi.encode(uint256(1), ""));
+        gateway.finalizeInboundTransfer(
+            address(token), userA, userA, 100, abi.encode(uint256(1), "")
+        );
     }
 
     function test_redeem_revertOnWrongCounterpart() public {
         inbox.setL2ToL1Sender(makeAddr("wrongGateway"));
         vm.prank(address(inbox));
         vm.expectRevert("ONLY_COUNTERPART_GATEWAY");
-        gateway.finalizeInboundTransfer(address(token), userA, userA, 100, abi.encode(uint256(1), ""));
+        gateway.finalizeInboundTransfer(
+            address(token), userA, userA, 100, abi.encode(uint256(1), "")
+        );
     }
 
     function test_deposit_revertNotFromRouter() public {
@@ -301,7 +397,9 @@ contract YieldBearingBridgeE2ETest is Test {
         token.approve(address(gateway), 100 ether);
         vm.prank(userA);
         vm.expectRevert("NOT_FROM_ROUTER");
-        gateway.outboundTransfer(address(token), userA, 100 ether, maxGas, gasPriceBid, abi.encode(maxSubmissionCost, ""));
+        gateway.outboundTransfer(
+            address(token), userA, 100 ether, maxGas, gasPriceBid, abi.encode(maxSubmissionCost, "")
+        );
     }
 
     function test_fuzz_depositAndRedeem(uint96 depositAmount) public {
@@ -313,7 +411,12 @@ contract YieldBearingBridgeE2ETest is Test {
         vm.startPrank(userA);
         token.approve(address(gateway), depositAmount);
         router.outboundTransfer{value: retryableCost}(
-            address(token), userA, depositAmount, maxGas, gasPriceBid, abi.encode(maxSubmissionCost, "")
+            address(token),
+            userA,
+            depositAmount,
+            maxGas,
+            gasPriceBid,
+            abi.encode(maxSubmissionCost, "")
         );
         vm.stopPrank();
 
@@ -322,8 +425,14 @@ contract YieldBearingBridgeE2ETest is Test {
 
         inbox.setL2ToL1Sender(l2Gateway);
         vm.prank(address(inbox));
-        gateway.finalizeInboundTransfer(address(token), userA, userA, shares, abi.encode(uint256(1), ""));
+        gateway.finalizeInboundTransfer(
+            address(token), userA, userA, shares, abi.encode(uint256(1), "")
+        );
 
-        assertEq(token.balanceOf(userA) - userBalanceBefore, depositAmount, "User should receive exact deposit");
+        assertEq(
+            token.balanceOf(userA) - userBalanceBefore,
+            depositAmount,
+            "User should receive exact deposit"
+        );
     }
 }

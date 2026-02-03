@@ -24,7 +24,8 @@ abstract contract L1ArbitrumGatewayTest is Test {
     address public creditBackAddress = makeAddr("creditBackAddress");
 
     // fuzzer behaves weirdly when it picks up this address which is used internally for issuing cheatcodes
-    address internal constant FOUNDRY_CHEATCODE_ADDRESS = 0x7109709ECfa91a80626fF3989D68f67F5b1DD12D;
+    address internal constant FOUNDRY_CHEATCODE_ADDRESS =
+        0x7109709ECfa91a80626fF3989D68f67F5b1DD12D;
 
     /* solhint-disable func-name-mixedcase */
 
@@ -233,16 +234,18 @@ contract MockReentrantInbox {
 contract MockReentrantERC20 {
     function balanceOf(address) external returns (uint256) {
         // re-enter
-        L1ArbitrumGateway(msg.sender).outboundTransferCustomRefund(
-            address(100), address(100), address(100), 2, 2, 3, bytes("")
-        );
+        L1ArbitrumGateway(msg.sender)
+            .outboundTransferCustomRefund(
+                address(100), address(100), address(100), 2, 2, 3, bytes("")
+            );
         return 5;
     }
 
     function bridgeBurn(address, uint256) external {
         // re-enter
-        L1ArbitrumGateway(msg.sender).outboundTransferCustomRefund(
-            address(100), address(100), address(100), 2, 2, 3, bytes("")
-        );
+        L1ArbitrumGateway(msg.sender)
+            .outboundTransferCustomRefund(
+                address(100), address(100), address(100), 2, 2, 3, bytes("")
+            );
     }
 }

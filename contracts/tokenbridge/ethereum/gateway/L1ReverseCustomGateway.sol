@@ -34,28 +34,26 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
  *          if minting is also occuring on L2
  */
 contract L1ReverseCustomGateway is L1CustomGateway {
-    function initialize(
-        address _l1Counterpart,
-        address _l1Router,
-        address _inbox,
-        address _owner
-    ) public override {
+    function initialize(address _l1Counterpart, address _l1Router, address _inbox, address _owner)
+        public
+        override
+    {
         super.initialize(_l1Counterpart, _l1Router, _inbox, _owner);
     }
 
-    function inboundEscrowTransfer(
-        address _l1Address,
-        address _dest,
-        uint256 _amount
-    ) internal virtual override {
+    function inboundEscrowTransfer(address _l1Address, address _dest, uint256 _amount)
+        internal
+        virtual
+        override
+    {
         IArbToken(_l1Address).bridgeMint(_dest, _amount);
     }
 
-    function outboundEscrowTransfer(
-        address _l1Token,
-        address _from,
-        uint256 _amount
-    ) internal override returns (uint256) {
+    function outboundEscrowTransfer(address _l1Token, address _from, uint256 _amount)
+        internal
+        override
+        returns (uint256)
+    {
         IArbToken(_l1Token).bridgeBurn(_from, _amount);
         // by default we assume that the amount we send to bridgeBurn is the amount burnt
         // this might not be the case for every token

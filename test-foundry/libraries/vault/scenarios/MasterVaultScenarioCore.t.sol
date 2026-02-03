@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import { MasterVaultCoreTest } from "../MasterVaultCore.t.sol";
+import {MasterVaultCoreTest} from "../MasterVaultCore.t.sol";
 
 contract MasterVaultScenarioCoreTest is MasterVaultCoreTest {
     address public userA = address(0xA);
@@ -73,11 +73,9 @@ contract MasterVaultScenarioCoreTest is MasterVaultCoreTest {
         vault.distributePerformanceFee();
     }
 
-    function _checkHoldings(
-        uint256 _expectedA,
-        uint256 _expectedB,
-        uint256 _expectedBeneficiary
-    ) internal {
+    function _checkHoldings(uint256 _expectedA, uint256 _expectedB, uint256 _expectedBeneficiary)
+        internal
+    {
         assertEq(token.balanceOf(userA), _expectedA, "User A balance mismatch");
         assertEq(token.balanceOf(userB), _expectedB, "User B balance mismatch");
         assertEq(

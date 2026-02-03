@@ -101,9 +101,8 @@ contract L2AtomicTokenBridgeFactory {
             CreationCodeHelper.getCreationCodeFor(runtimeCode)
         );
 
-        ProxyAdmin(proxyAdmin).upgrade(
-            ITransparentUpgradeableProxy(canonicalUpgradeExecutor), upExecutorLogic
-        );
+        ProxyAdmin(proxyAdmin)
+            .upgrade(ITransparentUpgradeableProxy(canonicalUpgradeExecutor), upExecutorLogic);
 
         // init logic contract with dummy values
         address[] memory empty = new address[](0);
@@ -158,9 +157,8 @@ contract L2AtomicTokenBridgeFactory {
             _getL2Salt(OrbitSalts.L2_STANDARD_GATEWAY),
             CreationCodeHelper.getCreationCodeFor(runtimeCode)
         );
-        ProxyAdmin(proxyAdmin).upgrade(
-            ITransparentUpgradeableProxy(canonicalStdGateway), stdGatewayLogic
-        );
+        ProxyAdmin(proxyAdmin)
+            .upgrade(ITransparentUpgradeableProxy(canonicalStdGateway), stdGatewayLogic);
 
         // init logic contract with dummy values
         L2ERC20Gateway(stdGatewayLogic).initialize(ADDRESS_DEAD, ADDRESS_DEAD, ADDRESS_DEAD);
@@ -170,15 +168,16 @@ contract L2AtomicTokenBridgeFactory {
             new StandardArbERC20{salt: _getL2Salt(OrbitSalts.BEACON_PROXY_FACTORY)}();
         UpgradeableBeacon beacon = new UpgradeableBeacon{
             salt: _getL2Salt(OrbitSalts.BEACON_PROXY_FACTORY)
-        }(address(standardArbERC20));
+        }(
+            address(standardArbERC20)
+        );
         BeaconProxyFactory beaconProxyFactory =
             new BeaconProxyFactory{salt: _getL2Salt(OrbitSalts.BEACON_PROXY_FACTORY)}();
 
         // init contracts
         beaconProxyFactory.initialize(address(beacon));
-        L2ERC20Gateway(canonicalStdGateway).initialize(
-            l1StandardGateway, router, address(beaconProxyFactory)
-        );
+        L2ERC20Gateway(canonicalStdGateway)
+            .initialize(l1StandardGateway, router, address(beaconProxyFactory));
 
         // make L2 executor the beacon owner
         beacon.transferOwnership(upgradeExecutor);
@@ -199,9 +198,10 @@ contract L2AtomicTokenBridgeFactory {
             _getL2Salt(OrbitSalts.L2_CUSTOM_GATEWAY),
             CreationCodeHelper.getCreationCodeFor(runtimeCode)
         );
-        ProxyAdmin(proxyAdmin).upgrade(
-            ITransparentUpgradeableProxy(canonicalCustomGateway), customGatewayLogicAddress
-        );
+        ProxyAdmin(proxyAdmin)
+            .upgrade(
+                ITransparentUpgradeableProxy(canonicalCustomGateway), customGatewayLogicAddress
+            );
 
         // init logic contract with dummy values
         L2CustomGateway(customGatewayLogicAddress).initialize(ADDRESS_DEAD, ADDRESS_DEAD);
@@ -238,27 +238,23 @@ contract L2AtomicTokenBridgeFactory {
             _getL2Salt(OrbitSalts.L2_WETH_GATEWAY),
             CreationCodeHelper.getCreationCodeFor(wethGatewayRuntimeCode)
         );
-        ProxyAdmin(proxyAdmin).upgrade(
-            ITransparentUpgradeableProxy(canonicalL2WethGateway), l2WethGatewayLogic
-        );
+        ProxyAdmin(proxyAdmin)
+            .upgrade(ITransparentUpgradeableProxy(canonicalL2WethGateway), l2WethGatewayLogic);
 
         // init logic contract with dummy values
-        L2WethGateway(payable(l2WethGatewayLogic)).initialize(
-            ADDRESS_DEAD, ADDRESS_DEAD, ADDRESS_DEAD, ADDRESS_DEAD
-        );
+        L2WethGateway(payable(l2WethGatewayLogic))
+            .initialize(ADDRESS_DEAD, ADDRESS_DEAD, ADDRESS_DEAD, ADDRESS_DEAD);
 
         // init gateway
-        L2WethGateway(payable(canonicalL2WethGateway)).initialize(
-            l1WethGateway, router, l1Weth, address(canonicalL2Weth)
-        );
+        L2WethGateway(payable(canonicalL2WethGateway))
+            .initialize(l1WethGateway, router, l1Weth, address(canonicalL2Weth));
 
         // init logic contract with dummy values
         aeWETH(payable(l2WethLogic)).initialize("", "", 0, ADDRESS_DEAD, ADDRESS_DEAD);
 
         // init L2Weth
-        aeWETH(payable(canonicalL2Weth)).initialize(
-            "WETH", "WETH", 18, canonicalL2WethGateway, l1Weth
-        );
+        aeWETH(payable(canonicalL2Weth))
+            .initialize("WETH", "WETH", 18, canonicalL2WethGateway, l1Weth);
     }
 
     /**

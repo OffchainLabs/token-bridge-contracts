@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import { MasterVaultCoreTest } from "./MasterVaultCore.t.sol";
-import { MockSubVault } from "../../../contracts/tokenbridge/test/MockSubVault.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { IERC4626 } from "@openzeppelin/contracts/interfaces/IERC4626.sol";
-import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
+import {MasterVaultCoreTest} from "./MasterVaultCore.t.sol";
+import {MockSubVault} from "../../../contracts/tokenbridge/test/MockSubVault.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 contract MasterVaultFirstDepositTest is MasterVaultCoreTest {
     using Math for uint256;
@@ -41,8 +41,8 @@ contract MasterVaultFirstDepositTest is MasterVaultCoreTest {
         State memory beforeState = _getState();
         vm.startPrank(user);
         uint256 assets = vault.redeem(redeemAmount, 0);
-        uint256 expectedAssets = (beforeState.masterVaultTotalAssets * redeemAmount) /
-            (beforeState.masterVaultTotalSupply);
+        uint256 expectedAssets = (beforeState.masterVaultTotalAssets * redeemAmount)
+            / (beforeState.masterVaultTotalSupply);
         vm.stopPrank();
         _checkState(
             State({
@@ -126,8 +126,8 @@ contract MasterVaultTestWithSubvaultHoldingAssets is MasterVaultFirstDepositTest
         State memory beforeState = _getState();
         vm.startPrank(user);
         uint256 assets = vault.redeem(redeemAmount, 0);
-        uint256 expectedAssets = (beforeState.masterVaultTotalAssets * redeemAmount) /
-            (beforeState.masterVaultTotalSupply);
+        uint256 expectedAssets = (beforeState.masterVaultTotalAssets * redeemAmount)
+            / (beforeState.masterVaultTotalSupply);
         vm.stopPrank();
         _checkState(
             State({

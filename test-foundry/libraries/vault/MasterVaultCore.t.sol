@@ -1,21 +1,21 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import { Test } from "forge-std/Test.sol";
-import { MasterVault } from "../../../contracts/tokenbridge/libraries/vault/MasterVault.sol";
+import {Test} from "forge-std/Test.sol";
+import {MasterVault} from "../../../contracts/tokenbridge/libraries/vault/MasterVault.sol";
 import {
     MasterVaultFactory
 } from "../../../contracts/tokenbridge/libraries/vault/MasterVaultFactory.sol";
-import { TestERC20 } from "../../../contracts/tokenbridge/test/TestERC20.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { UpgradeableBeacon } from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
+import {TestERC20} from "../../../contracts/tokenbridge/test/TestERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import {
     BeaconProxyFactory,
     ClonableBeaconProxy
 } from "../../../contracts/tokenbridge/libraries/ClonableBeaconProxy.sol";
-import { IAccessControl } from "@openzeppelin/contracts/access/IAccessControl.sol";
-import { console2 } from "forge-std/console2.sol";
-import { IGatewayRouter } from "../../../contracts/tokenbridge/libraries/gateway/IGatewayRouter.sol";
+import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
+import {console2} from "forge-std/console2.sol";
+import {IGatewayRouter} from "../../../contracts/tokenbridge/libraries/gateway/IGatewayRouter.sol";
 
 contract MockGatewayRouter {
     address public gateway;
@@ -102,17 +102,16 @@ contract MasterVaultCoreTest is Test {
     }
 
     function _getState() internal view returns (State memory) {
-        return
-            State({
-                userShares: vault.balanceOf(user),
-                masterVaultTotalAssets: vault.totalAssets(),
-                masterVaultTotalSupply: vault.totalSupply(),
-                masterVaultTokenBalance: token.balanceOf(address(vault)),
-                masterVaultSubVaultShareBalance: vault.subVault().balanceOf(address(vault)),
-                subVaultTotalAssets: vault.subVault().totalAssets(),
-                subVaultTotalSupply: vault.subVault().totalSupply(),
-                subVaultTokenBalance: token.balanceOf(address(vault.subVault()))
-            });
+        return State({
+            userShares: vault.balanceOf(user),
+            masterVaultTotalAssets: vault.totalAssets(),
+            masterVaultTotalSupply: vault.totalSupply(),
+            masterVaultTokenBalance: token.balanceOf(address(vault)),
+            masterVaultSubVaultShareBalance: vault.subVault().balanceOf(address(vault)),
+            subVaultTotalAssets: vault.subVault().totalAssets(),
+            subVaultTotalSupply: vault.subVault().totalSupply(),
+            subVaultTokenBalance: token.balanceOf(address(vault.subVault()))
+        });
     }
 
     function _logState(string memory label, State memory state) internal view {

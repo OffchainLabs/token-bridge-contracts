@@ -43,10 +43,12 @@ import {
     Initializable,
     OwnableUpgradeable
 } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import {TransparentUpgradeableProxy} from
-    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import {IAccessControlUpgradeable} from
-    "@openzeppelin/contracts-upgradeable/access/IAccessControlUpgradeable.sol";
+import {
+    TransparentUpgradeableProxy
+} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {
+    IAccessControlUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/IAccessControlUpgradeable.sol";
 import {IMasterVaultFactory} from "../libraries/vault/IMasterVaultFactory.sol";
 import {IGatewayRouter} from "../libraries/gateway/IGatewayRouter.sol";
 
@@ -235,9 +237,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         );
     }
 
-    function createTokenBridge(
-        CreateTokenBridgeArgs memory args
-    ) public payable {
+    function createTokenBridge(CreateTokenBridgeArgs memory args) public payable {
         // templates have to be in place
         if (address(l1Templates.routerTemplate) == address(0)) {
             revert L1AtomicTokenBridgeCreator_TemplatesNotSet();
@@ -246,11 +246,8 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         // Check that the rollupOwner account has EXECUTOR role
         // on the upgrade executor which is the owner of the rollup
         address upgradeExecutor = IInbox(args.inbox).bridge().rollup().owner();
-        if (
-            !IAccessControlUpgradeable(upgradeExecutor).hasRole(
-                UpgradeExecutor(upgradeExecutor).EXECUTOR_ROLE(), args.rollupOwner
-            )
-        ) {
+        if (!IAccessControlUpgradeable(upgradeExecutor)
+                .hasRole(UpgradeExecutor(upgradeExecutor).EXECUTOR_ROLE(), args.rollupOwner)) {
             revert L1AtomicTokenBridgeCreator_RollupOwnershipMisconfig();
         }
 
@@ -319,10 +316,8 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                     address(l1YbbTemplates.masterVaultFactory),
                     proxyAdmin
                 );
-                IMasterVaultFactory(masterVaultFactory).initialize(
-                    upgradeExecutor,
-                    IGatewayRouter(l1Deployment.router)
-                );
+                IMasterVaultFactory(masterVaultFactory)
+                    .initialize(upgradeExecutor, IGatewayRouter(l1Deployment.router));
             }
 
             // l1 standard gateway deployment block
@@ -385,7 +380,9 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                 } else {
                     L1ERC20Gateway standardGateway = L1ERC20Gateway(
                         _deployProxyWithSalt(
-                            _getL1Salt(OrbitSalts.L1_STANDARD_GATEWAY, args.inbox), template, proxyAdmin
+                            _getL1Salt(OrbitSalts.L1_STANDARD_GATEWAY, args.inbox),
+                            template,
+                            proxyAdmin
                         )
                     );
 
@@ -459,7 +456,9 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                 } else {
                     L1CustomGateway customGateway = L1CustomGateway(
                         _deployProxyWithSalt(
-                            _getL1Salt(OrbitSalts.L1_CUSTOM_GATEWAY, args.inbox), template, proxyAdmin
+                            _getL1Salt(OrbitSalts.L1_CUSTOM_GATEWAY, args.inbox),
+                            template,
+                            proxyAdmin
                         )
                     );
 
@@ -474,17 +473,19 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             // l1 weth gateway deployment block
             if (feeToken == address(0)) {
                 L1WethGateway wethGateway = L1WethGateway(
-                    payable(
-                        _deployProxyWithSalt(
+                    payable(_deployProxyWithSalt(
                             _getL1Salt(OrbitSalts.L1_WETH_GATEWAY, args.inbox),
                             address(l1Templates.wethGatewayTemplate),
                             proxyAdmin
-                        )
-                    )
+                        ))
                 );
 
                 wethGateway.initialize(
-                    l2Deployment.wethGateway, l1Deployment.router, args.inbox, l1Weth, l2Deployment.weth
+                    l2Deployment.wethGateway,
+                    l1Deployment.router,
+                    args.inbox,
+                    l1Weth,
+                    l2Deployment.weth
                 );
 
                 l1Deployment.wethGateway = address(wethGateway);
@@ -492,13 +493,14 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             }
 
             // init router
-            L1GatewayRouter(l1Deployment.router).initialize(
-                upgradeExecutor,
-                l1Deployment.standardGateway,
-                address(0),
-                l2Deployment.router,
-                args.inbox
-            );
+            L1GatewayRouter(l1Deployment.router)
+                .initialize(
+                    upgradeExecutor,
+                    l1Deployment.standardGateway,
+                    address(0),
+                    l2Deployment.router,
+                    args.inbox
+                );
         }
 
         // deploy factory and then L2 contracts through L2 factory, using 2 retryables calls
@@ -519,9 +521,8 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             // transfer fee tokens to inbox to pay for 2nd retryable
             retryableParams.feeTokenTotalFeeAmount =
                 _getScaledAmount(feeToken, args.maxGasForContracts * args.gasPriceBid);
-            IERC20(feeToken).safeTransferFrom(
-                msg.sender, args.inbox, retryableParams.feeTokenTotalFeeAmount
-            );
+            IERC20(feeToken)
+                .safeTransferFrom(msg.sender, args.inbox, retryableParams.feeTokenTotalFeeAmount);
         }
 
         L2TemplateAddresses memory l2TemplateAddress = L2TemplateAddresses(
@@ -554,7 +555,12 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         // deployment mappings should not be updated in case of resend
         if (!isResend) {
             emit OrbitTokenBridgeCreated(
-                args.inbox, args.rollupOwner, l1Deployment, l2Deployment, proxyAdmin, upgradeExecutor
+                args.inbox,
+                args.rollupOwner,
+                l1Deployment,
+                l2Deployment,
+                proxyAdmin,
+                upgradeExecutor
             );
             inboxToL1Deployment[args.inbox] = l1Deployment;
             inboxToL2Deployment[args.inbox] = l2Deployment;
@@ -619,17 +625,18 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             uint256 scaledRetryableFee = _getScaledAmount(feeToken, retryableFee);
             IERC20(feeToken).safeTransferFrom(msg.sender, inbox, scaledRetryableFee);
 
-            IERC20Inbox(inbox).createRetryableTicket(
-                address(0),
-                0,
-                0,
-                msg.sender,
-                msg.sender,
-                gasLimitForL2FactoryDeployment,
-                gasPriceBid,
-                scaledRetryableFee,
-                deploymentData
-            );
+            IERC20Inbox(inbox)
+                .createRetryableTicket(
+                    address(0),
+                    0,
+                    0,
+                    msg.sender,
+                    msg.sender,
+                    gasLimitForL2FactoryDeployment,
+                    gasPriceBid,
+                    scaledRetryableFee,
+                    deploymentData
+                );
         } else {
             uint256 maxSubmissionCost =
                 IInbox(inbox).calculateRetryableSubmissionFee(deploymentData.length, 0);

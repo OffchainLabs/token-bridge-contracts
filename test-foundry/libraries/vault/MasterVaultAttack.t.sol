@@ -2,10 +2,10 @@
 pragma solidity ^0.8.0;
 
 import "forge-std/console2.sol";
-import { MasterVaultCoreTest } from "./MasterVaultCore.t.sol";
-import { MockSubVault } from "../../../contracts/tokenbridge/test/MockSubVault.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { IERC4626 } from "@openzeppelin/contracts/interfaces/IERC4626.sol";
+import {MasterVaultCoreTest} from "./MasterVaultCore.t.sol";
+import {MockSubVault} from "../../../contracts/tokenbridge/test/MockSubVault.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 
 contract MasterVaultTestWithSubvaultFresh is MasterVaultCoreTest {
     function setUp() public override {
@@ -74,9 +74,8 @@ contract AttackTest is MasterVaultTestWithSubvaultFresh {
         token.transfer(attacker, assetsBack);
         vm.stopPrank();
 
-        uint256 stolenAmount = assetsBack > vaultAttackDepositAmount
-            ? assetsBack - vaultAttackDepositAmount
-            : 0;
+        uint256 stolenAmount =
+            assetsBack > vaultAttackDepositAmount ? assetsBack - vaultAttackDepositAmount : 0;
 
         console2.log("stolenAmount:", stolenAmount);
 
@@ -89,23 +88,22 @@ contract AttackTest is MasterVaultTestWithSubvaultFresh {
         uint128 vaultInitialDepositAmount,
         uint128 vaultAttackDepositAmount
     ) public {
-        if(initialSubVaultTotalAssets < 1e18) {
+        if (initialSubVaultTotalAssets < 1e18) {
             initialSubVaultTotalAssets += 1e18;
         }
-        if(vaultInitialDepositAmount < 1e18) {
+        if (vaultInitialDepositAmount < 1e18) {
             vaultInitialDepositAmount += 1e18;
         }
 
-        uint128 initialSubVaultTotalSupply = uint128(int128(int120(initialSubVaultTotalAssets)) + int128(initialSubVaultTotalSupplyWiggle));
+        uint128 initialSubVaultTotalSupply = uint128(
+            int128(int120(initialSubVaultTotalAssets)) + int128(initialSubVaultTotalSupplyWiggle)
+        );
         uint256 stolenAmt = _calculateStolenAmount(
             initialSubVaultTotalAssets,
             initialSubVaultTotalSupply,
             vaultInitialDepositAmount,
             vaultAttackDepositAmount
         );
-        require(
-            stolenAmt == 0,
-            "theft occurred with these parameters"
-        );
+        require(stolenAmt == 0, "theft occurred with these parameters");
     }
 }

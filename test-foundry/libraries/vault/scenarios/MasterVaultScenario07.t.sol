@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import { MasterVaultScenarioCoreTest } from "./MasterVaultScenarioCore.t.sol";
-import { MasterVault } from "../../../../contracts/tokenbridge/libraries/vault/MasterVault.sol";
-import {
-    MathUpgradeable
-} from "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
+import {MasterVaultScenarioCoreTest} from "./MasterVaultScenarioCore.t.sol";
+import {MasterVault} from "../../../../contracts/tokenbridge/libraries/vault/MasterVault.sol";
+import {MathUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
 
 contract MasterVaultScenario07Test is MasterVaultScenarioCoreTest {
     /// @dev Scenario: Profit claim, loss, full redemptions, then new deposit and redemption

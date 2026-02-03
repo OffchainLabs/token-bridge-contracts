@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import { MasterVaultScenarioCoreTest } from "./MasterVaultScenarioCore.t.sol";
-import { MasterVault } from "../../../../contracts/tokenbridge/libraries/vault/MasterVault.sol";
+import {MasterVaultScenarioCoreTest} from "./MasterVaultScenarioCore.t.sol";
+import {MasterVault} from "../../../../contracts/tokenbridge/libraries/vault/MasterVault.sol";
 
 contract MasterVaultScenario01Test is MasterVaultScenarioCoreTest {
-
     /// @dev Scenario: 2 users deposit and redeem with no profit/loss
     /// User A deposits 100 USDC, User B deposits 300 USDC
     /// User A redeems 100 shares, User B redeems 300 shares

@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import { MasterVaultScenarioCoreTest } from "./MasterVaultScenarioCore.t.sol";
-import { MasterVault } from "../../../../contracts/tokenbridge/libraries/vault/MasterVault.sol";
-import {
-    MathUpgradeable
-} from "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
+import {MasterVaultScenarioCoreTest} from "./MasterVaultScenarioCore.t.sol";
+import {MasterVault} from "../../../../contracts/tokenbridge/libraries/vault/MasterVault.sol";
+import {MathUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
 
 contract MasterVaultScenario08Test is MasterVaultScenarioCoreTest {
     /// @dev Scenario: Profit claim, loss, then additional deposit before redemptions
@@ -130,13 +128,11 @@ contract MasterVaultScenario08Test is MasterVaultScenarioCoreTest {
         // Verify losses/gains
         assertEq(100 - assetsReceivedA, 25, "User A should lose exactly 25 USDC");
         assertEq(600 - assetsReceivedB, 75, "User B should lose exactly 75 USDC");
-        assertEq(token.balanceOf(beneficiaryAddress), 100, "Beneficiary should gain exactly 100 USDC");
-
-        _checkHoldings(
-            userAInitialBalance - 25,
-            userBInitialBalance - 75,
-            100
+        assertEq(
+            token.balanceOf(beneficiaryAddress), 100, "Beneficiary should gain exactly 100 USDC"
         );
+
+        _checkHoldings(userAInitialBalance - 25, userBInitialBalance - 75, 100);
     }
 
     /// @dev Scenario: Profit claim, loss, then additional deposit before redemptions, 100% allocation
@@ -245,12 +241,10 @@ contract MasterVaultScenario08Test is MasterVaultScenarioCoreTest {
         // Verify losses/gains
         assertEq(100 - assetsReceivedA, 25, "User A should lose exactly 25 USDC");
         assertEq(600 - assetsReceivedB, 75, "User B should lose exactly 75 USDC");
-        assertEq(token.balanceOf(beneficiaryAddress), 100, "Beneficiary should gain exactly 100 USDC");
-
-        _checkHoldings(
-            userAInitialBalance - 25,
-            userBInitialBalance - 75,
-            100
+        assertEq(
+            token.balanceOf(beneficiaryAddress), 100, "Beneficiary should gain exactly 100 USDC"
         );
+
+        _checkHoldings(userAInitialBalance - 25, userBInitialBalance - 75, 100);
     }
 }

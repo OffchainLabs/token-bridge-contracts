@@ -8,13 +8,15 @@ import "../contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol";
 import "../contracts/tokenbridge/arbitrum/L2AtomicTokenBridgeFactory.sol";
 import "../contracts/tokenbridge/libraries/AddressAliasHelper.sol";
 
-import {L1TokenBridgeRetryableSender} from
-    "../contracts/tokenbridge/ethereum/L1TokenBridgeRetryableSender.sol";
+import {
+    L1TokenBridgeRetryableSender
+} from "../contracts/tokenbridge/ethereum/L1TokenBridgeRetryableSender.sol";
 import {TestWETH9} from "../contracts/tokenbridge/test/TestWETH9.sol";
 import {Multicall2} from "../contracts/rpc-utils/MulticallV2.sol";
 
-import {TransparentUpgradeableProxy} from
-    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {
+    TransparentUpgradeableProxy
+} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 // // Check that the rollupOwner account has EXECUTOR role
 // // on the upgrade executor which is the owner of the rollup
@@ -187,13 +189,15 @@ contract AtomicTokenBridgeCreatorTest is Test {
         // in such case the 2 retryable can be executed out-of-order
         // Mode 2 simulate this case where the deployment fails and the call is executed first
         MockInbox inbox = new MockInbox(2);
-        factory.createTokenBridge(L1AtomicTokenBridgeCreator.CreateTokenBridgeArgs({
-            inbox: address(inbox),
-            rollupOwner: address(this),
-            maxGasForContracts: 0,
-            gasPriceBid: 0,
-            isYieldBearingBridge: false
-        }));
+        factory.createTokenBridge(
+            L1AtomicTokenBridgeCreator.CreateTokenBridgeArgs({
+                inbox: address(inbox),
+                rollupOwner: address(this),
+                maxGasForContracts: 0,
+                gasPriceBid: 0,
+                isYieldBearingBridge: false
+            })
+        );
 
         // L2 Factory is not deployed in this case
         address l2factory = factory.canonicalL2FactoryAddress();
@@ -205,13 +209,15 @@ contract AtomicTokenBridgeCreatorTest is Test {
     }
 
     function _testDeployment(address inbox) internal {
-        factory.createTokenBridge(L1AtomicTokenBridgeCreator.CreateTokenBridgeArgs({
-            inbox: address(inbox),
-            rollupOwner: address(this),
-            maxGasForContracts: 0,
-            gasPriceBid: 0,
-            isYieldBearingBridge: false
-        }));
+        factory.createTokenBridge(
+            L1AtomicTokenBridgeCreator.CreateTokenBridgeArgs({
+                inbox: address(inbox),
+                rollupOwner: address(this),
+                maxGasForContracts: 0,
+                gasPriceBid: 0,
+                isYieldBearingBridge: false
+            })
+        );
         {
             address l2factory = factory.canonicalL2FactoryAddress();
             assertEq(l2factory, 0x20011A455c9eBBeD73CA307539D3e9Baff600fBD);

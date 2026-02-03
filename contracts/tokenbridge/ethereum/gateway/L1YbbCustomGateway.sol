@@ -2,11 +2,11 @@
 
 pragma solidity ^0.8.0;
 
-import { L1CustomGateway } from "./L1CustomGateway.sol";
-import { IMasterVault } from "../../libraries/vault/IMasterVault.sol";
-import { IMasterVaultFactory } from "../../libraries/vault/IMasterVaultFactory.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {L1CustomGateway} from "./L1CustomGateway.sol";
+import {IMasterVault} from "../../libraries/vault/IMasterVault.sol";
+import {IMasterVaultFactory} from "../../libraries/vault/IMasterVaultFactory.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
  * @title Layer 1 Gateway contract for bridging Custom ERC20s with YBB enabled
@@ -29,21 +29,20 @@ contract L1YbbCustomGateway is L1CustomGateway {
         _setMasterVaultFactory(_masterVaultFactory);
     }
 
-    function inboundEscrowTransfer(
-        address _l1Token,
-        address _dest,
-        uint256 _amount
-    ) internal override {
+    function inboundEscrowTransfer(address _l1Token, address _dest, uint256 _amount)
+        internal
+        override
+    {
         address masterVault = IMasterVaultFactory(masterVaultFactory).getVault(_l1Token);
         uint256 assets = IMasterVault(masterVault).redeem(_amount, 0);
         IERC20(_l1Token).safeTransfer(_dest, assets);
     }
 
-    function outboundEscrowTransfer(
-        address _l1Token,
-        address _from,
-        uint256 _amount
-    ) internal override returns (uint256 amountReceived) {
+    function outboundEscrowTransfer(address _l1Token, address _from, uint256 _amount)
+        internal
+        override
+        returns (uint256 amountReceived)
+    {
         uint256 prevBalance = IERC20(_l1Token).balanceOf(address(this));
         IERC20(_l1Token).safeTransferFrom(_from, address(this), _amount);
         uint256 postBalance = IERC20(_l1Token).balanceOf(address(this));

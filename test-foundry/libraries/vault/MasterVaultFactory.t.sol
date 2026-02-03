@@ -2,7 +2,9 @@
 pragma solidity ^0.8.0;
 
 import {Test} from "forge-std/Test.sol";
-import {MasterVaultFactory} from "../../../contracts/tokenbridge/libraries/vault/MasterVaultFactory.sol";
+import {
+    MasterVaultFactory
+} from "../../../contracts/tokenbridge/libraries/vault/MasterVaultFactory.sol";
 import {MasterVault} from "../../../contracts/tokenbridge/libraries/vault/MasterVault.sol";
 import {TestERC20} from "../../../contracts/tokenbridge/test/TestERC20.sol";
 import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
@@ -83,7 +85,11 @@ contract MasterVaultFactoryTest is Test {
     }
 
     function test_beaconOwnership() public {
-        assertEq(UpgradeableBeacon(factory.beaconProxyFactory().beacon()).owner(), factoryOwner(), "Beacon owner should be the factory owner");
+        assertEq(
+            UpgradeableBeacon(factory.beaconProxyFactory().beacon()).owner(),
+            factoryOwner(),
+            "Beacon owner should be the factory owner"
+        );
     }
 
     function test_ownerCanUpgradeBeacon() public {
@@ -93,7 +99,11 @@ contract MasterVaultFactoryTest is Test {
         vm.prank(owner);
         beacon.upgradeTo(address(newImplementation));
 
-        assertEq(UpgradeableBeacon(factory.beaconProxyFactory().beacon()).implementation(), address(newImplementation), "Beacon implementation should be updated");
+        assertEq(
+            UpgradeableBeacon(factory.beaconProxyFactory().beacon()).implementation(),
+            address(newImplementation),
+            "Beacon implementation should be updated"
+        );
     }
 
     function test_nonOwnerCannotUpgradeBeacon() public {
@@ -117,7 +127,11 @@ contract MasterVaultFactoryTest is Test {
         vm.prank(owner);
         beacon.upgradeTo(address(newImplementation));
 
-        assertEq(UpgradeableBeacon(factory.beaconProxyFactory().beacon()).implementation(), address(newImplementation), "Beacon should point to new implementation");
+        assertEq(
+            UpgradeableBeacon(factory.beaconProxyFactory().beacon()).implementation(),
+            address(newImplementation),
+            "Beacon should point to new implementation"
+        );
 
         assertEq(vaultOwner(MasterVault(vault1)), owner, "Vault1 should have owner as admin");
         assertEq(vaultOwner(MasterVault(vault2)), owner, "Vault2 should have owner as admin");
