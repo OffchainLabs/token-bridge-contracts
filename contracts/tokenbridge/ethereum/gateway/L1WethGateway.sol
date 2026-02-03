@@ -38,7 +38,9 @@ contract L1WethGateway is L1ArbitrumExtendedGateway {
         address _l1Weth,
         address _l2Weth
     ) public {
-        L1ArbitrumGateway._initialize(_l2Counterpart, _l1Router, _inbox);
+        // address(0) master vault factory disables YBB functionality
+        // YBB is not relevant to this gateway since the asset is escrowed as ETH in the main Bridge contract
+        L1ArbitrumGateway._initialize(_l2Counterpart, _l1Router, _inbox, address(0));
         require(_l1Weth != address(0), "INVALID_L1WETH");
         require(_l2Weth != address(0), "INVALID_L2WETH");
         l1Weth = _l1Weth;
