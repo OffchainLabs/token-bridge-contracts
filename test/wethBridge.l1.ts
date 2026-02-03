@@ -182,7 +182,7 @@ describe('Bridge peripherals layer 1', () => {
         gasPrice,
         data
       )
-    ).to.be.revertedWith('EXTRA_DATA_DISABLED')
+    ).to.be.revertedWith('INVALID_EXTRA_DATA_LENGTH')
   })
 
   // this does not revert, extra data is not checked on inbound but is checked on outbound

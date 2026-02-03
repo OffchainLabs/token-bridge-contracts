@@ -13,23 +13,40 @@ inspectType=$2
 
 CHANGED=0
 
-for contractName in $contracts; do
+declare -a contract_names=()
+
+while IFS= read -r entry; do
+    if [[ -z "$entry" ]]; then
+        continue
+    fi
+
+    if [[ "$entry" == *"|"* ]]; then
+        contractName="${entry%%|*}"
+        contractPath="${entry#*|}"
+        contractRef="${contractPath}:${contractName}"
+    else
+        contractName="$entry"
+        contractRef="$entry"
+    fi
+
+    contract_names+=("$contractName")
+
     echo "Checking for $inspectType changes in $contractName"
 
     # if the file doesn't exist, create it
     if [ ! -f "$outputDir/$contractName" ]; then
-        forge inspect "$contractName" "$inspectType" > "$outputDir/$contractName"
+        forge inspect "$contractRef" "$inspectType" > "$outputDir/$contractName"
         CHANGED=1
     # if the file does exist, compare it        
     else
         mv "$outputDir/$contractName" "$outputDir/$contractName-old"
-        forge inspect "$contractName" "$inspectType" > "$outputDir/$contractName"
+        forge inspect "$contractRef" "$inspectType" > "$outputDir/$contractName"
         diff "$outputDir/$contractName-old" "$outputDir/$contractName"
         if [[ $? != "0" ]]; then
             CHANGED=1
         fi
     fi
-done
+done <<< "$contracts"
 
 rm -f "$outputDir"/*-old
 
@@ -43,7 +60,7 @@ for existingFile in "$outputDir"/*; do
     fi
     
     # if the file doesn't exist in the contracts list, remove it
-    if ! echo "$contracts" | grep -qx "$filename"; then
+    if ! printf "%s\n" "${contract_names[@]}" | grep -qx "$filename"; then
         rm -f "$existingFile"
         CHANGED=1
     fi

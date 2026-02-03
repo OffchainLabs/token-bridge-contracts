@@ -126,7 +126,7 @@ describe('Bridge peripherals end-to-end', () => {
     const token = await Token.deploy()
     // send escrowed tokens to bridge
     const tokenAmount = 100
-    await token.mint()
+    await token["mint()"]()
     await token.approve(l1TestBridge.address, tokenAmount)
 
     const data = ethers.utils.defaultAbiCoder.encode(
@@ -193,7 +193,7 @@ describe('Bridge peripherals end-to-end', () => {
     const token = await Token.deploy()
     // send escrowed tokens to bridge
     const tokenAmount = 100
-    await token.mint()
+    await token["mint()"]()
     await token.approve(l1TestBridge.address, tokenAmount)
 
     const data = ethers.utils.defaultAbiCoder.encode(
@@ -236,7 +236,7 @@ describe('Bridge peripherals end-to-end', () => {
     const token = await Token.deploy()
     // send escrowed tokens to bridge
     const tokenAmount = 100
-    await token.mint()
+    await token["mint()"]()
     await token.approve(l1TestBridge.address, tokenAmount)
 
     const data = ethers.utils.defaultAbiCoder.encode(
@@ -279,7 +279,7 @@ describe('Bridge peripherals end-to-end', () => {
     const token = await Token.deploy()
     // send escrowed tokens to bridge
     const tokenAmount = 100
-    await token.mint()
+    await token["mint()"]()
     await token.approve(l1TestBridge.address, tokenAmount)
 
     const data = ethers.utils.defaultAbiCoder.encode(
@@ -350,7 +350,7 @@ describe('Bridge peripherals end-to-end', () => {
     const token = await Token.deploy()
     // send escrowed tokens to bridge
     const tokenAmount = 100
-    await token.mint()
+    await token["mint()"]()
     await token.approve(l1TestBridge.address, tokenAmount)
 
     const data = ethers.utils.defaultAbiCoder.encode(
@@ -394,7 +394,7 @@ describe('Bridge peripherals end-to-end', () => {
     const token = await Token.deploy()
     // send escrowed tokens to bridge
     const tokenAmount = 100
-    await token.mint()
+    await token["mint()"]()
     await token.approve(l1TestBridge.address, tokenAmount)
 
     const data = ethers.utils.defaultAbiCoder.encode(

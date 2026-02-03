@@ -62,7 +62,7 @@ describe('Bridge peripherals layer 1', () => {
     const token = await Token.deploy()
     // send escrowed tokens to bridge
     const tokenAmount = 100
-    await token.mint()
+    await token["mint()"]()
     await token.approve(testBridge.address, tokenAmount)
 
     let data = ethers.utils.defaultAbiCoder.encode(
@@ -97,7 +97,7 @@ describe('Bridge peripherals layer 1', () => {
     const token = await Token.deploy()
     // send escrowed tokens to bridge
     const tokenAmount = 100
-    await token.mint()
+    await token["mint()"]()
     await token.approve(testBridge.address, tokenAmount)
 
     let data = ethers.utils.defaultAbiCoder.encode(
@@ -120,7 +120,7 @@ describe('Bridge peripherals layer 1', () => {
         gasPrice,
         data
       )
-    ).to.be.revertedWith('EXTRA_DATA_DISABLED')
+    ).to.be.revertedWith('INVALID_EXTRA_DATA_LENGTH')
   })
 
   // this does not revert, extra data is not checked on inbound but is checked on outbound
@@ -130,7 +130,7 @@ describe('Bridge peripherals layer 1', () => {
     // send escrowed tokens to bridge
     const tokenAmount = 100
 
-    await token.mint()
+    await token["mint()"]()
     await token.transfer(testBridge.address, tokenAmount)
 
     const exitNum = 1
@@ -159,7 +159,7 @@ describe('Bridge peripherals layer 1', () => {
     // send escrowed tokens to bridge
     const tokenAmount = 100
 
-    await token.mint()
+    await token["mint()"]()
     await token.approve(testBridge.address, tokenAmount)
 
     let data = ethers.utils.defaultAbiCoder.encode(
@@ -230,7 +230,7 @@ describe('Bridge peripherals layer 1', () => {
     const token = await Token.deploy()
     // send escrowed tokens to bridge
     const tokenAmount = 100
-    await token.mint()
+    await token["mint()"]()
     await token.approve(l1ERC20Gateway.address, tokenAmount)
 
     let data = ethers.utils.defaultAbiCoder.encode(
@@ -297,7 +297,7 @@ describe('Bridge peripherals layer 1', () => {
     // send escrowed tokens to bridge
     const tokenAmount = 100
 
-    await token.mint()
+    await token["mint()"]()
     await token.approve(testBridge.address, tokenAmount)
 
     let data = ethers.utils.defaultAbiCoder.encode(

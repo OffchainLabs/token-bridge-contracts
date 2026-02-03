@@ -128,7 +128,7 @@ describe('Bridge peripherals end-to-end custom gateway', () => {
 
     // send escrowed tokens to bridge
     const tokenAmount = 100
-    await l1CustomToken.mint()
+    await l1CustomToken["mint()"]()
     await l1CustomToken.approve(l1TestBridge.address, tokenAmount)
 
     const data = ethers.utils.defaultAbiCoder.encode(
@@ -192,7 +192,7 @@ describe('Bridge peripherals end-to-end custom gateway', () => {
 
     // send escrowed tokens to bridge
     const tokenAmount = 100
-    await l1CustomToken.mint()
+    await l1CustomToken["mint()"]()
     await l1CustomToken.approve(l1TestBridge.address, tokenAmount)
 
     const data = ethers.utils.defaultAbiCoder.encode(
@@ -257,7 +257,7 @@ describe('Bridge peripherals end-to-end custom gateway', () => {
 
     // send escrowed tokens to bridge
     const tokenAmount = 100
-    await l1CustomToken.mint()
+    await l1CustomToken["mint()"]()
     await l1CustomToken.approve(l1TestBridge.address, tokenAmount)
 
     const data = ethers.utils.defaultAbiCoder.encode(
@@ -344,7 +344,7 @@ describe('Bridge peripherals end-to-end custom gateway', () => {
 
     // send escrowed tokens to bridge
     const tokenAmount = 100
-    await l1CustomToken.mint()
+    await l1CustomToken["mint()"]()
     await l1CustomToken.approve(l1TestBridge.address, tokenAmount)
 
     const data = ethers.utils.defaultAbiCoder.encode(
@@ -475,7 +475,7 @@ describe('Bridge peripherals end-to-end custom gateway', () => {
 
     // send escrowed tokens to bridge
     const tokenAmount = 100
-    await l1CustomToken.mint()
+    await l1CustomToken["mint()"]()
     await l1CustomToken.approve(l1TestBridge.address, tokenAmount)
 
     const data = ethers.utils.defaultAbiCoder.encode(

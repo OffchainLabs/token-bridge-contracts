@@ -111,7 +111,7 @@ describe('Bridge peripherals layer 1', () => {
     const Token = await ethers.getContractFactory('TestERC20')
     const token = await Token.deploy()
     const tokenAmount = 100
-    await token.mint()
+    await token["mint()"]()
     await token.approve(l1ERC20Gateway.address, tokenAmount)
 
     const data = ethers.utils.defaultAbiCoder.encode(
@@ -175,7 +175,7 @@ describe('Bridge peripherals layer 1', () => {
     const Token = await ethers.getContractFactory('TestERC20')
     const token = await Token.deploy()
     const tokenAmount = 100
-    await token.mint()
+    await token["mint()"]()
     await token.approve(l1ERC20Gateway.address, tokenAmount)
 
     const data = ethers.utils.defaultAbiCoder.encode(

@@ -137,7 +137,7 @@ describe('Bridge peripherals end-to-end reverse custom gateway', () => {
 
     // send escrowed tokens to bridge
     const tokenAmount = 100
-    await l2ReverseToken.mint()
+    await l2ReverseToken["mint()"]()
     await l2ReverseToken.approve(l2TestReverseGateway.address, tokenAmount)
 
     await processL2ToL1Tx(
@@ -202,7 +202,7 @@ describe('Bridge peripherals end-to-end reverse custom gateway', () => {
 
     // send escrowed tokens to bridge
     const tokenAmount = 100
-    await l2ReverseToken.mint()
+    await l2ReverseToken["mint()"]()
     await l2ReverseToken.approve(l2TestReverseGateway.address, tokenAmount)
 
     await processL2ToL1Tx(
@@ -387,7 +387,7 @@ describe('Bridge peripherals end-to-end force only reverse custom gateway', () =
 
     // send escrowed tokens to bridge
     const tokenAmount = 100
-    await l2ReverseToken.mint()
+    await l2ReverseToken["mint()"]()
     await l2ReverseToken.approve(l2TestReverseGateway.address, tokenAmount)
 
     await processL2ToL1Tx(

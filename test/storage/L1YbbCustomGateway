@@ -2,24 +2,22 @@
 ╭--------------------+---------------------------------------------------------------+------+--------+-------+----------------------------------------------------------------------------------╮
 | Name               | Type                                                          | Slot | Offset | Bytes | Contract                                                                         |
 +===============================================================================================================================================================================================+
-| counterpartGateway | address                                                       | 0    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1OrbitUSDCGateway.sol:L1OrbitUSDCGateway |
+| counterpartGateway | address                                                       | 0    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1YbbCustomGateway.sol:L1YbbCustomGateway |
 |--------------------+---------------------------------------------------------------+------+--------+-------+----------------------------------------------------------------------------------|
-| router             | address                                                       | 1    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1OrbitUSDCGateway.sol:L1OrbitUSDCGateway |
+| router             | address                                                       | 1    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1YbbCustomGateway.sol:L1YbbCustomGateway |
 |--------------------+---------------------------------------------------------------+------+--------+-------+----------------------------------------------------------------------------------|
-| inbox              | address                                                       | 2    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1OrbitUSDCGateway.sol:L1OrbitUSDCGateway |
+| inbox              | address                                                       | 2    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1YbbCustomGateway.sol:L1YbbCustomGateway |
 |--------------------+---------------------------------------------------------------+------+--------+-------+----------------------------------------------------------------------------------|
-| redirectedExits    | mapping(bytes32 => struct L1ArbitrumExtendedGateway.ExitData) | 3    | 0      | 32    | contracts/tokenbridge/ethereum/gateway/L1OrbitUSDCGateway.sol:L1OrbitUSDCGateway |
+| redirectedExits    | mapping(bytes32 => struct L1ArbitrumExtendedGateway.ExitData) | 3    | 0      | 32    | contracts/tokenbridge/ethereum/gateway/L1YbbCustomGateway.sol:L1YbbCustomGateway |
 |--------------------+---------------------------------------------------------------+------+--------+-------+----------------------------------------------------------------------------------|
-| l1USDC             | address                                                       | 4    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1OrbitUSDCGateway.sol:L1OrbitUSDCGateway |
+| l1ToL2Token        | mapping(address => address)                                   | 4    | 0      | 32    | contracts/tokenbridge/ethereum/gateway/L1YbbCustomGateway.sol:L1YbbCustomGateway |
 |--------------------+---------------------------------------------------------------+------+--------+-------+----------------------------------------------------------------------------------|
-| l2USDC             | address                                                       | 5    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1OrbitUSDCGateway.sol:L1OrbitUSDCGateway |
+| owner              | address                                                       | 5    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1YbbCustomGateway.sol:L1YbbCustomGateway |
 |--------------------+---------------------------------------------------------------+------+--------+-------+----------------------------------------------------------------------------------|
-| owner              | address                                                       | 6    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1OrbitUSDCGateway.sol:L1OrbitUSDCGateway |
+| whitelist          | address                                                       | 6    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1YbbCustomGateway.sol:L1YbbCustomGateway |
 |--------------------+---------------------------------------------------------------+------+--------+-------+----------------------------------------------------------------------------------|
-| burner             | address                                                       | 7    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1OrbitUSDCGateway.sol:L1OrbitUSDCGateway |
+| _status            | uint256                                                       | 7    | 0      | 32    | contracts/tokenbridge/ethereum/gateway/L1YbbCustomGateway.sol:L1YbbCustomGateway |
 |--------------------+---------------------------------------------------------------+------+--------+-------+----------------------------------------------------------------------------------|
-| depositsPaused     | bool                                                          | 7    | 20     | 1     | contracts/tokenbridge/ethereum/gateway/L1OrbitUSDCGateway.sol:L1OrbitUSDCGateway |
-|--------------------+---------------------------------------------------------------+------+--------+-------+----------------------------------------------------------------------------------|
-| burnAmount         | uint256                                                       | 8    | 0      | 32    | contracts/tokenbridge/ethereum/gateway/L1OrbitUSDCGateway.sol:L1OrbitUSDCGateway |
+| masterVaultFactory | address                                                       | 8    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1YbbCustomGateway.sol:L1YbbCustomGateway |
 ╰--------------------+---------------------------------------------------------------+------+--------+-------+----------------------------------------------------------------------------------╯
 

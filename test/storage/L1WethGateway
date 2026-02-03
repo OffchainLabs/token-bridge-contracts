@@ -8,12 +8,10 @@
 |--------------------+---------------------------------------------------------------+------+--------+-------+------------------------------------------------------------------------|
 | inbox              | address                                                       | 2    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1WethGateway.sol:L1WethGateway |
 |--------------------+---------------------------------------------------------------+------+--------+-------+------------------------------------------------------------------------|
-| masterVaultFactory | address                                                       | 3    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1WethGateway.sol:L1WethGateway |
+| redirectedExits    | mapping(bytes32 => struct L1ArbitrumExtendedGateway.ExitData) | 3    | 0      | 32    | contracts/tokenbridge/ethereum/gateway/L1WethGateway.sol:L1WethGateway |
 |--------------------+---------------------------------------------------------------+------+--------+-------+------------------------------------------------------------------------|
-| redirectedExits    | mapping(bytes32 => struct L1ArbitrumExtendedGateway.ExitData) | 4    | 0      | 32    | contracts/tokenbridge/ethereum/gateway/L1WethGateway.sol:L1WethGateway |
+| l1Weth             | address                                                       | 4    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1WethGateway.sol:L1WethGateway |
 |--------------------+---------------------------------------------------------------+------+--------+-------+------------------------------------------------------------------------|
-| l1Weth             | address                                                       | 5    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1WethGateway.sol:L1WethGateway |
-|--------------------+---------------------------------------------------------------+------+--------+-------+------------------------------------------------------------------------|
-| l2Weth             | address                                                       | 6    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1WethGateway.sol:L1WethGateway |
+| l2Weth             | address                                                       | 5    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1WethGateway.sol:L1WethGateway |
 ╰--------------------+---------------------------------------------------------------+------+--------+-------+------------------------------------------------------------------------╯
 
