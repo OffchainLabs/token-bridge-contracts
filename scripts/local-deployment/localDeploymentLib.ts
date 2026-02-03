@@ -61,6 +61,8 @@ export const setupTokenBridgeInLocalEnv = async () => {
     rollupOwnerKey = LOCALHOST_L3_OWNER_KEY
   }
   const rollupOwnerAddress = ethers.utils.computeAddress(rollupOwnerKey)
+  const isYieldBearingBridge =
+    process.env['IS_YIELD_BEARING_BRIDGE'] === 'true'
 
   // if no ROLLUP_ADDRESS is defined, it will be pulled from local container
   const rollupAddress = process.env['ROLLUP_ADDRESS'] as string
@@ -124,7 +126,8 @@ export const setupTokenBridgeInLocalEnv = async () => {
       childDeployer.provider!,
       l1TokenBridgeCreator,
       coreL2Network.ethBridge.rollup,
-      rollupOwnerAddress
+      rollupOwnerAddress,
+      isYieldBearingBridge
     )
 
   // register weth gateway if it exists

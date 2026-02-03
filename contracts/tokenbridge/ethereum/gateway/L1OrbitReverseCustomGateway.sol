@@ -18,17 +18,13 @@ import { IArbToken } from "../../arbitrum/IArbToken.sol";
  *          if minting is also occuring on L2
  */
 contract L1OrbitReverseCustomGateway is L1OrbitCustomGateway {
-    /// @dev Initialize is overridden to prevent yield bearing bridging functionality
     function initialize(
         address _l1Counterpart,
         address _l1Router,
         address _inbox,
-        address _owner,
-        address _masterVaultFactory
+        address _owner
     ) public override {
-        // the reverse gateway does not support yield bearing bridging
-        require(_masterVaultFactory == address(0), "MASTER_VAULT_FACTORY_MUST_BE_ZERO");
-        super.initialize(_l1Counterpart, _l1Router, _inbox, _owner, _masterVaultFactory);
+        super.initialize(_l1Counterpart, _l1Router, _inbox, _owner);
     }
 
     function inboundEscrowTransfer(

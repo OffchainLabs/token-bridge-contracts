@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "forge-std/Test.sol";
-import {L1ERC20Gateway} from "contracts/tokenbridge/ethereum/gateway/L1ERC20Gateway.sol";
+import {L1YbbERC20Gateway} from "contracts/tokenbridge/ethereum/gateway/L1YbbERC20Gateway.sol";
 import {L1GatewayRouter} from "contracts/tokenbridge/ethereum/gateway/L1GatewayRouter.sol";
 import {MasterVault} from "contracts/tokenbridge/libraries/vault/MasterVault.sol";
 import {MasterVaultFactory} from "contracts/tokenbridge/libraries/vault/MasterVaultFactory.sol";
@@ -15,14 +15,14 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
  * @title Yield Bearing Bridge End-to-End Tests
  * @notice Tests the full deposit and redeem flows through the gateway with YBB integration
  * @dev These tests verify:
- *      - User deposits through L1GatewayRouter → L1ERC20Gateway → MasterVault.deposit()
+ *      - User deposits through L1GatewayRouter → L1YbbERC20Gateway → MasterVault.deposit()
  *      - User withdrawals through finalizeInboundTransfer → MasterVault.redeem() → User
  *      - Multiple users depositing and redeeming
  *      - Subvault allocation and rebalancing
  */
 contract YieldBearingBridgeE2ETest is Test {
     L1GatewayRouter public router;
-    L1ERC20Gateway public gateway;
+    L1YbbERC20Gateway public gateway;
     MasterVaultFactory public vaultFactory;
     MasterVault public masterVault;
     TestERC20 public token;
@@ -63,7 +63,7 @@ contract YieldBearingBridgeE2ETest is Test {
     function setUp() public {
         inbox = new InboxMock();
         router = new L1GatewayRouter();
-        gateway = new L1ERC20Gateway();
+        gateway = new L1YbbERC20Gateway();
         token = new TestERC20();
 
         vaultFactory = new MasterVaultFactory();

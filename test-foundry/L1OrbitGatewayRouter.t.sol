@@ -85,8 +85,7 @@ contract L1OrbitGatewayRouterTest is L1GatewayRouterTest {
             address(l1Router),
             inbox,
             0x0000000000000000000000000000000000000000000000000000000000000001,
-            makeAddr("l2BeaconProxyFactory"),
-            address(0)
+            makeAddr("l2BeaconProxyFactory")
         );
 
         // set default gateway
@@ -151,8 +150,7 @@ contract L1OrbitGatewayRouterTest is L1GatewayRouterTest {
             address(l1Router),
             inbox,
             0x0000000000000000000000000000000000000000000000000000000000000001,
-            makeAddr("l2BeaconProxyFactory"),
-            address(0)
+            makeAddr("l2BeaconProxyFactory")
         );
 
         // set default gateway
@@ -176,8 +174,7 @@ contract L1OrbitGatewayRouterTest is L1GatewayRouterTest {
             address(l1Router),
             inbox,
             0x0000000000000000000000000000000000000000000000000000000000000001,
-            makeAddr("l2BeaconProxyFactory"),
-            address(0)
+            makeAddr("l2BeaconProxyFactory")
         );
 
         // set default gateway
@@ -245,8 +242,7 @@ contract L1OrbitGatewayRouterTest is L1GatewayRouterTest {
             address(l1Router),
             inbox,
             0x0000000000000000000000000000000000000000000000000000000000000001,
-            makeAddr("l2BeaconProxyFactory"),
-            address(0)
+            makeAddr("l2BeaconProxyFactory")
         );
 
         // set default gateway
@@ -273,8 +269,7 @@ contract L1OrbitGatewayRouterTest is L1GatewayRouterTest {
             address(l1OrbitRouter),
             inbox,
             0x0000000000000000000000000000000000000000000000000000000000000001,
-            makeAddr("l2BeaconProxyFactory"),
-            address(0)
+            makeAddr("l2BeaconProxyFactory")
         );
 
         // approve fees
@@ -332,8 +327,7 @@ contract L1OrbitGatewayRouterTest is L1GatewayRouterTest {
             address(l1OrbitRouter),
             inbox,
             0x0000000000000000000000000000000000000000000000000000000000000001,
-            makeAddr("l2BeaconProxyFactory"),
-            address(0)
+            makeAddr("l2BeaconProxyFactory")
         );
 
         // prefund inbox
@@ -401,8 +395,7 @@ contract L1OrbitGatewayRouterTest is L1GatewayRouterTest {
             address(l1OrbitRouter),
             inbox,
             0x0000000000000000000000000000000000000000000000000000000000000001,
-            makeAddr("l2BeaconProxyFactory"),
-            address(0)
+            makeAddr("l2BeaconProxyFactory")
         );
 
         // prefund inbox
@@ -523,7 +516,7 @@ contract L1OrbitGatewayRouterTest is L1GatewayRouterTest {
         // create gateway
         L1OrbitCustomGateway customGateway = new L1OrbitCustomGateway();
         address l2Counterpart = makeAddr("l2Counterpart");
-        customGateway.initialize(l2Counterpart, address(l1Router), address(inbox), owner, address(0));
+        customGateway.initialize(l2Counterpart, address(l1Router), address(inbox), owner);
 
         // create token
         ERC20 customToken = new ERC20("X", "Y");
@@ -616,7 +609,7 @@ contract L1OrbitGatewayRouterTest is L1GatewayRouterTest {
         // create gateway
         L1OrbitCustomGateway customGateway = new L1OrbitCustomGateway();
         address l2Counterpart = makeAddr("l2Counterpart");
-        customGateway.initialize(l2Counterpart, address(l1Router), address(inbox), owner, address(0));
+        customGateway.initialize(l2Counterpart, address(l1Router), address(inbox), owner);
 
         // create token
         ERC20 customToken = new ERC20("X", "Y");
@@ -703,7 +696,7 @@ contract L1OrbitGatewayRouterTest is L1GatewayRouterTest {
         address initialGateway = address(new L1OrbitCustomGateway());
         address l2Counterpart = makeAddr("l2Counterpart");
         L1OrbitCustomGateway(initialGateway).initialize(
-            l2Counterpart, address(l1Router), address(inbox), owner, address(0)
+            l2Counterpart, address(l1Router), address(inbox), owner
         );
 
         // create token
@@ -841,7 +834,7 @@ contract L1OrbitGatewayRouterTest is L1GatewayRouterTest {
         /// init all
         for (uint256 i = 0; i < 2; i++) {
             L1OrbitCustomGateway(gateways[i]).initialize(
-                l2Counterpart, address(l1Router), address(inbox), owner, address(0)
+                l2Counterpart, address(l1Router), address(inbox), owner
             );
 
             vm.mockCall(
@@ -913,7 +906,7 @@ contract L1OrbitGatewayRouterTest is L1GatewayRouterTest {
         address initialGateway = address(new L1OrbitCustomGateway());
         address l2Counterpart = makeAddr("l2Counterpart");
         L1OrbitCustomGateway(initialGateway).initialize(
-            l2Counterpart, address(l1Router), address(inbox), owner, address(0)
+            l2Counterpart, address(l1Router), address(inbox), owner
         );
 
         // create token

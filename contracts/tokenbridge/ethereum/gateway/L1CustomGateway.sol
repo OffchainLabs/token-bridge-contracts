@@ -96,10 +96,9 @@ contract L1CustomGateway is L1ArbitrumExtendedGateway, ICustomGateway {
         address _l1Counterpart,
         address _l1Router,
         address _inbox,
-        address _owner,
-        address _masterVaultFactory
+        address _owner
     ) public virtual {
-        L1ArbitrumGateway._initialize(_l1Counterpart, _l1Router, _inbox, _masterVaultFactory);
+        L1ArbitrumGateway._initialize(_l1Counterpart, _l1Router, _inbox);
         owner = _owner;
         // disable whitelist by default
         whitelist = address(0);

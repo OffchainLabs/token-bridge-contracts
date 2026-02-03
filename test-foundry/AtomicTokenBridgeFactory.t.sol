@@ -7,7 +7,6 @@ import "forge-std/Test.sol";
 import "../contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol";
 import "../contracts/tokenbridge/arbitrum/L2AtomicTokenBridgeFactory.sol";
 import "../contracts/tokenbridge/libraries/AddressAliasHelper.sol";
-import {IMasterVaultFactory} from "../contracts/tokenbridge/libraries/vault/IMasterVaultFactory.sol";
 
 import {L1TokenBridgeRetryableSender} from
     "../contracts/tokenbridge/ethereum/L1TokenBridgeRetryableSender.sol";
@@ -139,8 +138,7 @@ contract AtomicTokenBridgeCreatorTest is Test {
             L1OrbitGatewayRouter(address(new L1OrbitGatewayRouter())),
             L1OrbitERC20Gateway(address(new L1OrbitERC20Gateway())),
             L1OrbitCustomGateway(address(new L1OrbitCustomGateway())),
-            IUpgradeExecutor(address(new UpgradeExecutor())),
-            IMasterVaultFactory(address(0))
+            IUpgradeExecutor(address(new UpgradeExecutor()))
         );
         l2TokenBridgeFactoryTemplate = address(new L2AtomicTokenBridgeFactory());
         l2RouterTemplate = address(new L2GatewayRouter());

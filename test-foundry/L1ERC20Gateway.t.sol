@@ -17,7 +17,7 @@ contract L1ERC20GatewayTest is L1ArbitrumExtendedGatewayTest {
 
         l1Gateway = new L1ERC20Gateway();
         L1ERC20Gateway(address(l1Gateway)).initialize(
-            l2Gateway, router, inbox, cloneableProxyHash, l2BeaconProxyFactory, address(0)
+            l2Gateway, router, inbox, cloneableProxyHash, l2BeaconProxyFactory
         );
 
         token = IERC20(address(new TestERC20()));
@@ -38,7 +38,7 @@ contract L1ERC20GatewayTest is L1ArbitrumExtendedGatewayTest {
     /* solhint-disable func-name-mixedcase */
     function test_initialize() public virtual {
         L1ERC20Gateway gateway = new L1ERC20Gateway();
-        gateway.initialize(l2Gateway, router, inbox, cloneableProxyHash, l2BeaconProxyFactory, address(0));
+        gateway.initialize(l2Gateway, router, inbox, cloneableProxyHash, l2BeaconProxyFactory);
 
         assertEq(gateway.counterpartGateway(), l2Gateway, "Invalid counterpartGateway");
         assertEq(gateway.router(), router, "Invalid router");
@@ -52,7 +52,7 @@ contract L1ERC20GatewayTest is L1ArbitrumExtendedGatewayTest {
         address badInbox = address(0);
 
         vm.expectRevert("BAD_INBOX");
-        gateway.initialize(l2Gateway, router, badInbox, cloneableProxyHash, l2BeaconProxyFactory, address(0));
+        gateway.initialize(l2Gateway, router, badInbox, cloneableProxyHash, l2BeaconProxyFactory);
     }
 
     function test_initialize_revert_BadRouter() public {
@@ -60,7 +60,7 @@ contract L1ERC20GatewayTest is L1ArbitrumExtendedGatewayTest {
         address badRouter = address(0);
 
         vm.expectRevert("BAD_ROUTER");
-        gateway.initialize(l2Gateway, badRouter, inbox, cloneableProxyHash, l2BeaconProxyFactory, address(0));
+        gateway.initialize(l2Gateway, badRouter, inbox, cloneableProxyHash, l2BeaconProxyFactory);
     }
 
     function test_initialize_revert_InvalidProxyHash() public {
@@ -68,7 +68,7 @@ contract L1ERC20GatewayTest is L1ArbitrumExtendedGatewayTest {
         bytes32 invalidProxyHash = bytes32(0);
 
         vm.expectRevert("INVALID_PROXYHASH");
-        gateway.initialize(l2Gateway, router, inbox, invalidProxyHash, l2BeaconProxyFactory, address(0));
+        gateway.initialize(l2Gateway, router, inbox, invalidProxyHash, l2BeaconProxyFactory);
     }
 
     function test_initialize_revert_InvalidBeacon() public {
@@ -76,7 +76,7 @@ contract L1ERC20GatewayTest is L1ArbitrumExtendedGatewayTest {
         address invalidBeaconProxyFactory = address(0);
 
         vm.expectRevert("INVALID_BEACON");
-        gateway.initialize(l2Gateway, router, inbox, cloneableProxyHash, invalidBeaconProxyFactory, address(0));
+        gateway.initialize(l2Gateway, router, inbox, cloneableProxyHash, invalidBeaconProxyFactory);
     }
 
     function test_outboundTransfer() public virtual override {

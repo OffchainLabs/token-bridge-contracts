@@ -16,6 +16,7 @@ export const envVars = {
   baseChainRpc: process.env['BASECHAIN_RPC'] as string,
   baseChainDeployerKey: process.env['BASECHAIN_DEPLOYER_KEY'] as string,
   childChainRpc: process.env['ORBIT_RPC'] as string,
+  isYieldBearingBridge: process.env['IS_YIELD_BEARING_BRIDGE'],
 }
 
 /**
@@ -62,6 +63,8 @@ export const createTokenBridgeOnTargetChain = async () => {
     l1Deployer
   )
 
+  const isYieldBearingBridge = envVars.isYieldBearingBridge === 'true'
+
   // create token bridge
   const { l1Deployment, l2Deployment, l1MultiCall, l1ProxyAdmin } =
     await createTokenBridge(
@@ -69,7 +72,8 @@ export const createTokenBridgeOnTargetChain = async () => {
       l2Provider,
       l1TokenBridgeCreator,
       envVars.rollupAddress,
-      envVars.rollupOwner
+      envVars.rollupOwner,
+      isYieldBearingBridge
     )
 
   const l2Network: ArbitrumNetwork = {

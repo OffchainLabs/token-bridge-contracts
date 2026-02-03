@@ -23,7 +23,7 @@ contract L1CustomGatewayTest is L1ArbitrumExtendedGatewayTest {
         inbox = address(new InboxMock());
 
         l1Gateway = new L1CustomGateway();
-        L1CustomGateway(address(l1Gateway)).initialize(l2Gateway, router, inbox, owner, address(0));
+        L1CustomGateway(address(l1Gateway)).initialize(l2Gateway, router, inbox, owner);
 
         token = IERC20(address(new TestERC20()));
 
@@ -126,7 +126,7 @@ contract L1CustomGatewayTest is L1ArbitrumExtendedGatewayTest {
 
     function test_initialize() public virtual {
         L1CustomGateway gateway = new L1CustomGateway();
-        gateway.initialize(l2Gateway, router, inbox, owner, address(0));
+        gateway.initialize(l2Gateway, router, inbox, owner);
 
         assertEq(gateway.counterpartGateway(), l2Gateway, "Invalid counterpartGateway");
         assertEq(gateway.router(), router, "Invalid router");
@@ -140,7 +140,7 @@ contract L1CustomGatewayTest is L1ArbitrumExtendedGatewayTest {
         address badInbox = address(0);
 
         vm.expectRevert("BAD_INBOX");
-        gateway.initialize(l2Gateway, router, badInbox, owner, address(0));
+        gateway.initialize(l2Gateway, router, badInbox, owner);
     }
 
     function test_initialize_revert_BadRouter() public {
@@ -148,7 +148,7 @@ contract L1CustomGatewayTest is L1ArbitrumExtendedGatewayTest {
         address badRouter = address(0);
 
         vm.expectRevert("BAD_ROUTER");
-        gateway.initialize(l2Gateway, badRouter, inbox, owner, address(0));
+        gateway.initialize(l2Gateway, badRouter, inbox, owner);
     }
 
     function test_outboundTransfer() public virtual override {

@@ -18,7 +18,7 @@ contract L1ForceOnlyReverseCustomGatewayTest is L1ReverseCustomGatewayTest {
 
         l1Gateway = new L1ForceOnlyReverseCustomGateway();
         L1ForceOnlyReverseCustomGateway(address(l1Gateway)).initialize(
-            l2Gateway, router, inbox, owner, address(0)
+            l2Gateway, router, inbox, owner
         );
 
         token = IERC20(address(new TestERC20()));

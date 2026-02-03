@@ -82,8 +82,7 @@ contract L1USDCGateway is L1ArbitrumExtendedGateway {
         if (_owner == address(0)) {
             revert L1USDCGateway_InvalidOwner();
         }
-        // address(0) master vault factory indicates no YBB functionality
-        L1ArbitrumGateway._initialize(_l2Counterpart, _l1Router, _inbox, address(0));
+        L1ArbitrumGateway._initialize(_l2Counterpart, _l1Router, _inbox);
         l1USDC = _l1USDC;
         l2USDC = _l2USDC;
         owner = _owner;
