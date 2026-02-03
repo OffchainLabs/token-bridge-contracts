@@ -7,7 +7,7 @@ import "forge-std/Test.sol";
 import "../contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol";
 import "../contracts/tokenbridge/arbitrum/L2AtomicTokenBridgeFactory.sol";
 import "../contracts/tokenbridge/libraries/AddressAliasHelper.sol";
-import {IMasterVaultFactory} from "../contracts/tokenbridge/ethereum/IMasterVaultFactory.sol";
+import {IMasterVaultFactory} from "../contracts/tokenbridge/libraries/vault/IMasterVaultFactory.sol";
 
 import {L1TokenBridgeRetryableSender} from
     "../contracts/tokenbridge/ethereum/L1TokenBridgeRetryableSender.sol";

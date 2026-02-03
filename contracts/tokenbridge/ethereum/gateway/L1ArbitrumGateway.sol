@@ -30,7 +30,7 @@ import "../../libraries/gateway/GatewayMessageHandler.sol";
 import "../../libraries/gateway/TokenGateway.sol";
 import "../../libraries/ITransferAndCall.sol";
 import "../../libraries/ERC165.sol";
-import { IMasterVaultFactory } from "../IMasterVaultFactory.sol";
+import { IMasterVaultFactory } from "../../libraries/vault/IMasterVaultFactory.sol";
 
 /**
  * @title Common interface for gatways on L1 messaging to Arbitrum.

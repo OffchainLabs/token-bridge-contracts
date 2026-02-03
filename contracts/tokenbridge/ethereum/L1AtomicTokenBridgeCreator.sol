@@ -43,7 +43,8 @@ import {TransparentUpgradeableProxy} from
     "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {IAccessControlUpgradeable} from
     "@openzeppelin/contracts-upgradeable/access/IAccessControlUpgradeable.sol";
-import {IMasterVaultFactory} from "./IMasterVaultFactory.sol";
+import {IMasterVaultFactory} from "../libraries/vault/IMasterVaultFactory.sol";
+import {IGatewayRouter} from "../libraries/gateway/IGatewayRouter.sol";
 import {L1ArbitrumGateway} from "./gateway/L1ArbitrumGateway.sol";
 
 /**
@@ -263,24 +264,27 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
 
         // if resend, we assume L1 contracts already exist
         if (!isResend) {
-            address masterVaultFactory = address(0);
-            if (args.isYieldBearingBridge) {
-                // deploy master vault factory
-                masterVaultFactory = _deployProxyWithSalt(
-                    _getL1Salt(OrbitSalts.MASTER_VAULT_FACTORY, args.inbox),
-                    address(l1Templates.masterVaultFactory),
-                    proxyAdmin
-                );
-                IMasterVaultFactory(masterVaultFactory).initialize(upgradeExecutor);
-            }
-
-            // l1 router deployment block
+            // l1 router deployment block - must be deployed before masterVaultFactory
             {
                 address routerTemplate = feeToken != address(0)
                     ? address(l1Templates.feeTokenBasedRouterTemplate)
                     : address(l1Templates.routerTemplate);
                 l1Deployment.router = _deployProxyWithSalt(
                     _getL1Salt(OrbitSalts.L1_ROUTER, args.inbox), routerTemplate, proxyAdmin
+                );
+            }
+
+            address masterVaultFactory = address(0);
+            if (args.isYieldBearingBridge) {
+                // deploy master vault factory - needs router for MasterVault's onlyGateway modifier
+                masterVaultFactory = _deployProxyWithSalt(
+                    _getL1Salt(OrbitSalts.MASTER_VAULT_FACTORY, args.inbox),
+                    address(l1Templates.masterVaultFactory),
+                    proxyAdmin
+                );
+                IMasterVaultFactory(masterVaultFactory).initialize(
+                    upgradeExecutor,
+                    IGatewayRouter(l1Deployment.router)
                 );
             }
 
