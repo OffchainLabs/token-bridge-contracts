@@ -8,14 +8,16 @@
 |----------------------+---------------------------------------------------------------+------+--------+-------+--------------------------------------------------------------------------|
 | inbox                | address                                                       | 2    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1ERC20Gateway.sol:L1ERC20Gateway |
 |----------------------+---------------------------------------------------------------+------+--------+-------+--------------------------------------------------------------------------|
-| redirectedExits      | mapping(bytes32 => struct L1ArbitrumExtendedGateway.ExitData) | 3    | 0      | 32    | contracts/tokenbridge/ethereum/gateway/L1ERC20Gateway.sol:L1ERC20Gateway |
+| masterVaultFactory   | address                                                       | 3    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1ERC20Gateway.sol:L1ERC20Gateway |
 |----------------------+---------------------------------------------------------------+------+--------+-------+--------------------------------------------------------------------------|
-| cloneableProxyHash   | bytes32                                                       | 4    | 0      | 32    | contracts/tokenbridge/ethereum/gateway/L1ERC20Gateway.sol:L1ERC20Gateway |
+| redirectedExits      | mapping(bytes32 => struct L1ArbitrumExtendedGateway.ExitData) | 4    | 0      | 32    | contracts/tokenbridge/ethereum/gateway/L1ERC20Gateway.sol:L1ERC20Gateway |
 |----------------------+---------------------------------------------------------------+------+--------+-------+--------------------------------------------------------------------------|
-| l2BeaconProxyFactory | address                                                       | 5    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1ERC20Gateway.sol:L1ERC20Gateway |
+| cloneableProxyHash   | bytes32                                                       | 5    | 0      | 32    | contracts/tokenbridge/ethereum/gateway/L1ERC20Gateway.sol:L1ERC20Gateway |
 |----------------------+---------------------------------------------------------------+------+--------+-------+--------------------------------------------------------------------------|
-| whitelist            | address                                                       | 6    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1ERC20Gateway.sol:L1ERC20Gateway |
+| l2BeaconProxyFactory | address                                                       | 6    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1ERC20Gateway.sol:L1ERC20Gateway |
 |----------------------+---------------------------------------------------------------+------+--------+-------+--------------------------------------------------------------------------|
-| _status              | uint256                                                       | 7    | 0      | 32    | contracts/tokenbridge/ethereum/gateway/L1ERC20Gateway.sol:L1ERC20Gateway |
+| whitelist            | address                                                       | 7    | 0      | 20    | contracts/tokenbridge/ethereum/gateway/L1ERC20Gateway.sol:L1ERC20Gateway |
+|----------------------+---------------------------------------------------------------+------+--------+-------+--------------------------------------------------------------------------|
+| _status              | uint256                                                       | 8    | 0      | 32    | contracts/tokenbridge/ethereum/gateway/L1ERC20Gateway.sol:L1ERC20Gateway |
 ╰----------------------+---------------------------------------------------------------+------+--------+-------+--------------------------------------------------------------------------╯
 
