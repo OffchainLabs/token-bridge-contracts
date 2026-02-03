@@ -295,6 +295,7 @@ abstract contract L1ArbitrumGateway is
         // this method is virtual since different subclasses can handle escrow differently
         // user funds are escrowed on the gateway using this function
         uint256 prevBalance = IERC20(_l1Token).balanceOf(address(this));
+        // slither-disable-next-line arbitrary-send-erc20
         IERC20(_l1Token).safeTransferFrom(_from, address(this), _amount);
         uint256 postBalance = IERC20(_l1Token).balanceOf(address(this));
         amountReceived = postBalance - prevBalance;

@@ -237,6 +237,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         );
     }
 
+    // slither-disable-next-line out-of-order-retryable
     function createTokenBridge(CreateTokenBridgeArgs memory args) public payable {
         // templates have to be in place
         if (address(l1Templates.routerTemplate) == address(0)) {
@@ -260,8 +261,24 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         address feeToken = _getFeeToken(args.inbox);
 
         // store L2 addresses before deployments
-        L1DeploymentAddresses memory l1Deployment;
-        L2DeploymentAddresses memory l2Deployment;
+        L1DeploymentAddresses memory l1Deployment = L1DeploymentAddresses({
+            router: address(0),
+            standardGateway: address(0),
+            customGateway: address(0),
+            wethGateway: address(0),
+            weth: address(0)
+        });
+        L2DeploymentAddresses memory l2Deployment = L2DeploymentAddresses({
+            router: address(0),
+            standardGateway: address(0),
+            customGateway: address(0),
+            wethGateway: address(0),
+            weth: address(0),
+            proxyAdmin: address(0),
+            beaconProxyFactory: address(0),
+            upgradeExecutor: address(0),
+            multicall: address(0)
+        });
 
         // if resend, we use the existing l1 deployment
         if (isResend) {
@@ -575,6 +592,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         address l2RollupOwner,
         address upgradeExecutor
     ) internal {
+        // slither-disable-next-line arbitrary-send-eth
         retryableSender.sendRetryable{
             value: retryableParams.feeTokenTotalFeeAmount > 0 ? 0 : address(this).balance
         }(
@@ -625,6 +643,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             uint256 scaledRetryableFee = _getScaledAmount(feeToken, retryableFee);
             IERC20(feeToken).safeTransferFrom(msg.sender, inbox, scaledRetryableFee);
 
+            // slither-disable-next-line unused-return
             IERC20Inbox(inbox)
                 .createRetryableTicket(
                     address(0),
@@ -642,6 +661,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                 IInbox(inbox).calculateRetryableSubmissionFee(deploymentData.length, 0);
             uint256 retryableFee = maxSubmissionCost + gasLimitForL2FactoryDeployment * gasPriceBid;
 
+            // slither-disable-next-line arbitrary-send-eth,unused-return
             IInbox(inbox).createRetryableTicket{value: retryableFee}(
                 address(0),
                 0,
@@ -778,6 +798,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             return amount;
         }
         if (decimals < 18) {
+            // slither-disable-next-line divide-before-multiply
             uint256 scaledAmount = amount / (10 ** (18 - decimals));
             // round up if necessary
             if (scaledAmount * (10 ** (18 - decimals)) < amount) {

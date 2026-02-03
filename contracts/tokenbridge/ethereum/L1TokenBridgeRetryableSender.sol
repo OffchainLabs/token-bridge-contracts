@@ -13,8 +13,9 @@ import {
     OwnableUpgradeable
 } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
-import {TransparentUpgradeableProxy} from
-    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {
+    TransparentUpgradeableProxy
+} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {IERC20, ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
@@ -159,6 +160,7 @@ contract L1TokenBridgeRetryableSender is Initializable, OwnableUpgradeable {
         uint256 value,
         bytes memory data
     ) internal {
+        // slither-disable-next-line unused-return
         IInbox(retryableParams.inbox).createRetryableTicket{value: value}(
             retryableParams.target,
             0,
@@ -175,17 +177,19 @@ contract L1TokenBridgeRetryableSender is Initializable, OwnableUpgradeable {
         RetryableParams calldata retryableParams,
         bytes memory data
     ) internal {
-        IERC20Inbox(retryableParams.inbox).createRetryableTicket(
-            retryableParams.target,
-            0,
-            0,
-            retryableParams.excessFeeRefundAddress,
-            retryableParams.callValueRefundAddress,
-            retryableParams.maxGas,
-            retryableParams.gasPriceBid,
-            retryableParams.feeTokenTotalFeeAmount,
-            data
-        );
+        // slither-disable-next-line unused-return
+        IERC20Inbox(retryableParams.inbox)
+            .createRetryableTicket(
+                retryableParams.target,
+                0,
+                0,
+                retryableParams.excessFeeRefundAddress,
+                retryableParams.callValueRefundAddress,
+                retryableParams.maxGas,
+                retryableParams.gasPriceBid,
+                retryableParams.feeTokenTotalFeeAmount,
+                data
+            );
     }
 }
 

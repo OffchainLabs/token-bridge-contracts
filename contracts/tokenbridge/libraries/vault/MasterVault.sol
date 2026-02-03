@@ -270,6 +270,7 @@ contract MasterVault is
         uint256 idleAssets = asset.balanceOf(address(this));
         if (idleAssets < assets) {
             uint256 assetsToWithdraw = assets - idleAssets;
+            // slither-disable-next-line unused-return
             subVault.withdraw(assetsToWithdraw, address(this), address(this));
         }
 
@@ -284,6 +285,7 @@ contract MasterVault is
     /// @param  minExchRateWad Minimum exchange rate (1e18 * deltaAssets / abs(subVaultShares)) for the deposit/withdraw operation
     ///                        Negative indicates a subVault deposit (negative deltaAssets),
     ///                        positive indicates a subVault withdraw (positive deltaAssets).
+    // slither-disable-next-line reentrancy-no-eth
     function rebalance(int256 minExchRateWad) external whenNotPaused nonReentrant onlyKeeper {
         // Check cooldown
         uint256 timeSinceLastRebalance = block.timestamp - lastRebalanceTime;
@@ -541,6 +543,7 @@ contract MasterVault is
         }
 
         uint256 profit = totalProfit();
+        // slither-disable-next-line incorrect-equality
         if (profit == 0) return;
 
         uint256 totalIdle = asset.balanceOf(address(this));
@@ -552,6 +555,7 @@ contract MasterVault is
             asset.safeTransfer(beneficiary, amountToTransfer);
         }
         if (amountToWithdraw > 0) {
+            // slither-disable-next-line unused-return
             subVault.withdraw(amountToWithdraw, beneficiary, address(this));
         }
 
@@ -619,6 +623,7 @@ contract MasterVault is
 
     /// @dev Helper to add/remove a subvault from the whitelist
     function _setSubVaultWhitelist(address _subVault, bool _whitelisted) internal {
+        // slither-disable-next-line unused-return
         _whitelisted
             ? _whitelistedSubVaults.add(_subVault)
             : _whitelistedSubVaults.remove(_subVault);
