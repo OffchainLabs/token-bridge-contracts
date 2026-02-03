@@ -40,7 +40,7 @@ contract MasterVaultFirstDepositTest is MasterVaultCoreTest {
         test_deposit(_firstDeposit);
         State memory beforeState = _getState();
         vm.startPrank(user);
-        uint256 assets = vault.redeem(redeemAmount);
+        uint256 assets = vault.redeem(redeemAmount, 0);
         uint256 expectedAssets = (beforeState.masterVaultTotalAssets * redeemAmount) /
             (beforeState.masterVaultTotalSupply);
         vm.stopPrank();
@@ -125,7 +125,7 @@ contract MasterVaultTestWithSubvaultHoldingAssets is MasterVaultFirstDepositTest
         test_deposit(_firstDeposit, _initAmount);
         State memory beforeState = _getState();
         vm.startPrank(user);
-        uint256 assets = vault.redeem(redeemAmount);
+        uint256 assets = vault.redeem(redeemAmount, 0);
         uint256 expectedAssets = (beforeState.masterVaultTotalAssets * redeemAmount) /
             (beforeState.masterVaultTotalSupply);
         vm.stopPrank();

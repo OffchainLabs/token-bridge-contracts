@@ -70,7 +70,7 @@ contract AttackTest is MasterVaultTestWithSubvaultFresh {
         vault.transfer(user, sharesBack);
 
         vm.startPrank(user);
-        uint256 assetsBack = vault.redeem(sharesBack);
+        uint256 assetsBack = vault.redeem(sharesBack, 0);
         token.transfer(attacker, assetsBack);
         vm.stopPrank();
 

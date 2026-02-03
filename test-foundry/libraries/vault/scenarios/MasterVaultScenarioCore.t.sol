@@ -44,7 +44,7 @@ contract MasterVaultScenarioCoreTest is MasterVaultCoreTest {
         vault.transfer(user, _shares);
 
         vm.startPrank(user);
-        uint256 assets = vault.redeem(_shares);
+        uint256 assets = vault.redeem(_shares, 0);
         token.transfer(_user, assets);
         vm.stopPrank();
 

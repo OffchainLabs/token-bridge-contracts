@@ -6,5 +6,5 @@ import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 interface IMasterVault {
     function setSubVault(IERC4626 subVault) external;
     function deposit(uint256 assets) external returns (uint256 shares);
-    function redeem(uint256 shares) external returns (uint256 assets);
+    function redeem(uint256 shares, uint256 minAssets) external returns (uint256 assets);
 }

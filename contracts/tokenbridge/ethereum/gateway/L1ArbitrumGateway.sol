@@ -154,7 +154,7 @@ abstract contract L1ArbitrumGateway is
         // this method is virtual since different subclasses can handle escrow differently
         if (masterVaultFactory != address(0)) {
             address masterVault = IMasterVaultFactory(masterVaultFactory).getVault(_l1Token);
-            uint256 assets = IMasterVault(masterVault).redeem(_amount);
+            uint256 assets = IMasterVault(masterVault).redeem(_amount, 0);
             IERC20(_l1Token).safeTransfer(_dest, assets);
         } else {
             IERC20(_l1Token).safeTransfer(_dest, _amount);

@@ -89,6 +89,7 @@ contract MasterVault is
         int256 minExchRateWad, int256 deltaAssets, uint256 subVaultShares
     );
     error RebalanceExchRateWrongSign(int256 minExchRateWad);
+    error InsufficientAssets(uint256 assets, uint256 minAssets);
 
     /*
     Storage layout notes:
@@ -253,9 +254,18 @@ contract MasterVault is
     /// @notice Redeem some vault shares in exchange for underlying assets
     /// @dev    Anyone can redeem their shares at any time
     /// @param  shares The amount of vault shares to redeem
+    /// @param  minAssets Minimum amount of assets to receive (slippage protection), 0 to skip check
     /// @return assets The amount of underlying assets transferred to the redeemer
-    function redeem(uint256 shares) external whenNotPaused nonReentrant returns (uint256 assets) {
+    function redeem(uint256 shares, uint256 minAssets)
+        external
+        whenNotPaused
+        nonReentrant
+        returns (uint256 assets)
+    {
         assets = _convertToAssetsRoundDown(shares);
+        if (minAssets > 0 && assets < minAssets) {
+            revert InsufficientAssets(assets, minAssets);
+        }
 
         uint256 idleAssets = asset.balanceOf(address(this));
         if (idleAssets < assets) {

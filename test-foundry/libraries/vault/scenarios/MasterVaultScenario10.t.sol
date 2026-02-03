@@ -86,7 +86,7 @@ contract MasterVaultScenario10Test is MasterVaultScenarioCoreTest {
         vault.transfer(user, sharesC);
 
         vm.startPrank(user);
-        uint256 assetsReceivedC = vault.redeem(sharesC);
+        uint256 assetsReceivedC = vault.redeem(sharesC, 0);
         token.transfer(userC, assetsReceivedC);
         vm.stopPrank();
 
@@ -192,7 +192,7 @@ contract MasterVaultScenario10Test is MasterVaultScenarioCoreTest {
         vault.transfer(user, sharesC);
 
         vm.startPrank(user);
-        uint256 assetsReceivedC = vault.redeem(sharesC);
+        uint256 assetsReceivedC = vault.redeem(sharesC, 0);
         token.transfer(userC, assetsReceivedC);
         vm.stopPrank();
 
