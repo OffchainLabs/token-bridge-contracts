@@ -17,9 +17,6 @@ contract DefaultSubVault is ERC4626 {
 
 // todo: slim down this contract
 contract MasterVaultFactory is IMasterVaultFactory, Initializable {
-    error ZeroAddress();
-    error BeaconNotDeployed();
-
     BeaconProxyFactory public beaconProxyFactory;
     MasterVaultRoles public rolesRegistry;
     IGatewayRouter public gatewayRouter;
