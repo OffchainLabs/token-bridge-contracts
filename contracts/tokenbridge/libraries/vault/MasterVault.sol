@@ -268,13 +268,14 @@ contract MasterVault is
         }
 
         uint256 idleAssets = asset.balanceOf(address(this));
+        _burn(msg.sender, shares);
+        
         if (idleAssets < assets) {
             uint256 assetsToWithdraw = assets - idleAssets;
             // slither-disable-next-line unused-return
             subVault.withdraw(assetsToWithdraw, address(this), address(this));
         }
 
-        _burn(msg.sender, shares);
         asset.safeTransfer(msg.sender, assets);
     }
 
