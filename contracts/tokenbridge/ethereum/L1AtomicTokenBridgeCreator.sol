@@ -36,7 +36,7 @@ import {
     UpgradeExecutor
 } from "@offchainlabs/upgrade-executor/src/UpgradeExecutor.sol";
 import {AddressAliasHelper} from "../libraries/AddressAliasHelper.sol";
-import {IInbox, IBridge, IOwnable} from "@arbitrum/nitro-contracts/src/bridge/IInbox.sol";
+import {IInbox} from "@arbitrum/nitro-contracts/src/bridge/IInbox.sol";
 import {ArbMulticall2} from "../../rpc-utils/MulticallV2.sol";
 import {BeaconProxyFactory, ClonableBeaconProxy} from "../libraries/ClonableBeaconProxy.sol";
 import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
@@ -44,10 +44,12 @@ import {
     Initializable,
     OwnableUpgradeable
 } from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import {TransparentUpgradeableProxy} from
-    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import {IAccessControlUpgradeable} from
-    "@openzeppelin/contracts-upgradeable/access/IAccessControlUpgradeable.sol";
+import {
+    TransparentUpgradeableProxy
+} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {
+    IAccessControlUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/IAccessControlUpgradeable.sol";
 
 /**
  * @title Layer1 token bridge creator
@@ -97,7 +99,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         uint256 gasPriceBid;
         bool isYieldBearingBridge;
     }
-    
+
     // use separate mapping to allow appending to the struct in the future
     // and workaround some stack too deep issues
     mapping(address => L1DeploymentAddresses) public inboxToL1Deployment;
@@ -211,6 +213,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         uint256 maxGasForContracts,
         uint256 gasPriceBid
     ) external payable {
+        // slither-disable-next-line out-of-order-retryable
         _createTokenBridge(
             CreateTokenBridgeArgs(inbox, rollupOwner, maxGasForContracts, gasPriceBid, false)
         );
@@ -228,11 +231,13 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         uint256 maxGasForContracts,
         uint256 gasPriceBid
     ) external payable {
+        // slither-disable-next-line out-of-order-retryable
         _createTokenBridge(
             CreateTokenBridgeArgs(inbox, rollupOwner, maxGasForContracts, gasPriceBid, true)
         );
     }
 
+    // slither-disable-next-line out-of-order-retryable
     function _createTokenBridge(CreateTokenBridgeArgs memory args) internal {
         // templates have to be in place
         if (address(l1Templates.routerTemplate) == address(0)) {
@@ -242,11 +247,8 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         // Check that the rollupOwner account has EXECUTOR role
         // on the upgrade executor which is the owner of the rollup
         address upgradeExecutor = IInbox(args.inbox).bridge().rollup().owner();
-        if (
-            !IAccessControlUpgradeable(upgradeExecutor).hasRole(
-                UpgradeExecutor(upgradeExecutor).EXECUTOR_ROLE(), args.rollupOwner
-            )
-        ) {
+        if (!IAccessControlUpgradeable(upgradeExecutor)
+                .hasRole(UpgradeExecutor(upgradeExecutor).EXECUTOR_ROLE(), args.rollupOwner)) {
             revert L1AtomicTokenBridgeCreator_RollupOwnershipMisconfig();
         }
 
@@ -259,7 +261,9 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         address feeToken = _getFeeToken(args.inbox);
 
         // store L2 addresses before deployments
+        // slither-disable-next-line uninitialized-local
         L1DeploymentAddresses memory l1Deployment;
+        // slither-disable-next-line uninitialized-local
         L2DeploymentAddresses memory l2Deployment;
 
         // if resend, we use the existing l1 deployment
@@ -292,11 +296,11 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             revert L1AtomicTokenBridgeCreator_ProxyAdminNotFound();
         }
 
-        // Deploy MasterVaultFactory if YBB is enabled (declared outside block to reduce stack depth)
-        address masterVaultFactory;
-
         // if resend, we assume L1 contracts already exist
         if (!isResend) {
+            // slither-disable-next-line uninitialized-local
+            address masterVaultFactory;
+
             if (args.isYieldBearingBridge) {
                 masterVaultFactory = _deployProxyWithSalt(
                     _getL1Salt(OrbitSalts.L1_MASTER_VAULT_FACTORY, args.inbox),
@@ -316,10 +320,8 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             }
 
             if (args.isYieldBearingBridge) {
-                IMasterVaultFactory(masterVaultFactory).initialize(
-                    upgradeExecutor,
-                    IGatewayRouter(l1Deployment.router)
-                );
+                IMasterVaultFactory(masterVaultFactory)
+                    .initialize(upgradeExecutor, IGatewayRouter(l1Deployment.router));
             }
 
             // l1 standard gateway deployment block
@@ -351,7 +353,9 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
 
                     L1ERC20Gateway standardGateway = L1ERC20Gateway(
                         _deployProxyWithSalt(
-                            _getL1Salt(OrbitSalts.L1_STANDARD_GATEWAY, args.inbox), template, proxyAdmin
+                            _getL1Salt(OrbitSalts.L1_STANDARD_GATEWAY, args.inbox),
+                            template,
+                            proxyAdmin
                         )
                     );
 
@@ -397,7 +401,9 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
 
                     L1CustomGateway customGateway = L1CustomGateway(
                         _deployProxyWithSalt(
-                            _getL1Salt(OrbitSalts.L1_CUSTOM_GATEWAY, args.inbox), template, proxyAdmin
+                            _getL1Salt(OrbitSalts.L1_CUSTOM_GATEWAY, args.inbox),
+                            template,
+                            proxyAdmin
                         )
                     );
 
@@ -414,17 +420,19 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             // l1 weth gateway deployment block
             if (feeToken == address(0)) {
                 L1WethGateway wethGateway = L1WethGateway(
-                    payable(
-                        _deployProxyWithSalt(
+                    payable(_deployProxyWithSalt(
                             _getL1Salt(OrbitSalts.L1_WETH_GATEWAY, args.inbox),
                             address(l1Templates.wethGatewayTemplate),
                             proxyAdmin
-                        )
-                    )
+                        ))
                 );
 
                 wethGateway.initialize(
-                    l2Deployment.wethGateway, l1Deployment.router, args.inbox, l1Weth, l2Deployment.weth
+                    l2Deployment.wethGateway,
+                    l1Deployment.router,
+                    args.inbox,
+                    l1Weth,
+                    l2Deployment.weth
                 );
 
                 l1Deployment.wethGateway = address(wethGateway);
@@ -432,17 +440,19 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             }
 
             // init router
-            L1GatewayRouter(l1Deployment.router).initialize(
-                upgradeExecutor,
-                l1Deployment.standardGateway,
-                address(0),
-                l2Deployment.router,
-                args.inbox
-            );
+            L1GatewayRouter(l1Deployment.router)
+                .initialize(
+                    upgradeExecutor,
+                    l1Deployment.standardGateway,
+                    address(0),
+                    l2Deployment.router,
+                    args.inbox
+                );
         }
 
         // deploy factory and then L2 contracts through L2 factory, using 2 retryables calls
         // we do not care if it is a resend or not, if the L2 deployment already exists it will simply fail on L2
+        // slither-disable-next-line out-of-order-retryable
         _deployL2Factory(args.inbox, args.gasPriceBid, feeToken);
 
         RetryableParams memory retryableParams = RetryableParams(
@@ -459,9 +469,8 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             // transfer fee tokens to inbox to pay for 2nd retryable
             retryableParams.feeTokenTotalFeeAmount =
                 _getScaledAmount(feeToken, args.maxGasForContracts * args.gasPriceBid);
-            IERC20(feeToken).safeTransferFrom(
-                msg.sender, args.inbox, retryableParams.feeTokenTotalFeeAmount
-            );
+            IERC20(feeToken)
+                .safeTransferFrom(msg.sender, args.inbox, retryableParams.feeTokenTotalFeeAmount);
         }
 
         L2TemplateAddresses memory l2TemplateAddress = L2TemplateAddresses(
@@ -494,13 +503,19 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         // deployment mappings should not be updated in case of resend
         if (!isResend) {
             emit OrbitTokenBridgeCreated(
-                args.inbox, args.rollupOwner, l1Deployment, l2Deployment, proxyAdmin, upgradeExecutor
+                args.inbox,
+                args.rollupOwner,
+                l1Deployment,
+                l2Deployment,
+                proxyAdmin,
+                upgradeExecutor
             );
             inboxToL1Deployment[args.inbox] = l1Deployment;
             inboxToL2Deployment[args.inbox] = l2Deployment;
         }
     }
 
+    // slither-disable-next-line arbitrary-send-eth
     function _sendRetryableToCreateContracts(
         RetryableParams memory retryableParams,
         L2TemplateAddresses memory l2TemplateAddress,
@@ -548,6 +563,8 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         return inboxToL1Deployment[inbox].router;
     }
 
+    // slither-disable-next-line arbitrary-send-eth
+    // slither-disable-next-line out-of-order-retryable
     function _deployL2Factory(address inbox, uint256 gasPriceBid, address feeToken) internal {
         // encode L2 factory bytecode
         bytes memory deploymentData =
@@ -559,22 +576,25 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             uint256 scaledRetryableFee = _getScaledAmount(feeToken, retryableFee);
             IERC20(feeToken).safeTransferFrom(msg.sender, inbox, scaledRetryableFee);
 
-            IERC20Inbox(inbox).createRetryableTicket(
-                address(0),
-                0,
-                0,
-                msg.sender,
-                msg.sender,
-                gasLimitForL2FactoryDeployment,
-                gasPriceBid,
-                scaledRetryableFee,
-                deploymentData
-            );
+            // slither-disable-next-line unused-return
+            IERC20Inbox(inbox)
+                .createRetryableTicket(
+                    address(0),
+                    0,
+                    0,
+                    msg.sender,
+                    msg.sender,
+                    gasLimitForL2FactoryDeployment,
+                    gasPriceBid,
+                    scaledRetryableFee,
+                    deploymentData
+                );
         } else {
             uint256 maxSubmissionCost =
                 IInbox(inbox).calculateRetryableSubmissionFee(deploymentData.length, 0);
             uint256 retryableFee = maxSubmissionCost + gasLimitForL2FactoryDeployment * gasPriceBid;
 
+            // slither-disable-next-line unused-return,arbitrary-send-eth
             IInbox(inbox).createRetryableTicket{value: retryableFee}(
                 address(0),
                 0,
@@ -705,6 +725,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     /**
      * @notice Scale amount to the fee token's decimals. Ie. amount of 1e18 will be scaled to 1e6 if fee token has 6 decimals like USDC.
      */
+    // slither-disable-next-line divide-before-multiply
     function _getScaledAmount(address feeToken, uint256 amount) internal view returns (uint256) {
         uint8 decimals = ERC20(feeToken).decimals();
         if (decimals == 18) {

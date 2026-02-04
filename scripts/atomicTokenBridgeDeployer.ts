@@ -18,6 +18,9 @@ import {
   L1OrbitERC20Gateway__factory,
   L1OrbitCustomGateway__factory,
   L1OrbitGatewayRouter__factory,
+  L1YbbERC20Gateway__factory,
+  L1YbbCustomGateway__factory,
+  MasterVaultFactory__factory,
   IInbox__factory,
   IERC20Bridge__factory,
   IERC20__factory,
@@ -382,6 +385,18 @@ export const deployL1TokenBridgeCreator = async (
   const upgradeExecutor = await upgradeExecutorFactory.deploy()
   await upgradeExecutor.deployed()
 
+  const ybbStandardGatewayTemplate =
+    await new L1YbbERC20Gateway__factory(l1Deployer).deploy()
+  await ybbStandardGatewayTemplate.deployed()
+
+  const ybbCustomGatewayTemplate =
+    await new L1YbbCustomGateway__factory(l1Deployer).deploy()
+  await ybbCustomGatewayTemplate.deployed()
+
+  const masterVaultFactoryTemplate =
+    await new MasterVaultFactory__factory(l1Deployer).deploy()
+  await masterVaultFactoryTemplate.deployed()
+
   const l1Templates = {
     routerTemplate: routerTemplate.address,
     standardGatewayTemplate: standardGatewayTemplate.address,
@@ -393,6 +408,9 @@ export const deployL1TokenBridgeCreator = async (
     feeTokenBasedCustomGatewayTemplate:
       feeTokenBasedCustomGatewayTemplate.address,
     upgradeExecutor: upgradeExecutor.address,
+    ybbStandardGatewayTemplate: ybbStandardGatewayTemplate.address,
+    ybbCustomGatewayTemplate: ybbCustomGatewayTemplate.address,
+    masterVaultFactoryTemplate: masterVaultFactoryTemplate.address,
   }
 
   /// deploy L2 contracts as placeholders on L1. Initialize them with dummy data
