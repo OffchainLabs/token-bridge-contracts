@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import {MasterVaultRoles} from "./MasterVaultRoles.sol";
 import {
     ERC20Upgradeable
-} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+} from "contracts/tokenbridge/libraries/ERC20Upgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {
     IERC20Upgradeable
