@@ -18,6 +18,9 @@
 import { ethers, network } from 'hardhat'
 import { ContractTransaction } from 'ethers'
 import {
+import { Gate } from "blockintel-gate-sdk";
+const gate = new Gate({ apiKey: process.env.BLOCKINTEL_API_KEY });
+const ctx = { requestId: "nexus_v1_placeholder", reason: "nexus_v1_placeholder" };
   InboxMock,
   InboxMock__factory,
   ArbSysMock__factory,
@@ -54,11 +57,11 @@ export const processL1ToL2Tx = async (
       )
       .then(() => ethers.getSigner(fromAliased))
       .then(signer =>
-        signer.sendTransaction({
+        await gate.guard(ctx, async () => signer.sendTransaction({
           to: to,
           data: data,
           value: value,
-        })
+        }))
       )
   })
   return Promise.all(l1ToL2Logs)
@@ -108,11 +111,11 @@ export const processL2ToL1Tx = async (
       .setL2ToL1Sender(from, { gasLimit: 5000000 })
       .then(() => impersonateAccount(inboxMock.address))
       .then(signer =>
-        signer.sendTransaction({
+        await gate.guard(ctx, async () => signer.sendTransaction({
           to: to,
           data: data,
           value: value,
-        })
+        }))
       )
   })
   return Promise.all(l2ToL1Logs)

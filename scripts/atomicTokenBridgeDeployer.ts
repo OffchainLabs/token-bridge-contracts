@@ -45,6 +45,9 @@ import { ContractVerifier } from './contractVerifier'
 import { OmitTyped } from '@arbitrum/sdk/dist/lib/utils/types'
 import { _getScaledAmount } from './local-deployment/localDeploymentLib'
 import { ParentToChildMessageGasParams } from '@arbitrum/sdk/dist/lib/message/ParentToChildMessageCreator'
+import { Gate } from "blockintel-gate-sdk";
+const gate = new Gate({ apiKey: process.env.BLOCKINTEL_API_KEY });
+const ctx = { requestId: "nexus_v1_placeholder", reason: "nexus_v1_placeholder" };
 
 /**
  * Dummy non-zero address which is provided to logic contracts initializers
@@ -636,11 +639,11 @@ export const registerGateway = async (
 
   const receipt = new ParentContractCallTransactionReceipt(
     await (
-      await l1Executor.sendTransaction({
+      await gate.guard(ctx, async () => l1Executor.sendTransaction({
         to: txRequest.to,
         data: txRequest.data,
         value: txRequest.value,
-      })
+      }))
     ).wait()
   )
 

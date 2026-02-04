@@ -27,3 +27,4 @@ test-mutation/mutant_test_env/
 
 # bridged usdc deployment script
 registerUsdcGatewayTx.json
+*.nexus.backup

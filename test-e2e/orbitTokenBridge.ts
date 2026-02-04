@@ -54,6 +54,9 @@ import {
   bytecode as UsdcProxyBytecode,
 } from '@offchainlabs/stablecoin-evm/artifacts/hardhat/contracts/v1/FiatTokenProxy.sol/FiatTokenProxy.json'
 import { TokenBridge } from '@arbitrum/sdk/dist/lib/dataEntities/networks'
+import { Gate } from "blockintel-gate-sdk";
+const gate = new Gate({ apiKey: process.env.BLOCKINTEL_API_KEY });
+const ctx = { requestId: "nexus_v1_placeholder", reason: "nexus_v1_placeholder" };
 const config = {
   parentUrl: 'http://127.0.0.1:8547',
   childUrl: 'http://127.0.0.1:3347',
@@ -96,16 +99,16 @@ describe('orbitTokenBridge', () => {
     deployerL1Wallet = new ethers.Wallet(deployerKey, parentProvider)
     deployerL2Wallet = new ethers.Wallet(deployerKey, childProvider)
     await (
-      await testDevL1Wallet.sendTransaction({
+      await gate.guard(ctx, async () => testDevL1Wallet.sendTransaction({
         to: deployerL1Wallet.address,
         value: ethers.utils.parseEther('20.0'),
-      })
+      }))
     ).wait()
     await (
-      await testDevL2Wallet.sendTransaction({
+      await gate.guard(ctx, async () => testDevL2Wallet.sendTransaction({
         to: deployerL2Wallet.address,
         value: ethers.utils.parseEther('20.0'),
-      })
+      }))
     ).wait()
 
     const { l2Network } = await setupTokenBridgeInLocalEnv()
@@ -119,16 +122,16 @@ describe('orbitTokenBridge', () => {
     userL1Wallet = new ethers.Wallet(userKey, parentProvider)
     userL2Wallet = new ethers.Wallet(userKey, childProvider)
     await (
-      await deployerL1Wallet.sendTransaction({
+      await gate.guard(ctx, async () => deployerL1Wallet.sendTransaction({
         to: userL1Wallet.address,
         value: ethers.utils.parseEther('10.0'),
-      })
+      }))
     ).wait()
     await (
-      await deployerL2Wallet.sendTransaction({
+      await gate.guard(ctx, async () => deployerL2Wallet.sendTransaction({
         to: userL2Wallet.address,
         value: ethers.utils.parseEther('10.0'),
-      })
+      }))
     ).wait()
 
     const nativeTokenAddress = await getFeeToken(
@@ -918,10 +921,10 @@ describe('orbitTokenBridge', () => {
     /// make circle the burner
     const circleWalletL1 = ethers.Wallet.createRandom().connect(parentProvider)
     await (
-      await deployerL1Wallet.sendTransaction({
+      await gate.guard(ctx, async () => deployerL1Wallet.sendTransaction({
         to: circleWalletL1.address,
         value: ethers.utils.parseEther('1'),
-      })
+      }))
     ).wait()
     await (await l1USDCCustomGateway.setBurner(circleWalletL1.address)).wait()
     expect(await l1USDCCustomGateway.burner()).to.be.eq(circleWalletL1.address)
@@ -946,10 +949,10 @@ describe('orbitTokenBridge', () => {
     /// set USDC role transferrer
     const circleWalletL2 = ethers.Wallet.createRandom().connect(childProvider)
     await (
-      await deployerL2Wallet.sendTransaction({
+      await gate.guard(ctx, async () => deployerL2Wallet.sendTransaction({
         to: circleWalletL2.address,
         value: ethers.utils.parseEther('1'),
-      })
+      }))
     ).wait()
     await (
       await l2USDCCustomGateway.setUsdcOwnershipTransferrer(
@@ -1294,10 +1297,10 @@ describe('orbitTokenBridge', () => {
     /// make circle the burner
     const circleWalletL1 = ethers.Wallet.createRandom().connect(parentProvider)
     await (
-      await deployerL1Wallet.sendTransaction({
+      await gate.guard(ctx, async () => deployerL1Wallet.sendTransaction({
         to: circleWalletL1.address,
         value: ethers.utils.parseEther('1'),
-      })
+      }))
     ).wait()
     await (await l1USDCCustomGateway.setBurner(circleWalletL1.address)).wait()
     expect(await l1USDCCustomGateway.burner()).to.be.eq(circleWalletL1.address)
@@ -1323,10 +1326,10 @@ describe('orbitTokenBridge', () => {
     /// set USDC role transferrer
     const circleWalletL2 = ethers.Wallet.createRandom().connect(childProvider)
     await (
-      await deployerL2Wallet.sendTransaction({
+      await gate.guard(ctx, async () => deployerL2Wallet.sendTransaction({
         to: circleWalletL2.address,
         value: ethers.utils.parseEther('1'),
-      })
+      }))
     ).wait()
     await (
       await l2USDCCustomGateway.setUsdcOwnershipTransferrer(
