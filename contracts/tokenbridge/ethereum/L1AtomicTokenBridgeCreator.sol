@@ -21,9 +21,8 @@ import {L1OrbitERC20Gateway} from "./gateway/L1OrbitERC20Gateway.sol";
 import {L1OrbitCustomGateway} from "./gateway/L1OrbitCustomGateway.sol";
 import {L1YbbERC20Gateway} from "./gateway/L1YbbERC20Gateway.sol";
 import {L1YbbCustomGateway} from "./gateway/L1YbbCustomGateway.sol";
-import {IMasterVaultFactory} from "../libraries/vault/IMasterVaultFactory.sol";
 import {MasterVaultFactory} from "../libraries/vault/MasterVaultFactory.sol";
-import {IGatewayRouter} from "../libraries/gateway/IGatewayRouter.sol";
+import {L1YbbBridgeDeployer} from "./L1YbbBridgeDeployer.sol";
 import {
     L2AtomicTokenBridgeFactory,
     OrbitSalts,
@@ -298,17 +297,6 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
 
         // if resend, we assume L1 contracts already exist
         if (!isResend) {
-            // slither-disable-next-line uninitialized-local
-            address masterVaultFactory;
-
-            if (args.isYieldBearingBridge) {
-                masterVaultFactory = _deployProxyWithSalt(
-                    _getL1Salt(OrbitSalts.L1_MASTER_VAULT_FACTORY, args.inbox),
-                    address(l1Templates.masterVaultFactoryTemplate),
-                    proxyAdmin
-                );
-            }
-
             // l1 router deployment block
             {
                 address routerTemplate = feeToken != address(0)
@@ -320,33 +308,40 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             }
 
             if (args.isYieldBearingBridge) {
-                IMasterVaultFactory(masterVaultFactory)
-                    .initialize(upgradeExecutor, IGatewayRouter(l1Deployment.router));
-            }
-
-            // l1 standard gateway deployment block
-            {
-                address standardGatewayAddr;
-                if (args.isYieldBearingBridge) {
-                    L1YbbERC20Gateway ybbStandardGateway = L1YbbERC20Gateway(
-                        _deployProxyWithSalt(
-                            _getL1Salt(OrbitSalts.L1_STANDARD_GATEWAY, args.inbox),
-                            address(l1Templates.ybbStandardGatewayTemplate),
-                            proxyAdmin
-                        )
+                // Delegate YBB deployment to library
+                L1YbbBridgeDeployer.YbbDeploymentResult memory ybbResult =
+                    L1YbbBridgeDeployer.deployYbbComponents(
+                        L1YbbBridgeDeployer.YbbDeploymentParams({
+                            inbox: args.inbox,
+                            proxyAdmin: proxyAdmin,
+                            upgradeExecutor: upgradeExecutor,
+                            router: l1Deployment.router,
+                            l2StandardGateway: l2Deployment.standardGateway,
+                            l2CustomGateway: l2Deployment.customGateway,
+                            l2BeaconProxyFactory: l2Deployment.beaconProxyFactory
+                        }),
+                        L1YbbBridgeDeployer.YbbTemplates({
+                            ybbStandardGatewayTemplate: address(l1Templates.ybbStandardGatewayTemplate),
+                            ybbCustomGatewayTemplate: address(l1Templates.ybbCustomGatewayTemplate),
+                            masterVaultFactoryTemplate: address(l1Templates.masterVaultFactoryTemplate)
+                        }),
+                        _getL1Salt(OrbitSalts.L1_MASTER_VAULT_FACTORY, args.inbox),
+                        _getL1Salt(OrbitSalts.L1_STANDARD_GATEWAY, args.inbox),
+                        _getL1Salt(OrbitSalts.L1_CUSTOM_GATEWAY, args.inbox)
                     );
 
-                    ybbStandardGateway.initialize(
-                        l2Deployment.standardGateway,
-                        l1Deployment.router,
-                        args.inbox,
-                        keccak256(type(ClonableBeaconProxy).creationCode),
-                        l2Deployment.beaconProxyFactory,
-                        masterVaultFactory
-                    );
+                // Initialize MasterVaultFactory after router is deployed
+                L1YbbBridgeDeployer.initializeMasterVaultFactory(
+                    ybbResult.masterVaultFactory,
+                    upgradeExecutor,
+                    l1Deployment.router
+                );
 
-                    standardGatewayAddr = address(ybbStandardGateway);
-                } else {
+                l1Deployment.standardGateway = ybbResult.standardGateway;
+                l1Deployment.customGateway = ybbResult.customGateway;
+            } else {
+                // l1 standard gateway deployment block
+                {
                     address template = feeToken != address(0)
                         ? address(l1Templates.feeTokenBasedStandardGatewayTemplate)
                         : address(l1Templates.standardGatewayTemplate);
@@ -367,34 +362,11 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                         l2Deployment.beaconProxyFactory
                     );
 
-                    standardGatewayAddr = address(standardGateway);
+                    l1Deployment.standardGateway = address(standardGateway);
                 }
 
-                l1Deployment.standardGateway = standardGatewayAddr;
-            }
-
-            // l1 custom gateway deployment block
-            {
-                address customGatewayAddr;
-                if (args.isYieldBearingBridge) {
-                    L1YbbCustomGateway ybbCustomGateway = L1YbbCustomGateway(
-                        _deployProxyWithSalt(
-                            _getL1Salt(OrbitSalts.L1_CUSTOM_GATEWAY, args.inbox),
-                            address(l1Templates.ybbCustomGatewayTemplate),
-                            proxyAdmin
-                        )
-                    );
-
-                    ybbCustomGateway.initialize(
-                        l2Deployment.customGateway,
-                        l1Deployment.router,
-                        args.inbox,
-                        upgradeExecutor,
-                        masterVaultFactory
-                    );
-
-                    customGatewayAddr = address(ybbCustomGateway);
-                } else {
+                // l1 custom gateway deployment block
+                {
                     address template = feeToken != address(0)
                         ? address(l1Templates.feeTokenBasedCustomGatewayTemplate)
                         : address(l1Templates.customGatewayTemplate);
@@ -411,10 +383,8 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                         l2Deployment.customGateway, l1Deployment.router, args.inbox, upgradeExecutor
                     );
 
-                    customGatewayAddr = address(customGateway);
+                    l1Deployment.customGateway = address(customGateway);
                 }
-
-                l1Deployment.customGateway = customGatewayAddr;
             }
 
             // l1 weth gateway deployment block
