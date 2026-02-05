@@ -7,17 +7,28 @@ import "forge-std/Test.sol";
 import "../contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol";
 import "../contracts/tokenbridge/arbitrum/L2AtomicTokenBridgeFactory.sol";
 import "../contracts/tokenbridge/libraries/AddressAliasHelper.sol";
+import {L1ERC20Gateway} from "../contracts/tokenbridge/ethereum/gateway/L1ERC20Gateway.sol";
+import {L1CustomGateway} from "../contracts/tokenbridge/ethereum/gateway/L1CustomGateway.sol";
+import {L1WethGateway} from "../contracts/tokenbridge/ethereum/gateway/L1WethGateway.sol";
+import {
+    L1OrbitERC20Gateway
+} from "../contracts/tokenbridge/ethereum/gateway/L1OrbitERC20Gateway.sol";
+import {
+    L1OrbitCustomGateway
+} from "../contracts/tokenbridge/ethereum/gateway/L1OrbitCustomGateway.sol";
 import {L1YbbERC20Gateway} from "../contracts/tokenbridge/ethereum/gateway/L1YbbERC20Gateway.sol";
 import {L1YbbCustomGateway} from "../contracts/tokenbridge/ethereum/gateway/L1YbbCustomGateway.sol";
 import {MasterVaultFactory} from "../contracts/tokenbridge/libraries/vault/MasterVaultFactory.sol";
 
-import {L1TokenBridgeRetryableSender} from
-    "../contracts/tokenbridge/ethereum/L1TokenBridgeRetryableSender.sol";
+import {
+    L1TokenBridgeRetryableSender
+} from "../contracts/tokenbridge/ethereum/L1TokenBridgeRetryableSender.sol";
 import {TestWETH9} from "../contracts/tokenbridge/test/TestWETH9.sol";
 import {Multicall2} from "../contracts/rpc-utils/MulticallV2.sol";
 
-import {TransparentUpgradeableProxy} from
-    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {
+    TransparentUpgradeableProxy
+} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 // // Check that the rollupOwner account has EXECUTOR role
 // // on the upgrade executor which is the owner of the rollup
@@ -135,16 +146,16 @@ contract AtomicTokenBridgeCreatorTest is Test {
     function setUp() public {
         l1Templates = L1AtomicTokenBridgeCreator.L1Templates(
             L1GatewayRouter(address(new L1GatewayRouter())),
-            L1ERC20Gateway(address(new L1ERC20Gateway())),
-            L1CustomGateway(address(new L1CustomGateway())),
-            L1WethGateway(payable(new L1WethGateway())),
+            address(new L1ERC20Gateway()),
+            address(new L1CustomGateway()),
+            address(new L1WethGateway()),
             L1OrbitGatewayRouter(address(new L1OrbitGatewayRouter())),
-            L1OrbitERC20Gateway(address(new L1OrbitERC20Gateway())),
-            L1OrbitCustomGateway(address(new L1OrbitCustomGateway())),
+            address(new L1OrbitERC20Gateway()),
+            address(new L1OrbitCustomGateway()),
             IUpgradeExecutor(address(new UpgradeExecutor())),
-            L1YbbERC20Gateway(address(new L1YbbERC20Gateway())),
-            L1YbbCustomGateway(address(new L1YbbCustomGateway())),
-            MasterVaultFactory(address(new MasterVaultFactory()))
+            address(new L1YbbERC20Gateway()),
+            address(new L1YbbCustomGateway()),
+            address(new MasterVaultFactory())
         );
         l2TokenBridgeFactoryTemplate = address(new L2AtomicTokenBridgeFactory());
         l2RouterTemplate = address(new L2GatewayRouter());
@@ -194,10 +205,7 @@ contract AtomicTokenBridgeCreatorTest is Test {
         // Mode 2 simulate this case where the deployment fails and the call is executed first
         MockInbox inbox = new MockInbox(2);
         factory.createTokenBridge({
-            inbox: address(inbox),
-            rollupOwner: address(this),
-            maxGasForContracts: 0,
-            gasPriceBid: 0
+            inbox: address(inbox), rollupOwner: address(this), maxGasForContracts: 0, gasPriceBid: 0
         });
 
         // L2 Factory is not deployed in this case
@@ -211,10 +219,7 @@ contract AtomicTokenBridgeCreatorTest is Test {
 
     function _testDeployment(address inbox) internal {
         factory.createTokenBridge({
-            inbox: address(inbox),
-            rollupOwner: address(this),
-            maxGasForContracts: 0,
-            gasPriceBid: 0
+            inbox: address(inbox), rollupOwner: address(this), maxGasForContracts: 0, gasPriceBid: 0
         });
         {
             address l2factory = factory.canonicalL2FactoryAddress();
