@@ -34,6 +34,10 @@ import {
   abi as UpgradeExecutorABI,
   bytecode as UpgradeExecutorBytecode,
 } from '@offchainlabs/upgrade-executor/build/contracts/src/UpgradeExecutor.sol/UpgradeExecutor.json'
+import {
+  abi as L1GatewayDeployerABI,
+  bytecode as L1GatewayDeployerBytecode,
+} from '../build/contracts/contracts/tokenbridge/ethereum/L1GatewayDeployer.sol/L1GatewayDeployer.json'
 import { JsonRpcProvider } from '@ethersproject/providers'
 import {
   ParentToChildMessageGasEstimator,
@@ -241,8 +245,21 @@ export const deployL1TokenBridgeCreator = async (
   ).deploy()
   await l1TokenBridgeCreatorProxyAdmin.deployed()
 
+  const l1GatewayDeployerLib = await new ethers.ContractFactory(
+    L1GatewayDeployerABI,
+    L1GatewayDeployerBytecode,
+    l1Deployer
+  ).deploy()
+  await l1GatewayDeployerLib.deployed()
+
   const l1TokenBridgeCreatorLogic =
-    await new L1AtomicTokenBridgeCreator__factory(l1Deployer).deploy()
+    await new L1AtomicTokenBridgeCreator__factory(
+      {
+        'contracts/tokenbridge/ethereum/L1GatewayDeployer.sol:L1GatewayDeployer':
+          l1GatewayDeployerLib.address,
+      },
+      l1Deployer
+    ).deploy()
   await l1TokenBridgeCreatorLogic.deployed()
 
   const l1TokenBridgeCreatorProxy =

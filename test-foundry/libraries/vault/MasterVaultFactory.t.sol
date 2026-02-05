@@ -5,6 +5,10 @@ import {Test} from "forge-std/Test.sol";
 import {
     MasterVaultFactory
 } from "../../../contracts/tokenbridge/libraries/vault/MasterVaultFactory.sol";
+import {BeaconProxyFactory} from "../../../contracts/tokenbridge/libraries/ClonableBeaconProxy.sol";
+import {
+    MasterVaultRoles
+} from "../../../contracts/tokenbridge/libraries/vault/MasterVaultRoles.sol";
 import {MasterVault} from "../../../contracts/tokenbridge/libraries/vault/MasterVault.sol";
 import {TestERC20} from "../../../contracts/tokenbridge/test/TestERC20.sol";
 import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
@@ -33,8 +37,19 @@ contract MasterVaultFactoryTest is Test {
         token = new TestERC20();
         factory = new MasterVaultFactory();
 
+        MasterVaultRoles rolesRegistry = new MasterVaultRoles();
+        rolesRegistry.initialize(owner);
+
+        MasterVault masterVaultImplementation = new MasterVault();
+        UpgradeableBeacon beacon = new UpgradeableBeacon(address(masterVaultImplementation));
+        BeaconProxyFactory beaconProxyFactory = new BeaconProxyFactory();
+        beaconProxyFactory.initialize(address(beacon));
+        beacon.transferOwnership(owner);
+
         vm.prank(owner);
-        factory.initialize(owner, IGatewayRouter(address(0)));
+        factory.initialize(
+            address(rolesRegistry), address(beaconProxyFactory), IGatewayRouter(address(0))
+        );
     }
 
     function test_initialize() public {

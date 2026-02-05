@@ -151,8 +151,9 @@ library L1GatewayDeployer {
         bytes32 standardGatewaySalt,
         bytes32 customGatewaySalt
     ) external returns (YbbDeploymentResult memory result) {
-        result.masterVaultFactory =
-            _deployProxy(masterVaultSalt, templates.masterVaultFactoryTemplate, params.proxyAdmin);
+        result.masterVaultFactory = _deployProxy(
+            masterVaultSalt, templates.masterVaultFactoryTemplate, params.proxyAdmin
+        );
 
         result.standardGateway = _deployProxy(
             standardGatewaySalt, templates.ybbStandardGatewayTemplate, params.proxyAdmin
@@ -185,10 +186,12 @@ library L1GatewayDeployer {
 
     function initializeMasterVaultFactory(
         address masterVaultFactory,
-        address upgradeExecutor,
+        address rolesRegistry,
+        address beaconProxyFactory,
         address router
     ) external {
-        IMasterVaultFactory(masterVaultFactory).initialize(upgradeExecutor, IGatewayRouter(router));
+        IMasterVaultFactory(masterVaultFactory)
+            .initialize(rolesRegistry, beaconProxyFactory, IGatewayRouter(router));
     }
 
     // ============ Internal ============

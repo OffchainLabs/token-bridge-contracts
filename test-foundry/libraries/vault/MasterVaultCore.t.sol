@@ -13,6 +13,9 @@ import {
     BeaconProxyFactory,
     ClonableBeaconProxy
 } from "../../../contracts/tokenbridge/libraries/ClonableBeaconProxy.sol";
+import {
+    MasterVaultRoles
+} from "../../../contracts/tokenbridge/libraries/vault/MasterVaultRoles.sol";
 import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
 import {console2} from "forge-std/console2.sol";
 import {IGatewayRouter} from "../../../contracts/tokenbridge/libraries/gateway/IGatewayRouter.sol";
@@ -57,7 +60,20 @@ contract MasterVaultCoreTest is Test {
     function setUp() public virtual {
         factory = new MasterVaultFactory();
         MockGatewayRouter mockGatewayRouter = new MockGatewayRouter(user);
-        factory.initialize(address(this), IGatewayRouter(address(mockGatewayRouter)));
+
+        MasterVaultRoles rolesRegistry = new MasterVaultRoles();
+        rolesRegistry.initialize(address(this));
+        MasterVault masterVaultImplementation = new MasterVault();
+        UpgradeableBeacon beacon = new UpgradeableBeacon(address(masterVaultImplementation));
+        BeaconProxyFactory beaconProxyFactory = new BeaconProxyFactory();
+        beaconProxyFactory.initialize(address(beacon));
+        beacon.transferOwnership(address(this));
+
+        factory.initialize(
+            address(rolesRegistry),
+            address(beaconProxyFactory),
+            IGatewayRouter(address(mockGatewayRouter))
+        );
         token = new TestERC20();
         vault = MasterVault(factory.deployVault(address(token)));
     }
