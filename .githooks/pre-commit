@@ -1,0 +1,190 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Run local CI script before commit.
+# Set SKIP_LOCAL_CI=1 to bypass.
+
+if [[ "${SKIP_LOCAL_CI:-0}" == "1" ]]; then
+  echo "SKIP_LOCAL_CI=1 set; skipping local CI pre-commit hook."
+  exit 0
+fi
+
+# Enable heavier checks by default.
+export RUN_FOUNDRY=1
+export RUN_UNUSED_ERRORS=1
+
+# Repo root (works even when git hooks are invoked from subdirs)
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
+run_e2e() {
+  local testnode_dir="${NITRO_TESTNODE_DIR:-"$ROOT/../nitro-testnode"}"
+  local mode="${RUN_E2E_MODE:-basic}" # basic | fee | fee6 | all
+  local force_init="${RUN_E2E_FORCE_INIT:-0}" # 1 to wipe & re-init
+  local keep_testnode="${KEEP_TESTNODE:-0}"
+  local skip_build="${RUN_E2E_SKIP_BUILD:-0}"
+  local wait_secs="${E2E_RPC_WAIT_SECS:-180}"
+
+  if [[ ! -x "$testnode_dir/test-node.bash" ]]; then
+    echo "nitro-testnode not found at: $testnode_dir"
+    echo "Set NITRO_TESTNODE_DIR to your nitro-testnode checkout."
+    return 1
+  fi
+
+  if ! command -v docker >/dev/null 2>&1; then
+    echo "docker not found in PATH; cannot run e2e."
+    return 1
+  fi
+  if ! docker info >/dev/null 2>&1; then
+    echo "docker is not running; start docker and retry."
+    return 1
+  fi
+
+  rpc_ok() {
+    local url="$1"
+    curl -sS -m 2 -H 'content-type: application/json' \
+      --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}' \
+      "$url" | grep -q '"result"'
+  }
+
+  wait_rpc() {
+    local url="$1"
+    local label="$2"
+    local i
+    echo "Waiting for $label RPC at $url (timeout ${wait_secs}s)..."
+    for ((i = 0; i < wait_secs; i++)); do
+      if rpc_ok "$url"; then
+        echo "$label RPC is up."
+        return 0
+      fi
+      sleep 1
+    done
+    echo "Timed out waiting for $label RPC: $url"
+    return 1
+  }
+
+  stop_node() {
+    (cd "$testnode_dir" && docker compose down)
+  }
+
+  run_bridge_e2e() {
+    echo "== Bridge e2e steps =="
+    (cd "$ROOT" && yarn deploy:local:token-bridge)
+    (cd "$ROOT" && yarn test:tokenbridge:deployment)
+    (cd "$ROOT" && yarn test:creation-code)
+    (cd "$ROOT" && yarn hardhat test test-e2e/orbitTokenBridge.ts)
+  }
+
+  run_suite() {
+    local label="$1"
+    shift
+    local args=("$@")
+
+    echo "== Starting nitro-testnode ($label) =="
+
+    # --detach triggers "docker compose up --wait" inside test-node.bash
+    if [[ "$force_init" == "1" ]]; then
+      (cd "$testnode_dir" && ./test-node.bash --init-force --detach "${args[@]}")
+    else
+      (cd "$testnode_dir" && ./test-node.bash --detach "${args[@]}")
+    fi
+
+    # Ensure RPC endpoints respond before running deployment scripts.
+    wait_rpc "http://127.0.0.1:8547" "L2 (sequencer)"
+    wait_rpc "http://127.0.0.1:3347" "L3 (l3node)"
+
+    run_bridge_e2e
+
+    if [[ "$keep_testnode" != "1" ]]; then
+      stop_node
+    fi
+  }
+
+  if [[ "$skip_build" != "1" ]]; then
+    echo "== Build contracts =="
+    (cd "$ROOT" && yarn build)
+  fi
+
+  case "$mode" in
+    basic)
+      run_suite "basic" --l3node --no-tokenbridge
+      ;;
+    fee)
+      run_suite "fee-token" --l3node --l3-fee-token --no-tokenbridge
+      ;;
+    fee6)
+      run_suite "fee-token-6dec" \
+        --l3node \
+        --l3-fee-token \
+        --l3-fee-token-decimals 6 \
+        --no-tokenbridge
+      ;;
+    all)
+      run_suite "basic" --l3node --no-tokenbridge
+      run_suite "fee-token" --l3node --l3-fee-token --no-tokenbridge
+      run_suite "fee-token-6dec" \
+        --l3node \
+        --l3-fee-token \
+        --l3-fee-token-decimals 6 \
+        --no-tokenbridge
+      ;;
+    *)
+      echo "Unknown RUN_E2E_MODE: $mode (expected basic|fee|fee6|all)"
+      return 1
+      ;;
+  esac
+}
+
+e2e_pid=""
+e2e_log=""
+e2e_status=0
+
+if [[ "${RUN_E2E:-0}" == "1" ]]; then
+  e2e_log="${E2E_LOG_PATH:-/tmp/bridge-precommit-e2e.log}"
+  echo "RUN_E2E=1 set; starting local e2e in background."
+  echo "E2E log: $e2e_log"
+  (run_e2e) >"$e2e_log" 2>&1 &
+  e2e_pid=$!
+else
+  echo "RUN_E2E=1 not set; skipping local e2e checks."
+fi
+
+ci_status=0
+set +e
+"$ROOT/scripts/ci-local.sh"
+ci_status=$?
+set -e
+
+if [[ -n "$e2e_pid" ]]; then
+  if [[ "$ci_status" -ne 0 ]]; then
+    echo "Local CI failed; stopping e2e run."
+    kill "$e2e_pid" 2>/dev/null || true
+    wait "$e2e_pid" 2>/dev/null || true
+  else
+    echo "Waiting for e2e checks to finish..."
+    if ! wait "$e2e_pid"; then
+      echo "E2E failed. Log: $e2e_log"
+      tail -n 200 "$e2e_log" || true
+      e2e_status=1
+    fi
+  fi
+fi
+
+echo "== Summary =="
+if [[ "$ci_status" -eq 0 ]]; then
+  echo "✔ Local CI"
+else
+  echo "✖ Local CI"
+fi
+if [[ "${RUN_E2E:-0}" == "1" ]]; then
+  if [[ "$e2e_status" -eq 0 ]]; then
+    echo "✔ E2E"
+  else
+    echo "✖ E2E"
+  fi
+else
+  echo "↷ E2E (skipped)"
+fi
+
+if [[ "$ci_status" -ne 0 || "$e2e_status" -ne 0 ]]; then
+  exit 1
+fi
