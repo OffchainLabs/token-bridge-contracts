@@ -17,6 +17,7 @@ import {ITokenGateway} from "contracts/tokenbridge/libraries/gateway/ITokenGatew
 import {TestERC20} from "contracts/tokenbridge/test/TestERC20.sol";
 import {InboxMock} from "contracts/tokenbridge/test/InboxMock.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {GatewayMessageHandler} from "contracts/tokenbridge/libraries/gateway/GatewayMessageHandler.sol";
 
 contract L1YbbERC20GatewayTest is Test {
     L1YbbERC20Gateway public gateway;
@@ -122,5 +123,43 @@ contract L1YbbERC20GatewayTest is Test {
             deadShares + expectedShares,
             "Vault totalSupply should be deadShares + userShares"
         );
+    }
+
+    function test_getOutboundCalldata_reportsVaultDecimals() public {
+        vm.prank(user);
+        token.approve(address(gateway), DEPOSIT_AMOUNT);
+
+        bytes memory userData = abi.encode(maxSubmissionCost, "");
+        uint256 retryableCost = maxSubmissionCost + maxGas * gasPriceBid;
+        vm.deal(user, retryableCost);
+
+        vm.prank(user);
+        router.outboundTransferCustomRefund{value: retryableCost}(
+            address(token), user, l2Dest, DEPOSIT_AMOUNT, maxGas, gasPriceBid, userData
+        );
+
+        uint8 vaultDecimals = token.decimals() + uint8(EXTRA_DECIMALS);
+
+        bytes memory outboundCalldata = gateway.getOutboundCalldata(
+            address(token), user, l2Dest, DEPOSIT_AMOUNT, abi.encode("test")
+        );
+
+        bytes memory expectedCalldata = abi.encodeWithSelector(
+            ITokenGateway.finalizeInboundTransfer.selector,
+            address(token),
+            user,
+            l2Dest,
+            DEPOSIT_AMOUNT,
+            abi.encode(
+                abi.encode(
+                    abi.encode("IntArbTestToken"),
+                    abi.encode("IARB"),
+                    abi.encode(vaultDecimals)
+                ),
+                abi.encode("test")
+            )
+        );
+
+        assertEq(outboundCalldata, expectedCalldata, "Should encode vault decimals in calldata");
     }
 }
