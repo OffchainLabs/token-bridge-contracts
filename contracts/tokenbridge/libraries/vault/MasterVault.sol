@@ -184,6 +184,7 @@ contract MasterVault is
     event Rebalanced(bool deposited, uint256 desiredAmount, uint256 actualAmount);
     event SubVaultWhitelistUpdated(address indexed subVault, bool whitelisted);
     event RebalanceCooldownUpdated(uint256 oldCooldown, uint256 newCooldown);
+    event TargetAllocationUpdated(uint256 oldAllocation, uint256 newAllocation);
 
     function initialize(
         IERC4626 _subVault,
@@ -407,7 +408,9 @@ contract MasterVault is
     {
         require(_targetAllocationWad <= 1e18, "Target allocation must be <= 100%");
         require(targetAllocationWad != _targetAllocationWad, "Allocation unchanged");
+        uint256 oldAllocation = targetAllocationWad;
         targetAllocationWad = _targetAllocationWad;
+        emit TargetAllocationUpdated(oldAllocation, _targetAllocationWad);
     }
 
     /// @notice Set the minimum amount of assets that must be deposited/withdrawn when rebalancing
