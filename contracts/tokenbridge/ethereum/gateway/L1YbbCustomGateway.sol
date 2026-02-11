@@ -50,6 +50,7 @@ contract L1YbbCustomGateway is L1CustomGateway {
         address masterVault = IMasterVaultFactory(masterVaultFactory).getVault(_l1Token);
         IERC20(_l1Token).safeApprove(masterVault, amountReceived);
         amountReceived = IMasterVault(masterVault).deposit(amountReceived);
+        require(amountReceived > 0, "ZERO_SHARES");
     }
 
     function _setMasterVaultFactory(address _masterVaultFactory) internal {

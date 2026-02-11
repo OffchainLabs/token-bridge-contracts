@@ -136,6 +136,21 @@ contract L1YbbERC20GatewayTest is Test {
         assertTrue(vault.hasRole(vault.GENERAL_MANAGER_ROLE(), manager));
     }
 
+    function test_outboundTransfer_revertsOnZeroShares() public {
+        vm.prank(user);
+        token.approve(address(gateway), 0);
+
+        bytes memory userData = abi.encode(maxSubmissionCost, "");
+        uint256 retryableCost = maxSubmissionCost + maxGas * gasPriceBid;
+        vm.deal(user, retryableCost);
+
+        vm.prank(user);
+        vm.expectRevert("ZERO_SHARES");
+        router.outboundTransferCustomRefund{value: retryableCost}(
+            address(token), user, l2Dest, 0, maxGas, gasPriceBid, userData
+        );
+    }
+
     function _depositToCreateVault() internal {
         vm.prank(user);
         token.approve(address(gateway), DEPOSIT_AMOUNT);

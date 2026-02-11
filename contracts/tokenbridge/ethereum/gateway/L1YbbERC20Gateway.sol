@@ -55,6 +55,7 @@ contract L1YbbERC20Gateway is L1ERC20Gateway {
         address masterVault = IMasterVaultFactory(masterVaultFactory).getVault(_l1Token);
         IERC20(_l1Token).safeApprove(masterVault, amountReceived);
         amountReceived = IMasterVault(masterVault).deposit(amountReceived);
+        require(amountReceived > 0, "ZERO_SHARES");
     }
 
     function getOutboundCalldata(
