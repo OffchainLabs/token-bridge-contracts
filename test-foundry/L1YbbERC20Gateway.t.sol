@@ -17,7 +17,9 @@ import {ITokenGateway} from "contracts/tokenbridge/libraries/gateway/ITokenGatew
 import {TestERC20} from "contracts/tokenbridge/test/TestERC20.sol";
 import {InboxMock} from "contracts/tokenbridge/test/InboxMock.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {GatewayMessageHandler} from "contracts/tokenbridge/libraries/gateway/GatewayMessageHandler.sol";
+import {
+    GatewayMessageHandler
+} from "contracts/tokenbridge/libraries/gateway/GatewayMessageHandler.sol";
 
 contract L1YbbERC20GatewayTest is Test {
     L1YbbERC20Gateway public gateway;
@@ -125,6 +127,32 @@ contract L1YbbERC20GatewayTest is Test {
         );
     }
 
+    function test_vault_registryAdminCanGrantLocalRoles() public {
+        _depositToCreateVault();
+        MasterVault vault = MasterVault(factory.calculateVaultAddress(address(token)));
+
+        address manager = makeAddr("manager");
+        vault.grantRole(vault.GENERAL_MANAGER_ROLE(), manager);
+        assertTrue(vault.hasRole(vault.GENERAL_MANAGER_ROLE(), manager));
+    }
+
+    function _depositToCreateVault() internal {
+        vm.prank(user);
+        token.approve(address(gateway), DEPOSIT_AMOUNT);
+        uint256 retryableCost = maxSubmissionCost + maxGas * gasPriceBid;
+        vm.deal(user, retryableCost);
+        vm.prank(user);
+        router.outboundTransferCustomRefund{value: retryableCost}(
+            address(token),
+            user,
+            l2Dest,
+            DEPOSIT_AMOUNT,
+            maxGas,
+            gasPriceBid,
+            abi.encode(maxSubmissionCost, "")
+        );
+    }
+
     function test_getOutboundCalldata_reportsVaultDecimals() public {
         vm.prank(user);
         token.approve(address(gateway), DEPOSIT_AMOUNT);
@@ -152,9 +180,7 @@ contract L1YbbERC20GatewayTest is Test {
             DEPOSIT_AMOUNT,
             abi.encode(
                 abi.encode(
-                    abi.encode("IntArbTestToken"),
-                    abi.encode("IARB"),
-                    abi.encode(vaultDecimals)
+                    abi.encode("IntArbTestToken"), abi.encode("IARB"), abi.encode(vaultDecimals)
                 ),
                 abi.encode("test")
             )
