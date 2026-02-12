@@ -295,8 +295,8 @@ contract MasterVault is
             revert RebalanceCooldownNotMet(timeSinceLastRebalance, rebalanceCooldown);
         }
 
-        uint256 totalAssetsUp = _totalAssetsLessProfit(MathUpgradeable.Rounding.Up);
-        uint256 totalAssetsDown = _totalAssetsLessProfit(MathUpgradeable.Rounding.Down);
+        uint256 totalAssetsUp = _totalAssets(MathUpgradeable.Rounding.Up);
+        uint256 totalAssetsDown = _totalAssets(MathUpgradeable.Rounding.Down);
         uint256 idleTargetUp =
             totalAssetsUp.mulDiv(1e18 - targetAllocationWad, 1e18, MathUpgradeable.Rounding.Up);
         uint256 idleTargetDown =
