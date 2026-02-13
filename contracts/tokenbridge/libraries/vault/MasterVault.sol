@@ -2,13 +2,8 @@
 pragma solidity ^0.8.0;
 
 import {MasterVaultRoles} from "./MasterVaultRoles.sol";
-import {
-    ERC20Upgradeable
-} from "contracts/tokenbridge/libraries/ERC20Upgradeable.sol";
+import {ERC20Upgradeable} from "contracts/tokenbridge/libraries/ERC20Upgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {
-    IERC20Upgradeable
-} from "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import {
     AccessControlUpgradeable,
@@ -17,7 +12,6 @@ import {
 import {
     PausableUpgradeable
 } from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
-import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {MathUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -30,9 +24,9 @@ import {IMasterVault} from "./IMasterVault.sol";
 
 /// @notice MasterVault is a metavault that deposits assets to an admin defined ERC4626 compliant subVault.
 /// @dev    The MasterVault keeps some fraction of assets idle and deposits the rest into the subVault to earn yield.
-///         A 100% performance fee can be enabled/disabled by the vault manager, and are collected on demand.
-///         The MasterVault mitigates the "first depositor" problem by adding 18 decimals to the underlying asset.
-///         i.e. if the underlying asset has 6 decimals, the MasterVault will have 24 decimals.
+///         A 100% performance fee is always enabled and collected on demand.
+///         The MasterVault mitigates the "first depositor" problem by adding EXTRA_DECIMALS (6) to the underlying asset.
+///         i.e. if the underlying asset has 6 decimals, the MasterVault will have 12 decimals.
 ///
 ///         For a subVault to be compatible with the MasterVault, it must adhere to the following:
 ///         - must be fully ERC4626 compliant
@@ -60,7 +54,7 @@ contract MasterVault is
     /// @notice Extra decimals added to the ERC20 decimals of the underlying asset to determine the decimals of the MasterVault
     /// @dev    This is done to mitigate the "first depositor" problem described in the OpenZeppelin ERC4626 documentation.
     ///         See https://docs.openzeppelin.com/contracts/5.x/erc4626 for more details on the mitigation.
-    ///         Should be << 18 to maintain precision in profit calculations. (see principalPriceWad)
+    ///         Should be << 18 to maintain precision in profit calculations.
     ///         Should be > 0 to meaningfully mitigate the first depositor problem.
     uint8 public constant EXTRA_DECIMALS = 6;
 
@@ -71,7 +65,6 @@ contract MasterVault is
     uint32 public constant MIN_REBALANCE_COOLDOWN = 1;
 
     error SubVaultAssetMismatch();
-    error PerformanceFeeDisabled();
     error BeneficiaryNotSet();
     error NotKeeper();
     error NonZeroTargetAllocation(uint256 targetAllocationWad);
@@ -83,7 +76,6 @@ contract MasterVault is
     error RebalanceAmountTooSmall(
         bool isDeposit, uint256 amount, uint256 desiredAmount, uint256 minimumRebalanceAmount
     );
-    error PerformanceFeeUnchanged(bool enabled);
     error RebalanceCooldownTooLow(uint32 requested, uint32 minimum);
     error RebalanceExchRateTooLow(
         int256 minExchRateWad, int256 deltaAssets, uint256 subVaultShares
@@ -103,43 +95,21 @@ contract MasterVault is
     They are listed to see which variables should be packed together.
 
     deposit:
-    - address subVault ------------------| <- these three show up in each path, so pack them together
-    - bool enablePerformanceFee          |
-    - uint88 principalPriceWad ----------|
+    - address subVault --------------------| <- this appears in most calls, it will use a full slot even tho it needs only 20 bytes
     - address asset
     - address gatewayRouter
     redeem:
-    - address subVault ------------------|
-    - bool enablePerformanceFee          |
-    - uint88 principalPriceWad ----------|
+    - address subVault --------------------|
     - address asset
     rebalance:
-    - address subVault ------------------|
-    - bool enablePerformanceFee          |
-    - uint88 principalPriceWad ----------|
-    - uint40 lastRebalanceTime (r/w) ----| <- timestamp, uint40 gives up to year 36812
-    - uint32 rebalanceCooldown           | <- timer, uint32 gives up to ~136 years
-    - uint64 targetAllocationWad         | <- <=1e18, so uint64
-    - uint120 minimumRebalanceAmount ----| <- uint120 remaining, should be enough for any asset
+    - address subVault --------------------|
+    - uint40 lastRebalanceTime (r/w) ------| <- timestamp, uint40 gives up to year 36812
+    - uint32 rebalanceCooldown             | <- timer, uint32 gives up to ~136 years
+    - uint64 targetAllocationWad           | <- <=1e18, so uint64
+    - uint120 minimumRebalanceAmount ------| <- uint120 remaining, should be enough for any asset
     - address asset
     - address rolesRegistry
     */
-
-    /// @notice The current subvault. Assets are deposited into this vault to earn yield.
-    IERC4626 public subVault;
-
-    /// @notice Flag indicating if performance fee is enabled
-    bool public enablePerformanceFee;
-
-    /// @notice The price of masterVault shares (in assets per share times 1e18)
-    ///         at the time of turning on performance fees.
-    ///         It is used to calculate profit for performance fee distribution.
-    ///         It's akin to a price water mark.
-    /// @dev    When performance fees are disabled, principalPriceWad is 0
-    ///         88 bits is enough size. The initial value is "1 to 1", which is 1e18 / 1e6 = 1e12.
-    ///         To overflow, the principal price must increase by 2^88 / 1e12 = 3.1e14 times,
-    ///         which is unrealistic.
-    uint88 public principalPriceWad;
 
     /// @notice Timestamp of the last rebalance
     uint40 public lastRebalanceTime;
@@ -174,8 +144,10 @@ contract MasterVault is
     /// @notice Address that receives performance fees
     address public beneficiary;
 
+    /// @notice The current subvault. Assets are deposited into this vault to earn yield.
+    IERC4626 public subVault;
+
     event SubvaultChanged(address indexed oldSubvault, address indexed newSubvault);
-    event PerformanceFeeToggled(bool enabled);
     event BeneficiaryUpdated(address indexed oldBeneficiary, address indexed newBeneficiary);
     event MinimumRebalanceAmountUpdated(uint256 oldAmount, uint256 newAmount);
     event PerformanceFeesWithdrawn(
@@ -270,7 +242,7 @@ contract MasterVault is
 
         uint256 idleAssets = asset.balanceOf(address(this));
         _burn(msg.sender, shares);
-        
+
         if (idleAssets < assets) {
             uint256 assetsToWithdraw = assets - idleAssets;
             // slither-disable-next-line unused-return
@@ -438,34 +410,6 @@ contract MasterVault is
         emit RebalanceCooldownUpdated(oldCooldown, _rebalanceCooldown);
     }
 
-    /// @notice Toggle performance fee collection on/off
-    ///         When enabling, principalPriceWad snaps to the current price.
-    ///         When price increases afterwards, profit is earned for the beneficiary.
-    ///         If disabling, any pending performance fees are distributed immediately.
-    /// @param enabled True to enable performance fees, false to disable
-    function setPerformanceFee(bool enabled) external nonReentrant onlyRole(FEE_MANAGER_ROLE) {
-        if (enablePerformanceFee == enabled) {
-            revert PerformanceFeeUnchanged(enabled);
-        }
-
-        // reset principalPriceWad to current totalAssets when enabling performance fee
-        if (enabled) {
-            // round up to avoid overcounting profit
-            // this works against the fee collector
-            principalPriceWad = uint88(
-                _totalAssets(MathUpgradeable.Rounding.Up)
-                    .mulDiv(1e18, totalSupply(), MathUpgradeable.Rounding.Up)
-            );
-        } else {
-            _distributePerformanceFee();
-            principalPriceWad = 0;
-        }
-
-        enablePerformanceFee = enabled;
-
-        emit PerformanceFeeToggled(enabled);
-    }
-
     /// @notice Set the beneficiary address for performance fees
     /// @param newBeneficiary Address to receive performance fees
     function setBeneficiary(address newBeneficiary) external onlyRole(FEE_MANAGER_ROLE) {
@@ -520,7 +464,6 @@ contract MasterVault is
     }
 
     /// @notice Get the total profit earned by the vault
-    /// @dev    When performance fees are disabled, this will always return totalAssets
     function totalProfit() public view returns (uint256) {
         uint256 __totalAssets = _totalAssets(MathUpgradeable.Rounding.Down);
         uint256 __totalPrincipal = _totalPrincipal(MathUpgradeable.Rounding.Up);
@@ -539,9 +482,8 @@ contract MasterVault is
     }
 
     /// @dev Internal fee distribution function
-    ///      Will revert if performance fees are disabled or beneficiary is not set
+    ///      Will revert if beneficiary is not set
     function _distributePerformanceFee() internal {
-        if (!enablePerformanceFee) revert PerformanceFeeDisabled();
         if (beneficiary == address(0)) {
             revert BeneficiaryNotSet();
         }
@@ -575,10 +517,9 @@ contract MasterVault is
     }
 
     /// @dev Internal total principal function supporting a specific rounding direction
-    ///      When performance fees are disabled, total principal is 0
-    ///      When performance fees are enabled, total principal is principalPriceWad * totalSupply / 1e18
+    ///      Total principal is totalSupply / 10^EXTRA_DECIMALS
     function _totalPrincipal(MathUpgradeable.Rounding rounding) internal view returns (uint256) {
-        return uint256(principalPriceWad).mulDiv(totalSupply(), 1e18, rounding);
+        return totalSupply().mulDiv(1, 10 ** EXTRA_DECIMALS, rounding);
     }
 
     /// @dev Converts assets to shares using totalSupply and totalAssetsLessProfit, rounding down
@@ -607,7 +548,7 @@ contract MasterVault is
     {
         uint256 __totalAssets = _totalAssets(rounding);
         uint256 __totalPrincipal = _totalPrincipal(rounding);
-        if (enablePerformanceFee && __totalAssets > __totalPrincipal) {
+        if (__totalAssets > __totalPrincipal) {
             return __totalPrincipal;
         }
         return __totalAssets;

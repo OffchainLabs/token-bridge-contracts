@@ -12,8 +12,6 @@ contract MasterVaultScenario09Test is MasterVaultScenarioCoreTest {
     /// Users redeem all
     /// Expected: Multiple fee distributions work correctly, users get back principal
     function test_scenario09_multipleProfitClaims() public {
-        vault.setPerformanceFee(true);
-
         // Setup: Mint tokens for users
         _mintTokens(userA, 100);
         _mintTokens(userB, 300);
@@ -100,8 +98,6 @@ contract MasterVaultScenario09Test is MasterVaultScenarioCoreTest {
 
     /// @dev Scenario: Multiple profit claims, 100% allocation
     function test_scenario09_multipleProfitClaims_100PercentAllocation() public {
-        vault.setPerformanceFee(true);
-
         // Set target allocation to 100%
         vault.setTargetAllocationWad(1e18);
 

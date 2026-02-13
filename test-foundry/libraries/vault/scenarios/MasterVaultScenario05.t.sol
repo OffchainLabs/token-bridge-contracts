@@ -9,8 +9,6 @@ contract MasterVaultScenario05Test is MasterVaultScenarioCoreTest {
     /// @dev Scenario: Profit, fee claim, more deposits, redemptions, then loss and final redemptions
     /// Expected: Beneficiary keeps profits, users share final loss
     function test_scenario05_profitThenLoss() public {
-        vault.setPerformanceFee(true);
-
         // Setup: Mint tokens for users (200 for A: 100+100, 600 for B: 300+300)
         _mintTokens(userA, 200);
         _mintTokens(userB, 600);
@@ -136,8 +134,6 @@ contract MasterVaultScenario05Test is MasterVaultScenarioCoreTest {
 
     /// @dev Scenario: Profit, fee claim, more deposits, redemptions, then loss and final redemptions, 100% allocation
     function test_scenario05_profitThenLoss_100PercentAllocation() public {
-        vault.setPerformanceFee(true);
-
         // Set target allocation to 100%
         vault.setTargetAllocationWad(1e18);
 

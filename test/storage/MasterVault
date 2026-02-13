@@ -40,28 +40,24 @@
 |------------------------+----------------------------------------------------------------+------+--------+-------+-------------------------------------------------------------------|
 | __gap                  | uint256[49]                                                    | 302  | 0      | 1568  | contracts/tokenbridge/libraries/vault/MasterVault.sol:MasterVault |
 |------------------------+----------------------------------------------------------------+------+--------+-------+-------------------------------------------------------------------|
-| subVault               | contract IERC4626                                              | 351  | 0      | 20    | contracts/tokenbridge/libraries/vault/MasterVault.sol:MasterVault |
+| lastRebalanceTime      | uint40                                                         | 351  | 0      | 5     | contracts/tokenbridge/libraries/vault/MasterVault.sol:MasterVault |
 |------------------------+----------------------------------------------------------------+------+--------+-------+-------------------------------------------------------------------|
-| enablePerformanceFee   | bool                                                           | 351  | 20     | 1     | contracts/tokenbridge/libraries/vault/MasterVault.sol:MasterVault |
+| rebalanceCooldown      | uint32                                                         | 351  | 5      | 4     | contracts/tokenbridge/libraries/vault/MasterVault.sol:MasterVault |
 |------------------------+----------------------------------------------------------------+------+--------+-------+-------------------------------------------------------------------|
-| principalPriceWad      | uint88                                                         | 351  | 21     | 11    | contracts/tokenbridge/libraries/vault/MasterVault.sol:MasterVault |
+| targetAllocationWad    | uint64                                                         | 351  | 9      | 8     | contracts/tokenbridge/libraries/vault/MasterVault.sol:MasterVault |
 |------------------------+----------------------------------------------------------------+------+--------+-------+-------------------------------------------------------------------|
-| lastRebalanceTime      | uint40                                                         | 352  | 0      | 5     | contracts/tokenbridge/libraries/vault/MasterVault.sol:MasterVault |
+| minimumRebalanceAmount | uint120                                                        | 351  | 17     | 15    | contracts/tokenbridge/libraries/vault/MasterVault.sol:MasterVault |
 |------------------------+----------------------------------------------------------------+------+--------+-------+-------------------------------------------------------------------|
-| rebalanceCooldown      | uint32                                                         | 352  | 5      | 4     | contracts/tokenbridge/libraries/vault/MasterVault.sol:MasterVault |
+| asset                  | contract IERC20                                                | 352  | 0      | 20    | contracts/tokenbridge/libraries/vault/MasterVault.sol:MasterVault |
 |------------------------+----------------------------------------------------------------+------+--------+-------+-------------------------------------------------------------------|
-| targetAllocationWad    | uint64                                                         | 352  | 9      | 8     | contracts/tokenbridge/libraries/vault/MasterVault.sol:MasterVault |
+| gatewayRouter          | contract IGatewayRouter                                        | 353  | 0      | 20    | contracts/tokenbridge/libraries/vault/MasterVault.sol:MasterVault |
 |------------------------+----------------------------------------------------------------+------+--------+-------+-------------------------------------------------------------------|
-| minimumRebalanceAmount | uint120                                                        | 352  | 17     | 15    | contracts/tokenbridge/libraries/vault/MasterVault.sol:MasterVault |
+| _whitelistedSubVaults  | struct EnumerableSet.AddressSet                                | 354  | 0      | 64    | contracts/tokenbridge/libraries/vault/MasterVault.sol:MasterVault |
 |------------------------+----------------------------------------------------------------+------+--------+-------+-------------------------------------------------------------------|
-| asset                  | contract IERC20                                                | 353  | 0      | 20    | contracts/tokenbridge/libraries/vault/MasterVault.sol:MasterVault |
+| rolesRegistry          | contract MasterVaultRoles                                      | 356  | 0      | 20    | contracts/tokenbridge/libraries/vault/MasterVault.sol:MasterVault |
 |------------------------+----------------------------------------------------------------+------+--------+-------+-------------------------------------------------------------------|
-| gatewayRouter          | contract IGatewayRouter                                        | 354  | 0      | 20    | contracts/tokenbridge/libraries/vault/MasterVault.sol:MasterVault |
+| beneficiary            | address                                                        | 357  | 0      | 20    | contracts/tokenbridge/libraries/vault/MasterVault.sol:MasterVault |
 |------------------------+----------------------------------------------------------------+------+--------+-------+-------------------------------------------------------------------|
-| _whitelistedSubVaults  | struct EnumerableSet.AddressSet                                | 355  | 0      | 64    | contracts/tokenbridge/libraries/vault/MasterVault.sol:MasterVault |
-|------------------------+----------------------------------------------------------------+------+--------+-------+-------------------------------------------------------------------|
-| rolesRegistry          | contract MasterVaultRoles                                      | 357  | 0      | 20    | contracts/tokenbridge/libraries/vault/MasterVault.sol:MasterVault |
-|------------------------+----------------------------------------------------------------+------+--------+-------+-------------------------------------------------------------------|
-| beneficiary            | address                                                        | 358  | 0      | 20    | contracts/tokenbridge/libraries/vault/MasterVault.sol:MasterVault |
+| subVault               | contract IERC4626                                              | 358  | 0      | 20    | contracts/tokenbridge/libraries/vault/MasterVault.sol:MasterVault |
 ╰------------------------+----------------------------------------------------------------+------+--------+-------+-------------------------------------------------------------------╯
 

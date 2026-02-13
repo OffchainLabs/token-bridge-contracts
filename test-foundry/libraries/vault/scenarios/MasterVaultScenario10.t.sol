@@ -16,8 +16,6 @@ contract MasterVaultScenario10Test is MasterVaultScenarioCoreTest {
     /// All users redeem
     /// Expected: New depositor pays fair price for unrealized profits, all get back what they deposited
     function test_scenario10_depositDuringUnrealizedProfit() public {
-        vault.setPerformanceFee(true);
-
         // Setup: Mint tokens for users
         _mintTokens(userA, 100);
         _mintTokens(userB, 300);
@@ -118,8 +116,6 @@ contract MasterVaultScenario10Test is MasterVaultScenarioCoreTest {
 
     /// @dev Scenario: Deposit during unrealized profit (before claim), 100% allocation
     function test_scenario10_depositDuringUnrealizedProfit_100PercentAllocation() public {
-        vault.setPerformanceFee(true);
-
         // Set target allocation to 100%
         vault.setTargetAllocationWad(1e18);
 

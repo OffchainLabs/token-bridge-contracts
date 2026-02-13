@@ -66,8 +66,6 @@ contract MasterVaultScenario01Test is MasterVaultScenarioCoreTest {
     /// User A redeems 100 shares, User B redeems 300 shares
     /// Expected: All state variables return to 0 (except dead shares), assets moved through subvault
     function test_scenario01_noGainNoLoss_100PercentAllocation() public {
-        vault.setPerformanceFee(true);
-
         // Set target allocation to 100%
         vault.setTargetAllocationWad(1e18);
 

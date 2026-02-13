@@ -13,8 +13,6 @@ contract MasterVaultScenario03Test is MasterVaultScenarioCoreTest {
     /// User A redeems 100 shares, User B redeems 300 shares
     /// Expected: Users get back their initial deposit, beneficiary keeps profit
     function test_scenario03_profitToBeneficiary() public {
-        vault.setPerformanceFee(true);
-
         // Setup: Mint tokens for users
         _mintTokens(userA, 100);
         _mintTokens(userB, 300);
@@ -84,8 +82,6 @@ contract MasterVaultScenario03Test is MasterVaultScenarioCoreTest {
 
     /// @dev Scenario: 2 users deposit, subvault wins 100 USDC, beneficiary claims all profit, 100% allocation
     function test_scenario03_profitToBeneficiary_100PercentAllocation() public {
-        vault.setPerformanceFee(true);
-
         // Set target allocation to 100%
         vault.setTargetAllocationWad(1e18);
 
