@@ -324,7 +324,7 @@ contract MasterVault is
                 );
             }
 
-            asset.safeApprove(address(subVault), depositAmount);
+            asset.safeIncreaseAllowance(address(subVault), depositAmount);
             uint256 subVaultShares = subVault.deposit(depositAmount, address(this));
             uint256 actualExchRate =
                 depositAmount.mulDiv(1e18, subVaultShares, MathUpgradeable.Rounding.Up);
