@@ -19,6 +19,7 @@ import {
 import {L1YbbERC20Gateway} from "../contracts/tokenbridge/ethereum/gateway/L1YbbERC20Gateway.sol";
 import {L1YbbCustomGateway} from "../contracts/tokenbridge/ethereum/gateway/L1YbbCustomGateway.sol";
 import {MasterVaultFactory} from "../contracts/tokenbridge/libraries/vault/MasterVaultFactory.sol";
+import {MasterVault} from "../contracts/tokenbridge/libraries/vault/MasterVault.sol";
 
 import {
     L1TokenBridgeRetryableSender
@@ -155,7 +156,8 @@ contract AtomicTokenBridgeCreatorTest is Test {
             IUpgradeExecutor(address(new UpgradeExecutor())),
             address(new L1YbbERC20Gateway()),
             address(new L1YbbCustomGateway()),
-            address(new MasterVaultFactory())
+            address(new MasterVaultFactory()),
+            address(new MasterVault())
         );
         l2TokenBridgeFactoryTemplate = address(new L2AtomicTokenBridgeFactory());
         l2RouterTemplate = address(new L2GatewayRouter());
@@ -210,7 +212,7 @@ contract AtomicTokenBridgeCreatorTest is Test {
 
         // L2 Factory is not deployed in this case
         address l2factory = factory.canonicalL2FactoryAddress();
-        assertEq(l2factory, 0xAB273E4AA7C92a7919DB85F59B795C58E4C95cB0);
+        assertEq(l2factory, 0xFb5E2D64dbA2141edFF01dD1e66bD76D11fC3f62);
         assertEq(l2factory.code.length, 0);
 
         inbox.setMode(0); // set back to normal mode

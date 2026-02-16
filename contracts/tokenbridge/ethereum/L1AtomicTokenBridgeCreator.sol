@@ -55,7 +55,6 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     error L1AtomicTokenBridgeCreator_RollupOwnershipMisconfig();
     error L1AtomicTokenBridgeCreator_ProxyAdminNotFound();
     error L1AtomicTokenBridgeCreator_L2FactoryCannotBeChanged();
-    error L1AtomicTokenBridgeCreator_MissingYbbDependencies();
 
     event OrbitTokenBridgeCreated(
         address indexed inbox,
@@ -82,6 +81,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         address ybbStandardGatewayTemplate;
         address ybbCustomGatewayTemplate;
         address masterVaultFactoryTemplate;
+        address masterVaultTemplate;
     }
 
     struct CreateTokenBridgeArgs {
@@ -90,8 +90,6 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         uint256 maxGasForContracts;
         uint256 gasPriceBid;
         bool isYieldBearingBridge;
-        address masterVaultRoles;
-        address masterVaultBeaconProxyFactory;
     }
 
     // use separate mapping to allow appending to the struct in the future
@@ -209,9 +207,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     ) external payable {
         // slither-disable-next-line out-of-order-retryable
         _createTokenBridge(
-            CreateTokenBridgeArgs(
-                inbox, rollupOwner, maxGasForContracts, gasPriceBid, false, address(0), address(0)
-            )
+            CreateTokenBridgeArgs(inbox, rollupOwner, maxGasForContracts, gasPriceBid, false)
         );
     }
 
@@ -225,21 +221,11 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         address inbox,
         address rollupOwner,
         uint256 maxGasForContracts,
-        uint256 gasPriceBid,
-        address masterVaultRoles,
-        address masterVaultBeaconProxyFactory
+        uint256 gasPriceBid
     ) external payable {
         // slither-disable-next-line out-of-order-retryable
         _createTokenBridge(
-            CreateTokenBridgeArgs(
-                inbox,
-                rollupOwner,
-                maxGasForContracts,
-                gasPriceBid,
-                true,
-                masterVaultRoles,
-                masterVaultBeaconProxyFactory
-            )
+            CreateTokenBridgeArgs(inbox, rollupOwner, maxGasForContracts, gasPriceBid, true)
         );
     }
 
@@ -315,13 +301,6 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             }
 
             if (args.isYieldBearingBridge) {
-                if (
-                    args.masterVaultRoles == address(0)
-                        || args.masterVaultBeaconProxyFactory == address(0)
-                ) {
-                    revert L1AtomicTokenBridgeCreator_MissingYbbDependencies();
-                }
-
                 // Delegate YBB deployment to library
                 L1GatewayDeployer.YbbDeploymentResult memory ybbResult =
                     L1GatewayDeployer.deployYbbGateways(
@@ -347,8 +326,8 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                 // Initialize MasterVaultFactory after router is deployed
                 L1GatewayDeployer.initializeMasterVaultFactory(
                     ybbResult.masterVaultFactory,
-                    args.masterVaultRoles,
-                    args.masterVaultBeaconProxyFactory,
+                    l1Templates.masterVaultTemplate,
+                    upgradeExecutor,
                     l1Deployment.router
                 );
 

@@ -60,18 +60,11 @@ contract MasterVaultCoreTest is Test {
     function setUp() public virtual {
         factory = new MasterVaultFactory();
         MockGatewayRouter mockGatewayRouter = new MockGatewayRouter(user);
-
-        MasterVaultRoles rolesRegistry = new MasterVaultRoles();
-        rolesRegistry.initialize(address(this));
         MasterVault masterVaultImplementation = new MasterVault();
-        UpgradeableBeacon beacon = new UpgradeableBeacon(address(masterVaultImplementation));
-        BeaconProxyFactory beaconProxyFactory = new BeaconProxyFactory();
-        beaconProxyFactory.initialize(address(beacon));
-        beacon.transferOwnership(address(this));
 
         factory.initialize(
-            address(rolesRegistry),
-            address(beaconProxyFactory),
+            address(masterVaultImplementation),
+            address(this),
             IGatewayRouter(address(mockGatewayRouter))
         );
         token = new TestERC20();

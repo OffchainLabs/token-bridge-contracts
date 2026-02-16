@@ -44,13 +44,7 @@ contract L1YbbERC20GatewayTest is Test {
         inbox = new InboxMock();
         router = new L1GatewayRouter();
 
-        MasterVaultRoles rolesRegistry = new MasterVaultRoles();
-        rolesRegistry.initialize(address(this));
-
         MasterVault masterVaultImpl = new MasterVault();
-        UpgradeableBeacon beacon = new UpgradeableBeacon(address(masterVaultImpl));
-        BeaconProxyFactory beaconProxyFactory = new BeaconProxyFactory();
-        beaconProxyFactory.initialize(address(beacon));
 
         factory = new MasterVaultFactory();
 
@@ -72,9 +66,7 @@ contract L1YbbERC20GatewayTest is Test {
             address(inbox)
         );
 
-        factory.initialize(
-            address(rolesRegistry), address(beaconProxyFactory), IGatewayRouter(address(router))
-        );
+        factory.initialize(address(masterVaultImpl), address(this), IGatewayRouter(address(router)));
 
         token = new TestERC20();
         vm.prank(user);

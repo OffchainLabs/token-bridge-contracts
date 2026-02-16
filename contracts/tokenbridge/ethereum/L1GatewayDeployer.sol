@@ -186,12 +186,12 @@ library L1GatewayDeployer {
 
     function initializeMasterVaultFactory(
         address masterVaultFactory,
-        address rolesRegistry,
-        address beaconProxyFactory,
+        address masterVaultImplementation,
+        address admin,
         address router
     ) external {
         IMasterVaultFactory(masterVaultFactory)
-            .initialize(rolesRegistry, beaconProxyFactory, IGatewayRouter(router));
+            .initialize(masterVaultImplementation, admin, IGatewayRouter(router));
     }
 
     // ============ Internal ============

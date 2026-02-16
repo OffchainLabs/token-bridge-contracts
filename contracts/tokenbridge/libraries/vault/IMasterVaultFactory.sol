@@ -7,8 +7,8 @@ interface IMasterVaultFactory {
     event VaultDeployed(address indexed token, address indexed vault);
 
     function initialize(
-        address _rolesRegistry,
-        address _beaconProxyFactory,
+        address _masterVaultImplementation,
+        address _admin,
         IGatewayRouter _gatewayRouter
     ) external;
     function deployVault(address token) external returns (address vault);

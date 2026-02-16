@@ -5,6 +5,7 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import "../ClonableBeaconProxy.sol";
 import "./IMasterVaultFactory.sol";
 import "./MasterVault.sol";
@@ -21,12 +22,20 @@ contract MasterVaultFactory is IMasterVaultFactory, Initializable {
     IGatewayRouter public gatewayRouter;
 
     function initialize(
-        address _rolesRegistry,
-        address _beaconProxyFactory,
+        address _masterVaultImplementation,
+        address _admin,
         IGatewayRouter _gatewayRouter
     ) public initializer {
-        rolesRegistry = MasterVaultRoles(_rolesRegistry);
-        beaconProxyFactory = BeaconProxyFactory(_beaconProxyFactory);
+        MasterVaultRoles _rolesRegistry = new MasterVaultRoles();
+        _rolesRegistry.initialize(_admin);
+        rolesRegistry = _rolesRegistry;
+
+        UpgradeableBeacon beacon = new UpgradeableBeacon(_masterVaultImplementation);
+        beacon.transferOwnership(_admin);
+        BeaconProxyFactory _beaconProxyFactory = new BeaconProxyFactory();
+        _beaconProxyFactory.initialize(address(beacon));
+        beaconProxyFactory = _beaconProxyFactory;
+
         gatewayRouter = _gatewayRouter;
     }
 

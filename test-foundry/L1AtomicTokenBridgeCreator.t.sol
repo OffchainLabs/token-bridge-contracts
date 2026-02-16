@@ -31,6 +31,7 @@ import {
 import {L1YbbERC20Gateway} from "contracts/tokenbridge/ethereum/gateway/L1YbbERC20Gateway.sol";
 import {L1YbbCustomGateway} from "contracts/tokenbridge/ethereum/gateway/L1YbbCustomGateway.sol";
 import {MasterVaultFactory} from "contracts/tokenbridge/libraries/vault/MasterVaultFactory.sol";
+import {MasterVault} from "contracts/tokenbridge/libraries/vault/MasterVault.sol";
 import {
     IUpgradeExecutor,
     UpgradeExecutor
@@ -140,7 +141,7 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
         (address l1RouterAddress, address standardGatewayAddress,,,) =
             l1Creator.inboxToL1Deployment(address(inbox));
 
-        (L1GatewayRouter routerTemplate,,,,,,,,,,) = l1Creator.l1Templates();
+        (L1GatewayRouter routerTemplate,,,,,,,,,,,) = l1Creator.l1Templates();
 
         address expectedL1RouterAddress = Create2.computeAddress(
             keccak256(abi.encodePacked(bytes("L1R"), address(inbox))),
@@ -176,7 +177,7 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
         (address l1RouterAddress, address l1StandardGatewayAddress,,,) =
             l1Creator.inboxToL1Deployment(address(inbox));
 
-        (, address standardGatewayTemplate,,,,,,,,,) = l1Creator.l1Templates();
+        (, address standardGatewayTemplate,,,,,,,,,,) = l1Creator.l1Templates();
 
         address expectedL1StandardGatewayAddress = Create2.computeAddress(
             keccak256(abi.encodePacked(bytes("L1SGW"), address(inbox))),
@@ -239,7 +240,7 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
         (address l1RouterAddress,, address l1CustomGatewayAddress,,) =
             l1Creator.inboxToL1Deployment(address(inbox));
 
-        (,, address customGatewayTemplate,,,,,,,,) = l1Creator.l1Templates();
+        (,, address customGatewayTemplate,,,,,,,,,) = l1Creator.l1Templates();
 
         address expectedL1CustomGatewayAddress = Create2.computeAddress(
             keccak256(abi.encodePacked(bytes("L1CGW"), address(inbox))),
@@ -281,7 +282,7 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
         (address l1RouterAddress,,, address l1WethGatewayAddress,) =
             l1Creator.inboxToL1Deployment(address(inbox));
 
-        (,,, address wethGatewayTemplate,,,,,,,) = l1Creator.l1Templates();
+        (,,, address wethGatewayTemplate,,,,,,,,) = l1Creator.l1Templates();
 
         address expectedL1WethGatewayAddress = Create2.computeAddress(
             keccak256(abi.encodePacked(bytes("L1WGW"), address(inbox))),
@@ -763,7 +764,8 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
                 new UpgradeExecutor(),
                 address(new L1YbbERC20Gateway()),
                 address(new L1YbbCustomGateway()),
-                address(new MasterVaultFactory())
+                address(new MasterVaultFactory()),
+                address(new MasterVault())
             );
 
         vm.expectEmit(true, true, true, true);
@@ -792,7 +794,7 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
             L1OrbitGatewayRouter oRouter,
             address oGw,
             address oCustomGw,
-            IUpgradeExecutor executor,,,
+            IUpgradeExecutor executor,,,,
         ) = l1Creator.l1Templates();
         assertEq(address(router), address(_l1Templates.routerTemplate), "Wrong templates");
         assertEq(gw, _l1Templates.standardGatewayTemplate, "Wrong templates");
@@ -838,7 +840,8 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
                 new UpgradeExecutor(),
                 address(new L1YbbERC20Gateway()),
                 address(new L1YbbCustomGateway()),
-                address(new MasterVaultFactory())
+                address(new MasterVaultFactory()),
+                address(new MasterVault())
             );
 
         vm.expectRevert("Ownable: caller is not the owner");
@@ -870,7 +873,8 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
                 new UpgradeExecutor(),
                 address(new L1YbbERC20Gateway()),
                 address(new L1YbbCustomGateway()),
-                address(new MasterVaultFactory())
+                address(new MasterVaultFactory()),
+                address(new MasterVault())
             );
 
         address originalL2Factory = makeAddr("originalL2Factory");
@@ -1011,7 +1015,8 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
                 new UpgradeExecutor(),
                 address(new L1YbbERC20Gateway()),
                 address(new L1YbbCustomGateway()),
-                address(new MasterVaultFactory())
+                address(new MasterVaultFactory()),
+                address(new MasterVault())
             );
 
         vm.prank(deployer);

@@ -20,26 +20,26 @@
 |--------------------------------+--------------------------------------------------+------+--------+-------+------------------------------------------------------------------------------------------|
 | retryableSender                | contract L1TokenBridgeRetryableSender            | 104  | 0      | 20    | contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol:L1AtomicTokenBridgeCreator |
 |--------------------------------+--------------------------------------------------+------+--------+-------+------------------------------------------------------------------------------------------|
-| l1Templates                    | struct L1AtomicTokenBridgeCreator.L1Templates    | 105  | 0      | 352   | contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol:L1AtomicTokenBridgeCreator |
+| l1Templates                    | struct L1AtomicTokenBridgeCreator.L1Templates    | 105  | 0      | 384   | contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol:L1AtomicTokenBridgeCreator |
 |--------------------------------+--------------------------------------------------+------+--------+-------+------------------------------------------------------------------------------------------|
-| l2TokenBridgeFactoryTemplate   | address                                          | 116  | 0      | 20    | contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol:L1AtomicTokenBridgeCreator |
+| l2TokenBridgeFactoryTemplate   | address                                          | 117  | 0      | 20    | contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol:L1AtomicTokenBridgeCreator |
 |--------------------------------+--------------------------------------------------+------+--------+-------+------------------------------------------------------------------------------------------|
-| l2RouterTemplate               | address                                          | 117  | 0      | 20    | contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol:L1AtomicTokenBridgeCreator |
+| l2RouterTemplate               | address                                          | 118  | 0      | 20    | contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol:L1AtomicTokenBridgeCreator |
 |--------------------------------+--------------------------------------------------+------+--------+-------+------------------------------------------------------------------------------------------|
-| l2StandardGatewayTemplate      | address                                          | 118  | 0      | 20    | contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol:L1AtomicTokenBridgeCreator |
+| l2StandardGatewayTemplate      | address                                          | 119  | 0      | 20    | contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol:L1AtomicTokenBridgeCreator |
 |--------------------------------+--------------------------------------------------+------+--------+-------+------------------------------------------------------------------------------------------|
-| l2CustomGatewayTemplate        | address                                          | 119  | 0      | 20    | contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol:L1AtomicTokenBridgeCreator |
+| l2CustomGatewayTemplate        | address                                          | 120  | 0      | 20    | contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol:L1AtomicTokenBridgeCreator |
 |--------------------------------+--------------------------------------------------+------+--------+-------+------------------------------------------------------------------------------------------|
-| l2WethGatewayTemplate          | address                                          | 120  | 0      | 20    | contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol:L1AtomicTokenBridgeCreator |
+| l2WethGatewayTemplate          | address                                          | 121  | 0      | 20    | contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol:L1AtomicTokenBridgeCreator |
 |--------------------------------+--------------------------------------------------+------+--------+-------+------------------------------------------------------------------------------------------|
-| l2WethTemplate                 | address                                          | 121  | 0      | 20    | contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol:L1AtomicTokenBridgeCreator |
+| l2WethTemplate                 | address                                          | 122  | 0      | 20    | contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol:L1AtomicTokenBridgeCreator |
 |--------------------------------+--------------------------------------------------+------+--------+-------+------------------------------------------------------------------------------------------|
-| l2MulticallTemplate            | address                                          | 122  | 0      | 20    | contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol:L1AtomicTokenBridgeCreator |
+| l2MulticallTemplate            | address                                          | 123  | 0      | 20    | contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol:L1AtomicTokenBridgeCreator |
 |--------------------------------+--------------------------------------------------+------+--------+-------+------------------------------------------------------------------------------------------|
-| l1Weth                         | address                                          | 123  | 0      | 20    | contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol:L1AtomicTokenBridgeCreator |
+| l1Weth                         | address                                          | 124  | 0      | 20    | contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol:L1AtomicTokenBridgeCreator |
 |--------------------------------+--------------------------------------------------+------+--------+-------+------------------------------------------------------------------------------------------|
-| l1Multicall                    | address                                          | 124  | 0      | 20    | contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol:L1AtomicTokenBridgeCreator |
+| l1Multicall                    | address                                          | 125  | 0      | 20    | contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol:L1AtomicTokenBridgeCreator |
 |--------------------------------+--------------------------------------------------+------+--------+-------+------------------------------------------------------------------------------------------|
-| canonicalL2FactoryAddress      | address                                          | 125  | 0      | 20    | contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol:L1AtomicTokenBridgeCreator |
+| canonicalL2FactoryAddress      | address                                          | 126  | 0      | 20    | contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol:L1AtomicTokenBridgeCreator |
 ╰--------------------------------+--------------------------------------------------+------+--------+-------+------------------------------------------------------------------------------------------╯
 
