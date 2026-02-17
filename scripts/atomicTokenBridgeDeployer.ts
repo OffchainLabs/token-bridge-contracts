@@ -20,6 +20,8 @@ import {
   L1OrbitGatewayRouter__factory,
   L1YbbERC20Gateway__factory,
   L1YbbCustomGateway__factory,
+  L1OrbitYbbERC20Gateway__factory,
+  L1OrbitYbbCustomGateway__factory,
   MasterVault__factory,
   MasterVaultFactory__factory,
   IInbox__factory,
@@ -411,6 +413,14 @@ export const deployL1TokenBridgeCreator = async (
     await new L1YbbCustomGateway__factory(l1Deployer).deploy()
   await ybbCustomGatewayTemplate.deployed()
 
+  const feeTokenBasedYbbStandardGatewayTemplate =
+    await new L1OrbitYbbERC20Gateway__factory(l1Deployer).deploy()
+  await feeTokenBasedYbbStandardGatewayTemplate.deployed()
+
+  const feeTokenBasedYbbCustomGatewayTemplate =
+    await new L1OrbitYbbCustomGateway__factory(l1Deployer).deploy()
+  await feeTokenBasedYbbCustomGatewayTemplate.deployed()
+
   const masterVaultFactoryTemplate =
     await new MasterVaultFactory__factory(l1Deployer).deploy()
   await masterVaultFactoryTemplate.deployed()
@@ -430,10 +440,6 @@ export const deployL1TokenBridgeCreator = async (
     feeTokenBasedCustomGatewayTemplate:
       feeTokenBasedCustomGatewayTemplate.address,
     upgradeExecutor: upgradeExecutor.address,
-    ybbStandardGatewayTemplate: ybbStandardGatewayTemplate.address,
-    ybbCustomGatewayTemplate: ybbCustomGatewayTemplate.address,
-    masterVaultFactoryTemplate: masterVaultFactoryTemplate.address,
-    masterVaultTemplate: masterVaultTemplate.address,
   }
 
   /// deploy L2 contracts as placeholders on L1. Initialize them with dummy data
@@ -502,6 +508,19 @@ export const deployL1TokenBridgeCreator = async (
       l1Multicall.address,
       gasLimitForL2FactoryDeployment
     )
+  ).wait()
+
+  await (
+    await l1TokenBridgeCreator.setYbbTemplates({
+      ybbStandardGatewayTemplate: ybbStandardGatewayTemplate.address,
+      ybbCustomGatewayTemplate: ybbCustomGatewayTemplate.address,
+      feeTokenBasedYbbStandardGatewayTemplate:
+        feeTokenBasedYbbStandardGatewayTemplate.address,
+      feeTokenBasedYbbCustomGatewayTemplate:
+        feeTokenBasedYbbCustomGatewayTemplate.address,
+      masterVaultFactoryTemplate: masterVaultFactoryTemplate.address,
+      masterVaultTemplate: masterVaultTemplate.address,
+    })
   ).wait()
 
   ///// verify contracts

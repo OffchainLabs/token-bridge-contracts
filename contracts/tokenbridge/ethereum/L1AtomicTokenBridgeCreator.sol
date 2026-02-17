@@ -78,8 +78,13 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         address feeTokenBasedStandardGatewayTemplate;
         address feeTokenBasedCustomGatewayTemplate;
         IUpgradeExecutor upgradeExecutor;
+    }
+
+    struct YbbL1Templates {
         address ybbStandardGatewayTemplate;
         address ybbCustomGatewayTemplate;
+        address feeTokenBasedYbbStandardGatewayTemplate;
+        address feeTokenBasedYbbCustomGatewayTemplate;
         address masterVaultFactoryTemplate;
         address masterVaultTemplate;
     }
@@ -107,6 +112,8 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
 
     // L1 logic contracts shared by all token bridges
     L1Templates public l1Templates;
+
+    YbbL1Templates public ybbL1Templates;
 
     // L2 contracts deployed to L1 as bytecode placeholders
     address public l2TokenBridgeFactoryTemplate;
@@ -181,6 +188,14 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
 
         gasLimitForL2FactoryDeployment = _gasLimitForL2FactoryDeployment;
 
+        emit OrbitTokenBridgeTemplatesUpdated();
+    }
+
+    /**
+     * @notice Set addresses of YBB L1 logic contracts (standard, custom, fee-token-based, and vault templates).
+     */
+    function setYbbTemplates(YbbL1Templates calldata _ybbL1Templates) external onlyOwner {
+        ybbL1Templates = _ybbL1Templates;
         emit OrbitTokenBridgeTemplatesUpdated();
     }
 
@@ -311,12 +326,15 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                             router: l1Deployment.router,
                             l2StandardGateway: l2Deployment.standardGateway,
                             l2CustomGateway: l2Deployment.customGateway,
-                            l2BeaconProxyFactory: l2Deployment.beaconProxyFactory
+                            l2BeaconProxyFactory: l2Deployment.beaconProxyFactory,
+                            isFeeTokenBased: feeToken != address(0)
                         }),
                         L1GatewayDeployer.YbbTemplates({
-                            ybbStandardGatewayTemplate: l1Templates.ybbStandardGatewayTemplate,
-                            ybbCustomGatewayTemplate: l1Templates.ybbCustomGatewayTemplate,
-                            masterVaultFactoryTemplate: l1Templates.masterVaultFactoryTemplate
+                            ybbStandardGatewayTemplate: ybbL1Templates.ybbStandardGatewayTemplate,
+                            ybbCustomGatewayTemplate: ybbL1Templates.ybbCustomGatewayTemplate,
+                            feeTokenBasedYbbStandardGatewayTemplate: ybbL1Templates.feeTokenBasedYbbStandardGatewayTemplate,
+                            feeTokenBasedYbbCustomGatewayTemplate: ybbL1Templates.feeTokenBasedYbbCustomGatewayTemplate,
+                            masterVaultFactoryTemplate: ybbL1Templates.masterVaultFactoryTemplate
                         }),
                         _getL1Salt(OrbitSalts.L1_MASTER_VAULT_FACTORY, args.inbox),
                         _getL1Salt(OrbitSalts.L1_STANDARD_GATEWAY, args.inbox),
@@ -326,7 +344,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                 // Initialize MasterVaultFactory after router is deployed
                 L1GatewayDeployer.initializeMasterVaultFactory(
                     ybbResult.masterVaultFactory,
-                    l1Templates.masterVaultTemplate,
+                    ybbL1Templates.masterVaultTemplate,
                     upgradeExecutor,
                     l1Deployment.router
                 );

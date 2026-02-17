@@ -18,6 +18,12 @@ import {
 } from "../contracts/tokenbridge/ethereum/gateway/L1OrbitCustomGateway.sol";
 import {L1YbbERC20Gateway} from "../contracts/tokenbridge/ethereum/gateway/L1YbbERC20Gateway.sol";
 import {L1YbbCustomGateway} from "../contracts/tokenbridge/ethereum/gateway/L1YbbCustomGateway.sol";
+import {
+    L1OrbitYbbERC20Gateway
+} from "../contracts/tokenbridge/ethereum/gateway/L1OrbitYbbERC20Gateway.sol";
+import {
+    L1OrbitYbbCustomGateway
+} from "../contracts/tokenbridge/ethereum/gateway/L1OrbitYbbCustomGateway.sol";
 import {MasterVaultFactory} from "../contracts/tokenbridge/libraries/vault/MasterVaultFactory.sol";
 import {MasterVault} from "../contracts/tokenbridge/libraries/vault/MasterVault.sol";
 
@@ -153,12 +159,18 @@ contract AtomicTokenBridgeCreatorTest is Test {
             L1OrbitGatewayRouter(address(new L1OrbitGatewayRouter())),
             address(new L1OrbitERC20Gateway()),
             address(new L1OrbitCustomGateway()),
-            IUpgradeExecutor(address(new UpgradeExecutor())),
-            address(new L1YbbERC20Gateway()),
-            address(new L1YbbCustomGateway()),
-            address(new MasterVaultFactory()),
-            address(new MasterVault())
+            IUpgradeExecutor(address(new UpgradeExecutor()))
         );
+
+        L1AtomicTokenBridgeCreator.YbbL1Templates memory ybbTemplates =
+            L1AtomicTokenBridgeCreator.YbbL1Templates(
+                address(new L1YbbERC20Gateway()),
+                address(new L1YbbCustomGateway()),
+                address(new L1OrbitYbbERC20Gateway()),
+                address(new L1OrbitYbbCustomGateway()),
+                address(new MasterVaultFactory()),
+                address(new MasterVault())
+            );
         l2TokenBridgeFactoryTemplate = address(new L2AtomicTokenBridgeFactory());
         l2RouterTemplate = address(new L2GatewayRouter());
         l2StandardGatewayTemplate = address(new L2ERC20Gateway());
@@ -189,6 +201,7 @@ contract AtomicTokenBridgeCreatorTest is Test {
             l1MultiCall,
             MAX_DEPLOYMENT_GAS
         );
+        factory.setYbbTemplates(ybbTemplates);
     }
 
     function testDeployment() public {
@@ -212,7 +225,7 @@ contract AtomicTokenBridgeCreatorTest is Test {
 
         // L2 Factory is not deployed in this case
         address l2factory = factory.canonicalL2FactoryAddress();
-        assertEq(l2factory, 0xFb5E2D64dbA2141edFF01dD1e66bD76D11fC3f62);
+        assertEq(l2factory, 0xf6610B47ad3309979b17210d8D36C01C3E9f9905);
         assertEq(l2factory.code.length, 0);
 
         inbox.setMode(0); // set back to normal mode

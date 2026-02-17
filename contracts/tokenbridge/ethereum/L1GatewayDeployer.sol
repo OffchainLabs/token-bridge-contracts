@@ -8,6 +8,8 @@ import {L1OrbitERC20Gateway} from "./gateway/L1OrbitERC20Gateway.sol";
 import {L1OrbitCustomGateway} from "./gateway/L1OrbitCustomGateway.sol";
 import {L1YbbERC20Gateway} from "./gateway/L1YbbERC20Gateway.sol";
 import {L1YbbCustomGateway} from "./gateway/L1YbbCustomGateway.sol";
+import {L1OrbitYbbERC20Gateway} from "./gateway/L1OrbitYbbERC20Gateway.sol";
+import {L1OrbitYbbCustomGateway} from "./gateway/L1OrbitYbbCustomGateway.sol";
 import {IMasterVaultFactory} from "../libraries/vault/IMasterVaultFactory.sol";
 import {IGatewayRouter} from "../libraries/gateway/IGatewayRouter.sol";
 import {ClonableBeaconProxy} from "../libraries/ClonableBeaconProxy.sol";
@@ -70,11 +72,14 @@ library L1GatewayDeployer {
         address l2StandardGateway;
         address l2CustomGateway;
         address l2BeaconProxyFactory;
+        bool isFeeTokenBased;
     }
 
     struct YbbTemplates {
         address ybbStandardGatewayTemplate;
         address ybbCustomGatewayTemplate;
+        address feeTokenBasedYbbStandardGatewayTemplate;
+        address feeTokenBasedYbbCustomGatewayTemplate;
         address masterVaultFactoryTemplate;
     }
 
@@ -155,31 +160,40 @@ library L1GatewayDeployer {
             masterVaultSalt, templates.masterVaultFactoryTemplate, params.proxyAdmin
         );
 
-        result.standardGateway = _deployProxy(
-            standardGatewaySalt, templates.ybbStandardGatewayTemplate, params.proxyAdmin
-        );
+        {
+            address template = params.isFeeTokenBased
+                ? templates.feeTokenBasedYbbStandardGatewayTemplate
+                : templates.ybbStandardGatewayTemplate;
 
-        L1YbbERC20Gateway(result.standardGateway)
-            .initialize(
-                params.l2StandardGateway,
-                params.router,
-                params.inbox,
-                keccak256(type(ClonableBeaconProxy).creationCode),
-                params.l2BeaconProxyFactory,
-                result.masterVaultFactory
-            );
+            result.standardGateway = _deployProxy(standardGatewaySalt, template, params.proxyAdmin);
 
-        result.customGateway =
-            _deployProxy(customGatewaySalt, templates.ybbCustomGatewayTemplate, params.proxyAdmin);
+            L1YbbERC20Gateway(result.standardGateway)
+                .initialize(
+                    params.l2StandardGateway,
+                    params.router,
+                    params.inbox,
+                    keccak256(type(ClonableBeaconProxy).creationCode),
+                    params.l2BeaconProxyFactory,
+                    result.masterVaultFactory
+                );
+        }
 
-        L1YbbCustomGateway(result.customGateway)
-            .initialize(
-                params.l2CustomGateway,
-                params.router,
-                params.inbox,
-                params.upgradeExecutor,
-                result.masterVaultFactory
-            );
+        {
+            address template = params.isFeeTokenBased
+                ? templates.feeTokenBasedYbbCustomGatewayTemplate
+                : templates.ybbCustomGatewayTemplate;
+
+            result.customGateway = _deployProxy(customGatewaySalt, template, params.proxyAdmin);
+
+            L1YbbCustomGateway(result.customGateway)
+                .initialize(
+                    params.l2CustomGateway,
+                    params.router,
+                    params.inbox,
+                    params.upgradeExecutor,
+                    result.masterVaultFactory
+                );
+        }
 
         return result;
     }
