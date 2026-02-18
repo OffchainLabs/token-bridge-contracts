@@ -12,7 +12,9 @@ import "./MasterVault.sol";
 import "../gateway/IGatewayRouter.sol";
 
 contract DefaultSubVault is ERC4626 {
-    constructor(address token) ERC4626(IERC20(token)) ERC20("Default SubVault", "DSV") {}
+    constructor(address token) ERC4626(IERC20(token)) ERC20("Default SubVault", "DSV") {
+        _mint(address(1), 1e6);
+    }
 }
 
 // todo: slim down this contract
