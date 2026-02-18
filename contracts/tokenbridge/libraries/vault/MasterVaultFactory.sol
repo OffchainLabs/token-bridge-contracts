@@ -12,8 +12,23 @@ import "./MasterVault.sol";
 import "../gateway/IGatewayRouter.sol";
 
 contract DefaultSubVault is ERC4626 {
-    constructor(address token) ERC4626(IERC20(token)) ERC20("Default SubVault", "DSV") {
-        _mint(address(1), 1e6);
+    address public immutable masterVault;
+
+    constructor(address token, address _masterVault)
+        ERC4626(IERC20(token))
+        ERC20("Default SubVault", "DSV")
+    {
+        masterVault = _masterVault;
+    }
+
+    function deposit(uint256 assets, address receiver) public override returns (uint256) {
+        require(msg.sender == masterVault, "ONLY_MASTER_VAULT");
+        return super.deposit(assets, receiver);
+    }
+
+    function mint(uint256 shares, address receiver) public override returns (uint256) {
+        require(msg.sender == masterVault, "ONLY_MASTER_VAULT");
+        return super.mint(shares, receiver);
     }
 }
 
@@ -49,7 +64,9 @@ contract MasterVaultFactory is IMasterVaultFactory, Initializable {
         string memory symbol = string(abi.encodePacked("m", _tryGetTokenSymbol(token)));
 
         MasterVault(vault)
-            .initialize(new DefaultSubVault(token), name, symbol, rolesRegistry, gatewayRouter);
+            .initialize(
+                new DefaultSubVault(token, vault), name, symbol, rolesRegistry, gatewayRouter
+            );
 
         emit VaultDeployed(token, vault);
     }
