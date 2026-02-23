@@ -57,6 +57,7 @@ contract MasterVaultCoreTest is Test {
         return address(vault.subVault()) == address(0) ? address(vault) : address(vault.subVault());
     }
 
+    // todo: this setUp currently doesn't use proxies
     function setUp() public virtual {
         factory = new MasterVaultFactory();
         MockGatewayRouter mockGatewayRouter = new MockGatewayRouter(user);
