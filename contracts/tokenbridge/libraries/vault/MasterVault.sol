@@ -257,8 +257,8 @@ contract MasterVault is
     ///         Will revert if the target allocation is already met
     ///         Will revert if the amount to deposit/withdraw is less than the minimumRebalanceAmount.
     /// @param  minExchRateWad Minimum exchange rate (1e18 * deltaAssets / abs(subVaultShares)) for the deposit/withdraw operation
-    ///                        Negative indicates a subVault deposit (negative deltaAssets),
-    ///                        positive indicates a subVault withdraw (positive deltaAssets).
+    ///                        Negative indicates a masterVault -> subVault deposit (negative deltaAssets),
+    ///                        positive indicates a subVault -> masterVault withdraw (positive deltaAssets).
     // slither-disable-next-line reentrancy-no-eth
     function rebalance(int256 minExchRateWad) external whenNotPaused nonReentrant onlyKeeper {
         // Check cooldown
