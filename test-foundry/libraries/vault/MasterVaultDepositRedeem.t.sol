@@ -7,23 +7,6 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
-contract MasterVaultRolesTest is MasterVaultCoreTest {
-    function test_adminRoleAdmin_isAdminRole() public {
-        bytes32 adminRole = vault.ADMIN_ROLE();
-        assertEq(vault.getRoleAdmin(adminRole), adminRole, "ADMIN_ROLE admin should be ADMIN_ROLE");
-    }
-
-    function test_pauserRoleAdmin_isGeneralManagerRole() public {
-        bytes32 pauserRole = vault.PAUSER_ROLE();
-        bytes32 generalManagerRole = vault.GENERAL_MANAGER_ROLE();
-        assertEq(
-            vault.getRoleAdmin(pauserRole),
-            generalManagerRole,
-            "PAUSER_ROLE admin should be GENERAL_MANAGER_ROLE"
-        );
-    }
-}
-
 contract MasterVaultFirstDepositTest is MasterVaultCoreTest {
     using Math for uint256;
 

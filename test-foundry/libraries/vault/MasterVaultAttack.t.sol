@@ -7,7 +7,7 @@ import {MockSubVault} from "../../../contracts/tokenbridge/test/MockSubVault.sol
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 
-contract MasterVaultTestWithSubvaultFresh is MasterVaultCoreTest {
+contract AttackTestBase is MasterVaultCoreTest {
     function setUp() public override {
         super.setUp();
         MockSubVault _subvault = new MockSubVault(IERC20(address(token)), "TestSubvault", "TSV");
@@ -18,7 +18,7 @@ contract MasterVaultTestWithSubvaultFresh is MasterVaultCoreTest {
     }
 }
 
-contract AttackTest is MasterVaultTestWithSubvaultFresh {
+contract AttackTest is AttackTestBase {
     function _calculateStolenAmount(
         uint128 initialSubVaultTotalAssets,
         uint128 initialSubVaultTotalSupply,

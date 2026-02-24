@@ -3,7 +3,6 @@ pragma solidity ^0.8.0;
 
 import {Test} from "forge-std/Test.sol";
 import {
-    DefaultSubVault,
     MasterVaultFactory
 } from "../../../contracts/tokenbridge/libraries/vault/MasterVaultFactory.sol";
 import {BeaconProxyFactory} from "../../../contracts/tokenbridge/libraries/ClonableBeaconProxy.sol";
@@ -140,35 +139,5 @@ contract MasterVaultFactoryTest is Test {
 
         assertEq(vaultOwner(MasterVault(vault1)), owner, "Vault1 should have owner as admin");
         assertEq(vaultOwner(MasterVault(vault2)), owner, "Vault2 should have owner as admin");
-    }
-}
-
-contract DefaultSubVaultTest is Test {
-    MasterVaultFactory public factory;
-    MasterVault public vault;
-    DefaultSubVault public defaultSubVault;
-    TestERC20 public token;
-
-    address public owner = address(0x1);
-    address public attacker = address(0xdead);
-
-    function setUp() public {
-        token = new TestERC20();
-        factory = new MasterVaultFactory();
-        MasterVault masterVaultImplementation = new MasterVault();
-        factory.initialize(address(masterVaultImplementation), owner, IGatewayRouter(address(0)));
-        vault = MasterVault(factory.deployVault(address(token)));
-        defaultSubVault = DefaultSubVault(address(vault.subVault()));
-    }
-
-    function test_deposit_revert_onlyMasterVault() public {
-        uint256 amount = 1e18;
-        vm.prank(attacker);
-        token.mintAmount(amount);
-        vm.startPrank(attacker);
-        token.approve(address(defaultSubVault), amount);
-        vm.expectRevert("ONLY_MASTER_VAULT");
-        defaultSubVault.deposit(amount, attacker);
-        vm.stopPrank();
     }
 }

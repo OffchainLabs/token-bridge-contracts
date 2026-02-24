@@ -35,8 +35,9 @@ contract DefaultSubVault is ERC4626 {
         revert("UNSUPPORTED");
     }
 
-    function redeem(uint256, address, address) public pure override returns (uint256) {
-        revert("UNSUPPORTED");
+    function redeem(uint256 shares, address receiver, address owner) public override returns (uint256) {
+        require(msg.sender == masterVault, "ONLY_MASTER_VAULT");
+        return super.redeem(shares, receiver, owner);
     }
 }
 
