@@ -456,6 +456,7 @@ contract MasterVault is
     /// @dev Overridden to add EXTRA_DECIMALS to the underlying asset decimals
     /// @notice Requires underlying asset to implement IERC20Metadata.decimals()
     function decimals() public view override returns (uint8) {
+        // todo: try catch in case no decimals
         return IERC20Metadata(address(asset)).decimals() + EXTRA_DECIMALS;
     }
 
