@@ -5,7 +5,7 @@ Handler-based invariant testing and targeted fuzz testing for the MasterVault. E
 ## Architecture
 
 ```
-contracts/tokenbridge/test/FuzzSubVault.sol           Configurable ERC4626 mock
+contracts/tokenbridge/test/FuzzSubVault.sol           Minimal vault mock (no ERC4626 inheritance)
 test-foundry/libraries/vault/invariant/
 ├── MasterVaultHandler.sol                            Handler (fuzzer entry point)
 ├── MasterVaultInvariant.t.sol                        Stateful invariant tests
@@ -15,12 +15,14 @@ test-foundry/libraries/vault/invariant/
 
 ### FuzzSubVault
 
-A mock ERC4626 vault where the fuzzer controls every degree of freedom the spec leaves open:
+A minimal vault mock that only implements the ERC4626 subset MasterVault actually calls (`asset`, `deposit`, `withdraw`, `maxDeposit`, `maxWithdraw`, `previewMint`, `previewRedeem`, `balanceOf`). No ERC4626 inheritance — vault math is hand-rolled with `Math.mulDiv` so the mock is fully auditable.
+
+The fuzzer controls every degree of freedom the spec leaves open:
 
 - `adminMint(to, shares)` — mint shares without backing assets (simulates loss, A < T)
 - `adminBurn(from, shares)` — burn shares without withdrawing assets (A > T)
-- `setMaxWithdrawLimit(limit)` — cap `maxWithdraw` (spec-legal, interacts with dust)
-- `setMaxDepositLimit(limit)` — cap `maxDeposit`
+- `setMaxWithdrawLimit(limit)` — cap withdrawals (enforced by `withdraw`, reverts if exceeded)
+- `setMaxDepositLimit(limit)` — cap deposits (enforced by `deposit`, reverts if exceeded)
 
 ### Handler
 
