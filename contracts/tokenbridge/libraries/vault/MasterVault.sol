@@ -261,11 +261,36 @@ contract MasterVault is
     ///                        positive indicates a subVault -> masterVault withdraw (positive deltaAssets).
     // slither-disable-next-line reentrancy-no-eth
     function rebalance(int256 minExchRateWad) external whenNotPaused nonReentrant onlyKeeper {
-        // todo: special case 0% and 100%
         // Check cooldown
         uint256 timeSinceLastRebalance = block.timestamp - lastRebalanceTime;
         if (timeSinceLastRebalance < rebalanceCooldown) {
             revert RebalanceCooldownNotMet(timeSinceLastRebalance, rebalanceCooldown);
+        }
+
+        // Special case: 0% target means drain the subvault entirely.
+        // Uses redeem (not withdraw) to guarantee all shares are burned.
+        // Bypasses minimumRebalanceAmount so dust can always be swept.
+        if (targetAllocationWad == 0) {
+            uint256 subVaultShares = subVault.maxRedeem(address(this));
+            if (subVaultShares == 0) revert TargetAllocationMet();
+
+            if (minExchRateWad < 0) {
+                revert RebalanceExchRateWrongSign(minExchRateWad);
+            }
+
+            uint256 assetsReceived = subVault.redeem(subVaultShares, address(this), address(this));
+            uint256 actualExchRate =
+                assetsReceived.mulDiv(1e18, subVaultShares, MathUpgradeable.Rounding.Down);
+
+            if (actualExchRate < uint256(minExchRateWad)) {
+                revert RebalanceExchRateTooLow(
+                    minExchRateWad, int256(assetsReceived), subVaultShares
+                );
+            }
+
+            emit Rebalanced(false, assetsReceived, assetsReceived);
+            lastRebalanceTime = uint40(block.timestamp);
+            return;
         }
 
         uint256 totalAssetsUp = _totalAssets(MathUpgradeable.Rounding.Up);
