@@ -31,7 +31,7 @@ contract MasterVaultSettersTest is MasterVaultCoreTest {
     function test_setRebalanceCooldown_belowMinimum_reverts() public {
         uint256 minimum = vault.MIN_REBALANCE_COOLDOWN();
         vm.prank(generalManager);
-        vm.expectRevert();
+        vm.expectRevert(abi.encodeWithSelector(MasterVault.RebalanceCooldownTooLow.selector, uint32(0), uint32(1)));
         vault.setRebalanceCooldown(uint32(minimum - 1));
     }
 

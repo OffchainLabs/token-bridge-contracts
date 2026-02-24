@@ -72,7 +72,9 @@ contract MasterVaultRebalanceTest is MasterVaultCoreTest {
         vault.setTargetAllocationWad(49e16); // tiny change to trigger small withdraw
         vm.warp(block.timestamp + 2);
         vm.prank(keeper);
-        vm.expectRevert();
+        vm.expectRevert(abi.encodeWithSelector(
+            MasterVault.RebalanceAmountTooSmall.selector, false, 1e17 - 1, 1e17 - 1, 100e18
+        ));
         vault.rebalance(0);
     }
 
@@ -82,7 +84,9 @@ contract MasterVaultRebalanceTest is MasterVaultCoreTest {
         vm.warp(block.timestamp + 2);
         // Pass a very high minExchRateWad so the exchange rate check fails
         vm.prank(keeper);
-        vm.expectRevert(); // todo: fix empty expectRevert
+        vm.expectRevert(abi.encodeWithSelector(
+            MasterVault.RebalanceExchRateTooLow.selector, int256(100e18), int256(6e18 - 1), 6e18 - 1
+        ));
         vault.rebalance(int256(100e18));
     }
 
@@ -92,7 +96,9 @@ contract MasterVaultRebalanceTest is MasterVaultCoreTest {
         vault.setTargetAllocationWad(5e17);
         vm.warp(block.timestamp + 2);
         vm.prank(keeper);
-        vm.expectRevert();
+        vm.expectRevert(abi.encodeWithSelector(
+            MasterVault.RebalanceAmountTooSmall.selector, true, 5e18 - 1, 5e18 - 1, 100e18
+        ));
         vault.rebalance(-1e18);
     }
 
@@ -114,7 +120,9 @@ contract MasterVaultRebalanceTest is MasterVaultCoreTest {
         vm.warp(block.timestamp + 2);
         // Pass -1 (tolerance of 1 wei per share) - actual rate is 1e18, so 1e18 > 1 reverts
         vm.prank(keeper);
-        vm.expectRevert();
+        vm.expectRevert(abi.encodeWithSelector(
+            MasterVault.RebalanceExchRateTooLow.selector, int256(-1), -int256(5e18 - 1), 5e18 - 1
+        ));
         vault.rebalance(-1);
     }
 
