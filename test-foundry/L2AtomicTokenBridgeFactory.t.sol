@@ -20,8 +20,9 @@ import {CreationCodeHelper} from "contracts/tokenbridge/libraries/CreationCodeHe
 import {UpgradeExecutor} from "@offchainlabs/upgrade-executor/src/UpgradeExecutor.sol";
 import {ArbMulticall2} from "contracts/rpc-utils/MulticallV2.sol";
 import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
-import {TransparentUpgradeableProxy} from
-    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {
+    TransparentUpgradeableProxy
+} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 contract L2AtomicTokenBridgeFactoryTest is Test {
     L2AtomicTokenBridgeFactory public l2Factory;
@@ -381,9 +382,8 @@ contract L2AtomicTokenBridgeFactoryTest is Test {
         bytes32 adminRole = UpgradeExecutor(expectedL2UpgExecutorAddress).ADMIN_ROLE();
 
         assertEq(
-            UpgradeExecutor(expectedL2UpgExecutorAddress).hasRole(
-                executorRole, aliasedL1UpgradeExecutor
-            ),
+            UpgradeExecutor(expectedL2UpgExecutorAddress)
+                .hasRole(executorRole, aliasedL1UpgradeExecutor),
             true,
             "Wrong executor role"
         );
@@ -393,9 +393,8 @@ contract L2AtomicTokenBridgeFactoryTest is Test {
             "Wrong executor role"
         );
         assertEq(
-            UpgradeExecutor(expectedL2UpgExecutorAddress).hasRole(
-                adminRole, expectedL2UpgExecutorAddress
-            ),
+            UpgradeExecutor(expectedL2UpgExecutorAddress)
+                .hasRole(adminRole, expectedL2UpgExecutorAddress),
             true,
             "Wrong admin role"
         );
@@ -418,7 +417,7 @@ contract L2AtomicTokenBridgeFactoryTest is Test {
 
         address expectedMulticallAddress = Create2.computeAddress(
             keccak256(abi.encodePacked(bytes("L2MC"), block.chainid, address(this))),
-            keccak256(type(ArbMulticall2).creationCode),
+            keccak256(CreationCodeHelper.getCreationCodeFor(multicall.code)),
             address(l2Factory)
         );
 
