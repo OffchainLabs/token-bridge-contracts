@@ -3,7 +3,6 @@ pragma solidity ^0.8.0;
 
 import {Test} from "forge-std/Test.sol";
 import {
-    DefaultSubVault,
     MasterVaultFactory
 } from "../../../contracts/tokenbridge/libraries/vault/MasterVaultFactory.sol";
 import {BeaconProxyFactory} from "../../../contracts/tokenbridge/libraries/ClonableBeaconProxy.sol";

@@ -299,12 +299,9 @@ contract L1ForceOnlyReverseCustomGatewayTest is L1ReverseCustomGatewayTest {
         0; // N/A
     }
 
-    // COMMENTED OUT FOR MUTEST — was failing before mutation testing (base function commented out)
-    /*
     function test_registerTokenToL2_UpdateToSameAddress(address, address) public virtual override {
         0; // N/A
     }
-    */
 
     function test_registerTokenToL2_revert_NoUpdateToDifferentAddress() public virtual override {
         0; // N/A
