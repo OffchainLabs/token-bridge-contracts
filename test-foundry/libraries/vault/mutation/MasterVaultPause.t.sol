@@ -5,5 +5,18 @@ import {MasterVaultMutationBase} from "./MasterVaultMutationBase.t.sol";
 import {MasterVault} from "../../../../contracts/tokenbridge/libraries/vault/MasterVault.sol";
 
 contract MasterVaultPauseTest is MasterVaultMutationBase {
-    // Move pause/unpause tests here (mutants #151, #152 in MasterVault.sol)
+    function test_pause_works() public {
+        vm.prank(pauser);
+        vault.pause();
+        assertTrue(vault.paused(), "should be paused");
+    }
+
+    function test_unpause_works() public {
+        vm.prank(pauser);
+        vault.pause();
+        assertTrue(vault.paused());
+        vm.prank(pauser);
+        vault.unpause();
+        assertFalse(vault.paused(), "should be unpaused");
+    }
 }

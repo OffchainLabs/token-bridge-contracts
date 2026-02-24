@@ -261,6 +261,7 @@ contract MasterVault is
     ///                        positive indicates a subVault -> masterVault withdraw (positive deltaAssets).
     // slither-disable-next-line reentrancy-no-eth
     function rebalance(int256 minExchRateWad) external whenNotPaused nonReentrant onlyKeeper {
+        // todo: special case 0% and 100%
         // Check cooldown
         uint256 timeSinceLastRebalance = block.timestamp - lastRebalanceTime;
         if (timeSinceLastRebalance < rebalanceCooldown) {
