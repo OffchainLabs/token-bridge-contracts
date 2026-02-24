@@ -1,3 +1,4 @@
+.devcontainer
 .gitignore
 .env
 node_modules
@@ -23,6 +24,7 @@ network.json
 
 # Gambit (mutation test) files
 gambit_out/
+gambit_out~/
 test-mutation/mutant_test_env/
 
 # bridged usdc deployment script
