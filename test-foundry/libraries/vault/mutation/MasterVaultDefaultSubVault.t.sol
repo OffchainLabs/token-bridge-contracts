@@ -15,6 +15,14 @@ contract MasterVaultDefaultSubVaultTest is MasterVaultMutationBase {
         dsv.withdraw(1, attacker, attacker);
     }
 
+    function test_defaultSubVault_deposit_onlyMasterVault() public {
+        DefaultSubVault dsv = DefaultSubVault(address(vault.subVault()));
+        address attacker = address(0xdead);
+        vm.prank(attacker);
+        vm.expectRevert("ONLY_MASTER_VAULT");
+        dsv.deposit(1, attacker);
+    }
+
     function test_defaultSubVault_withdraw_requireTrue_onlyMasterVault() public {
         DefaultSubVault dsv = DefaultSubVault(address(vault.subVault()));
         vm.prank(address(vault));
