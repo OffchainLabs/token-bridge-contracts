@@ -261,38 +261,33 @@ contract MasterVault is
     ///                        positive indicates a subVault -> masterVault withdraw (positive deltaAssets).
     // slither-disable-next-line reentrancy-no-eth
     function rebalance(int256 minExchRateWad) external whenNotPaused nonReentrant onlyKeeper {
-        // Check cooldown
         uint256 timeSinceLastRebalance = block.timestamp - lastRebalanceTime;
         if (timeSinceLastRebalance < rebalanceCooldown) {
             revert RebalanceCooldownNotMet(timeSinceLastRebalance, rebalanceCooldown);
         }
 
-        // Special case: 0% target means drain the subvault entirely.
-        // Uses redeem (not withdraw) to guarantee all shares are burned.
-        // Bypasses minimumRebalanceAmount so dust can always be swept.
         if (targetAllocationWad == 0) {
-            uint256 subVaultShares = subVault.maxRedeem(address(this));
-            if (subVaultShares == 0) revert TargetAllocationMet();
-
-            if (minExchRateWad < 0) {
-                revert RebalanceExchRateWrongSign(minExchRateWad);
-            }
-
-            uint256 assetsReceived = subVault.redeem(subVaultShares, address(this), address(this));
-            uint256 actualExchRate =
-                assetsReceived.mulDiv(1e18, subVaultShares, MathUpgradeable.Rounding.Down);
-
-            if (actualExchRate < uint256(minExchRateWad)) {
-                revert RebalanceExchRateTooLow(
-                    minExchRateWad, int256(assetsReceived), subVaultShares
-                );
-            }
-
-            emit Rebalanced(false, assetsReceived, assetsReceived);
-            lastRebalanceTime = uint40(block.timestamp);
-            return;
+            _rebalanceDrain(minExchRateWad);
+        } else {
+            _rebalanceToTarget(minExchRateWad);
         }
 
+        lastRebalanceTime = uint40(block.timestamp);
+    }
+
+    /// @dev 0% target: redeem all subvault shares. Bypasses minimumRebalanceAmount so dust can be swept.
+    function _rebalanceDrain(int256 minExchRateWad) private {
+        uint256 subVaultShares = subVault.maxRedeem(address(this));
+        if (subVaultShares == 0) revert TargetAllocationMet();
+
+        uint256 assetsReceived = subVault.redeem(subVaultShares, address(this), address(this));
+        _validateWithdrawExchRate(minExchRateWad, assetsReceived, subVaultShares);
+
+        emit Rebalanced(false, assetsReceived, assetsReceived);
+    }
+
+    /// @dev Deposit to or withdraw from the subvault to reach targetAllocationWad.
+    function _rebalanceToTarget(int256 minExchRateWad) private {
         uint256 totalAssetsUp = _totalAssets(MathUpgradeable.Rounding.Up);
         uint256 totalAssetsDown = _totalAssets(MathUpgradeable.Rounding.Down);
         uint256 idleTargetUp =
@@ -306,11 +301,6 @@ contract MasterVault is
         }
 
         if (idleBalance < idleTargetDown) {
-            // we are withdrawing, so slippage tolerance must be non negative
-            if (minExchRateWad < 0) {
-                revert RebalanceExchRateWrongSign(minExchRateWad);
-            }
-
             uint256 desiredWithdraw = idleTargetDown - idleBalance;
             uint256 maxWithdrawable = subVault.maxWithdraw(address(this));
             uint256 withdrawAmount =
@@ -323,22 +313,10 @@ contract MasterVault is
             }
 
             uint256 subVaultShares = subVault.withdraw(withdrawAmount, address(this), address(this));
-            uint256 actualExchRate =
-                withdrawAmount.mulDiv(1e18, subVaultShares, MathUpgradeable.Rounding.Down);
-
-            if (actualExchRate < uint256(minExchRateWad)) {
-                revert RebalanceExchRateTooLow(
-                    minExchRateWad, int256(withdrawAmount), subVaultShares
-                );
-            }
+            _validateWithdrawExchRate(minExchRateWad, withdrawAmount, subVaultShares);
 
             emit Rebalanced(false, desiredWithdraw, withdrawAmount);
         } else {
-            // we are depositing, so slippage tolerance must be non positive
-            if (minExchRateWad > 0) {
-                revert RebalanceExchRateWrongSign(minExchRateWad);
-            }
-
             uint256 desiredDeposit = idleBalance - idleTargetUp;
             uint256 maxDepositable = subVault.maxDeposit(address(this));
             uint256 depositAmount =
@@ -352,19 +330,10 @@ contract MasterVault is
 
             asset.safeIncreaseAllowance(address(subVault), depositAmount);
             uint256 subVaultShares = subVault.deposit(depositAmount, address(this));
-            uint256 actualExchRate =
-                depositAmount.mulDiv(1e18, subVaultShares, MathUpgradeable.Rounding.Up);
-
-            if (actualExchRate > uint256(-minExchRateWad)) {
-                revert RebalanceExchRateTooLow(
-                    minExchRateWad, -int256(depositAmount), subVaultShares
-                );
-            }
+            _validateDepositExchRate(minExchRateWad, depositAmount, subVaultShares);
 
             emit Rebalanced(true, desiredDeposit, depositAmount);
         }
-
-        lastRebalanceTime = uint40(block.timestamp);
     }
 
     /// @notice Distribute performance fees to the beneficiary
@@ -591,6 +560,34 @@ contract MasterVault is
         return rounding == MathUpgradeable.Rounding.Up
             ? subVault.previewMint(subShares)
             : subVault.previewRedeem(subShares);
+    }
+
+    /// @dev Validates exchange rate for a deposit operation (assets spent per share received)
+    function _validateDepositExchRate(
+        int256 minExchRateWad,
+        uint256 assetsSpent,
+        uint256 subVaultShares
+    ) internal pure {
+        if (minExchRateWad > 0) revert RebalanceExchRateWrongSign(minExchRateWad);
+        uint256 actualExchRate =
+            assetsSpent.mulDiv(1e18, subVaultShares, MathUpgradeable.Rounding.Up);
+        if (actualExchRate > uint256(-minExchRateWad)) {
+            revert RebalanceExchRateTooLow(minExchRateWad, -int256(assetsSpent), subVaultShares);
+        }
+    }
+
+    /// @dev Validates exchange rate for a withdraw/redeem operation
+    function _validateWithdrawExchRate(
+        int256 minExchRateWad,
+        uint256 assetsReceived,
+        uint256 subVaultShares
+    ) internal pure {
+        if (minExchRateWad < 0) revert RebalanceExchRateWrongSign(minExchRateWad);
+        uint256 actualExchRate =
+            assetsReceived.mulDiv(1e18, subVaultShares, MathUpgradeable.Rounding.Down);
+        if (actualExchRate < uint256(minExchRateWad)) {
+            revert RebalanceExchRateTooLow(minExchRateWad, int256(assetsReceived), subVaultShares);
+        }
     }
 
     /// @dev Helper to add/remove a subvault from the whitelist
