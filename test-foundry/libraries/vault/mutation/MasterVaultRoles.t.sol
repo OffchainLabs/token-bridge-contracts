@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import {MasterVaultMutationBase} from "./MasterVaultMutationBase.t.sol";
+import {MasterVaultCoreTest} from "../MasterVaultCore.t.sol";
 import {MasterVault} from "../../../../contracts/tokenbridge/libraries/vault/MasterVault.sol";
 
-contract MasterVaultRolesTest is MasterVaultMutationBase {
+contract MasterVaultRolesTest is MasterVaultCoreTest {
     // --- standalone rolesRegistry ---
 
     function test_rolesRegistry_adminRoleAdmin_isAdminRole() public {

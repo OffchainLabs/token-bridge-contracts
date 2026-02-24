@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import {MasterVaultMutationBase} from "./MasterVaultMutationBase.t.sol";
+import {MasterVaultCoreTest} from "../MasterVaultCore.t.sol";
 import {
     DefaultSubVault
 } from "../../../../contracts/tokenbridge/libraries/vault/MasterVaultFactory.sol";
 
-contract MasterVaultDefaultSubVaultTest is MasterVaultMutationBase {
+contract MasterVaultDefaultSubVaultTest is MasterVaultCoreTest {
     function test_defaultSubVault_withdraw_onlyMasterVault() public {
         DefaultSubVault dsv = DefaultSubVault(address(vault.subVault()));
         address attacker = address(0xdead);

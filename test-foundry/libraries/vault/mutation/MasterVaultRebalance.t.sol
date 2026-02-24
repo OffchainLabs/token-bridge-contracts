@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import {MasterVaultMutationBase} from "./MasterVaultMutationBase.t.sol";
+import {MasterVaultCoreTest} from "../MasterVaultCore.t.sol";
 import {MasterVault} from "../../../../contracts/tokenbridge/libraries/vault/MasterVault.sol";
 
-contract MasterVaultRebalanceTest is MasterVaultMutationBase {
+contract MasterVaultRebalanceTest is MasterVaultCoreTest {
     function test_rebalance_targetAllocationMet_reverts() public {
         _setupWithAllocation(1e18, 5e17);
         // Rebalance again with same allocation - should be met now

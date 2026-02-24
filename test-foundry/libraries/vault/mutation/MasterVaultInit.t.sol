@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import {MasterVaultMutationBase} from "./MasterVaultMutationBase.t.sol";
+import {MasterVaultCoreTest} from "../MasterVaultCore.t.sol";
 import {MasterVault} from "../../../../contracts/tokenbridge/libraries/vault/MasterVault.sol";
 import {TestERC20} from "../../../../contracts/tokenbridge/test/TestERC20.sol";
 import {IAccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/IAccessControlUpgradeable.sol";
@@ -26,7 +26,7 @@ contract OverflowDecimalsToken is BadTokenBase {
     function decimals() external pure returns (uint8) { return type(uint8).max - 5; }
 }
 
-contract MasterVaultInitTest is MasterVaultMutationBase {
+contract MasterVaultInitTest is MasterVaultCoreTest {
     function test_initialize_setsERC20Name() public {
         string memory n = vault.name();
         assertTrue(bytes(n).length > 0, "name should be set");
