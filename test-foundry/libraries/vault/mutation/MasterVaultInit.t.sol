@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import {MasterVaultCoreTest} from "../MasterVaultCore.t.sol";
 import {MasterVault} from "../../../../contracts/tokenbridge/libraries/vault/MasterVault.sol";
 import {TestERC20} from "../../../../contracts/tokenbridge/test/TestERC20.sol";
+import {stdError} from "forge-std/StdError.sol";
 import {IAccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/IAccessControlUpgradeable.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
@@ -38,13 +39,13 @@ contract MasterVaultInitTest is MasterVaultCoreTest {
 
     function test_initialize_revertsOnRevertingDecimals() public {
         address badToken = address(new RevertingDecimalsToken());
-        vm.expectRevert();
+        vm.expectRevert("no decimals");
         factory.deployVault(badToken);
     }
 
     function test_initialize_revertsOnOverflowDecimals() public {
         address badToken = address(new OverflowDecimalsToken());
-        vm.expectRevert();
+        vm.expectRevert(stdError.arithmeticError);
         factory.deployVault(badToken);
     }
 
