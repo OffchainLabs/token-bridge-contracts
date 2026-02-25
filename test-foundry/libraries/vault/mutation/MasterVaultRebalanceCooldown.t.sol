@@ -20,7 +20,7 @@ contract MasterVaultRebalanceCooldownTest is MasterVaultCoreTest {
         // With mutant (+): timeSinceLastRebalance = 105+100=205 >= 10, no cooldown revert
         // With correct code (-): timeSinceLastRebalance = 105-100=5 < 10, cooldown revert
         vm.prank(keeper);
-        vm.expectRevert();
+        vm.expectRevert(abi.encodeWithSelector(MasterVault.RebalanceCooldownNotMet.selector, uint256(5), uint256(10)));
         vault.rebalance(-1e18);
     }
 
@@ -36,7 +36,7 @@ contract MasterVaultRebalanceCooldownTest is MasterVaultCoreTest {
         // Warp only 50s (less than 100 cooldown)
         vm.warp(block.timestamp + 50);
         vm.prank(keeper);
-        vm.expectRevert();
+        vm.expectRevert(abi.encodeWithSelector(MasterVault.RebalanceCooldownNotMet.selector, uint256(50), uint256(100)));
         vault.rebalance(-1e18);
     }
 }

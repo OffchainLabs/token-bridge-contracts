@@ -44,8 +44,9 @@ contract MasterVaultSetSubVaultTest is MasterVaultCoreTest {
         assertTrue(vault.subVault().balanceOf(address(vault)) > 0, "should have subvault shares");
         MockSubVault newSv = new MockSubVault(IERC20(address(token)), "New", "NEW");
         vault.setSubVaultWhitelist(address(newSv), true);
+        uint256 shares = vault.subVault().balanceOf(address(vault));
         vm.prank(generalManager);
-        vm.expectRevert();
+        vm.expectRevert(abi.encodeWithSelector(MasterVault.NonZeroSubVaultShares.selector, shares));
         vault.setSubVault(IERC4626(address(newSv)));
     }
 }
