@@ -255,7 +255,7 @@ contract MasterVault is
 
     /// @notice Rebalance assets between idle and the subvault to maintain target allocation
     /// @dev    Will revert if the cooldown period has not passed.
-    ///         If targetAllocationWad is 0%, redeems all subvault shares (bypasses minimumRebalanceAmount).
+    ///         If targetAllocationWad is 0%, attempts to redeem all subvault shares (bypasses minimumRebalanceAmount).
     ///         Otherwise, deposits/withdraws to reach the target, reverting if the target is already met
     ///         or the amount is less than minimumRebalanceAmount.
     /// @param  minExchRateWad Minimum exchange rate (1e18 * deltaAssets / abs(subVaultShares)) for the deposit/withdraw operation
