@@ -158,6 +158,27 @@ contract MasterVaultInvariant is Test {
         );
     }
 
+    /// @notice A deposit-redeem round-trip must never extract value.
+    /// @dev    At any reachable state (arbitrary exchange rates from handler actions),
+    ///         depositing X and immediately redeeming should return <= X.
+    ///         Catches: share pricing rounding that favors depositor over vault.
+    function invariant_depositRedeemNoValueExtraction() public {
+        uint256 depositAmount = bound(handler.random(), 1, 1e18);
+        vm.prank(user);
+        token.mintAmount(depositAmount);
+        vm.startPrank(user);
+        token.approve(address(vault), depositAmount);
+        uint256 shares = vault.deposit(depositAmount);
+        vm.stopPrank();
+
+        uint256 balBefore = token.balanceOf(user);
+        vm.prank(user);
+        vault.redeem(shares, 0);
+        uint256 assetsReceived = token.balanceOf(user) - balBefore;
+
+        assertLe(assetsReceived, depositAmount, "deposit-redeem round-trip extracted value");
+    }
+
     function _rebalanceToZero() internal returns (bool skip) {
         if (vault.targetAllocationWad() != 0) {
             vault.setTargetAllocationWad(0);

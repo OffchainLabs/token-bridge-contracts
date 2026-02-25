@@ -32,8 +32,7 @@ single_line_imports = false
 
 [invariant]
 runs = 256
-depth = 50
-fail_on_revert = false
+depth = 100
 
 [lint]
 lint_on_build = false
