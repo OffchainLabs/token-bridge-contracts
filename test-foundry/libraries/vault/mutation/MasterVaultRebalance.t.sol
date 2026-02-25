@@ -197,6 +197,17 @@ contract MasterVaultRebalanceTest is MasterVaultCoreTest {
         vault.rebalance(0);
     }
 
+    function test_rebalance_drain_negativeExchRate_reverts() public {
+        _setupWithAllocation(10e18, 5e17);
+        vault.setTargetAllocationWad(0);
+        vm.warp(block.timestamp + 2);
+        vm.prank(keeper);
+        vm.expectRevert(
+            abi.encodeWithSelector(MasterVault.RebalanceExchRateWrongSign.selector, int256(-1))
+        );
+        vault.rebalance(-1);
+    }
+
     function test_rebalance_drain_exchRateTooLow_reverts() public {
         _setupWithAllocation(10e18, 5e17);
         vault.setTargetAllocationWad(0);
