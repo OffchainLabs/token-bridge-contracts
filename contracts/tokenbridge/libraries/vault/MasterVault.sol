@@ -154,6 +154,7 @@ contract MasterVault is
         address indexed beneficiary, uint256 amountTransferred, uint256 amountWithdrawn
     );
     event Rebalanced(bool deposited, uint256 desiredAmount, uint256 actualAmount);
+    event RebalancedToZero(uint256 shares, uint256 assets);
     event SubVaultWhitelistUpdated(address indexed subVault, bool whitelisted);
     event RebalanceCooldownUpdated(uint256 oldCooldown, uint256 newCooldown);
     event TargetAllocationUpdated(uint256 oldAllocation, uint256 newAllocation);
@@ -253,9 +254,10 @@ contract MasterVault is
     }
 
     /// @notice Rebalance assets between idle and the subvault to maintain target allocation
-    /// @dev    Will revert if the cooldown period has not passed
-    ///         Will revert if the target allocation is already met
-    ///         Will revert if the amount to deposit/withdraw is less than the minimumRebalanceAmount.
+    /// @dev    Will revert if the cooldown period has not passed.
+    ///         If targetAllocationWad is 0%, redeems all subvault shares (bypasses minimumRebalanceAmount).
+    ///         Otherwise, deposits/withdraws to reach the target, reverting if the target is already met
+    ///         or the amount is less than minimumRebalanceAmount.
     /// @param  minExchRateWad Minimum exchange rate (1e18 * deltaAssets / abs(subVaultShares)) for the deposit/withdraw operation
     ///                        Negative indicates a masterVault -> subVault deposit (negative deltaAssets),
     ///                        positive indicates a subVault -> masterVault withdraw (positive deltaAssets).
@@ -283,7 +285,7 @@ contract MasterVault is
         uint256 assetsReceived = subVault.redeem(subVaultShares, address(this), address(this));
         _validateWithdrawExchRate(minExchRateWad, assetsReceived, subVaultShares);
 
-        emit Rebalanced(false, assetsReceived, assetsReceived);
+        emit RebalancedToZero(subVaultShares, assetsReceived);
     }
 
     /// @dev Deposit to or withdraw from the subvault to reach targetAllocationWad.
