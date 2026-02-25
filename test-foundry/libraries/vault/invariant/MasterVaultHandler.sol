@@ -40,8 +40,11 @@ contract MasterVaultHandler is Test {
     /// @notice Count of successful calls per action (for debugging fuzzer coverage)
     mapping(bytes4 => uint256) public ghost_callCount;
 
-    /// @notice Whether subvault rate has ever been manipulated (loss/skew)
-    bool public ghost_subVaultManipulated;
+    /// @notice Whether subvault has been positively manipulated (profit-like: extra assets, deflated shares)
+    bool public ghost_positiveManipulation;
+
+    /// @notice Whether subvault has been negatively manipulated (loss-like: removed assets, inflated shares, rounding errors)
+    bool public ghost_negativeManipulation;
 
     constructor(
         MasterVault _vault,
@@ -149,6 +152,7 @@ contract MasterVaultHandler is Test {
         token.mintAmount(amt);
         token.transfer(address(subVault), amt);
         ghost_profit += amt;
+        ghost_positiveManipulation = true;
         ghost_callCount[this.simulateSubVaultProfit.selector]++;
     }
 
@@ -161,7 +165,7 @@ contract MasterVaultHandler is Test {
         vm.prank(address(subVault));
         token.transfer(address(0xdead), amt);
         ghost_loss += amt;
-        ghost_subVaultManipulated = true;
+        ghost_negativeManipulation = true;
         ghost_callCount[this.simulateSubVaultLoss.selector]++;
     }
 
@@ -169,7 +173,7 @@ contract MasterVaultHandler is Test {
     function inflateSubVaultShares(uint256 amt) external {
         amt = bound(amt, 1, 1e24);
         subVault.adminMint(address(vault), amt);
-        ghost_subVaultManipulated = true;
+        ghost_negativeManipulation = true;
         ghost_callCount[this.inflateSubVaultShares.selector]++;
     }
 
@@ -179,7 +183,7 @@ contract MasterVaultHandler is Test {
         if (vaultShares == 0) return;
         amt = bound(amt, 1, vaultShares);
         subVault.adminBurn(address(vault), amt);
-        ghost_subVaultManipulated = true;
+        ghost_positiveManipulation = true;
         ghost_callCount[this.deflateSubVaultShares.selector]++;
     }
 
@@ -202,5 +206,45 @@ contract MasterVaultHandler is Test {
         lim = bound(lim, 0, type(uint128).max);
         subVault.setMaxRedeemLimit(lim);
         ghost_callCount[this.capSubVaultMaxRedeem.selector]++;
+    }
+
+    /// @notice Set deposit rounding error on the subvault (0–10% in wad)
+    function setDepositError(uint256 seed) external {
+        uint256 wad = bound(seed, 0, 1e17);
+        subVault.setDepositErrorWad(wad);
+        if (wad > 0) ghost_negativeManipulation = true;
+        ghost_callCount[this.setDepositError.selector]++;
+    }
+
+    /// @notice Set withdraw rounding error on the subvault (0–10% in wad)
+    function setWithdrawError(uint256 seed) external {
+        uint256 wad = bound(seed, 0, 1e17);
+        subVault.setWithdrawErrorWad(wad);
+        if (wad > 0) ghost_negativeManipulation = true;
+        ghost_callCount[this.setWithdrawError.selector]++;
+    }
+
+    /// @notice Set redeem rounding error on the subvault (0–10% in wad)
+    function setRedeemError(uint256 seed) external {
+        uint256 wad = bound(seed, 0, 1e17);
+        subVault.setRedeemErrorWad(wad);
+        if (wad > 0) ghost_negativeManipulation = true;
+        ghost_callCount[this.setRedeemError.selector]++;
+    }
+
+    /// @notice Set previewMint rounding error on the subvault (0–10% in wad)
+    function setPreviewMintError(uint256 seed) external {
+        uint256 wad = bound(seed, 0, 1e17);
+        subVault.setPreviewMintErrorWad(wad);
+        if (wad > 0) ghost_negativeManipulation = true;
+        ghost_callCount[this.setPreviewMintError.selector]++;
+    }
+
+    /// @notice Set previewRedeem rounding error on the subvault (0–10% in wad)
+    function setPreviewRedeemError(uint256 seed) external {
+        uint256 wad = bound(seed, 0, 1e17);
+        subVault.setPreviewRedeemErrorWad(wad);
+        if (wad > 0) ghost_negativeManipulation = true;
+        ghost_callCount[this.setPreviewRedeemError.selector]++;
     }
 }

@@ -20,6 +20,12 @@ contract FuzzSubVault is ERC20 {
     uint256 public maxDepositLimit = type(uint256).max;
     uint256 public maxRedeemLimit = type(uint256).max;
 
+    uint256 public depositErrorWad;
+    uint256 public withdrawErrorWad;
+    uint256 public redeemErrorWad;
+    uint256 public previewMintErrorWad;
+    uint256 public previewRedeemErrorWad;
+
     constructor(IERC20 asset_, string memory _name, string memory _symbol) ERC20(_name, _symbol) {
         _asset = asset_;
     }
@@ -34,14 +40,14 @@ contract FuzzSubVault is ERC20 {
 
     function deposit(uint256 assets, address receiver) external returns (uint256 shares) {
         require(assets <= maxDepositLimit, "FuzzSubVault: deposit exceeds max");
-        shares = _convertToShares(assets, Math.Rounding.Down);
+        shares = _penalizeDown(_convertToShares(assets, Math.Rounding.Down), depositErrorWad);
         _asset.safeTransferFrom(msg.sender, address(this), assets);
         _mint(receiver, shares);
     }
 
     function withdraw(uint256 assets, address receiver, address owner) external returns (uint256 shares) {
         require(assets <= maxWithdrawLimit, "FuzzSubVault: withdraw exceeds max");
-        shares = _convertToShares(assets, Math.Rounding.Up);
+        shares = _penalizeUp(_convertToShares(assets, Math.Rounding.Up), withdrawErrorWad);
         _burn(owner, shares);
         _asset.safeTransfer(receiver, assets);
     }
@@ -59,7 +65,7 @@ contract FuzzSubVault is ERC20 {
     }
 
     function redeem(uint256 shares, address receiver, address owner) external returns (uint256 assets) {
-        assets = _convertToAssets(shares, Math.Rounding.Down);
+        assets = _penalizeDown(_convertToAssets(shares, Math.Rounding.Down), redeemErrorWad);
         require(shares <= maxRedeemLimit, "FuzzSubVault: redeem exceeds max");
         _burn(owner, shares);
         _asset.safeTransfer(receiver, assets);
@@ -70,11 +76,11 @@ contract FuzzSubVault is ERC20 {
     }
 
     function previewMint(uint256 shares) public view returns (uint256) {
-        return _convertToAssets(shares, Math.Rounding.Up);
+        return _penalizeUp(_convertToAssets(shares, Math.Rounding.Up), previewMintErrorWad);
     }
 
     function previewRedeem(uint256 shares) public view returns (uint256) {
-        return _convertToAssets(shares, Math.Rounding.Down);
+        return _penalizeDown(_convertToAssets(shares, Math.Rounding.Down), previewRedeemErrorWad);
     }
 
     // --- Test helpers ---
@@ -99,7 +105,37 @@ contract FuzzSubVault is ERC20 {
         maxRedeemLimit = limit;
     }
 
+    function setDepositErrorWad(uint256 wad) external {
+        depositErrorWad = wad;
+    }
+
+    function setWithdrawErrorWad(uint256 wad) external {
+        withdrawErrorWad = wad;
+    }
+
+    function setRedeemErrorWad(uint256 wad) external {
+        redeemErrorWad = wad;
+    }
+
+    function setPreviewMintErrorWad(uint256 wad) external {
+        previewMintErrorWad = wad;
+    }
+
+    function setPreviewRedeemErrorWad(uint256 wad) external {
+        previewRedeemErrorWad = wad;
+    }
+
     // --- Internal math ---
+
+    function _penalizeDown(uint256 value, uint256 errWad) private pure returns (uint256) {
+        if (errWad == 0) return value;
+        return value.mulDiv(1e18 - errWad, 1e18, Math.Rounding.Down);
+    }
+
+    function _penalizeUp(uint256 value, uint256 errWad) private pure returns (uint256) {
+        if (errWad == 0) return value;
+        return value.mulDiv(1e18 + errWad, 1e18, Math.Rounding.Up);
+    }
 
     function _convertToShares(uint256 assets, Math.Rounding rounding) private view returns (uint256) {
         uint256 supply = totalSupply();

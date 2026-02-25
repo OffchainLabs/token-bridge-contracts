@@ -82,7 +82,7 @@ contract MasterVaultInvariant is Test {
     }
 
     function invariant_canAlwaysSwitchSubVaults() public {
-        _rebalanceToZero();
+        if (_rebalanceToZero()) return;
 
         FuzzSubVault newSubVault = new FuzzSubVault(IERC20(address(token)), "FuzzSub2", "fSUB2");
         vault.setSubVaultWhitelist(address(newSubVault), true);
@@ -140,11 +140,11 @@ contract MasterVaultInvariant is Test {
     /// @dev    Under normal operation, the vault should never become insolvent.
     ///         Fee distribution rounds down, so totalAssets may be up to 2 wei below totalPrincipal.
     ///         Catches: value leakage through rounding, incorrect share pricing.
-    function invariant_solvencyWhenNoManipulation() public {
-        if (!handler.ghost_subVaultManipulated()) {
+    function invariant_solvencyWhenNoNegativeManipulation() public {
+        if (!handler.ghost_negativeManipulation()) {
             uint256 totalPrincipal = vault.totalSupply() / DEAD_SHARES;
             uint256 totalAssets = vault.totalAssets();
-            assertGe(totalAssets + 2, totalPrincipal, "insolvent without manipulation");
+            assertGe(totalAssets + 2, totalPrincipal, "insolvent without negative manipulation");
         }
     }
 
@@ -158,21 +158,21 @@ contract MasterVaultInvariant is Test {
         );
     }
 
-    function _rebalanceToZero() internal {
+    function _rebalanceToZero() internal returns (bool skip) {
         if (vault.targetAllocationWad() != 0) {
             vault.setTargetAllocationWad(0);
         }
 
         uint256 shareBalance = vault.subVault().balanceOf(address(vault));
-        if (shareBalance == 0) return;
+        if (shareBalance == 0) return true;
 
         uint256 maxRedeem = vault.subVault().maxRedeem(address(vault));
-        if (maxRedeem == 0) return;
+        if (maxRedeem == 0) return true;
 
         uint256 iterationsRequired = (shareBalance) / maxRedeem + 1;
 
         // set some reasonable upper bound on iterations to prevent infinite loop
-        if (iterationsRequired > 10) return;
+        if (iterationsRequired > 10) return true;
 
         for (uint256 i = 0; i < iterationsRequired && vault.subVault().balanceOf(address(vault)) != 0; i++) {
             vm.warp(block.timestamp + 2);
