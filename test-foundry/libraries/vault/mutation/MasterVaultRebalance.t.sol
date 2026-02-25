@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import {MasterVaultCoreTest} from "../MasterVaultCore.t.sol";
 import {MasterVault} from "../../../../contracts/tokenbridge/libraries/vault/MasterVault.sol";
+import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 
 contract MasterVaultRebalanceTest is MasterVaultCoreTest {
     function test_rebalance_targetAllocationMet_reverts() public {
@@ -154,5 +155,57 @@ contract MasterVaultRebalanceTest is MasterVaultCoreTest {
         vm.prank(keeper);
         vault.rebalance(-1e18);
         assertEq(vault.lastRebalanceTime(), rebalanceTime, "lastRebalanceTime should be updated");
+    }
+
+    function test_rebalance_drain_whenTargetIsZero() public {
+        // Deposit and allocate 50% to subvault
+        _setupWithAllocation(10e18, 5e17);
+        uint256 subVaultSharesBefore = vault.subVault().balanceOf(address(vault));
+        assertTrue(subVaultSharesBefore > 0, "should have subvault shares");
+
+        // Set target to 0% — should trigger drain path (redeem), not rebalanceToTarget (withdraw)
+        vault.setTargetAllocationWad(0);
+        vm.warp(block.timestamp + 2);
+
+        // Drain uses redeem(allShares) — verify it's called
+        vm.expectCall(
+            address(vault.subVault()),
+            abi.encodeCall(IERC4626.redeem, (subVaultSharesBefore, address(vault), address(vault)))
+        );
+        vm.prank(keeper);
+        vault.rebalance(0);
+
+        // Drain should redeem ALL subvault shares
+        uint256 subVaultSharesAfter = vault.subVault().balanceOf(address(vault));
+        assertEq(subVaultSharesAfter, 0, "drain should redeem all subvault shares");
+    }
+
+    function test_rebalance_drain_noShares_reverts() public {
+        _depositAs(10e18);
+        // Target is 0 and no subvault shares — drain should revert
+        vm.warp(block.timestamp + 2);
+        vm.prank(keeper);
+        vm.expectRevert(MasterVault.TargetAllocationMet.selector);
+        vault.rebalance(0);
+    }
+
+    function test_rebalance_drain_exchRateTooLow_reverts() public {
+        _setupWithAllocation(10e18, 5e17);
+        vault.setTargetAllocationWad(0);
+        vm.warp(block.timestamp + 2);
+
+        uint256 subVaultShares = vault.subVault().maxRedeem(address(vault));
+        uint256 assetsReceived = vault.subVault().previewRedeem(subVaultShares);
+
+        vm.prank(keeper);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                MasterVault.RebalanceExchRateTooLow.selector,
+                int256(100e18),
+                int256(assetsReceived),
+                subVaultShares
+            )
+        );
+        vault.rebalance(int256(100e18));
     }
 }
