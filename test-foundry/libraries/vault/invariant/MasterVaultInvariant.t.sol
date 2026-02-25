@@ -11,6 +11,8 @@ import {TestERC20} from "../../../../contracts/tokenbridge/test/TestERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import {IGatewayRouter} from "../../../../contracts/tokenbridge/libraries/gateway/IGatewayRouter.sol";
+import {TransparentUpgradeableProxy} from
+    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {MasterVaultHandler} from "./MasterVaultHandler.sol";
 
 contract MockGatewayRouterInvariant {
@@ -38,14 +40,18 @@ contract MasterVaultInvariant is Test {
     address public user = vm.addr(1);
     address public keeper = address(0xBBBB);
     address public beneficiaryAddr = address(0x9999);
+    address public proxyAdmin = address(0xAA);
 
     uint256 public constant DEAD_SHARES = 10 ** 6;
 
     function setUp() public {
-        // Deploy vault via factory (reuses MasterVaultCoreTest pattern)
-        factory = new MasterVaultFactory();
-        MockGatewayRouterInvariant mockRouter = new MockGatewayRouterInvariant(user);
+        // Deploy factory behind a TransparentUpgradeableProxy
         MasterVault impl = new MasterVault();
+        MasterVaultFactory factoryImpl = new MasterVaultFactory();
+        factory = MasterVaultFactory(
+            address(new TransparentUpgradeableProxy(address(factoryImpl), proxyAdmin, bytes("")))
+        );
+        MockGatewayRouterInvariant mockRouter = new MockGatewayRouterInvariant(user);
         factory.initialize(address(impl), address(this), IGatewayRouter(address(mockRouter)));
         token = new TestERC20();
         vault = MasterVault(factory.deployVault(address(token)));
@@ -70,6 +76,22 @@ contract MasterVaultInvariant is Test {
     }
 
     // --- Invariants ---
+
+    function invariant_canAlwaysRebalanceToZero() public {
+        _rebalanceToZero();
+    }
+
+    function invariant_canAlwaysSwitchSubVaults() public {
+        _rebalanceToZero();
+
+        FuzzSubVault newSubVault = new FuzzSubVault(IERC20(address(token)), "FuzzSub2", "fSUB2");
+        vault.setSubVaultWhitelist(address(newSubVault), true);
+        vault.setSubVault(IERC4626(address(newSubVault)));
+
+        // restore original subvault so future invariant calls work
+        vault.setSubVaultWhitelist(address(subVault), true);
+        vault.setSubVault(IERC4626(address(subVault)));
+    }
 
     /// @notice The totalAssets formula must always hold:
     ///         vault.totalAssets() == 1 + token.balanceOf(vault) + subVault.previewRedeem(subVault.balanceOf(vault))
@@ -134,5 +156,31 @@ contract MasterVaultInvariant is Test {
             subVault.totalSupply(),
             "vault holds more subvault shares than exist"
         );
+    }
+
+    function _rebalanceToZero() internal {
+        if (vault.targetAllocationWad() != 0) {
+            vault.setTargetAllocationWad(0);
+        }
+
+        uint256 shareBalance = vault.subVault().balanceOf(address(vault));
+        if (shareBalance == 0) return;
+
+        uint256 maxRedeem = vault.subVault().maxRedeem(address(vault));
+        if (maxRedeem == 0) return;
+
+        uint256 iterationsRequired = (shareBalance) / maxRedeem + 1;
+
+        // set some reasonable upper bound on iterations to prevent infinite loop
+        if (iterationsRequired > 10) return;
+
+        for (uint256 i = 0; i < iterationsRequired && vault.subVault().balanceOf(address(vault)) != 0; i++) {
+            vm.warp(block.timestamp + 2);
+            vm.prank(keeper);
+            vault.rebalance(0);
+        }
+
+        uint256 shareBalanceAfter = vault.subVault().balanceOf(address(vault));
+        assertEq(shareBalanceAfter, 0, "should have redeemed all shares after iterations");
     }
 }

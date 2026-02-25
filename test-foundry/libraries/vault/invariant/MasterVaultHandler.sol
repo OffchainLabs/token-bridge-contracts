@@ -196,4 +196,11 @@ contract MasterVaultHandler is Test {
         subVault.setMaxDepositLimit(lim);
         ghost_callCount[this.capSubVaultMaxDeposit.selector]++;
     }
+
+    /// @notice Set maxRedeem limit on the subvault
+    function capSubVaultMaxRedeem(uint256 lim) external {
+        lim = bound(lim, 0, type(uint128).max);
+        subVault.setMaxRedeemLimit(lim);
+        ghost_callCount[this.capSubVaultMaxRedeem.selector]++;
+    }
 }

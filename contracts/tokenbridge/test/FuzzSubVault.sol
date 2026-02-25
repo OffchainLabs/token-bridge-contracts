@@ -8,8 +8,8 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 /// @notice Minimal vault mock for fuzz/invariant testing.
 /// @dev    Only implements the ERC4626 subset that MasterVault actually calls:
-///         asset(), deposit(), withdraw(), maxDeposit(), maxWithdraw(),
-///         previewMint(), previewRedeem(), balanceOf() (via ERC20).
+///         asset(), deposit(), withdraw(), redeem(), maxDeposit(), maxWithdraw(),
+///         maxRedeem(), previewMint(), previewRedeem(), balanceOf() (via ERC20).
 ///         No full ERC4626 inheritance — keeps the mock auditable.
 contract FuzzSubVault is ERC20 {
     using SafeERC20 for IERC20;
@@ -18,6 +18,7 @@ contract FuzzSubVault is ERC20 {
     IERC20 private immutable _asset;
     uint256 public maxWithdrawLimit = type(uint256).max;
     uint256 public maxDepositLimit = type(uint256).max;
+    uint256 public maxRedeemLimit = type(uint256).max;
 
     constructor(IERC20 asset_, string memory _name, string memory _symbol) ERC20(_name, _symbol) {
         _asset = asset_;
@@ -52,6 +53,18 @@ contract FuzzSubVault is ERC20 {
         return natural < maxWithdrawLimit ? natural : maxWithdrawLimit;
     }
 
+    function maxRedeem(address owner) public view returns (uint256) {
+        uint256 bal = balanceOf(owner);
+        return bal < maxRedeemLimit ? bal : maxRedeemLimit;
+    }
+
+    function redeem(uint256 shares, address receiver, address owner) external returns (uint256 assets) {
+        assets = _convertToAssets(shares, Math.Rounding.Down);
+        require(shares <= maxRedeemLimit, "FuzzSubVault: redeem exceeds max");
+        _burn(owner, shares);
+        _asset.safeTransfer(receiver, assets);
+    }
+
     function maxDeposit(address) public view returns (uint256) {
         return maxDepositLimit;
     }
@@ -80,6 +93,10 @@ contract FuzzSubVault is ERC20 {
 
     function setMaxDepositLimit(uint256 limit) external {
         maxDepositLimit = limit;
+    }
+
+    function setMaxRedeemLimit(uint256 limit) external {
+        maxRedeemLimit = limit;
     }
 
     // --- Internal math ---
