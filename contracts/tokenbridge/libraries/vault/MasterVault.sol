@@ -522,34 +522,38 @@ contract MasterVault is
 
     /// @dev Converts assets to shares using totalSupply and totalAssetsLessProfit, rounding down
     function _convertToSharesRoundDown(uint256 assets) internal view returns (uint256 shares) {
-        return assets.mulDiv(
-            totalSupply(),
-            _totalAssetsLessProfit(MathUpgradeable.Rounding.Up),
-            MathUpgradeable.Rounding.Down
-        );
+        // if the vault has losses, then we compute using the regular formula. if there are no losses we return the ideal ratio
+        // bias against the depositor by rounding DOWN totalAssets to more easily detect losses
+        if (_haveLoss()) {
+            // we have losses
+            return assets.mulDiv(
+                totalSupply(),
+                _totalAssets(MathUpgradeable.Rounding.Up),
+                MathUpgradeable.Rounding.Down
+            );
+        }
+        // no losses, use ideal ratio
+        return assets * (10 ** EXTRA_DECIMALS);
     }
 
     /// @dev Converts shares to assets using totalSupply and totalAssetsLessProfit, rounding down
     function _convertToAssetsRoundDown(uint256 shares) internal view returns (uint256 assets) {
-        return shares.mulDiv(
-            _totalAssetsLessProfit(MathUpgradeable.Rounding.Down),
-            totalSupply(),
-            MathUpgradeable.Rounding.Down
-        );
+        // if the vault has losses, then we compute using the regular formula. if there are no losses we return the ideal ratio
+        // bias against the depositor by rounding DOWN totalAssets to more easily detect losses
+        if (_haveLoss()) {
+            // we have losses
+            return shares.mulDiv(
+                _totalAssets(MathUpgradeable.Rounding.Down),
+                totalSupply(),
+                MathUpgradeable.Rounding.Down
+            );
+        }
+        // no losses, use ideal ratio
+        return shares / (10 ** EXTRA_DECIMALS);
     }
 
-    /// @dev Gets total assets less profit, supporting a specific rounding direction
-    function _totalAssetsLessProfit(MathUpgradeable.Rounding rounding)
-        internal
-        view
-        returns (uint256)
-    {
-        uint256 __totalAssets = _totalAssets(rounding);
-        uint256 __totalPrincipal = _totalPrincipal(rounding);
-        if (__totalAssets > __totalPrincipal) {
-            return __totalPrincipal;
-        }
-        return __totalAssets;
+    function _haveLoss() internal view returns (bool) {
+        return _totalAssets(MathUpgradeable.Rounding.Down) * (10 ** EXTRA_DECIMALS) < totalSupply();
     }
 
     /// @dev Converts subvault shares to assets using the subvault's preview functions
