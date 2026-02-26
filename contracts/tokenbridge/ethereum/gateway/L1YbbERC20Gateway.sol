@@ -3,7 +3,7 @@
 pragma solidity ^0.8.0;
 
 import {L1ERC20Gateway} from "./L1ERC20Gateway.sol";
-import {IMasterVault} from "../../libraries/vault/IMasterVault.sol";
+import {YbbVaultLib} from "../../libraries/vault/YbbVaultLib.sol";
 import {IMasterVaultFactory} from "../../libraries/vault/IMasterVaultFactory.sol";
 import {IERC20, ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -38,8 +38,7 @@ contract L1YbbERC20Gateway is L1ERC20Gateway {
         internal
         override
     {
-        address masterVault = IMasterVaultFactory(masterVaultFactory).getVault(_l1Token);
-        IERC20(masterVault).safeTransfer(_dest, _amount);
+        YbbVaultLib.withdrawFromVault(masterVaultFactory, _l1Token, _dest, _amount);
     }
 
     function outboundEscrowTransfer(address _l1Token, address _from, uint256 _amount)
@@ -47,15 +46,7 @@ contract L1YbbERC20Gateway is L1ERC20Gateway {
         override
         returns (uint256 amountReceived)
     {
-        uint256 prevBalance = IERC20(_l1Token).balanceOf(address(this));
-        IERC20(_l1Token).safeTransferFrom(_from, address(this), _amount);
-        uint256 postBalance = IERC20(_l1Token).balanceOf(address(this));
-        amountReceived = postBalance - prevBalance;
-
-        address masterVault = IMasterVaultFactory(masterVaultFactory).getVault(_l1Token);
-        IERC20(_l1Token).safeIncreaseAllowance(masterVault, amountReceived);
-        amountReceived = IMasterVault(masterVault).deposit(amountReceived);
-        require(amountReceived > 0, "ZERO_SHARES");
+        amountReceived = YbbVaultLib.depositToVault(masterVaultFactory, _l1Token, _from, _amount);
     }
 
     function getOutboundCalldata(
