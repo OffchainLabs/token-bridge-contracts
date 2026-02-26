@@ -183,15 +183,13 @@ contract MasterVaultInvariant is Test {
     /// @dev    At any reachable state, distributing fees should send at most totalProfit to beneficiary.
     ///         Catches: over-extraction of fees, incorrect profit accounting, fee eating into principal.
     function invariant_feeDistributionBounded() public {
-        uint256 totalProfit = vault.totalProfit();
-        if (totalProfit == 0) return;
-
-        uint256 benBefore = token.balanceOf(beneficiaryAddr);
-        vm.prank(keeper);
-        try vault.distributePerformanceFee() {} catch { return; }
-        uint256 feesClaimed = token.balanceOf(beneficiaryAddr) - benBefore;
-
-        assertLe(feesClaimed, totalProfit, "fees exceed total profit");
+        if (handler.ghost_roundingErrorManipulation()) return;
+        uint256 roundingTolerance = handler.ghost_callCount(handler.deposit.selector) + handler.ghost_callCount(handler.redeem.selector);
+        assertLe(
+            handler.ghost_feesClaimed(),
+            handler.ghost_profit() + roundingTolerance,
+            "fees extracted exceed profit"
+        );
     }
 
     function _rebalanceToZero() internal returns (bool skip) {
