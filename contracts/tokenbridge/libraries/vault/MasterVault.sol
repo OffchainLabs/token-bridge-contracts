@@ -520,9 +520,9 @@ contract MasterVault is
         return totalSupply().mulDiv(1, 10 ** EXTRA_DECIMALS, rounding);
     }
 
-    /// @dev Converts assets to shares using totalSupply and totalAssetsLessProfit, rounding down
+    /// @dev Converts assets to shares, rounding down.
+    ///      Uses ideal ratio when solvent, standard formula when in loss.
     function _convertToSharesRoundDown(uint256 assets) internal view returns (uint256 shares) {
-        // if the vault has losses, then we compute using the regular formula. if there are no losses we return the ideal ratio
         // bias against the depositor by rounding DOWN totalAssets to more easily detect losses
         if (_haveLoss()) {
             // we have losses
@@ -536,9 +536,9 @@ contract MasterVault is
         return assets * (10 ** EXTRA_DECIMALS);
     }
 
-    /// @dev Converts shares to assets using totalSupply and totalAssetsLessProfit, rounding down
+    /// @dev Converts shares to assets, rounding down.
+    ///      Uses ideal ratio when solvent, standard formula when in loss.
     function _convertToAssetsRoundDown(uint256 shares) internal view returns (uint256 assets) {
-        // if the vault has losses, then we compute using the regular formula. if there are no losses we return the ideal ratio
         // bias against the depositor by rounding DOWN totalAssets to more easily detect losses
         if (_haveLoss()) {
             // we have losses
@@ -552,6 +552,7 @@ contract MasterVault is
         return shares / (10 ** EXTRA_DECIMALS);
     }
 
+    /// @dev Whether the vault has losses
     function _haveLoss() internal view returns (bool) {
         return _totalAssets(MathUpgradeable.Rounding.Down) * (10 ** EXTRA_DECIMALS) < totalSupply();
     }
