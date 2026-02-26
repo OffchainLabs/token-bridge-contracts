@@ -113,8 +113,6 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     // L1 logic contracts shared by all token bridges
     L1Templates public l1Templates;
 
-    YbbL1Templates public ybbL1Templates;
-
     // L2 contracts deployed to L1 as bytecode placeholders
     address public l2TokenBridgeFactoryTemplate;
     address public l2RouterTemplate;
@@ -133,6 +131,8 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     // immutable canonical address for L2 factory
     // other canonical addresses (dependent on L2 template implementations) can be fetched through `_predictL2***Address` functions
     address public canonicalL2FactoryAddress;
+
+    YbbL1Templates public ybbL1Templates;
 
     constructor() {
         _disableInitializers();
