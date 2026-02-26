@@ -179,6 +179,21 @@ contract MasterVaultInvariant is Test {
         assertLe(assetsReceived, depositAmount, "deposit-redeem round-trip extracted value");
     }
 
+    /// @notice Performance fees must never exceed reported profit.
+    /// @dev    At any reachable state, distributing fees should send at most totalProfit to beneficiary.
+    ///         Catches: over-extraction of fees, incorrect profit accounting, fee eating into principal.
+    function invariant_feeDistributionBounded() public {
+        uint256 totalProfit = vault.totalProfit();
+        if (totalProfit == 0) return;
+
+        uint256 benBefore = token.balanceOf(beneficiaryAddr);
+        vm.prank(keeper);
+        try vault.distributePerformanceFee() {} catch { return; }
+        uint256 feesClaimed = token.balanceOf(beneficiaryAddr) - benBefore;
+
+        assertLe(feesClaimed, totalProfit, "fees exceed total profit");
+    }
+
     function _rebalanceToZero() internal returns (bool skip) {
         if (vault.targetAllocationWad() != 0) {
             vault.setTargetAllocationWad(0);
