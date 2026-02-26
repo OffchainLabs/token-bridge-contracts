@@ -48,6 +48,9 @@ contract MasterVaultHandler is Test {
     /// @notice Whether subvault has been negatively manipulated (loss-like: removed assets, inflated shares, rounding errors)
     bool public ghost_negativeManipulation;
 
+    /// @notice Whether rounding error has been manipulated
+    bool public ghost_roundingErrorManipulation;
+
     modifier updateRandom(uint256 val) {
         random = uint256(keccak256(abi.encodePacked(random, val)));
         _;
@@ -227,7 +230,10 @@ contract MasterVaultHandler is Test {
     function setWithdrawError(uint256 seed) external updateRandom(uint256(keccak256("setWithdrawError"))) updateRandom(seed) {
         uint256 wad = bound(seed, 0, 1e17);
         subVault.setWithdrawErrorWad(wad);
-        if (wad > 0) ghost_negativeManipulation = true;
+        if (wad > 0) {
+            ghost_negativeManipulation = true;
+            ghost_roundingErrorManipulation = true;
+        }
         ghost_callCount[this.setWithdrawError.selector]++;
     }
 
@@ -235,7 +241,10 @@ contract MasterVaultHandler is Test {
     function setRedeemError(uint256 seed) external updateRandom(uint256(keccak256("setRedeemError"))) updateRandom(seed) {
         uint256 wad = bound(seed, 0, 1e17);
         subVault.setRedeemErrorWad(wad);
-        if (wad > 0) ghost_negativeManipulation = true;
+        if (wad > 0) {
+            ghost_negativeManipulation = true;
+            ghost_roundingErrorManipulation = true;
+        }
         ghost_callCount[this.setRedeemError.selector]++;
     }
 
@@ -243,7 +252,10 @@ contract MasterVaultHandler is Test {
     function setPreviewMintError(uint256 seed) external updateRandom(uint256(keccak256("setPreviewMintError"))) updateRandom(seed) {
         uint256 wad = bound(seed, 0, 1e17);
         subVault.setPreviewMintErrorWad(wad);
-        if (wad > 0) ghost_negativeManipulation = true;
+        if (wad > 0) {
+            ghost_negativeManipulation = true;
+            ghost_roundingErrorManipulation = true;
+        }
         ghost_callCount[this.setPreviewMintError.selector]++;
     }
 
@@ -251,7 +263,10 @@ contract MasterVaultHandler is Test {
     function setPreviewRedeemError(uint256 seed) external updateRandom(uint256(keccak256("setPreviewRedeemError"))) updateRandom(seed) {
         uint256 wad = bound(seed, 0, 1e17);
         subVault.setPreviewRedeemErrorWad(wad);
-        if (wad > 0) ghost_negativeManipulation = true;
+        if (wad > 0) {
+            ghost_negativeManipulation = true;
+            ghost_roundingErrorManipulation = true;
+        }
         ghost_callCount[this.setPreviewRedeemError.selector]++;
     }
 }
