@@ -179,6 +179,25 @@ contract MasterVaultInvariant is Test {
         assertLe(assetsReceived, depositAmount, "deposit-redeem round-trip extracted value");
     }
 
+    /// @notice Redeeming shares must never return more than 1:1 (i.e. assets <= shares / 1e6).
+    /// @dev    The ideal rate is the ceiling. Profit goes to beneficiary, not share holders.
+    ///         Catches: share pricing bugs that let users extract more than they deposited.
+    function invariant_redeemRateNeverAbovePar() public {
+        subVault.setMaxWithdrawLimit(type(uint256).max);
+        subVault.setWithdrawErrorWad(0);
+
+        uint256 userShares = vault.balanceOf(user);
+        if (userShares == 0) return;
+
+        uint256 sharesToRedeem = bound(handler.random(), 1, userShares);
+        uint256 balBefore = token.balanceOf(user);
+        vm.prank(user);
+        vault.redeem(sharesToRedeem, 0);
+        uint256 assetsReceived = token.balanceOf(user) - balBefore;
+
+        assertLe(assetsReceived * DEAD_SHARES, sharesToRedeem, "redeem rate exceeded 1:1");
+    }
+
     /// @notice Performance fees must never exceed reported profit.
     /// @dev    At any reachable state, distributing fees should send at most totalProfit to beneficiary.
     ///         Catches: over-extraction of fees, incorrect profit accounting, fee eating into principal.
