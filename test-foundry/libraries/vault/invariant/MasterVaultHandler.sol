@@ -42,12 +42,6 @@ contract MasterVaultHandler is Test {
     /// @notice Count of successful calls per action (for debugging fuzzer coverage)
     mapping(bytes4 => uint256) public ghost_callCount;
 
-    /// @notice Whether subvault has been positively manipulated (profit-like: extra assets, deflated shares)
-    bool public ghost_positiveManipulation;
-
-    /// @notice Whether subvault has been negatively manipulated (loss-like: removed assets, inflated shares, rounding errors)
-    bool public ghost_negativeManipulation;
-
     /// @notice Whether rounding error has been manipulated
     bool public ghost_roundingErrorManipulation;
 
@@ -162,7 +156,6 @@ contract MasterVaultHandler is Test {
         token.mintAmount(amt);
         token.transfer(address(subVault), amt);
         ghost_profit += amt;
-        ghost_positiveManipulation = true;
         ghost_callCount[this.simulateSubVaultProfit.selector]++;
     }
 
@@ -175,7 +168,6 @@ contract MasterVaultHandler is Test {
         vm.prank(address(subVault));
         token.transfer(address(0xdead), amt);
         ghost_loss += amt;
-        ghost_negativeManipulation = true;
         ghost_callCount[this.simulateSubVaultLoss.selector]++;
     }
 
@@ -183,9 +175,6 @@ contract MasterVaultHandler is Test {
     function inflateSubVaultShares(uint256 amt) external updateRandom(uint256(keccak256("inflateSubVaultShares"))) updateRandom(amt) {
         amt = bound(amt, 1, 1e24);
         subVault.adminMint(address(vault), amt);
-        // set both types of manipulation since it's a change to the share count without asset change
-        ghost_negativeManipulation = true;
-        ghost_positiveManipulation = true;
         ghost_callCount[this.inflateSubVaultShares.selector]++;
     }
 
@@ -195,9 +184,6 @@ contract MasterVaultHandler is Test {
         if (vaultShares == 0) return;
         amt = bound(amt, 1, vaultShares);
         subVault.adminBurn(address(vault), amt);
-        // set both types of manipulation since it's a change to the share count without asset change
-        ghost_negativeManipulation = true;
-        ghost_positiveManipulation = true;
         ghost_callCount[this.deflateSubVaultShares.selector]++;
     }
 
@@ -227,7 +213,6 @@ contract MasterVaultHandler is Test {
         uint256 wad = bound(seed, 0, 1e17);
         subVault.setDepositErrorWad(wad);
         if (wad > 0) {
-            ghost_negativeManipulation = true;
             ghost_roundingErrorManipulation = true;
         }
         ghost_callCount[this.setDepositError.selector]++;
@@ -238,7 +223,6 @@ contract MasterVaultHandler is Test {
         uint256 wad = bound(seed, 0, 1e17);
         subVault.setWithdrawErrorWad(wad);
         if (wad > 0) {
-            ghost_negativeManipulation = true;
             ghost_roundingErrorManipulation = true;
         }
         ghost_callCount[this.setWithdrawError.selector]++;
@@ -249,7 +233,6 @@ contract MasterVaultHandler is Test {
         uint256 wad = bound(seed, 0, 1e17);
         subVault.setRedeemErrorWad(wad);
         if (wad > 0) {
-            ghost_negativeManipulation = true;
             ghost_roundingErrorManipulation = true;
         }
         ghost_callCount[this.setRedeemError.selector]++;
@@ -260,7 +243,6 @@ contract MasterVaultHandler is Test {
         uint256 wad = bound(seed, 0, 1e17);
         subVault.setPreviewMintErrorWad(wad);
         if (wad > 0) {
-            ghost_negativeManipulation = true;
             ghost_roundingErrorManipulation = true;
         }
         ghost_callCount[this.setPreviewMintError.selector]++;
@@ -271,7 +253,6 @@ contract MasterVaultHandler is Test {
         uint256 wad = bound(seed, 0, 1e17);
         subVault.setPreviewRedeemErrorWad(wad);
         if (wad > 0) {
-            ghost_negativeManipulation = true;
             ghost_roundingErrorManipulation = true;
         }
         ghost_callCount[this.setPreviewRedeemError.selector]++;

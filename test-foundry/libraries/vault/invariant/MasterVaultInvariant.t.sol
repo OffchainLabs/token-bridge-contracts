@@ -141,11 +141,10 @@ contract MasterVaultInvariant is Test {
     ///         Fee distribution rounds down, so totalAssets may be up to 2 wei below totalPrincipal.
     ///         Catches: value leakage through rounding, incorrect share pricing.
     function invariant_solvencyWhenNoNegativeManipulation() public {
-        if (!handler.ghost_negativeManipulation()) {
-            uint256 totalPrincipal = vault.totalSupply() / DEAD_SHARES;
-            uint256 totalAssets = vault.totalAssets();
-            assertGe(totalAssets + 2, totalPrincipal, "insolvent without negative manipulation");
+        if (handler.ghost_roundingErrorManipulation()) {
+            return;
         }
+        assertGe(vault.totalAssets() * DEAD_SHARES, vault.totalSupply(), "insolvent without negative manipulation");
     }
 
     /// @notice Vault can't hold more subvault shares than exist.
