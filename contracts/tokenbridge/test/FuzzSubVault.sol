@@ -28,6 +28,7 @@ contract FuzzSubVault is ERC20 {
 
     constructor(IERC20 asset_, string memory _name, string memory _symbol) ERC20(_name, _symbol) {
         _asset = asset_;
+        _mint(address(this), 1);
     }
 
     function asset() public view returns (address) {
@@ -35,7 +36,7 @@ contract FuzzSubVault is ERC20 {
     }
 
     function totalAssets() public view returns (uint256) {
-        return _asset.balanceOf(address(this));
+        return _asset.balanceOf(address(this)) + 1;
     }
 
     function deposit(uint256 assets, address receiver) external returns (uint256 shares) {
@@ -53,7 +54,11 @@ contract FuzzSubVault is ERC20 {
     }
 
     function maxWithdraw(address owner) public view returns (uint256) {
-        uint256 ownerAssets = _convertToAssets(balanceOf(owner), Math.Rounding.Down);
+        uint256 ownerShares = balanceOf(owner);
+        if (withdrawErrorWad > 0) {
+            ownerShares = ownerShares.mulDiv(1e18, 1e18 + withdrawErrorWad, Math.Rounding.Down);
+        }
+        uint256 ownerAssets = _convertToAssets(ownerShares, Math.Rounding.Down);
         uint256 available = totalAssets();
         uint256 natural = ownerAssets < available ? ownerAssets : available;
         return natural < maxWithdrawLimit ? natural : maxWithdrawLimit;
