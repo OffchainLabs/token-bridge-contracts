@@ -183,7 +183,9 @@ contract MasterVaultHandler is Test {
     function inflateSubVaultShares(uint256 amt) external updateRandom(uint256(keccak256("inflateSubVaultShares"))) updateRandom(amt) {
         amt = bound(amt, 1, 1e24);
         subVault.adminMint(address(vault), amt);
+        // set both types of manipulation since it's a change to the share count without asset change
         ghost_negativeManipulation = true;
+        ghost_positiveManipulation = true;
         ghost_callCount[this.inflateSubVaultShares.selector]++;
     }
 
@@ -193,6 +195,8 @@ contract MasterVaultHandler is Test {
         if (vaultShares == 0) return;
         amt = bound(amt, 1, vaultShares);
         subVault.adminBurn(address(vault), amt);
+        // set both types of manipulation since it's a change to the share count without asset change
+        ghost_negativeManipulation = true;
         ghost_positiveManipulation = true;
         ghost_callCount[this.deflateSubVaultShares.selector]++;
     }
@@ -222,7 +226,10 @@ contract MasterVaultHandler is Test {
     function setDepositError(uint256 seed) external updateRandom(uint256(keccak256("setDepositError"))) updateRandom(seed) {
         uint256 wad = bound(seed, 0, 1e17);
         subVault.setDepositErrorWad(wad);
-        if (wad > 0) ghost_negativeManipulation = true;
+        if (wad > 0) {
+            ghost_negativeManipulation = true;
+            ghost_roundingErrorManipulation = true;
+        }
         ghost_callCount[this.setDepositError.selector]++;
     }
 
