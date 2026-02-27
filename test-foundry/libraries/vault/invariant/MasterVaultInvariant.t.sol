@@ -192,6 +192,96 @@ contract MasterVaultInvariant is Test {
         );
     }
 
+    /// @notice Once target allocation is reached, further rebalances revert with TargetAllocationMet.
+    /// @dev    Catches: oscillating rebalances, tolerance band not working.
+    function invariant_rebalanceIdempotent() public {
+        // Lift caps and clear error wads so a single rebalance can fully reach target
+        subVault.setMaxWithdrawLimit(type(uint256).max);
+        subVault.setMaxDepositLimit(type(uint256).max);
+        subVault.setMaxRedeemLimit(type(uint256).max);
+        subVault.setDepositErrorWad(0);
+        subVault.setWithdrawErrorWad(0);
+        subVault.setRedeemErrorWad(0);
+        subVault.setPreviewMintErrorWad(0);
+        subVault.setPreviewRedeemErrorWad(0);
+
+        // Skip if deposit into subvault would overflow or yield 0 shares.
+        // Only the deposit path (idle > target) has issues — withdraw and drain are bounded.
+        if (!_canRebalance()) return;
+
+        // First rebalance to reach target
+        vm.warp(block.timestamp + 2);
+        vm.startPrank(keeper);
+        try vault.rebalance(_rebalanceSlippage()) {}
+        catch (bytes memory reason) {
+            bytes4 sel = _errorSelector(reason);
+            if (sel != MasterVault.TargetAllocationMet.selector && sel != MasterVault.RebalanceExchRateTooLow.selector) {
+                _revert(reason);
+            }
+            else {
+                return;
+            }
+        }
+
+        // recheck since first rebalance may have shifted the band into deposit territory
+        // this is not an issue because it involves the mastervault totalAssets correctly changing
+        if (!_canRebalance()) return;
+
+        // Second rebalance must not succeed
+        vm.warp(block.timestamp + 2);
+        try vault.rebalance(_rebalanceSlippage()) {
+            revert("second rebalance succeeded when target allocation met");
+        }
+        catch (bytes memory reason) {
+            bytes4 sel = _errorSelector(reason);
+            if (sel != MasterVault.TargetAllocationMet.selector && sel != MasterVault.RebalanceExchRateTooLow.selector) {
+                _revert(reason);
+            }
+        }
+        vm.stopPrank();
+    }
+
+    // --- Helpers ---
+
+    function _revert(bytes memory reason) internal pure {
+        assembly { revert(add(reason, 32), mload(reason)) }
+    }
+
+    /// @dev Returns false if the subvault exchange rate would cause the deposit path to overflow
+    ///      or yield 0 shares. Withdraw and drain paths are naturally bounded and never overflow.
+    function _canRebalance() internal view returns (bool) {
+        uint64 alloc = vault.targetAllocationWad();
+        if (alloc == 0) return true; // drain path — always safe
+
+        uint256 idle = token.balanceOf(address(vault));
+        uint256 total = vault.totalAssets();
+        uint256 idleTarget = (total * (1e18 - alloc)) / 1e18;
+
+        if (idle <= idleTarget) return true; // withdraw path - always safe
+
+        // Deposit path: shares = depositAmount * subSupply / subAssets
+        uint256 depositAmount = idle - idleTarget;
+        uint256 subSupply = subVault.totalSupply();
+
+        // Overflow: result exceeds uint256 when supply/assets ratio is too large
+        if (type(uint256).max / subSupply < depositAmount) return false;
+        return true;
+    }
+
+    function _errorSelector(bytes memory reason) internal pure returns (bytes4 sel) {
+        if (reason.length >= 4) {
+            assembly { sel := mload(add(reason, 32)) }
+        }
+    }
+
+    function _rebalanceSlippage() internal view returns (int256) {
+        uint64 alloc = vault.targetAllocationWad();
+        if (alloc == 0) return int256(0);
+        uint256 idle = token.balanceOf(address(vault));
+        uint256 idleTarget = ((vault.totalAssets() + 1) * (1e18 - alloc)) / 1e18;
+        return idle > idleTarget ? type(int248).min : int256(0);
+    }
+
     function _rebalanceToZero() internal returns (bool skip) {
         if (vault.targetAllocationWad() != 0) {
             vault.setTargetAllocationWad(0);
