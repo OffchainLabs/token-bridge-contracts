@@ -42,6 +42,11 @@ contract MasterVaultCoreTest is Test {
     string public symbol = "mTST";
     uint256 public constant DEAD_SHARES = 10 ** 6;
 
+    address public keeper = address(0xBBBB);
+    address public beneficiaryAddr = address(0x9999);
+    address public generalManager = address(0xAAAA);
+    address public pauser = address(0xCCCC);
+
     struct State {
         uint256 userShares;
         uint256 masterVaultTotalAssets;
@@ -57,6 +62,7 @@ contract MasterVaultCoreTest is Test {
         return address(vault.subVault()) == address(0) ? address(vault) : address(vault.subVault());
     }
 
+    // todo: this setUp currently doesn't use proxies
     function setUp() public virtual {
         factory = new MasterVaultFactory();
         MockGatewayRouter mockGatewayRouter = new MockGatewayRouter(user);
@@ -69,6 +75,14 @@ contract MasterVaultCoreTest is Test {
         );
         token = new TestERC20();
         vault = MasterVault(factory.deployVault(address(token)));
+
+        vault.rolesRegistry().grantRole(vault.GENERAL_MANAGER_ROLE(), address(this));
+        vault.rolesRegistry().grantRole(vault.GENERAL_MANAGER_ROLE(), generalManager);
+        vault.rolesRegistry().grantRole(vault.KEEPER_ROLE(), keeper);
+        vault.rolesRegistry().grantRole(vault.FEE_MANAGER_ROLE(), address(this));
+        vault.rolesRegistry().grantRole(vault.PAUSER_ROLE(), pauser);
+        vault.setBeneficiary(beneficiaryAddr);
+        vault.setMinimumRebalanceAmount(1);
     }
 
     function _checkState(State memory expectedState) internal {
@@ -133,5 +147,23 @@ contract MasterVaultCoreTest is Test {
         console2.log(" subVaultTotalAssets:", state.subVaultTotalAssets);
         console2.log(" subVaultTotalSupply:", state.subVaultTotalSupply);
         console2.log(" subVaultTokenBalance:", state.subVaultTokenBalance);
+    }
+
+    function _depositAs(uint256 amount) internal returns (uint256) {
+        vm.prank(user);
+        token.mintAmount(amount);
+        vm.startPrank(user);
+        token.approve(address(vault), amount);
+        uint256 shares = vault.deposit(amount);
+        vm.stopPrank();
+        return shares;
+    }
+
+    function _setupWithAllocation(uint256 depositAmount, uint64 allocationWad) internal {
+        _depositAs(depositAmount);
+        vault.setTargetAllocationWad(allocationWad);
+        vm.warp(block.timestamp + 2);
+        vm.prank(keeper);
+        vault.rebalance(-1e18);
     }
 }

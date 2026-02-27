@@ -26,9 +26,18 @@ contract DefaultSubVault is ERC4626 {
         return super.deposit(assets, receiver);
     }
 
-    function mint(uint256 shares, address receiver) public override returns (uint256) {
+    function withdraw(uint256 assets, address receiver, address owner) public override returns (uint256) {
         require(msg.sender == masterVault, "ONLY_MASTER_VAULT");
-        return super.mint(shares, receiver);
+        return super.withdraw(assets, receiver, owner);
+    }
+
+    function mint(uint256, address) public pure override returns (uint256) {
+        revert("UNSUPPORTED");
+    }
+
+    function redeem(uint256 shares, address receiver, address owner) public override returns (uint256) {
+        require(msg.sender == masterVault, "ONLY_MASTER_VAULT");
+        return super.redeem(shares, receiver, owner);
     }
 }
 

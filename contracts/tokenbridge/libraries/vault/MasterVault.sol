@@ -154,6 +154,7 @@ contract MasterVault is
         address indexed beneficiary, uint256 amountTransferred, uint256 amountWithdrawn
     );
     event Rebalanced(bool deposited, uint256 desiredAmount, uint256 actualAmount);
+    event RebalancedToZero(uint256 shares, uint256 assets);
     event SubVaultWhitelistUpdated(address indexed subVault, bool whitelisted);
     event RebalanceCooldownUpdated(uint256 oldCooldown, uint256 newCooldown);
     event TargetAllocationUpdated(uint256 oldAllocation, uint256 newAllocation);
@@ -253,20 +254,42 @@ contract MasterVault is
     }
 
     /// @notice Rebalance assets between idle and the subvault to maintain target allocation
-    /// @dev    Will revert if the cooldown period has not passed
-    ///         Will revert if the target allocation is already met
-    ///         Will revert if the amount to deposit/withdraw is less than the minimumRebalanceAmount.
+    /// @dev    Will revert if the cooldown period has not passed.
+    ///         If targetAllocationWad is 0%, attempts to redeem all subvault shares (bypasses minimumRebalanceAmount).
+    ///         Otherwise, deposits/withdraws to reach the target, reverting if the target is already met
+    ///         or the amount is less than minimumRebalanceAmount.
     /// @param  minExchRateWad Minimum exchange rate (1e18 * deltaAssets / abs(subVaultShares)) for the deposit/withdraw operation
-    ///                        Negative indicates a subVault deposit (negative deltaAssets),
-    ///                        positive indicates a subVault withdraw (positive deltaAssets).
+    ///                        Negative indicates a masterVault -> subVault deposit (negative deltaAssets),
+    ///                        positive indicates a subVault -> masterVault withdraw (positive deltaAssets).
     // slither-disable-next-line reentrancy-no-eth
     function rebalance(int256 minExchRateWad) external whenNotPaused nonReentrant onlyKeeper {
-        // Check cooldown
         uint256 timeSinceLastRebalance = block.timestamp - lastRebalanceTime;
         if (timeSinceLastRebalance < rebalanceCooldown) {
             revert RebalanceCooldownNotMet(timeSinceLastRebalance, rebalanceCooldown);
         }
 
+        if (targetAllocationWad == 0) {
+            _rebalanceDrain(minExchRateWad);
+        } else {
+            _rebalanceToTarget(minExchRateWad);
+        }
+
+        lastRebalanceTime = uint40(block.timestamp);
+    }
+
+    /// @dev 0% target: redeem all subvault shares. Bypasses minimumRebalanceAmount so dust can be swept.
+    function _rebalanceDrain(int256 minExchRateWad) private {
+        uint256 subVaultShares = subVault.maxRedeem(address(this));
+        if (subVaultShares == 0) revert TargetAllocationMet();
+
+        uint256 assetsReceived = subVault.redeem(subVaultShares, address(this), address(this));
+        _validateWithdrawExchRate(minExchRateWad, assetsReceived, subVaultShares);
+
+        emit RebalancedToZero(subVaultShares, assetsReceived);
+    }
+
+    /// @dev Deposit to or withdraw from the subvault to reach targetAllocationWad.
+    function _rebalanceToTarget(int256 minExchRateWad) private {
         uint256 totalAssetsUp = _totalAssets(MathUpgradeable.Rounding.Up);
         uint256 totalAssetsDown = _totalAssets(MathUpgradeable.Rounding.Down);
         uint256 idleTargetUp =
@@ -280,11 +303,6 @@ contract MasterVault is
         }
 
         if (idleBalance < idleTargetDown) {
-            // we are withdrawing, so slippage tolerance must be non negative
-            if (minExchRateWad < 0) {
-                revert RebalanceExchRateWrongSign(minExchRateWad);
-            }
-
             uint256 desiredWithdraw = idleTargetDown - idleBalance;
             uint256 maxWithdrawable = subVault.maxWithdraw(address(this));
             uint256 withdrawAmount =
@@ -297,22 +315,10 @@ contract MasterVault is
             }
 
             uint256 subVaultShares = subVault.withdraw(withdrawAmount, address(this), address(this));
-            uint256 actualExchRate =
-                withdrawAmount.mulDiv(1e18, subVaultShares, MathUpgradeable.Rounding.Down);
-
-            if (actualExchRate < uint256(minExchRateWad)) {
-                revert RebalanceExchRateTooLow(
-                    minExchRateWad, int256(withdrawAmount), subVaultShares
-                );
-            }
+            _validateWithdrawExchRate(minExchRateWad, withdrawAmount, subVaultShares);
 
             emit Rebalanced(false, desiredWithdraw, withdrawAmount);
         } else {
-            // we are depositing, so slippage tolerance must be non positive
-            if (minExchRateWad > 0) {
-                revert RebalanceExchRateWrongSign(minExchRateWad);
-            }
-
             uint256 desiredDeposit = idleBalance - idleTargetUp;
             uint256 maxDepositable = subVault.maxDeposit(address(this));
             uint256 depositAmount =
@@ -326,19 +332,10 @@ contract MasterVault is
 
             asset.safeIncreaseAllowance(address(subVault), depositAmount);
             uint256 subVaultShares = subVault.deposit(depositAmount, address(this));
-            uint256 actualExchRate =
-                depositAmount.mulDiv(1e18, subVaultShares, MathUpgradeable.Rounding.Up);
-
-            if (actualExchRate > uint256(-minExchRateWad)) {
-                revert RebalanceExchRateTooLow(
-                    minExchRateWad, -int256(depositAmount), subVaultShares
-                );
-            }
+            _validateDepositExchRate(minExchRateWad, depositAmount, subVaultShares);
 
             emit Rebalanced(true, desiredDeposit, depositAmount);
         }
-
-        lastRebalanceTime = uint40(block.timestamp);
     }
 
     /// @notice Distribute performance fees to the beneficiary
@@ -455,6 +452,7 @@ contract MasterVault is
     /// @dev Overridden to add EXTRA_DECIMALS to the underlying asset decimals
     /// @notice Requires underlying asset to implement IERC20Metadata.decimals()
     function decimals() public view override returns (uint8) {
+        // todo: try catch in case no decimals
         return IERC20Metadata(address(asset)).decimals() + EXTRA_DECIMALS;
     }
 
@@ -522,36 +520,41 @@ contract MasterVault is
         return totalSupply().mulDiv(1, 10 ** EXTRA_DECIMALS, rounding);
     }
 
-    /// @dev Converts assets to shares using totalSupply and totalAssetsLessProfit, rounding down
+    /// @dev Converts assets to shares, rounding down.
+    ///      Uses ideal ratio when solvent, standard formula when in loss.
     function _convertToSharesRoundDown(uint256 assets) internal view returns (uint256 shares) {
-        return assets.mulDiv(
-            totalSupply(),
-            _totalAssetsLessProfit(MathUpgradeable.Rounding.Up),
-            MathUpgradeable.Rounding.Down
-        );
-    }
-
-    /// @dev Converts shares to assets using totalSupply and totalAssetsLessProfit, rounding down
-    function _convertToAssetsRoundDown(uint256 shares) internal view returns (uint256 assets) {
-        return shares.mulDiv(
-            _totalAssetsLessProfit(MathUpgradeable.Rounding.Down),
-            totalSupply(),
-            MathUpgradeable.Rounding.Down
-        );
-    }
-
-    /// @dev Gets total assets less profit, supporting a specific rounding direction
-    function _totalAssetsLessProfit(MathUpgradeable.Rounding rounding)
-        internal
-        view
-        returns (uint256)
-    {
-        uint256 __totalAssets = _totalAssets(rounding);
-        uint256 __totalPrincipal = _totalPrincipal(rounding);
-        if (__totalAssets > __totalPrincipal) {
-            return __totalPrincipal;
+        // bias against the depositor by rounding DOWN totalAssets to more easily detect losses
+        if (_haveLoss()) {
+            // we have losses
+            return assets.mulDiv(
+                totalSupply(),
+                _totalAssets(MathUpgradeable.Rounding.Up),
+                MathUpgradeable.Rounding.Down
+            );
         }
-        return __totalAssets;
+        // no losses, use ideal ratio
+        return assets * (10 ** EXTRA_DECIMALS);
+    }
+
+    /// @dev Converts shares to assets, rounding down.
+    ///      Uses ideal ratio when solvent, standard formula when in loss.
+    function _convertToAssetsRoundDown(uint256 shares) internal view returns (uint256 assets) {
+        // bias against the depositor by rounding DOWN totalAssets to more easily detect losses
+        if (_haveLoss()) {
+            // we have losses
+            return shares.mulDiv(
+                _totalAssets(MathUpgradeable.Rounding.Down),
+                totalSupply(),
+                MathUpgradeable.Rounding.Down
+            );
+        }
+        // no losses, use ideal ratio
+        return shares / (10 ** EXTRA_DECIMALS);
+    }
+
+    /// @dev Whether the vault has losses
+    function _haveLoss() internal view returns (bool) {
+        return _totalAssets(MathUpgradeable.Rounding.Down) * (10 ** EXTRA_DECIMALS) < totalSupply();
     }
 
     /// @dev Converts subvault shares to assets using the subvault's preview functions
@@ -564,6 +567,34 @@ contract MasterVault is
         return rounding == MathUpgradeable.Rounding.Up
             ? subVault.previewMint(subShares)
             : subVault.previewRedeem(subShares);
+    }
+
+    /// @dev Validates exchange rate for a deposit operation (assets spent per share received)
+    function _validateDepositExchRate(
+        int256 minExchRateWad,
+        uint256 assetsSpent,
+        uint256 subVaultShares
+    ) internal pure {
+        if (minExchRateWad > 0) revert RebalanceExchRateWrongSign(minExchRateWad);
+        uint256 actualExchRate =
+            assetsSpent.mulDiv(1e18, subVaultShares, MathUpgradeable.Rounding.Up);
+        if (actualExchRate > uint256(-minExchRateWad)) {
+            revert RebalanceExchRateTooLow(minExchRateWad, -int256(assetsSpent), subVaultShares);
+        }
+    }
+
+    /// @dev Validates exchange rate for a withdraw/redeem operation
+    function _validateWithdrawExchRate(
+        int256 minExchRateWad,
+        uint256 assetsReceived,
+        uint256 subVaultShares
+    ) internal pure {
+        if (minExchRateWad < 0) revert RebalanceExchRateWrongSign(minExchRateWad);
+        uint256 actualExchRate =
+            assetsReceived.mulDiv(1e18, subVaultShares, MathUpgradeable.Rounding.Down);
+        if (actualExchRate < uint256(minExchRateWad)) {
+            revert RebalanceExchRateTooLow(minExchRateWad, int256(assetsReceived), subVaultShares);
+        }
     }
 
     /// @dev Helper to add/remove a subvault from the whitelist
