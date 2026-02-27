@@ -520,36 +520,41 @@ contract MasterVault is
         return totalSupply().mulDiv(1, 10 ** EXTRA_DECIMALS, rounding);
     }
 
-    /// @dev Converts assets to shares using totalSupply and totalAssetsLessProfit, rounding down
+    /// @dev Converts assets to shares, rounding down.
+    ///      Uses ideal ratio when solvent, standard formula when in loss.
     function _convertToSharesRoundDown(uint256 assets) internal view returns (uint256 shares) {
-        return assets.mulDiv(
-            totalSupply(),
-            _totalAssetsLessProfit(MathUpgradeable.Rounding.Up),
-            MathUpgradeable.Rounding.Down
-        );
-    }
-
-    /// @dev Converts shares to assets using totalSupply and totalAssetsLessProfit, rounding down
-    function _convertToAssetsRoundDown(uint256 shares) internal view returns (uint256 assets) {
-        return shares.mulDiv(
-            _totalAssetsLessProfit(MathUpgradeable.Rounding.Down),
-            totalSupply(),
-            MathUpgradeable.Rounding.Down
-        );
-    }
-
-    /// @dev Gets total assets less profit, supporting a specific rounding direction
-    function _totalAssetsLessProfit(MathUpgradeable.Rounding rounding)
-        internal
-        view
-        returns (uint256)
-    {
-        uint256 __totalAssets = _totalAssets(rounding);
-        uint256 __totalPrincipal = _totalPrincipal(rounding);
-        if (__totalAssets > __totalPrincipal) {
-            return __totalPrincipal;
+        // bias against the depositor by rounding DOWN totalAssets to more easily detect losses
+        if (_haveLoss()) {
+            // we have losses
+            return assets.mulDiv(
+                totalSupply(),
+                _totalAssets(MathUpgradeable.Rounding.Up),
+                MathUpgradeable.Rounding.Down
+            );
         }
-        return __totalAssets;
+        // no losses, use ideal ratio
+        return assets * (10 ** EXTRA_DECIMALS);
+    }
+
+    /// @dev Converts shares to assets, rounding down.
+    ///      Uses ideal ratio when solvent, standard formula when in loss.
+    function _convertToAssetsRoundDown(uint256 shares) internal view returns (uint256 assets) {
+        // bias against the depositor by rounding DOWN totalAssets to more easily detect losses
+        if (_haveLoss()) {
+            // we have losses
+            return shares.mulDiv(
+                _totalAssets(MathUpgradeable.Rounding.Down),
+                totalSupply(),
+                MathUpgradeable.Rounding.Down
+            );
+        }
+        // no losses, use ideal ratio
+        return shares / (10 ** EXTRA_DECIMALS);
+    }
+
+    /// @dev Whether the vault has losses
+    function _haveLoss() internal view returns (bool) {
+        return _totalAssets(MathUpgradeable.Rounding.Down) * (10 ** EXTRA_DECIMALS) < totalSupply();
     }
 
     /// @dev Converts subvault shares to assets using the subvault's preview functions
