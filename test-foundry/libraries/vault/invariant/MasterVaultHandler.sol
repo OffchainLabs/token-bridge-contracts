@@ -42,8 +42,7 @@ contract MasterVaultHandler is Test {
     /// @notice Count of successful calls per action (for debugging fuzzer coverage)
     mapping(bytes4 => uint256) public ghost_callCount;
 
-    /// @notice Whether rounding error has been manipulated
-    bool public ghost_roundingErrorManipulation;
+    bool public manipulationEnabled;
 
     modifier updateRandom(uint256 val) {
         random = uint256(keccak256(abi.encodePacked(random, val)));
@@ -55,13 +54,15 @@ contract MasterVaultHandler is Test {
         FuzzSubVault _subVault,
         TestERC20 _token,
         address _user,
-        address _keeper
+        address _keeper,
+        bool _manipulationEnabled
     ) {
         vault = _vault;
         subVault = _subVault;
         token = _token;
         user = _user;
         keeper = _keeper;
+        manipulationEnabled = _manipulationEnabled;
     }
 
     // --- User actions ---
@@ -208,53 +209,45 @@ contract MasterVaultHandler is Test {
         ghost_callCount[this.capSubVaultMaxRedeem.selector]++;
     }
 
+    // --- Rounding error manipulation ---
+
     /// @notice Set deposit rounding error on the subvault (0–10% in wad)
     function setDepositError(uint256 seed) external updateRandom(uint256(keccak256("setDepositError"))) updateRandom(seed) {
+        if (!manipulationEnabled) return;
         uint256 wad = bound(seed, 0, 1e17);
         subVault.setDepositErrorWad(wad);
-        if (wad > 0) {
-            ghost_roundingErrorManipulation = true;
-        }
         ghost_callCount[this.setDepositError.selector]++;
     }
 
     /// @notice Set withdraw rounding error on the subvault (0–10% in wad)
     function setWithdrawError(uint256 seed) external updateRandom(uint256(keccak256("setWithdrawError"))) updateRandom(seed) {
+        if (!manipulationEnabled) return;
         uint256 wad = bound(seed, 0, 1e17);
         subVault.setWithdrawErrorWad(wad);
-        if (wad > 0) {
-            ghost_roundingErrorManipulation = true;
-        }
         ghost_callCount[this.setWithdrawError.selector]++;
     }
 
     /// @notice Set redeem rounding error on the subvault (0–10% in wad)
     function setRedeemError(uint256 seed) external updateRandom(uint256(keccak256("setRedeemError"))) updateRandom(seed) {
+        if (!manipulationEnabled) return;
         uint256 wad = bound(seed, 0, 1e17);
         subVault.setRedeemErrorWad(wad);
-        if (wad > 0) {
-            ghost_roundingErrorManipulation = true;
-        }
         ghost_callCount[this.setRedeemError.selector]++;
     }
 
     /// @notice Set previewMint rounding error on the subvault (0–10% in wad)
     function setPreviewMintError(uint256 seed) external updateRandom(uint256(keccak256("setPreviewMintError"))) updateRandom(seed) {
+        if (!manipulationEnabled) return;
         uint256 wad = bound(seed, 0, 1e17);
         subVault.setPreviewMintErrorWad(wad);
-        if (wad > 0) {
-            ghost_roundingErrorManipulation = true;
-        }
         ghost_callCount[this.setPreviewMintError.selector]++;
     }
 
     /// @notice Set previewRedeem rounding error on the subvault (0–10% in wad)
     function setPreviewRedeemError(uint256 seed) external updateRandom(uint256(keccak256("setPreviewRedeemError"))) updateRandom(seed) {
+        if (!manipulationEnabled) return;
         uint256 wad = bound(seed, 0, 1e17);
         subVault.setPreviewRedeemErrorWad(wad);
-        if (wad > 0) {
-            ghost_roundingErrorManipulation = true;
-        }
         ghost_callCount[this.setPreviewRedeemError.selector]++;
     }
 }

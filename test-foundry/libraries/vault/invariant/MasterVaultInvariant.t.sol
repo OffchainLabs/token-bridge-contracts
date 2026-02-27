@@ -44,7 +44,7 @@ contract MasterVaultInvariant is Test {
 
     uint256 public constant DEAD_SHARES = 10 ** 6;
 
-    function setUp() public {
+    function setUp() public virtual {
         // Deploy factory behind a TransparentUpgradeableProxy
         MasterVault impl = new MasterVault();
         MasterVaultFactory factoryImpl = new MasterVaultFactory();
@@ -67,12 +67,13 @@ contract MasterVaultInvariant is Test {
         vault.setBeneficiary(beneficiaryAddr);
         vault.setMinimumRebalanceAmount(1);
 
-        // Deploy handler and target it
-        handler = new MasterVaultHandler(vault, subVault, token, user, keeper);
-        // Grant manager role to handler so setTargetAllocation works
-        vault.rolesRegistry().grantRole(vault.GENERAL_MANAGER_ROLE(), address(handler));
-
+        _createHandler();
         targetContract(address(handler));
+    }
+
+    function _createHandler() internal virtual {
+        handler = new MasterVaultHandler(vault, subVault, token, user, keeper, true);
+        vault.rolesRegistry().grantRole(vault.GENERAL_MANAGER_ROLE(), address(handler));
     }
 
     // --- Invariants ---
@@ -136,17 +137,6 @@ contract MasterVaultInvariant is Test {
         );
     }
 
-    /// @notice When no external losses injected, assets cover principal (within rounding tolerance).
-    /// @dev    Under normal operation, the vault should never become insolvent.
-    ///         Fee distribution rounds down, so totalAssets may be up to 2 wei below totalPrincipal.
-    ///         Catches: value leakage through rounding, incorrect share pricing.
-    function invariant_solvencyWhenNoNegativeManipulation() public {
-        if (handler.ghost_roundingErrorManipulation()) {
-            return;
-        }
-        assertGe(vault.totalAssets() * DEAD_SHARES, vault.totalSupply(), "insolvent without negative manipulation");
-    }
-
     /// @notice Vault can't hold more subvault shares than exist.
     /// @dev    Sanity check on subvault interaction correctness.
     function invariant_subVaultShareConsistency() public {
@@ -195,19 +185,6 @@ contract MasterVaultInvariant is Test {
         uint256 assetsReceived = token.balanceOf(user) - balBefore;
 
         assertLe(assetsReceived * DEAD_SHARES, sharesToRedeem, "redeem rate exceeded 1:1");
-    }
-
-    /// @notice Performance fees must never exceed reported profit.
-    /// @dev    At any reachable state, distributing fees should send at most totalProfit to beneficiary.
-    ///         Catches: over-extraction of fees, incorrect profit accounting, fee eating into principal.
-    function invariant_feeDistributionBounded() public {
-        if (handler.ghost_roundingErrorManipulation()) return;
-        uint256 roundingTolerance = handler.ghost_callCount(handler.deposit.selector) + handler.ghost_callCount(handler.redeem.selector);
-        assertLe(
-            handler.ghost_feesClaimed(),
-            handler.ghost_profit() + roundingTolerance,
-            "fees extracted exceed profit"
-        );
     }
 
     /// @notice Once target allocation is reached, further rebalances revert with TargetAllocationMet.
