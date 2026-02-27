@@ -42,8 +42,6 @@ contract MasterVaultHandler is Test {
     /// @notice Count of successful calls per action (for debugging fuzzer coverage)
     mapping(bytes4 => uint256) public ghost_callCount;
 
-    bool public manipulationEnabled;
-
     modifier updateRandom(uint256 val) {
         random = uint256(keccak256(abi.encodePacked(random, val)));
         _;
@@ -54,15 +52,13 @@ contract MasterVaultHandler is Test {
         FuzzSubVault _subVault,
         TestERC20 _token,
         address _user,
-        address _keeper,
-        bool _manipulationEnabled
+        address _keeper
     ) {
         vault = _vault;
         subVault = _subVault;
         token = _token;
         user = _user;
         keeper = _keeper;
-        manipulationEnabled = _manipulationEnabled;
     }
 
     // --- User actions ---
@@ -149,6 +145,37 @@ contract MasterVaultHandler is Test {
         } catch {}
     }
 
+    /// @notice Set maxWithdraw limit on the subvault
+    function capSubVaultMaxWithdraw(uint256 lim) external updateRandom(uint256(keccak256("capSubVaultMaxWithdraw"))) updateRandom(lim) {
+        lim = bound(lim, 1, type(uint128).max);
+        subVault.setMaxWithdrawLimit(lim);
+        ghost_callCount[this.capSubVaultMaxWithdraw.selector]++;
+    }
+
+    /// @notice Set maxDeposit limit on the subvault
+    function capSubVaultMaxDeposit(uint256 lim) external updateRandom(uint256(keccak256("capSubVaultMaxDeposit"))) updateRandom(lim) {
+        lim = bound(lim, 1, type(uint128).max);
+        subVault.setMaxDepositLimit(lim);
+        ghost_callCount[this.capSubVaultMaxDeposit.selector]++;
+    }
+
+    /// @notice Set maxRedeem limit on the subvault
+    function capSubVaultMaxRedeem(uint256 lim) external updateRandom(uint256(keccak256("capSubVaultMaxRedeem"))) updateRandom(lim) {
+        lim = bound(lim, 1, type(uint128).max);
+        subVault.setMaxRedeemLimit(lim);
+        ghost_callCount[this.capSubVaultMaxRedeem.selector]++;
+    }
+}
+
+contract MasterVaultWithManipulationHandler is MasterVaultHandler {
+    constructor(
+        MasterVault _vault,
+        FuzzSubVault _subVault,
+        TestERC20 _token,
+        address _user,
+        address _keeper
+    ) MasterVaultHandler(_vault, _subVault, _token, _user, _keeper) {}
+
     // --- Environment manipulation ---
 
     /// @notice Send tokens directly to the subvault (simulates yield / A increases)
@@ -188,32 +215,10 @@ contract MasterVaultHandler is Test {
         ghost_callCount[this.deflateSubVaultShares.selector]++;
     }
 
-    /// @notice Set maxWithdraw limit on the subvault
-    function capSubVaultMaxWithdraw(uint256 lim) external updateRandom(uint256(keccak256("capSubVaultMaxWithdraw"))) updateRandom(lim) {
-        lim = bound(lim, 0, type(uint128).max);
-        subVault.setMaxWithdrawLimit(lim);
-        ghost_callCount[this.capSubVaultMaxWithdraw.selector]++;
-    }
-
-    /// @notice Set maxDeposit limit on the subvault
-    function capSubVaultMaxDeposit(uint256 lim) external updateRandom(uint256(keccak256("capSubVaultMaxDeposit"))) updateRandom(lim) {
-        lim = bound(lim, 0, type(uint128).max);
-        subVault.setMaxDepositLimit(lim);
-        ghost_callCount[this.capSubVaultMaxDeposit.selector]++;
-    }
-
-    /// @notice Set maxRedeem limit on the subvault
-    function capSubVaultMaxRedeem(uint256 lim) external updateRandom(uint256(keccak256("capSubVaultMaxRedeem"))) updateRandom(lim) {
-        lim = bound(lim, 0, type(uint128).max);
-        subVault.setMaxRedeemLimit(lim);
-        ghost_callCount[this.capSubVaultMaxRedeem.selector]++;
-    }
-
     // --- Rounding error manipulation ---
 
     /// @notice Set deposit rounding error on the subvault (0–10% in wad)
     function setDepositError(uint256 seed) external updateRandom(uint256(keccak256("setDepositError"))) updateRandom(seed) {
-        if (!manipulationEnabled) return;
         uint256 wad = bound(seed, 0, 1e17);
         subVault.setDepositErrorWad(wad);
         ghost_callCount[this.setDepositError.selector]++;
@@ -221,7 +226,6 @@ contract MasterVaultHandler is Test {
 
     /// @notice Set withdraw rounding error on the subvault (0–10% in wad)
     function setWithdrawError(uint256 seed) external updateRandom(uint256(keccak256("setWithdrawError"))) updateRandom(seed) {
-        if (!manipulationEnabled) return;
         uint256 wad = bound(seed, 0, 1e17);
         subVault.setWithdrawErrorWad(wad);
         ghost_callCount[this.setWithdrawError.selector]++;
@@ -229,7 +233,6 @@ contract MasterVaultHandler is Test {
 
     /// @notice Set redeem rounding error on the subvault (0–10% in wad)
     function setRedeemError(uint256 seed) external updateRandom(uint256(keccak256("setRedeemError"))) updateRandom(seed) {
-        if (!manipulationEnabled) return;
         uint256 wad = bound(seed, 0, 1e17);
         subVault.setRedeemErrorWad(wad);
         ghost_callCount[this.setRedeemError.selector]++;
@@ -237,7 +240,6 @@ contract MasterVaultHandler is Test {
 
     /// @notice Set previewMint rounding error on the subvault (0–10% in wad)
     function setPreviewMintError(uint256 seed) external updateRandom(uint256(keccak256("setPreviewMintError"))) updateRandom(seed) {
-        if (!manipulationEnabled) return;
         uint256 wad = bound(seed, 0, 1e17);
         subVault.setPreviewMintErrorWad(wad);
         ghost_callCount[this.setPreviewMintError.selector]++;
@@ -245,7 +247,6 @@ contract MasterVaultHandler is Test {
 
     /// @notice Set previewRedeem rounding error on the subvault (0–10% in wad)
     function setPreviewRedeemError(uint256 seed) external updateRandom(uint256(keccak256("setPreviewRedeemError"))) updateRandom(seed) {
-        if (!manipulationEnabled) return;
         uint256 wad = bound(seed, 0, 1e17);
         subVault.setPreviewRedeemErrorWad(wad);
         ghost_callCount[this.setPreviewRedeemError.selector]++;

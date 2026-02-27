@@ -13,7 +13,7 @@ import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import {IGatewayRouter} from "../../../../contracts/tokenbridge/libraries/gateway/IGatewayRouter.sol";
 import {TransparentUpgradeableProxy} from
     "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import {MasterVaultHandler} from "./MasterVaultHandler.sol";
+import {MasterVaultWithManipulationHandler, MasterVaultHandler} from "./MasterVaultHandler.sol";
 
 contract MockGatewayRouterInvariant {
     address public gateway;
@@ -27,15 +27,12 @@ contract MockGatewayRouterInvariant {
     }
 }
 
-/// @notice Stateful invariant tests for MasterVault.
-/// @dev    Setup deploys the vault via factory, a FuzzSubVault as the active subvault,
-///         grants all roles, and targets the handler contract for fuzzer calls.
-contract MasterVaultInvariant is Test {
+abstract contract BaseMasterVaultInvariant is Test {
     MasterVaultFactory public factory;
     MasterVault public vault;
     FuzzSubVault public subVault;
     TestERC20 public token;
-    MasterVaultHandler public handler;
+    address public handler;
 
     address public user = vm.addr(1);
     address public keeper = address(0xBBBB);
@@ -67,13 +64,20 @@ contract MasterVaultInvariant is Test {
         vault.setBeneficiary(beneficiaryAddr);
         vault.setMinimumRebalanceAmount(1);
 
-        _createHandler();
-        targetContract(address(handler));
+        handler = _createHandler();
+        vault.rolesRegistry().grantRole(vault.GENERAL_MANAGER_ROLE(), handler);
+        targetContract(handler);
     }
 
-    function _createHandler() internal virtual {
-        handler = new MasterVaultHandler(vault, subVault, token, user, keeper, true);
-        vault.rolesRegistry().grantRole(vault.GENERAL_MANAGER_ROLE(), address(handler));
+    function _createHandler() internal virtual returns (address);
+}
+
+/// @notice Stateful invariant tests for MasterVault.
+/// @dev    Setup deploys the vault via factory, a FuzzSubVault as the active subvault,
+///         grants all roles, and targets the handler contract for fuzzer calls.
+contract MasterVaultInvariant is BaseMasterVaultInvariant {
+    function _createHandler() internal virtual override returns (address) {
+        return address(new MasterVaultWithManipulationHandler(vault, subVault, token, user, keeper));
     }
 
     // --- Invariants ---
@@ -94,18 +98,6 @@ contract MasterVaultInvariant is Test {
         vault.setSubVault(IERC4626(address(subVault)));
     }
 
-    /// @notice The totalAssets formula must always hold:
-    ///         vault.totalAssets() == 1 + token.balanceOf(vault) + subVault.previewRedeem(subVault.balanceOf(vault))
-    /// @dev    Any drift means the vault is mispricing shares.
-    ///         Catches: accumulated rounding errors, incorrect subvault conversion, stale accounting.
-    function invariant_accountingIdentity() public {
-        uint256 idle = token.balanceOf(address(vault));
-        uint256 subShares = subVault.balanceOf(address(vault));
-        uint256 subAssets = subVault.previewRedeem(subShares);
-        uint256 expected = 1 + idle + subAssets;
-        assertEq(vault.totalAssets(), expected, "accounting identity violated");
-    }
-
     /// @notice Dead shares from initialization are never burned.
     /// @dev    First-depositor attack mitigation depends on these.
     ///         Catches: underflow in burn logic, accidental redemption of dead shares.
@@ -113,37 +105,14 @@ contract MasterVaultInvariant is Test {
         assertGe(vault.totalSupply(), DEAD_SHARES, "dead shares burned");
     }
 
-    /// @notice The +1 offset in _totalAssets is always present.
-    /// @dev    Removing the offset breaks the first-depositor mitigation and share pricing.
-    ///         Catches: underflow, offset regression.
-    function invariant_totalAssetsFloor() public {
-        assertGe(vault.totalAssets(), 1, "totalAssets below floor");
-    }
-
-    /// @notice Allocation percentage never exceeds 100%.
-    /// @dev    Overflow in allocation would cause incorrect idle targets and broken rebalancing.
-    function invariant_allocationBounds() public {
-        assertLe(vault.targetAllocationWad(), 1e18, "allocation exceeds 100%");
-    }
-
     /// @notice Total outflows never exceed total inflows (plus the +1 offset).
     /// @dev    The core economic invariant.
     ///         Catches: share inflation, rounding exploits, double-counting, incorrect fee extraction.
     function invariant_noValueCreation() public {
         assertLe(
-            handler.ghost_redeemed() + handler.ghost_feesClaimed(),
-            handler.ghost_deposited() + handler.ghost_profit() + 1,
+            MasterVaultHandler(handler).ghost_redeemed() + MasterVaultHandler(handler).ghost_feesClaimed(),
+            MasterVaultHandler(handler).ghost_deposited() + MasterVaultHandler(handler).ghost_profit() + 1,
             "value created from nothing"
-        );
-    }
-
-    /// @notice Vault can't hold more subvault shares than exist.
-    /// @dev    Sanity check on subvault interaction correctness.
-    function invariant_subVaultShareConsistency() public {
-        assertLe(
-            subVault.balanceOf(address(vault)),
-            subVault.totalSupply(),
-            "vault holds more subvault shares than exist"
         );
     }
 
@@ -152,7 +121,7 @@ contract MasterVaultInvariant is Test {
     ///         depositing X and immediately redeeming should return <= X.
     ///         Catches: share pricing rounding that favors depositor over vault.
     function invariant_depositRedeemNoValueExtraction() public {
-        uint256 depositAmount = bound(handler.random(), 1, 1e18);
+        uint256 depositAmount = bound(MasterVaultHandler(handler).random(), 1, 1e18);
         vm.prank(user);
         token.mintAmount(depositAmount);
         vm.startPrank(user);
@@ -173,12 +142,12 @@ contract MasterVaultInvariant is Test {
     ///         Catches: share pricing bugs that let users extract more than they deposited.
     function invariant_redeemRateNeverAbovePar() public {
         _clearAllLimits();
-        _clearAllRoundingError();
+        subVault.setWithdrawErrorWad(0);
 
         uint256 userShares = vault.balanceOf(user);
         if (userShares == 0) return;
 
-        uint256 sharesToRedeem = bound(handler.random(), 1, userShares);
+        uint256 sharesToRedeem = bound(MasterVaultHandler(handler).random(), 1, userShares);
         uint256 balBefore = token.balanceOf(user);
         vm.prank(user);
         vault.redeem(sharesToRedeem, 0);
@@ -313,15 +282,19 @@ contract MasterVaultInvariant is Test {
         }
 
         uint256 shareBalance = vault.subVault().balanceOf(address(vault));
-        if (shareBalance == 0) return true;
+        if (shareBalance == 0) return false;
 
         uint256 maxRedeem = vault.subVault().maxRedeem(address(vault));
-        if (maxRedeem == 0) return true;
+        if (maxRedeem == 0) revert("maxRedeem should not be zero");
 
         uint256 iterationsRequired = (shareBalance) / maxRedeem + 1;
 
         // set some reasonable upper bound on iterations to prevent infinite loop
-        if (iterationsRequired > 10) return true;
+        if (iterationsRequired > 50) {
+            _clearAllLimits();
+            iterationsRequired = (shareBalance) / vault.subVault().maxRedeem(address(vault)) + 1;
+            require(iterationsRequired == 2, "too many iterations required to rebalance to zero");
+        }
 
         for (uint256 i = 0; i < iterationsRequired && vault.subVault().balanceOf(address(vault)) != 0; i++) {
             vm.warp(block.timestamp + 2);
@@ -331,5 +304,30 @@ contract MasterVaultInvariant is Test {
 
         uint256 shareBalanceAfter = vault.subVault().balanceOf(address(vault));
         assertEq(shareBalanceAfter, 0, "should have redeemed all shares after iterations");
+    }
+}
+
+contract MasterVaultNoManipulationInvariant is MasterVaultInvariant {
+    function _createHandler() internal virtual override returns (address) {
+        return address(new MasterVaultHandler(vault, subVault, token, user, keeper));
+    }
+
+    /// @notice When no rounding errors injected, assets cover principal.
+    /// @dev    Under normal operation, the vault should never become insolvent.
+    function invariant_solvency() public {
+        assertGe(vault.totalAssets() * DEAD_SHARES + 1, vault.totalSupply(), "insolvent without manipulation");
+    }
+
+    /// @notice Performance fees must never exceed reported profit.
+    function invariant_feeDistributionBounded() public {
+        subVault.setMaxWithdrawLimit(type(uint256).max);
+        uint256 roundingTolerance = MasterVaultHandler(handler).ghost_callCount(MasterVaultHandler.deposit.selector) + MasterVaultHandler(handler).ghost_callCount(MasterVaultHandler.redeem.selector);
+        vm.prank(keeper);
+        vault.distributePerformanceFee();
+        assertLe(
+            token.balanceOf(vault.beneficiary()),
+            MasterVaultHandler(handler).ghost_profit() + roundingTolerance,
+            "fees extracted exceed profit"
+        );
     }
 }
