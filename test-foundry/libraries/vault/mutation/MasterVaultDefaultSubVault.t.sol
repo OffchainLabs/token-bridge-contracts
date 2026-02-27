@@ -36,9 +36,11 @@ contract MasterVaultDefaultSubVaultTest is MasterVaultCoreTest {
         dsv.mint(1, address(this));
     }
 
-    function test_defaultSubVault_redeem_reverts() public {
+    function test_defaultSubVault_redeem_onlyMasterVault() public {
         DefaultSubVault dsv = DefaultSubVault(address(vault.subVault()));
-        vm.expectRevert("UNSUPPORTED");
-        dsv.redeem(1, address(this), address(this));
+        address attacker = address(0xdead);
+        vm.prank(attacker);
+        vm.expectRevert("ONLY_MASTER_VAULT");
+        dsv.redeem(1, attacker, attacker);
     }
 }

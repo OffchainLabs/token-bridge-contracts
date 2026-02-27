@@ -30,5 +30,9 @@ pow_no_space = false
 prefer_compact = "all"
 single_line_imports = false
 
+[invariant]
+runs = 256
+depth = 100
+
 [lint]
 lint_on_build = false
