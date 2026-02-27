@@ -143,14 +143,10 @@ contract FuzzSubVault is ERC20 {
     }
 
     function _convertToShares(uint256 assets, Math.Rounding rounding) private view returns (uint256) {
-        uint256 supply = totalSupply();
-        if (supply == 0) return assets;
-        return assets.mulDiv(supply, totalAssets(), rounding);
+        return assets.mulDiv(totalSupply(), totalAssets(), rounding);
     }
 
     function _convertToAssets(uint256 shares, Math.Rounding rounding) private view returns (uint256) {
-        uint256 supply = totalSupply();
-        if (supply == 0) return shares;
-        return shares.mulDiv(totalAssets(), supply, rounding);
+        return shares.mulDiv(totalAssets(), totalSupply(), rounding);
     }
 }
