@@ -172,8 +172,8 @@ contract MasterVaultInvariant is Test {
     /// @dev    The ideal rate is the ceiling. Profit goes to beneficiary, not share holders.
     ///         Catches: share pricing bugs that let users extract more than they deposited.
     function invariant_redeemRateNeverAbovePar() public {
-        subVault.setMaxWithdrawLimit(type(uint256).max);
-        subVault.setWithdrawErrorWad(0);
+        _clearAllLimits();
+        _clearAllRoundingError();
 
         uint256 userShares = vault.balanceOf(user);
         if (userShares == 0) return;
@@ -187,18 +187,34 @@ contract MasterVaultInvariant is Test {
         assertLe(assetsReceived * DEAD_SHARES, sharesToRedeem, "redeem rate exceeded 1:1");
     }
 
+    /// @notice A rebalance must not change totalAssets (within 1 wei rounding).
+    /// @dev    Rebalancing moves tokens between vault and subvault but should not leak or create value.
+    ///         Catches: rounding leakage in deposit/withdraw paths, incorrect subvault accounting.
+    function invariant_rebalancePreservesTotalAssets() public {
+        _clearAllLimits();
+        _clearAllRoundingError();
+
+        if (!_canRebalance()) return;
+
+        uint256 totalBefore = vault.totalAssets();
+
+        vm.warp(block.timestamp + 2);
+        vm.prank(keeper);
+        try vault.rebalance(_rebalanceSlippage()) {}
+        catch {
+            return;
+        }
+
+        uint256 totalAfter = vault.totalAssets();
+        assertLe(totalAfter, totalBefore, "rebalance created value");
+        assertGe(totalAfter + 1, totalBefore, "rebalance lost more than 1 wei");
+    }
+
     /// @notice Once target allocation is reached, further rebalances revert with TargetAllocationMet.
     /// @dev    Catches: oscillating rebalances, tolerance band not working.
     function invariant_rebalanceIdempotent() public {
-        // Lift caps and clear error wads so a single rebalance can fully reach target
-        subVault.setMaxWithdrawLimit(type(uint256).max);
-        subVault.setMaxDepositLimit(type(uint256).max);
-        subVault.setMaxRedeemLimit(type(uint256).max);
-        subVault.setDepositErrorWad(0);
-        subVault.setWithdrawErrorWad(0);
-        subVault.setRedeemErrorWad(0);
-        subVault.setPreviewMintErrorWad(0);
-        subVault.setPreviewRedeemErrorWad(0);
+        _clearAllLimits();
+        _clearAllRoundingError();
 
         // Skip if deposit into subvault would overflow or yield 0 shares.
         // Only the deposit path (idle > target) has issues — withdraw and drain are bounded.
@@ -237,6 +253,20 @@ contract MasterVaultInvariant is Test {
     }
 
     // --- Helpers ---
+
+    function _clearAllLimits() internal {
+        subVault.setMaxWithdrawLimit(type(uint256).max);
+        subVault.setMaxDepositLimit(type(uint256).max);
+        subVault.setMaxRedeemLimit(type(uint256).max);
+    }
+
+    function _clearAllRoundingError() internal {
+        subVault.setDepositErrorWad(0);
+        subVault.setWithdrawErrorWad(0);
+        subVault.setRedeemErrorWad(0);
+        subVault.setPreviewMintErrorWad(0);
+        subVault.setPreviewRedeemErrorWad(0);
+    }
 
     function _revert(bytes memory reason) internal pure {
         assembly { revert(add(reason, 32), mload(reason)) }
