@@ -575,9 +575,12 @@ contract MasterVault is
         uint256 assetsSpent,
         uint256 subVaultShares
     ) internal pure {
-        if (minExchRateWad > 0) revert RebalanceExchRateWrongSign(minExchRateWad);
-        uint256 actualExchRate =
-            assetsSpent.mulDiv(1e18, subVaultShares, MathUpgradeable.Rounding.Up);
+        if (minExchRateWad > 0) {
+            revert RebalanceExchRateWrongSign(minExchRateWad);
+        }
+        uint256 actualExchRate = subVaultShares == 0
+            ? type(uint256).max
+            : assetsSpent.mulDiv(1e18, subVaultShares, MathUpgradeable.Rounding.Up);
         if (actualExchRate > uint256(-minExchRateWad)) {
             revert RebalanceExchRateTooLow(minExchRateWad, -int256(assetsSpent), subVaultShares);
         }
@@ -589,7 +592,10 @@ contract MasterVault is
         uint256 assetsReceived,
         uint256 subVaultShares
     ) internal pure {
-        if (minExchRateWad < 0) revert RebalanceExchRateWrongSign(minExchRateWad);
+        if (minExchRateWad < 0) {
+            revert RebalanceExchRateWrongSign(minExchRateWad);
+        }
+        // we do not need to check for a div by zero because a subvault would never give us assets for zero shares
         uint256 actualExchRate =
             assetsReceived.mulDiv(1e18, subVaultShares, MathUpgradeable.Rounding.Down);
         if (actualExchRate < uint256(minExchRateWad)) {
