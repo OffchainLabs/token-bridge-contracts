@@ -42,8 +42,8 @@ contract MasterVaultHandler is Test {
     /// @notice Count of successful calls per action (for debugging fuzzer coverage)
     mapping(bytes4 => uint256) public ghost_callCount;
 
-    modifier updateRandom(uint256 val) {
-        random = uint256(keccak256(abi.encodePacked(random, val)));
+    modifier updateRandom() {
+        random = uint256(keccak256(msg.data));
         _;
     }
 
@@ -65,7 +65,7 @@ contract MasterVaultHandler is Test {
 
     /// @notice Deposit assets into the MasterVault via the gateway user
     /// @dev    Bounds amount to [1, 1e30] to stay within reasonable range
-    function deposit(uint256 amount) external updateRandom(uint256(keccak256("deposit"))) updateRandom(amount) {
+    function deposit(uint256 amount) external updateRandom {
         amount = bound(amount, 1, 1e30);
 
         vm.prank(user);
@@ -73,34 +73,32 @@ contract MasterVaultHandler is Test {
 
         vm.startPrank(user);
         token.approve(address(vault), amount);
-        try vault.deposit(amount) {
-            ghost_deposited += amount;
-            ghost_callCount[this.deposit.selector]++;
-        } catch {}
+        vault.deposit(amount);
+        ghost_deposited += amount;
+        ghost_callCount[this.deposit.selector]++;
         vm.stopPrank();
     }
 
     /// @notice Redeem shares from the MasterVault as user
     /// @dev    Bounds shares to [1, user balance]
-    function redeem(uint256 shares) external updateRandom(uint256(keccak256("redeem"))) updateRandom(shares) {
+    function redeem(uint256 shares) external updateRandom {
         uint256 bal = vault.balanceOf(user);
         if (bal == 0) return;
         shares = bound(shares, 1, bal);
 
         uint256 assetsBefore = token.balanceOf(user);
         vm.prank(user);
-        try vault.redeem(shares, 0) {
-            uint256 assetsAfter = token.balanceOf(user);
-            ghost_redeemed += assetsAfter - assetsBefore;
-            ghost_callCount[this.redeem.selector]++;
-        } catch {}
+        vault.redeem(shares, 0);
+        uint256 assetsAfter = token.balanceOf(user);
+        ghost_redeemed += assetsAfter - assetsBefore;
+        ghost_callCount[this.redeem.selector]++;
     }
 
     // --- Keeper actions ---
 
     /// @notice Warp time and call rebalance with permissive slippage
     /// @dev    Uses extreme slippage bounds to avoid exchange rate reverts masking real bugs
-    function rebalance() external updateRandom(uint256(keccak256("rebalance"))) {
+    function rebalance() external updateRandom {
         vm.warp(block.timestamp + 2);
 
         int256 minExchRate;
@@ -117,50 +115,47 @@ contract MasterVaultHandler is Test {
         }
 
         vm.prank(keeper);
-        try vault.rebalance(minExchRate) {
-            ghost_callCount[this.rebalance.selector]++;
-        } catch {}
+        vault.rebalance(minExchRate);
+        ghost_callCount[this.rebalance.selector]++;
     }
 
     /// @notice Distribute performance fees to beneficiary
-    function distributePerformanceFee() external updateRandom(uint256(keccak256("distributePerformanceFee"))) {
+    function distributePerformanceFee() external updateRandom {
         address beneficiary = vault.beneficiary();
         uint256 before = token.balanceOf(beneficiary);
 
         vm.prank(keeper);
-        try vault.distributePerformanceFee() {
-            uint256 after_ = token.balanceOf(beneficiary);
-            ghost_feesClaimed += after_ - before;
-            ghost_callCount[this.distributePerformanceFee.selector]++;
-        } catch {}
+        vault.distributePerformanceFee();
+        uint256 after_ = token.balanceOf(beneficiary);
+        ghost_feesClaimed += after_ - before;
+        ghost_callCount[this.distributePerformanceFee.selector]++;
     }
 
     // --- Manager actions ---
 
     /// @notice Set target allocation (bounded 0 to 1e18)
-    function setTargetAllocation(uint256 seed) external updateRandom(uint256(keccak256("setTargetAllocation"))) updateRandom(seed) {
+    function setTargetAllocation(uint256 seed) external updateRandom {
         uint64 alloc = uint64(bound(seed, 0, 1e18));
-        try vault.setTargetAllocationWad(alloc) {
-            ghost_callCount[this.setTargetAllocation.selector]++;
-        } catch {}
+        vault.setTargetAllocationWad(alloc);
+        ghost_callCount[this.setTargetAllocation.selector]++;
     }
 
     /// @notice Set maxWithdraw limit on the subvault
-    function capSubVaultMaxWithdraw(uint256 lim) external updateRandom(uint256(keccak256("capSubVaultMaxWithdraw"))) updateRandom(lim) {
+    function capSubVaultMaxWithdraw(uint256 lim) external updateRandom {
         lim = bound(lim, 1, type(uint128).max);
         subVault.setMaxWithdrawLimit(lim);
         ghost_callCount[this.capSubVaultMaxWithdraw.selector]++;
     }
 
     /// @notice Set maxDeposit limit on the subvault
-    function capSubVaultMaxDeposit(uint256 lim) external updateRandom(uint256(keccak256("capSubVaultMaxDeposit"))) updateRandom(lim) {
+    function capSubVaultMaxDeposit(uint256 lim) external updateRandom {
         lim = bound(lim, 1, type(uint128).max);
         subVault.setMaxDepositLimit(lim);
         ghost_callCount[this.capSubVaultMaxDeposit.selector]++;
     }
 
     /// @notice Set maxRedeem limit on the subvault
-    function capSubVaultMaxRedeem(uint256 lim) external updateRandom(uint256(keccak256("capSubVaultMaxRedeem"))) updateRandom(lim) {
+    function capSubVaultMaxRedeem(uint256 lim) external updateRandom {
         lim = bound(lim, 1, type(uint128).max);
         subVault.setMaxRedeemLimit(lim);
         ghost_callCount[this.capSubVaultMaxRedeem.selector]++;
@@ -179,7 +174,7 @@ contract MasterVaultWithManipulationHandler is MasterVaultHandler {
     // --- Environment manipulation ---
 
     /// @notice Send tokens directly to the subvault (simulates yield / A increases)
-    function simulateSubVaultProfit(uint256 amt) external updateRandom(uint256(keccak256("simulateSubVaultProfit"))) updateRandom(amt) {
+    function simulateSubVaultProfit(uint256 amt) external updateRandom {
         amt = bound(amt, 1, 1e24);
         token.mintAmount(amt);
         token.transfer(address(subVault), amt);
@@ -188,7 +183,7 @@ contract MasterVaultWithManipulationHandler is MasterVaultHandler {
     }
 
     /// @notice Remove tokens from the subvault (simulates loss / A decreases)
-    function simulateSubVaultLoss(uint256 amt) external updateRandom(uint256(keccak256("simulateSubVaultLoss"))) updateRandom(amt) {
+    function simulateSubVaultLoss(uint256 amt) external updateRandom {
         uint256 subBal = token.balanceOf(address(subVault));
         if (subBal == 0) return;
         amt = bound(amt, 1, subBal);
@@ -200,14 +195,14 @@ contract MasterVaultWithManipulationHandler is MasterVaultHandler {
     }
 
     /// @notice Mint shares without backing assets on FuzzSubVault (T increases, A < T)
-    function inflateSubVaultShares(uint256 amt) external updateRandom(uint256(keccak256("inflateSubVaultShares"))) updateRandom(amt) {
+    function inflateSubVaultShares(uint256 amt) external updateRandom {
         amt = bound(amt, 1, 1e24);
         subVault.adminMint(address(vault), amt);
         ghost_callCount[this.inflateSubVaultShares.selector]++;
     }
 
     /// @notice Burn shares without withdrawing assets on FuzzSubVault (T decreases, A > T)
-    function deflateSubVaultShares(uint256 amt) external updateRandom(uint256(keccak256("deflateSubVaultShares"))) updateRandom(amt) {
+    function deflateSubVaultShares(uint256 amt) external updateRandom {
         uint256 vaultShares = subVault.balanceOf(address(vault));
         if (vaultShares == 0) return;
         amt = bound(amt, 1, vaultShares);
@@ -218,35 +213,35 @@ contract MasterVaultWithManipulationHandler is MasterVaultHandler {
     // --- Rounding error manipulation ---
 
     /// @notice Set deposit rounding error on the subvault (0–10% in wad)
-    function setDepositError(uint256 seed) external updateRandom(uint256(keccak256("setDepositError"))) updateRandom(seed) {
+    function setDepositError(uint256 seed) external updateRandom {
         uint256 wad = bound(seed, 0, 1e17);
         subVault.setDepositErrorWad(wad);
         ghost_callCount[this.setDepositError.selector]++;
     }
 
     /// @notice Set withdraw rounding error on the subvault (0–10% in wad)
-    function setWithdrawError(uint256 seed) external updateRandom(uint256(keccak256("setWithdrawError"))) updateRandom(seed) {
+    function setWithdrawError(uint256 seed) external updateRandom {
         uint256 wad = bound(seed, 0, 1e17);
         subVault.setWithdrawErrorWad(wad);
         ghost_callCount[this.setWithdrawError.selector]++;
     }
 
     /// @notice Set redeem rounding error on the subvault (0–10% in wad)
-    function setRedeemError(uint256 seed) external updateRandom(uint256(keccak256("setRedeemError"))) updateRandom(seed) {
+    function setRedeemError(uint256 seed) external updateRandom {
         uint256 wad = bound(seed, 0, 1e17);
         subVault.setRedeemErrorWad(wad);
         ghost_callCount[this.setRedeemError.selector]++;
     }
 
     /// @notice Set previewMint rounding error on the subvault (0–10% in wad)
-    function setPreviewMintError(uint256 seed) external updateRandom(uint256(keccak256("setPreviewMintError"))) updateRandom(seed) {
+    function setPreviewMintError(uint256 seed) external updateRandom {
         uint256 wad = bound(seed, 0, 1e17);
         subVault.setPreviewMintErrorWad(wad);
         ghost_callCount[this.setPreviewMintError.selector]++;
     }
 
     /// @notice Set previewRedeem rounding error on the subvault (0–10% in wad)
-    function setPreviewRedeemError(uint256 seed) external updateRandom(uint256(keccak256("setPreviewRedeemError"))) updateRandom(seed) {
+    function setPreviewRedeemError(uint256 seed) external updateRandom {
         uint256 wad = bound(seed, 0, 1e17);
         subVault.setPreviewRedeemErrorWad(wad);
         ghost_callCount[this.setPreviewRedeemError.selector]++;
