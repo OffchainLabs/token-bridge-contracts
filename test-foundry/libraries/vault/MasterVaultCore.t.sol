@@ -40,7 +40,7 @@ contract MasterVaultCoreTest is Test {
     address public user = vm.addr(1);
     string public name = "Master Test Token";
     string public symbol = "mTST";
-    uint256 public constant DEAD_SHARES = 10 ** 6;
+    uint256 public constant DEAD_SHARES = 1;
 
     address public keeper = address(0xBBBB);
     address public beneficiaryAddr = address(0x9999);

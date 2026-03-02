@@ -10,9 +10,12 @@ import {FuzzSubVault} from "../../../../contracts/tokenbridge/test/FuzzSubVault.
 import {TestERC20} from "../../../../contracts/tokenbridge/test/TestERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
-import {IGatewayRouter} from "../../../../contracts/tokenbridge/libraries/gateway/IGatewayRouter.sol";
-import {TransparentUpgradeableProxy} from
-    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {
+    IGatewayRouter
+} from "../../../../contracts/tokenbridge/libraries/gateway/IGatewayRouter.sol";
+import {
+    TransparentUpgradeableProxy
+} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {MasterVaultHandler} from "./MasterVaultHandler.sol";
 
 contract MockGatewayRouterInvariant {
@@ -42,7 +45,7 @@ contract MasterVaultInvariant is Test {
     address public beneficiaryAddr = address(0x9999);
     address public proxyAdmin = address(0xAA);
 
-    uint256 public constant DEAD_SHARES = 10 ** 6;
+    uint256 public constant DEAD_SHARES = 1;
 
     function setUp() public {
         // Deploy factory behind a TransparentUpgradeableProxy
@@ -142,7 +145,7 @@ contract MasterVaultInvariant is Test {
     ///         Catches: value leakage through rounding, incorrect share pricing.
     function invariant_solvencyWhenNoNegativeManipulation() public {
         if (!handler.ghost_negativeManipulation()) {
-            uint256 totalPrincipal = vault.totalSupply() / DEAD_SHARES;
+            uint256 totalPrincipal = vault.totalSupply();
             uint256 totalAssets = vault.totalAssets();
             assertGe(totalAssets + 2, totalPrincipal, "insolvent without negative manipulation");
         }
@@ -184,7 +187,8 @@ contract MasterVaultInvariant is Test {
     ///         Catches: over-extraction of fees, incorrect profit accounting, fee eating into principal.
     function invariant_feeDistributionBounded() public {
         if (handler.ghost_roundingErrorManipulation()) return;
-        uint256 roundingTolerance = handler.ghost_callCount(handler.deposit.selector) + handler.ghost_callCount(handler.redeem.selector);
+        uint256 roundingTolerance = handler.ghost_callCount(handler.deposit.selector)
+            + handler.ghost_callCount(handler.redeem.selector);
         assertLe(
             handler.ghost_feesClaimed(),
             handler.ghost_profit() + roundingTolerance,
@@ -208,7 +212,11 @@ contract MasterVaultInvariant is Test {
         // set some reasonable upper bound on iterations to prevent infinite loop
         if (iterationsRequired > 10) return true;
 
-        for (uint256 i = 0; i < iterationsRequired && vault.subVault().balanceOf(address(vault)) != 0; i++) {
+        for (
+            uint256 i = 0;
+            i < iterationsRequired && vault.subVault().balanceOf(address(vault)) != 0;
+            i++
+        ) {
             vm.warp(block.timestamp + 2);
             vm.prank(keeper);
             vault.rebalance(0);

@@ -36,7 +36,6 @@ contract L1OrbitYbbCustomGatewayTest is Test {
     address public creditBackAddress = makeAddr("creditBackAddress");
 
     uint256 public constant DEPOSIT_AMOUNT = 1000e18;
-    uint256 public constant EXTRA_DECIMALS = 6;
     uint256 public maxSubmissionCost = 0;
     uint256 public maxGas = 1_000_000;
     uint256 public gasPriceBid = 1;
@@ -89,7 +88,7 @@ contract L1OrbitYbbCustomGatewayTest is Test {
         assertTrue(vaultAddr.code.length > 0, "Vault should be deployed");
         assertEq(token.balanceOf(vaultAddr), DEPOSIT_AMOUNT, "Vault should hold deposited tokens");
 
-        uint256 expectedShares = DEPOSIT_AMOUNT * (10 ** EXTRA_DECIMALS);
+        uint256 expectedShares = DEPOSIT_AMOUNT;
         MasterVault vault = MasterVault(vaultAddr);
         assertEq(
             vault.balanceOf(address(gateway)), expectedShares, "Gateway should hold vault shares"

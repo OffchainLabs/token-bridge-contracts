@@ -25,8 +25,9 @@ import {IMasterVault} from "./IMasterVault.sol";
 /// @notice MasterVault is a metavault that deposits assets to an admin defined ERC4626 compliant subVault.
 /// @dev    The MasterVault keeps some fraction of assets idle and deposits the rest into the subVault to earn yield.
 ///         A 100% performance fee is always enabled and collected on demand.
-///         The MasterVault mitigates the "first depositor" problem by adding EXTRA_DECIMALS (6) to the underlying asset.
-///         i.e. if the underlying asset has 6 decimals, the MasterVault will have 12 decimals.
+///         The MasterVault mitigates the "first depositor" problem via dead shares (1 share minted to address(1))
+///         and a virtual asset offset (+1 in _totalAssets). The _haveLoss() check ensures that when solvent,
+///         conversions use a fixed 1:1 ratio immune to donation manipulation.
 ///
 ///         For a subVault to be compatible with the MasterVault, it must adhere to the following:
 ///         - must be fully ERC4626 compliant
@@ -50,14 +51,6 @@ contract MasterVault is
     using SafeERC20 for IERC20;
     using MathUpgradeable for uint256;
     using EnumerableSet for EnumerableSet.AddressSet;
-
-    /// @notice Extra decimals added to the ERC20 decimals of the underlying asset to determine the decimals of the MasterVault
-    /// @dev    This is done to mitigate the "first depositor" problem described in the OpenZeppelin ERC4626 documentation.
-    ///         See https://docs.openzeppelin.com/contracts/5.x/erc4626 for more details on the mitigation.
-    ///         Should be << 18 to maintain precision in profit calculations.
-    ///         Should be > 0 to meaningfully mitigate the first depositor problem.
-    uint8 public constant EXTRA_DECIMALS = 6;
-
     /// @notice Default minimum rebalance amount
     uint120 public constant DEFAULT_MIN_REBALANCE_AMOUNT = 1e6;
 
@@ -171,9 +164,6 @@ contract MasterVault is
         asset = IERC20(address(_subVault.asset()));
         rolesRegistry = _rolesRegistry;
 
-        // call decimals() to ensure underlying has reasonable decimals and we won't have overflow
-        decimals();
-
         __ReentrancyGuard_init();
         __Pausable_init();
         __MasterVaultRoles_init();
@@ -183,7 +173,7 @@ contract MasterVault is
         // mint some dead shares to avoid first depositor issues
         // for more information on the mitigation:
         // https://web.archive.org/web/20250609034056/https://docs.openzeppelin.com/contracts/4.x/erc4626#fees
-        _mint(address(1), 10 ** EXTRA_DECIMALS);
+        _mint(address(1), 1);
 
         subVault = _subVault;
         _setSubVaultWhitelist(address(_subVault), true);
@@ -449,11 +439,10 @@ contract MasterVault is
         _unpause();
     }
 
-    /// @dev Overridden to add EXTRA_DECIMALS to the underlying asset decimals
-    /// @notice Requires underlying asset to implement IERC20Metadata.decimals()
+    /// @notice Returns the decimals of the underlying asset
+    /// @dev    Requires underlying asset to implement IERC20Metadata.decimals()
     function decimals() public view override returns (uint8) {
-        // todo: try catch in case no decimals
-        return IERC20Metadata(address(asset)).decimals() + EXTRA_DECIMALS;
+        return IERC20Metadata(address(asset)).decimals();
     }
 
     /// @notice Get the total assets managed by the vault
@@ -515,9 +504,9 @@ contract MasterVault is
     }
 
     /// @dev Internal total principal function supporting a specific rounding direction
-    ///      Total principal is totalSupply / 10^EXTRA_DECIMALS
-    function _totalPrincipal(MathUpgradeable.Rounding rounding) internal view returns (uint256) {
-        return totalSupply().mulDiv(1, 10 ** EXTRA_DECIMALS, rounding);
+    ///      Total principal equals totalSupply (1:1 share-to-asset ratio when solvent)
+    function _totalPrincipal(MathUpgradeable.Rounding) internal view returns (uint256) {
+        return totalSupply();
     }
 
     /// @dev Converts assets to shares, rounding down.
@@ -532,8 +521,8 @@ contract MasterVault is
                 MathUpgradeable.Rounding.Down
             );
         }
-        // no losses, use ideal ratio
-        return assets * (10 ** EXTRA_DECIMALS);
+        // no losses, use ideal 1:1 ratio
+        return assets;
     }
 
     /// @dev Converts shares to assets, rounding down.
@@ -548,13 +537,13 @@ contract MasterVault is
                 MathUpgradeable.Rounding.Down
             );
         }
-        // no losses, use ideal ratio
-        return shares / (10 ** EXTRA_DECIMALS);
+        // no losses, use ideal 1:1 ratio
+        return shares;
     }
 
     /// @dev Whether the vault has losses
     function _haveLoss() internal view returns (bool) {
-        return _totalAssets(MathUpgradeable.Rounding.Down) * (10 ** EXTRA_DECIMALS) < totalSupply();
+        return _totalAssets(MathUpgradeable.Rounding.Down) < totalSupply();
     }
 
     /// @dev Converts subvault shares to assets using the subvault's preview functions
@@ -575,7 +564,9 @@ contract MasterVault is
         uint256 assetsSpent,
         uint256 subVaultShares
     ) internal pure {
-        if (minExchRateWad > 0) revert RebalanceExchRateWrongSign(minExchRateWad);
+        if (minExchRateWad > 0) {
+            revert RebalanceExchRateWrongSign(minExchRateWad);
+        }
         uint256 actualExchRate =
             assetsSpent.mulDiv(1e18, subVaultShares, MathUpgradeable.Rounding.Up);
         if (actualExchRate > uint256(-minExchRateWad)) {
@@ -589,7 +580,9 @@ contract MasterVault is
         uint256 assetsReceived,
         uint256 subVaultShares
     ) internal pure {
-        if (minExchRateWad < 0) revert RebalanceExchRateWrongSign(minExchRateWad);
+        if (minExchRateWad < 0) {
+            revert RebalanceExchRateWrongSign(minExchRateWad);
+        }
         uint256 actualExchRate =
             assetsReceived.mulDiv(1e18, subVaultShares, MathUpgradeable.Rounding.Down);
         if (actualExchRate < uint256(minExchRateWad)) {
