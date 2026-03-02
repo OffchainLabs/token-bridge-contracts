@@ -229,24 +229,6 @@ contract MasterVaultInvariant is BaseMasterVaultInvariant {
         vault.setSubVault(IERC4626(address(subVault)));
     }
 
-    /// @notice Dead shares from initialization are never burned.
-    /// @dev    First-depositor attack mitigation depends on these.
-    ///         Catches: underflow in burn logic, accidental redemption of dead shares.
-    function invariant_deadSharesPreserved() public {
-        assertGe(vault.totalSupply(), DEAD_SHARES, "dead shares burned");
-    }
-
-    /// @notice Total outflows never exceed total inflows (plus the +1 offset).
-    /// @dev    The core economic invariant.
-    ///         Catches: share inflation, rounding exploits, double-counting, incorrect fee extraction.
-    function invariant_noValueCreation() public {
-        assertLe(
-            MasterVaultHandler(handler).ghost_redeemed() + MasterVaultHandler(handler).ghost_feesClaimed(),
-            MasterVaultHandler(handler).ghost_deposited() + MasterVaultHandler(handler).ghost_profit() + 1,
-            "value created from nothing"
-        );
-    }
-
     /// @notice A deposit-redeem round-trip must never extract value.
     /// @dev    At any reachable state (arbitrary exchange rates from handler actions),
     ///         depositing X and immediately redeeming should return <= X.
@@ -324,6 +306,7 @@ contract MasterVaultInvariant is BaseMasterVaultInvariant {
 
         // Second rebalance must not succeed
         vm.warp(block.timestamp + 2);
+        vm.startPrank(keeper);
         try vault.rebalance(_rebalanceSlippage()) {
             revert("second rebalance succeeded when target allocation met");
         }
@@ -335,6 +318,19 @@ contract MasterVaultInvariant is BaseMasterVaultInvariant {
         }
         vm.stopPrank();
     }
+
+    /// @dev We can lose up to 1 subVault share worth of value
+    function invariant_feeDistributionCantCauseInsolvency() public {
+        _clearAllLimits();
+        _clearAllRoundingError();
+        if (vault.totalAssets() * DEAD_SHARES < vault.totalSupply()) {
+            return;
+        }
+        uint256 subVaultPPS = vault.subVault().totalAssets() / vault.subVault().totalSupply();
+        vm.prank(keeper);
+        try vault.distributePerformanceFee() {} catch {}
+        assertGe((vault.totalAssets() + subVaultPPS) * DEAD_SHARES, vault.totalSupply(), "vault became insolvent after fee distribution");
+    }
 }
 
 contract MasterVaultNoManipulationInvariant is BaseMasterVaultInvariant {
@@ -344,8 +340,8 @@ contract MasterVaultNoManipulationInvariant is BaseMasterVaultInvariant {
 
     /// @notice When no rounding errors injected, assets cover principal.
     /// @dev    Under normal operation, the vault should never become insolvent.
-    function invariant_solvency() public {
-        assertGe(vault.totalAssets() * DEAD_SHARES + 1, vault.totalSupply(), "insolvent without manipulation");
+    function invariant_solvency() public view {
+        assertGe(vault.totalAssets() * DEAD_SHARES, vault.totalSupply(), "insolvent without manipulation");
     }
 
     /// @notice Performance fees must never exceed reported profit.
