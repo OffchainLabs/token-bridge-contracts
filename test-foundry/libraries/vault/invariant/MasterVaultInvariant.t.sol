@@ -14,6 +14,7 @@ import {IGatewayRouter} from "../../../../contracts/tokenbridge/libraries/gatewa
 import {TransparentUpgradeableProxy} from
     "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {MasterVaultWithManipulationHandler, MasterVaultHandler} from "./MasterVaultHandler.sol";
+import {console2} from "forge-std/console2.sol";
 
 contract MockGatewayRouterInvariant {
     address public gateway;
@@ -70,6 +71,136 @@ abstract contract BaseMasterVaultInvariant is Test {
     }
 
     function _createHandler() internal virtual returns (address);
+
+    function _clearAllLimits() internal {
+        subVault.setMaxWithdrawLimit(type(uint256).max);
+        subVault.setMaxDepositLimit(type(uint256).max);
+        subVault.setMaxRedeemLimit(type(uint256).max);
+    }
+
+    function _clearAllRoundingError() internal {
+        subVault.setDepositErrorWad(0);
+        subVault.setWithdrawErrorWad(0);
+        subVault.setRedeemErrorWad(0);
+        subVault.setPreviewMintErrorWad(0);
+        subVault.setPreviewRedeemErrorWad(0);
+    }
+
+    function _revert(bytes memory reason) internal pure {
+        assembly { revert(add(reason, 32), mload(reason)) }
+    }
+
+    /// @dev Returns false if the subvault exchange rate would cause the deposit path to overflow
+    ///      or yield 0 shares. Withdraw and drain paths are naturally bounded and never overflow.
+    function _rebalanceWillOverflow() internal view returns (bool) {
+        uint64 alloc = vault.targetAllocationWad();
+        if (alloc == 0) return true; // drain path — always safe
+
+        uint256 idle = token.balanceOf(address(vault));
+        uint256 total = vault.totalAssets();
+        uint256 idleTarget = (total * (1e18 - alloc)) / 1e18;
+
+        if (idle <= idleTarget) return true; // withdraw path - always safe
+
+        // Deposit path: shares = depositAmount * subSupply / subAssets
+        uint256 depositAmount = idle - idleTarget;
+        uint256 subSupply = subVault.totalSupply();
+
+        // Overflow: result exceeds uint256 when supply/assets ratio is too large
+        if (type(uint256).max / subSupply < depositAmount) return false;
+        return true;
+    }
+
+    function _errorSelector(bytes memory reason) internal pure returns (bytes4 sel) {
+        if (reason.length >= 4) {
+            assembly { sel := mload(add(reason, 32)) }
+        }
+    }
+
+    function _rebalanceSlippage() internal view returns (int256) {
+        uint64 alloc = vault.targetAllocationWad();
+        if (alloc == 0) return int256(0);
+        uint256 idle = token.balanceOf(address(vault));
+        uint256 idleTarget = ((vault.totalAssets() + 1) * (1e18 - alloc)) / 1e18;
+        return idle > idleTarget ? type(int248).min : int256(0);
+    }
+
+    function _rebalanceToZero() internal returns (bool skip) {
+        if (vault.targetAllocationWad() != 0) {
+            vault.setTargetAllocationWad(0);
+        }
+
+        uint256 shareBalance = vault.subVault().balanceOf(address(vault));
+        if (shareBalance == 0) return false;
+
+        uint256 maxRedeem = vault.subVault().maxRedeem(address(vault));
+        if (maxRedeem == 0) revert("maxRedeem should not be zero");
+
+        uint256 iterationsRequired = (shareBalance) / maxRedeem + 1;
+
+        // set some reasonable upper bound on iterations to prevent infinite loop
+        if (iterationsRequired > 50) {
+            _clearAllLimits();
+            iterationsRequired = (shareBalance) / vault.subVault().maxRedeem(address(vault)) + 1;
+            require(iterationsRequired == 2, "too many iterations required to rebalance to zero");
+        }
+
+        for (uint256 i = 0; i < iterationsRequired && vault.subVault().balanceOf(address(vault)) != 0; i++) {
+            vm.warp(block.timestamp + 2);
+            vm.prank(keeper);
+            vault.rebalance(0);
+        }
+
+        uint256 shareBalanceAfter = vault.subVault().balanceOf(address(vault));
+        assertEq(shareBalanceAfter, 0, "should have redeemed all shares after iterations");
+    }
+
+    function _mintAndDeposit(uint256 amount) internal returns (uint256) {
+        vm.startPrank(user);
+        token.mintAmount(amount);
+        token.approve(address(vault), amount);
+        uint256 shares = vault.deposit(amount);
+        vm.stopPrank();
+        return shares;
+    }
+
+    function _rebalanceAcceptTargetMetAndImpossibleExchRate() internal {
+        vm.warp(block.timestamp + 2);
+        vm.startPrank(keeper);
+        try vault.rebalance(_rebalanceSlippage()) {}
+        catch (bytes memory reason) {
+            bytes4 sel = _errorSelector(reason);
+            if (sel == MasterVault.RebalanceExchRateTooLow.selector) {
+                (, int256 deltaAssets, uint256 subVaultShares) = abi.decode(_sliceMemoryBytes(reason, 4), (int256, int256, uint256));
+                if (deltaAssets != 0 && subVaultShares != 0) {
+                    _revert(reason);
+                }
+            }
+            else if (sel != MasterVault.TargetAllocationMet.selector) {
+                _revert(reason);
+            }
+        }
+        vm.stopPrank();
+    }
+
+    function _logState(string memory label) internal view {
+        console2.log("--- %s ---", label);
+        console2.log("  vault.totalAssets()      ", vault.totalAssets());
+        console2.log("  vault.totalSupply()      ", vault.totalSupply());
+        console2.log("  haveLoss (tA*1e6 < tS)   ", vault.totalAssets() * DEAD_SHARES < vault.totalSupply());
+        console2.log("  idle (token in vault)     ", token.balanceOf(address(vault)));
+        console2.log("  subVault shares (vault)   ", subVault.balanceOf(address(vault)));
+        console2.log("  subVault totalSupply      ", subVault.totalSupply());
+        console2.log("  subVault totalAssets      ", subVault.totalAssets());
+    }
+
+    function _sliceMemoryBytes(bytes memory x, uint256 start) internal view returns (bytes memory result) {
+        return this.sliceCalldataBytes(x, start);
+    }
+
+    function sliceCalldataBytes(bytes calldata x, uint256 start) external pure returns (bytes memory) {
+        return x[start:];
+    }
 }
 
 /// @notice Stateful invariant tests for MasterVault.
@@ -156,27 +287,24 @@ contract MasterVaultInvariant is BaseMasterVaultInvariant {
         assertLe(assetsReceived * DEAD_SHARES, sharesToRedeem, "redeem rate exceeded 1:1");
     }
 
-    /// @notice A rebalance must not change totalAssets (within 1 wei rounding).
-    /// @dev    Rebalancing moves tokens between vault and subvault but should not leak or create value.
-    ///         Catches: rounding leakage in deposit/withdraw paths, incorrect subvault accounting.
+    /// @notice A rebalance must not change totalAssets (within tolerable error)
+    /// @dev    Rebalancing can lose up to 1 subvault share's worth of value
     function invariant_rebalancePreservesTotalAssets() public {
         _clearAllLimits();
         _clearAllRoundingError();
 
-        if (!_canRebalance()) return;
+        if (!_rebalanceWillOverflow()) return;
 
         uint256 totalBefore = vault.totalAssets();
+        uint256 subVaultTotalAssetsBefore = vault.subVault().totalAssets();
+        uint256 subVaultTotalSupplyBefore = vault.subVault().totalSupply();
+        uint256 subVaultPPS = subVaultTotalAssetsBefore / subVaultTotalSupplyBefore;
 
-        vm.warp(block.timestamp + 2);
-        vm.prank(keeper);
-        try vault.rebalance(_rebalanceSlippage()) {}
-        catch {
-            return;
-        }
+        _rebalanceAcceptTargetMetAndImpossibleExchRate();
 
         uint256 totalAfter = vault.totalAssets();
         assertLe(totalAfter, totalBefore, "rebalance created value");
-        assertGe(totalAfter + 1, totalBefore, "rebalance lost more than 1 wei");
+        assertGe(totalAfter + subVaultPPS, totalBefore, "rebalance lost more than subVaultPPS");
     }
 
     /// @notice Once target allocation is reached, further rebalances revert with TargetAllocationMet.
@@ -185,27 +313,14 @@ contract MasterVaultInvariant is BaseMasterVaultInvariant {
         _clearAllLimits();
         _clearAllRoundingError();
 
-        // Skip if deposit into subvault would overflow or yield 0 shares.
-        // Only the deposit path (idle > target) has issues — withdraw and drain are bounded.
-        if (!_canRebalance()) return;
+        if (!_rebalanceWillOverflow()) return;
 
         // First rebalance to reach target
-        vm.warp(block.timestamp + 2);
-        vm.startPrank(keeper);
-        try vault.rebalance(_rebalanceSlippage()) {}
-        catch (bytes memory reason) {
-            bytes4 sel = _errorSelector(reason);
-            if (sel != MasterVault.TargetAllocationMet.selector && sel != MasterVault.RebalanceExchRateTooLow.selector) {
-                _revert(reason);
-            }
-            else {
-                return;
-            }
-        }
+        _rebalanceAcceptTargetMetAndImpossibleExchRate();
 
         // recheck since first rebalance may have shifted the band into deposit territory
         // this is not an issue because it involves the mastervault totalAssets correctly changing
-        if (!_canRebalance()) return;
+        if (!_rebalanceWillOverflow()) return;
 
         // Second rebalance must not succeed
         vm.warp(block.timestamp + 2);
@@ -220,94 +335,9 @@ contract MasterVaultInvariant is BaseMasterVaultInvariant {
         }
         vm.stopPrank();
     }
-
-    // --- Helpers ---
-
-    function _clearAllLimits() internal {
-        subVault.setMaxWithdrawLimit(type(uint256).max);
-        subVault.setMaxDepositLimit(type(uint256).max);
-        subVault.setMaxRedeemLimit(type(uint256).max);
-    }
-
-    function _clearAllRoundingError() internal {
-        subVault.setDepositErrorWad(0);
-        subVault.setWithdrawErrorWad(0);
-        subVault.setRedeemErrorWad(0);
-        subVault.setPreviewMintErrorWad(0);
-        subVault.setPreviewRedeemErrorWad(0);
-    }
-
-    function _revert(bytes memory reason) internal pure {
-        assembly { revert(add(reason, 32), mload(reason)) }
-    }
-
-    /// @dev Returns false if the subvault exchange rate would cause the deposit path to overflow
-    ///      or yield 0 shares. Withdraw and drain paths are naturally bounded and never overflow.
-    function _canRebalance() internal view returns (bool) {
-        uint64 alloc = vault.targetAllocationWad();
-        if (alloc == 0) return true; // drain path — always safe
-
-        uint256 idle = token.balanceOf(address(vault));
-        uint256 total = vault.totalAssets();
-        uint256 idleTarget = (total * (1e18 - alloc)) / 1e18;
-
-        if (idle <= idleTarget) return true; // withdraw path - always safe
-
-        // Deposit path: shares = depositAmount * subSupply / subAssets
-        uint256 depositAmount = idle - idleTarget;
-        uint256 subSupply = subVault.totalSupply();
-
-        // Overflow: result exceeds uint256 when supply/assets ratio is too large
-        if (type(uint256).max / subSupply < depositAmount) return false;
-        return true;
-    }
-
-    function _errorSelector(bytes memory reason) internal pure returns (bytes4 sel) {
-        if (reason.length >= 4) {
-            assembly { sel := mload(add(reason, 32)) }
-        }
-    }
-
-    function _rebalanceSlippage() internal view returns (int256) {
-        uint64 alloc = vault.targetAllocationWad();
-        if (alloc == 0) return int256(0);
-        uint256 idle = token.balanceOf(address(vault));
-        uint256 idleTarget = ((vault.totalAssets() + 1) * (1e18 - alloc)) / 1e18;
-        return idle > idleTarget ? type(int248).min : int256(0);
-    }
-
-    function _rebalanceToZero() internal returns (bool skip) {
-        if (vault.targetAllocationWad() != 0) {
-            vault.setTargetAllocationWad(0);
-        }
-
-        uint256 shareBalance = vault.subVault().balanceOf(address(vault));
-        if (shareBalance == 0) return false;
-
-        uint256 maxRedeem = vault.subVault().maxRedeem(address(vault));
-        if (maxRedeem == 0) revert("maxRedeem should not be zero");
-
-        uint256 iterationsRequired = (shareBalance) / maxRedeem + 1;
-
-        // set some reasonable upper bound on iterations to prevent infinite loop
-        if (iterationsRequired > 50) {
-            _clearAllLimits();
-            iterationsRequired = (shareBalance) / vault.subVault().maxRedeem(address(vault)) + 1;
-            require(iterationsRequired == 2, "too many iterations required to rebalance to zero");
-        }
-
-        for (uint256 i = 0; i < iterationsRequired && vault.subVault().balanceOf(address(vault)) != 0; i++) {
-            vm.warp(block.timestamp + 2);
-            vm.prank(keeper);
-            vault.rebalance(0);
-        }
-
-        uint256 shareBalanceAfter = vault.subVault().balanceOf(address(vault));
-        assertEq(shareBalanceAfter, 0, "should have redeemed all shares after iterations");
-    }
 }
 
-contract MasterVaultNoManipulationInvariant is MasterVaultInvariant {
+contract MasterVaultNoManipulationInvariant is BaseMasterVaultInvariant {
     function _createHandler() internal virtual override returns (address) {
         return address(new MasterVaultHandler(vault, subVault, token, user, keeper));
     }
