@@ -578,6 +578,7 @@ contract MasterVault is
         if (minExchRateWad > 0) {
             revert RebalanceExchRateWrongSign(minExchRateWad);
         }
+        // slither-disable-next-line incorrect-equality
         uint256 actualExchRate = subVaultShares == 0
             ? type(uint256).max
             : assetsSpent.mulDiv(1e18, subVaultShares, MathUpgradeable.Rounding.Up);
