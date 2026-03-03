@@ -18,6 +18,12 @@ import {
   L1OrbitERC20Gateway__factory,
   L1OrbitCustomGateway__factory,
   L1OrbitGatewayRouter__factory,
+  L1YbbERC20Gateway__factory,
+  L1YbbCustomGateway__factory,
+  L1OrbitYbbERC20Gateway__factory,
+  L1OrbitYbbCustomGateway__factory,
+  MasterVault__factory,
+  MasterVaultFactory__factory,
   IInbox__factory,
   IERC20Bridge__factory,
   IERC20__factory,
@@ -31,6 +37,10 @@ import {
   abi as UpgradeExecutorABI,
   bytecode as UpgradeExecutorBytecode,
 } from '@offchainlabs/upgrade-executor/build/contracts/src/UpgradeExecutor.sol/UpgradeExecutor.json'
+import {
+  abi as L1GatewayDeployerABI,
+  bytecode as L1GatewayDeployerBytecode,
+} from '../build/contracts/contracts/tokenbridge/ethereum/L1GatewayDeployer.sol/L1GatewayDeployer.json'
 import { JsonRpcProvider } from '@ethersproject/providers'
 import {
   ParentToChildMessageGasEstimator,
@@ -238,8 +248,21 @@ export const deployL1TokenBridgeCreator = async (
   ).deploy()
   await l1TokenBridgeCreatorProxyAdmin.deployed()
 
+  const l1GatewayDeployerLib = await new ethers.ContractFactory(
+    L1GatewayDeployerABI,
+    L1GatewayDeployerBytecode,
+    l1Deployer
+  ).deploy()
+  await l1GatewayDeployerLib.deployed()
+
   const l1TokenBridgeCreatorLogic =
-    await new L1AtomicTokenBridgeCreator__factory(l1Deployer).deploy()
+    await new L1AtomicTokenBridgeCreator__factory(
+      {
+        'contracts/tokenbridge/ethereum/L1GatewayDeployer.sol:L1GatewayDeployer':
+          l1GatewayDeployerLib.address,
+      },
+      l1Deployer
+    ).deploy()
   await l1TokenBridgeCreatorLogic.deployed()
 
   const l1TokenBridgeCreatorProxy =
@@ -382,6 +405,30 @@ export const deployL1TokenBridgeCreator = async (
   const upgradeExecutor = await upgradeExecutorFactory.deploy()
   await upgradeExecutor.deployed()
 
+  const ybbStandardGatewayTemplate =
+    await new L1YbbERC20Gateway__factory(l1Deployer).deploy()
+  await ybbStandardGatewayTemplate.deployed()
+
+  const ybbCustomGatewayTemplate =
+    await new L1YbbCustomGateway__factory(l1Deployer).deploy()
+  await ybbCustomGatewayTemplate.deployed()
+
+  const feeTokenBasedYbbStandardGatewayTemplate =
+    await new L1OrbitYbbERC20Gateway__factory(l1Deployer).deploy()
+  await feeTokenBasedYbbStandardGatewayTemplate.deployed()
+
+  const feeTokenBasedYbbCustomGatewayTemplate =
+    await new L1OrbitYbbCustomGateway__factory(l1Deployer).deploy()
+  await feeTokenBasedYbbCustomGatewayTemplate.deployed()
+
+  const masterVaultFactoryTemplate =
+    await new MasterVaultFactory__factory(l1Deployer).deploy()
+  await masterVaultFactoryTemplate.deployed()
+
+  const masterVaultTemplate =
+    await new MasterVault__factory(l1Deployer).deploy()
+  await masterVaultTemplate.deployed()
+
   const l1Templates = {
     routerTemplate: routerTemplate.address,
     standardGatewayTemplate: standardGatewayTemplate.address,
@@ -461,6 +508,19 @@ export const deployL1TokenBridgeCreator = async (
       l1Multicall.address,
       gasLimitForL2FactoryDeployment
     )
+  ).wait()
+
+  await (
+    await l1TokenBridgeCreator.setYbbTemplates({
+      ybbStandardGatewayTemplate: ybbStandardGatewayTemplate.address,
+      ybbCustomGatewayTemplate: ybbCustomGatewayTemplate.address,
+      feeTokenBasedYbbStandardGatewayTemplate:
+        feeTokenBasedYbbStandardGatewayTemplate.address,
+      feeTokenBasedYbbCustomGatewayTemplate:
+        feeTokenBasedYbbCustomGatewayTemplate.address,
+      masterVaultFactoryTemplate: masterVaultFactoryTemplate.address,
+      masterVaultTemplate: masterVaultTemplate.address,
+    })
   ).wait()
 
   ///// verify contracts

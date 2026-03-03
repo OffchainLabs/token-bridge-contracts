@@ -5,14 +5,34 @@ libs = ["node_modules", "lib"]
 test = 'test-foundry'
 cache_path  = 'forge-cache'
 optimizer = true
-optimizer_runs = 100
+optimizer_runs = 200
 via_ir = false
 fs_permissions = [{ access = "read", path = "node_modules/@offchainlabs/stablecoin-evm"}]
 
 [fmt]
 number_underscore = 'thousands'
 line_length = 100
-# See more config options https://github.com/foundry-rs/foundry/tree/master/config
+tab_width = 4
+style = "space"
+bracket_spacing = false
+int_types = "long"
+multiline_func_header = "attributes_first"
+quote_style = "double"
+hex_underscore = "remove"
+single_line_statement_blocks = "preserve"
+override_spacing = false
+wrap_comments = false
+docs_style = "preserve"
+ignore = []
+contract_new_lines = false
+sort_imports = false
+pow_no_space = false
+prefer_compact = "all"
+single_line_imports = false
+
+[invariant]
+runs = 256
+depth = 100
 
 [lint]
 lint_on_build = false
