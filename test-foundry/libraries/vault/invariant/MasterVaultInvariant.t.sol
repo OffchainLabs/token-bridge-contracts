@@ -40,6 +40,8 @@ abstract contract BaseMasterVaultInvariant is Test {
     address public beneficiaryAddr = address(0x9999);
     address public proxyAdmin = address(0xAA);
 
+    uint256 public random;
+
     uint256 public constant DEAD_SHARES = 10 ** 6;
 
     function setUp() public virtual {
@@ -190,6 +192,11 @@ abstract contract BaseMasterVaultInvariant is Test {
     function sliceCalldataBytes(bytes calldata x, uint256 start) external pure returns (bytes memory) {
         return x[start:];
     }
+
+    function _rand() internal returns (uint256) {
+        random = uint256(keccak256(abi.encode(random)));
+        return random;
+    }
 }
 
 /// @notice Stateful invariant tests for MasterVault.
@@ -319,6 +326,52 @@ contract MasterVaultInvariant is BaseMasterVaultInvariant {
         vm.prank(keeper);
         try vault.distributePerformanceFee() {} catch {}
         assertGe((vault.totalAssets() + subVaultPPS) * DEAD_SHARES, vault.totalSupply(), "vault became insolvent after fee distribution");
+    }
+
+    function invariant_noDonationAttackWhenSolvent() public {
+        if (vault.totalAssets() * DEAD_SHARES < vault.totalSupply()) {
+            return;
+        }
+
+        random = MasterVaultHandler(handler).random();
+        uint256 userDepositAmount = bound(_rand(), 1, 1e18);
+        uint256 snapshot = vm.snapshot();
+        uint256 sharesRecvBefore = _mintAndDeposit(userDepositAmount);
+        vm.revertTo(snapshot);
+
+        // attacker deposit
+        _mintAndDeposit(bound(_rand(), 1, 1e18));
+
+        // attacker donate
+        vm.prank(address(vault));
+        token.mintAmount(bound(_rand(), 1, 1e18));
+
+        // user deposit
+        uint256 sharesRecvAfter = _mintAndDeposit(userDepositAmount);
+
+        // make sure user does not lose
+        assertGe(sharesRecvAfter, sharesRecvBefore, "user received fewer shares after attacker donation");
+    }
+
+    function invariant_donationAttackNotProfitable() public {
+        random = MasterVaultHandler(handler).random();
+
+        uint256 attackerDepositAmount = bound(_rand(), 1, 1e18);
+        uint256 attackerDonationAmount = bound(_rand(), 1, 1e18);
+        uint256 userDepositAmount = bound(_rand(), 1, 1e18);
+
+        // attacker deposit
+        uint256 attackerShares = _mintAndDeposit(attackerDepositAmount);
+        // attacker donate
+        vm.prank(address(vault));
+        token.mintAmount(attackerDonationAmount);
+        // user deposit
+        _mintAndDeposit(userDepositAmount);
+
+        // attacker redeem
+        // make sure attacker does not profit
+        vm.prank(user);
+        assertLe(vault.redeem(attackerShares, 0), attackerDepositAmount + attackerDonationAmount, "attacker made profit from donation attack");
     }
 }
 
