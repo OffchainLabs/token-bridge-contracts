@@ -453,7 +453,7 @@ contract MasterVault is
     /// @notice Get the total profit earned by the vault
     function totalProfit() public view returns (uint256) {
         uint256 __totalAssets = _totalAssets(MathUpgradeable.Rounding.Down);
-        uint256 __totalPrincipal = _totalPrincipal(MathUpgradeable.Rounding.Up);
+        uint256 __totalPrincipal = totalSupply();
         return __totalAssets > __totalPrincipal ? __totalAssets - __totalPrincipal : 0;
     }
 
@@ -501,12 +501,6 @@ contract MasterVault is
     function _totalAssets(MathUpgradeable.Rounding rounding) internal view returns (uint256) {
         return 1 + asset.balanceOf(address(this))
             + _subVaultSharesToAssets(subVault.balanceOf(address(this)), rounding);
-    }
-
-    /// @dev Internal total principal function supporting a specific rounding direction
-    ///      Total principal equals totalSupply (1:1 share-to-asset ratio when solvent)
-    function _totalPrincipal(MathUpgradeable.Rounding) internal view returns (uint256) {
-        return totalSupply();
     }
 
     /// @dev Converts assets to shares, rounding down.
