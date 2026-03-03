@@ -329,7 +329,7 @@ contract MasterVaultNoManipulationInvariant is BaseMasterVaultInvariant {
 
     /// @notice When no rounding errors injected, assets cover principal.
     /// @dev    Under normal operation, the vault should never become insolvent.
-    function invariant_solvency() public view {
+    function invariant_solvency() public {
         assertGe(vault.totalAssets() * DEAD_SHARES, vault.totalSupply(), "insolvent without manipulation");
     }
 
