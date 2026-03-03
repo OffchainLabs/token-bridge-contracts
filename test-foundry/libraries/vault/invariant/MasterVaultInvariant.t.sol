@@ -183,17 +183,6 @@ abstract contract BaseMasterVaultInvariant is Test {
         vm.stopPrank();
     }
 
-    function _logState(string memory label) internal view {
-        console2.log("--- %s ---", label);
-        console2.log("  vault.totalAssets()      ", vault.totalAssets());
-        console2.log("  vault.totalSupply()      ", vault.totalSupply());
-        console2.log("  haveLoss (tA*1e6 < tS)   ", vault.totalAssets() * DEAD_SHARES < vault.totalSupply());
-        console2.log("  idle (token in vault)     ", token.balanceOf(address(vault)));
-        console2.log("  subVault shares (vault)   ", subVault.balanceOf(address(vault)));
-        console2.log("  subVault totalSupply      ", subVault.totalSupply());
-        console2.log("  subVault totalAssets      ", subVault.totalAssets());
-    }
-
     function _sliceMemoryBytes(bytes memory x, uint256 start) internal view returns (bytes memory result) {
         return this.sliceCalldataBytes(x, start);
     }
