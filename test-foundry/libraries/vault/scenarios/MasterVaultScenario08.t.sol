@@ -66,8 +66,8 @@ contract MasterVaultScenario08Test is MasterVaultScenarioCoreTest {
         uint256 sharesB2 = _deposit(userB, 300);
 
         // Calculate expected shares for second deposit
-        // After loss, totalAssets = 301, totalSupply = 401 * DEAD_SHARES
-        // shares = 300 * 401 * DEAD_SHARES / 301 ≈ 399.67 * DEAD_SHARES
+        // After loss, totalAssets = 301, totalSupply = 401
+        // shares = 300 * 401 / 301 = 399
         uint256 expectedSharesB2 = uint256(300) * 401 / 301;
         assertEq(sharesB2, expectedSharesB2, "User B second deposit shares mismatch");
 
@@ -193,8 +193,8 @@ contract MasterVaultScenario08Test is MasterVaultScenarioCoreTest {
         vault.rebalance(type(int256).min + 1);
 
         // Calculate expected shares for second deposit
-        // After loss, totalAssets = 301, totalSupply = 401 * DEAD_SHARES
-        // shares = 300 * 401 * DEAD_SHARES / 301 ≈ 399.67 * DEAD_SHARES
+        // After loss, totalAssets = 301, totalSupply = 401
+        // shares = 300 * 401 / 301 ≈ 399
         uint256 expectedSharesB2 = uint256(300) * 401 / 301;
         assertEq(sharesB2, expectedSharesB2, "User B second deposit shares mismatch");
 

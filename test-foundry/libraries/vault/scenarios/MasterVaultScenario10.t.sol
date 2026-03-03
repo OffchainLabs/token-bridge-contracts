@@ -56,7 +56,7 @@ contract MasterVaultScenario10Test is MasterVaultScenarioCoreTest {
         // This protects C from paying for unrealized profits
         uint256 sharesC = _deposit(userC, 100);
 
-        // C should get 100 * DEAD_SHARES because they deposit at principal value
+        // C should get 100 shares because they deposit at principal value (1:1)
         assertEq(sharesC, 100, "User C should get 100 shares at principal price");
 
         // After C's deposit
@@ -162,7 +162,7 @@ contract MasterVaultScenario10Test is MasterVaultScenarioCoreTest {
         vm.warp(block.timestamp + 2);
         vault.rebalance(type(int256).min + 1);
 
-        // C should get 100 * DEAD_SHARES because they deposit at principal value
+        // C should get 100 shares because they deposit at principal value (1:1)
         assertEq(sharesC, 100, "User C should get 100 shares at principal price");
 
         // After C's deposit and rebalance
