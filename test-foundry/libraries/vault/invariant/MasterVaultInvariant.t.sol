@@ -45,7 +45,6 @@ abstract contract BaseMasterVaultInvariant is Test {
 
     uint256 public random;
 
-    uint256 public constant DEAD_SHARES = 1;
 
     function setUp() public virtual {
         // Deploy factory behind a TransparentUpgradeableProxy
@@ -277,7 +276,7 @@ contract MasterVaultInvariant is BaseMasterVaultInvariant {
         vault.redeem(sharesToRedeem, 0);
         uint256 assetsReceived = token.balanceOf(user) - balBefore;
 
-        assertLe(assetsReceived * DEAD_SHARES, sharesToRedeem, "redeem rate exceeded 1:1");
+        assertLe(assetsReceived, sharesToRedeem, "redeem rate exceeded 1:1");
     }
 
     /// @notice A rebalance must not change totalAssets (within tolerable error)
@@ -336,23 +335,23 @@ contract MasterVaultInvariant is BaseMasterVaultInvariant {
     function invariant_feeDistributionCantCauseInsolvency() public {
         _clearAllLimits();
         _clearAllRoundingError();
-        if (vault.totalAssets() * DEAD_SHARES < vault.totalSupply()) {
+        if (vault.totalAssets() < vault.totalSupply()) {
             return;
         }
         uint256 subVaultPPS = vault.subVault().totalAssets() / vault.subVault().totalSupply();
         vm.prank(keeper);
         try vault.distributePerformanceFee() {} catch {}
         assertGe(
-            (vault.totalAssets() + subVaultPPS) * DEAD_SHARES,
+            (vault.totalAssets() + subVaultPPS),
             vault.totalSupply(),
             "vault became insolvent after fee distribution"
         );
     }
 
     function invariant_noDonationAttackWhenSolvent() public {
-        if (vault.totalAssets() * DEAD_SHARES < vault.totalSupply()) {
+        if (vault.totalAssets() < vault.totalSupply()) {
             // make the vault solvent by donating some tokens
-            uint256 amountToMint = ((vault.totalSupply() / DEAD_SHARES) - vault.totalAssets()) + 1;
+            uint256 amountToMint = ((vault.totalSupply()) - vault.totalAssets()) + 1;
             vm.prank(address(vault));
             token.mintAmount(amountToMint);
         }
@@ -414,7 +413,7 @@ contract MasterVaultNoManipulationInvariant is BaseMasterVaultInvariant {
     /// @dev    Under normal operation, the vault should never become insolvent.
     function invariant_solvency() public {
         assertGe(
-            vault.totalAssets() * DEAD_SHARES, vault.totalSupply(), "insolvent without manipulation"
+            vault.totalAssets(), vault.totalSupply(), "insolvent without manipulation"
         );
     }
 

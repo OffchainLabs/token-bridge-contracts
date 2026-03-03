@@ -33,9 +33,9 @@ contract MasterVaultScenario10Test is MasterVaultScenarioCoreTest {
         user = userA;
         _checkState(
             State({
-                userShares: 100 * DEAD_SHARES,
+                userShares: 100,
                 masterVaultTotalAssets: 401,
-                masterVaultTotalSupply: 401 * DEAD_SHARES,
+                masterVaultTotalSupply: 401,
                 masterVaultTokenBalance: 400,
                 masterVaultSubVaultShareBalance: 0,
                 subVaultTotalAssets: 0,
@@ -57,11 +57,11 @@ contract MasterVaultScenario10Test is MasterVaultScenarioCoreTest {
         uint256 sharesC = _deposit(userC, 100);
 
         // C should get 100 * DEAD_SHARES because they deposit at principal value
-        assertEq(sharesC, 100 * DEAD_SHARES, "User C should get 100 shares at principal price");
+        assertEq(sharesC, 100, "User C should get 100 shares at principal price");
 
         // After C's deposit
         assertEq(vault.totalAssets(), 601, "Vault should have 601 USDC total");
-        assertEq(vault.totalSupply(), 501 * DEAD_SHARES, "Total supply should be 501 shares");
+        assertEq(vault.totalSupply(), 501, "Total supply should be 501 shares");
         assertEq(vault.totalProfit(), 100, "Profit should still be 100 USDC");
 
         // Step 5: Beneficiary claims profit
@@ -93,7 +93,7 @@ contract MasterVaultScenario10Test is MasterVaultScenarioCoreTest {
             State({
                 userShares: 0,
                 masterVaultTotalAssets: 1,
-                masterVaultTotalSupply: DEAD_SHARES,
+                masterVaultTotalSupply: 1,
                 masterVaultTokenBalance: 0,
                 masterVaultSubVaultShareBalance: 0,
                 subVaultTotalAssets: 0,
@@ -138,9 +138,9 @@ contract MasterVaultScenario10Test is MasterVaultScenarioCoreTest {
         user = userA;
         _checkState(
             State({
-                userShares: 100 * DEAD_SHARES,
+                userShares: 100,
                 masterVaultTotalAssets: 401,
-                masterVaultTotalSupply: 401 * DEAD_SHARES,
+                masterVaultTotalSupply: 401,
                 masterVaultTokenBalance: 0,
                 masterVaultSubVaultShareBalance: 400,
                 subVaultTotalAssets: 400,
@@ -163,11 +163,11 @@ contract MasterVaultScenario10Test is MasterVaultScenarioCoreTest {
         vault.rebalance(type(int256).min + 1);
 
         // C should get 100 * DEAD_SHARES because they deposit at principal value
-        assertEq(sharesC, 100 * DEAD_SHARES, "User C should get 100 shares at principal price");
+        assertEq(sharesC, 100, "User C should get 100 shares at principal price");
 
         // After C's deposit and rebalance
         assertEq(vault.totalAssets(), 601, "Vault should have 601 USDC total");
-        assertEq(vault.totalSupply(), 501 * DEAD_SHARES, "Total supply should be 501 shares");
+        assertEq(vault.totalSupply(), 501, "Total supply should be 501 shares");
 
         // Step 5: Beneficiary claims profit
         _distributePerformanceFee();
@@ -197,7 +197,7 @@ contract MasterVaultScenario10Test is MasterVaultScenarioCoreTest {
             State({
                 userShares: 0,
                 masterVaultTotalAssets: 1,
-                masterVaultTotalSupply: DEAD_SHARES,
+                masterVaultTotalSupply: 1,
                 masterVaultTokenBalance: 0,
                 masterVaultSubVaultShareBalance: 0,
                 subVaultTotalAssets: 0,

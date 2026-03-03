@@ -27,9 +27,9 @@ contract MasterVaultScenario03Test is MasterVaultScenarioCoreTest {
         user = userA;
         _checkState(
             State({
-                userShares: 100 * DEAD_SHARES,
+                userShares: 100,
                 masterVaultTotalAssets: 401,
-                masterVaultTotalSupply: 401 * DEAD_SHARES,
+                masterVaultTotalSupply: 401,
                 masterVaultTokenBalance: 400,
                 masterVaultSubVaultShareBalance: 0,
                 subVaultTotalAssets: 0,
@@ -37,7 +37,7 @@ contract MasterVaultScenario03Test is MasterVaultScenarioCoreTest {
                 subVaultTokenBalance: 0
             })
         );
-        assertEq(vault.balanceOf(userB), 300 * DEAD_SHARES, "User B shares mismatch");
+        assertEq(vault.balanceOf(userB), 300, "User B shares mismatch");
 
         // Step 3: Vault wins 100 USDC (25% profit)
         _simulateProfit(100);
@@ -62,7 +62,7 @@ contract MasterVaultScenario03Test is MasterVaultScenarioCoreTest {
             State({
                 userShares: 0,
                 masterVaultTotalAssets: 1,
-                masterVaultTotalSupply: DEAD_SHARES,
+                masterVaultTotalSupply: 1,
                 masterVaultTokenBalance: 0,
                 masterVaultSubVaultShareBalance: 0,
                 subVaultTotalAssets: 0,
@@ -101,9 +101,9 @@ contract MasterVaultScenario03Test is MasterVaultScenarioCoreTest {
         user = userA;
         _checkState(
             State({
-                userShares: 100 * DEAD_SHARES,
+                userShares: 100,
                 masterVaultTotalAssets: 401,
-                masterVaultTotalSupply: 401 * DEAD_SHARES,
+                masterVaultTotalSupply: 401,
                 masterVaultTokenBalance: 0,
                 masterVaultSubVaultShareBalance: 400,
                 subVaultTotalAssets: 400,
@@ -135,7 +135,7 @@ contract MasterVaultScenario03Test is MasterVaultScenarioCoreTest {
             State({
                 userShares: 0,
                 masterVaultTotalAssets: 1,
-                masterVaultTotalSupply: DEAD_SHARES,
+                masterVaultTotalSupply: 1,
                 masterVaultTokenBalance: 0,
                 masterVaultSubVaultShareBalance: 0,
                 subVaultTotalAssets: 0,

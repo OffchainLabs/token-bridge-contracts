@@ -23,9 +23,9 @@ contract MasterVaultScenario05Test is MasterVaultScenarioCoreTest {
         user = userA;
         _checkState(
             State({
-                userShares: 100 * DEAD_SHARES,
+                userShares: 100,
                 masterVaultTotalAssets: 401,
-                masterVaultTotalSupply: 401 * DEAD_SHARES,
+                masterVaultTotalSupply: 401,
                 masterVaultTokenBalance: 400,
                 masterVaultSubVaultShareBalance: 0,
                 subVaultTotalAssets: 0,
@@ -59,9 +59,9 @@ contract MasterVaultScenario05Test is MasterVaultScenarioCoreTest {
         user = userA;
         _checkState(
             State({
-                userShares: 200 * DEAD_SHARES,
+                userShares: 200,
                 masterVaultTotalAssets: 801,
-                masterVaultTotalSupply: 801 * DEAD_SHARES,
+                masterVaultTotalSupply: 801,
                 masterVaultTokenBalance: 800,
                 masterVaultSubVaultShareBalance: 0,
                 subVaultTotalAssets: 0,
@@ -72,17 +72,17 @@ contract MasterVaultScenario05Test is MasterVaultScenarioCoreTest {
         user = vm.addr(1);
 
         // Step 7: User A redeems 200 shares
-        _redeem(userA, 200 * DEAD_SHARES);
+        _redeem(userA, 200);
 
         // Step 8: User B redeems 600 shares
-        _redeem(userB, 600 * DEAD_SHARES);
+        _redeem(userB, 600);
 
         // Verify intermediate state 3 (empty vault)
         _checkState(
             State({
                 userShares: 0,
                 masterVaultTotalAssets: 1,
-                masterVaultTotalSupply: DEAD_SHARES,
+                masterVaultTotalSupply: 1,
                 masterVaultTokenBalance: 0,
                 masterVaultSubVaultShareBalance: 0,
                 subVaultTotalAssets: 0,
@@ -101,9 +101,9 @@ contract MasterVaultScenario05Test is MasterVaultScenarioCoreTest {
         user = userA;
         _checkState(
             State({
-                userShares: 100 * DEAD_SHARES,
+                userShares: 100,
                 masterVaultTotalAssets: 401,
-                masterVaultTotalSupply: 401 * DEAD_SHARES,
+                masterVaultTotalSupply: 401,
                 masterVaultTokenBalance: 400,
                 masterVaultSubVaultShareBalance: 0,
                 subVaultTotalAssets: 0,
@@ -119,10 +119,10 @@ contract MasterVaultScenario05Test is MasterVaultScenarioCoreTest {
         assertEq(vault.totalAssets(), 301, "Vault should have 301 USDC after loss");
 
         // Step 12: User A redeems 100 shares
-        uint256 assetsReceivedA = _redeem(userA, 100 * DEAD_SHARES);
+        uint256 assetsReceivedA = _redeem(userA, 100);
 
         // Step 13: User B redeems 300 shares
-        uint256 assetsReceivedB = _redeem(userB, 300 * DEAD_SHARES);
+        uint256 assetsReceivedB = _redeem(userB, 300);
 
         // Verify final state
         _checkHoldings(userAInitialBalance - 25, userBInitialBalance - 75, 100);
@@ -169,10 +169,10 @@ contract MasterVaultScenario05Test is MasterVaultScenarioCoreTest {
         vault.rebalance(type(int256).min + 1);
 
         // Step 7: User A redeems 200 shares
-        _redeem(userA, 200 * DEAD_SHARES);
+        _redeem(userA, 200);
 
         // Step 8: User B redeems 600 shares
-        _redeem(userB, 600 * DEAD_SHARES);
+        _redeem(userB, 600);
 
         // Step 9: User A deposits 100 USDC
         _deposit(userA, 100);
@@ -187,10 +187,10 @@ contract MasterVaultScenario05Test is MasterVaultScenarioCoreTest {
         _simulateLoss(100);
 
         // Step 12: User A redeems 100 shares
-        uint256 assetsReceivedA = _redeem(userA, 100 * DEAD_SHARES);
+        uint256 assetsReceivedA = _redeem(userA, 100);
 
         // Step 13: User B redeems 300 shares
-        uint256 assetsReceivedB = _redeem(userB, 300 * DEAD_SHARES);
+        uint256 assetsReceivedB = _redeem(userB, 300);
 
         // Verify final state
         _checkHoldings(userAInitialBalance - 25, userBInitialBalance - 75, 100);

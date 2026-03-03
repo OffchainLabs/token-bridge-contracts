@@ -30,9 +30,9 @@ contract MasterVaultScenario07Test is MasterVaultScenarioCoreTest {
         user = userA;
         _checkState(
             State({
-                userShares: 100 * DEAD_SHARES,
+                userShares: 100,
                 masterVaultTotalAssets: 401,
-                masterVaultTotalSupply: 401 * DEAD_SHARES,
+                masterVaultTotalSupply: 401,
                 masterVaultTokenBalance: 400,
                 masterVaultSubVaultShareBalance: 0,
                 subVaultTotalAssets: 0,
@@ -40,7 +40,7 @@ contract MasterVaultScenario07Test is MasterVaultScenarioCoreTest {
                 subVaultTokenBalance: 0
             })
         );
-        assertEq(vault.balanceOf(userB), 300 * DEAD_SHARES, "User B shares mismatch");
+        assertEq(vault.balanceOf(userB), 300, "User B shares mismatch");
         user = vm.addr(1);
 
         // Step 3: Vault wins 100 USDC (25% profit)
@@ -73,7 +73,7 @@ contract MasterVaultScenario07Test is MasterVaultScenarioCoreTest {
             State({
                 userShares: 0,
                 masterVaultTotalAssets: 1,
-                masterVaultTotalSupply: DEAD_SHARES,
+                masterVaultTotalSupply: 1,
                 masterVaultTokenBalance: 0,
                 masterVaultSubVaultShareBalance: 0,
                 subVaultTotalAssets: 0,
@@ -93,9 +93,9 @@ contract MasterVaultScenario07Test is MasterVaultScenarioCoreTest {
         user = userA;
         _checkState(
             State({
-                userShares: 100 * DEAD_SHARES,
+                userShares: 100,
                 masterVaultTotalAssets: 101,
-                masterVaultTotalSupply: 101 * DEAD_SHARES,
+                masterVaultTotalSupply: 101,
                 masterVaultTokenBalance: 100,
                 masterVaultSubVaultShareBalance: 0,
                 subVaultTotalAssets: 0,
@@ -113,7 +113,7 @@ contract MasterVaultScenario07Test is MasterVaultScenarioCoreTest {
             State({
                 userShares: 0,
                 masterVaultTotalAssets: 1,
-                masterVaultTotalSupply: DEAD_SHARES,
+                masterVaultTotalSupply: 1,
                 masterVaultTokenBalance: 0,
                 masterVaultSubVaultShareBalance: 0,
                 subVaultTotalAssets: 0,
@@ -150,9 +150,9 @@ contract MasterVaultScenario07Test is MasterVaultScenarioCoreTest {
         user = userA;
         _checkState(
             State({
-                userShares: 100 * DEAD_SHARES,
+                userShares: 100,
                 masterVaultTotalAssets: 401,
-                masterVaultTotalSupply: 401 * DEAD_SHARES,
+                masterVaultTotalSupply: 401,
                 masterVaultTokenBalance: 0,
                 masterVaultSubVaultShareBalance: 400,
                 subVaultTotalAssets: 400,
@@ -160,7 +160,7 @@ contract MasterVaultScenario07Test is MasterVaultScenarioCoreTest {
                 subVaultTokenBalance: 400
             })
         );
-        assertEq(vault.balanceOf(userB), 300 * DEAD_SHARES, "User B shares mismatch");
+        assertEq(vault.balanceOf(userB), 300, "User B shares mismatch");
         user = vm.addr(1);
 
         // Step 3: Subvault wins 100 USDC (25% profit)
@@ -193,7 +193,7 @@ contract MasterVaultScenario07Test is MasterVaultScenarioCoreTest {
             State({
                 userShares: 0,
                 masterVaultTotalAssets: 1,
-                masterVaultTotalSupply: DEAD_SHARES,
+                masterVaultTotalSupply: 1,
                 masterVaultTokenBalance: 0,
                 masterVaultSubVaultShareBalance: 0,
                 subVaultTotalAssets: 0,
@@ -216,9 +216,9 @@ contract MasterVaultScenario07Test is MasterVaultScenarioCoreTest {
         user = userA;
         _checkState(
             State({
-                userShares: 100 * DEAD_SHARES,
+                userShares: 100,
                 masterVaultTotalAssets: 101,
-                masterVaultTotalSupply: 101 * DEAD_SHARES,
+                masterVaultTotalSupply: 101,
                 masterVaultTokenBalance: 0,
                 masterVaultSubVaultShareBalance: 100,
                 subVaultTotalAssets: 100,
@@ -236,7 +236,7 @@ contract MasterVaultScenario07Test is MasterVaultScenarioCoreTest {
             State({
                 userShares: 0,
                 masterVaultTotalAssets: 1,
-                masterVaultTotalSupply: DEAD_SHARES,
+                masterVaultTotalSupply: 1,
                 masterVaultTokenBalance: 0,
                 masterVaultSubVaultShareBalance: 0,
                 subVaultTotalAssets: 0,

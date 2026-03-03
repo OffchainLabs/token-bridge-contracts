@@ -30,9 +30,9 @@ contract MasterVaultScenario08Test is MasterVaultScenarioCoreTest {
         user = userA;
         _checkState(
             State({
-                userShares: 100 * DEAD_SHARES,
+                userShares: 100,
                 masterVaultTotalAssets: 401,
-                masterVaultTotalSupply: 401 * DEAD_SHARES,
+                masterVaultTotalSupply: 401,
                 masterVaultTokenBalance: 400,
                 masterVaultSubVaultShareBalance: 0,
                 subVaultTotalAssets: 0,
@@ -40,7 +40,7 @@ contract MasterVaultScenario08Test is MasterVaultScenarioCoreTest {
                 subVaultTokenBalance: 0
             })
         );
-        assertEq(vault.balanceOf(userB), 300 * DEAD_SHARES, "User B initial shares mismatch");
+        assertEq(vault.balanceOf(userB), 300, "User B initial shares mismatch");
         user = vm.addr(1);
 
         // Step 3: Vault wins 100 USDC
@@ -68,7 +68,7 @@ contract MasterVaultScenario08Test is MasterVaultScenarioCoreTest {
         // Calculate expected shares for second deposit
         // After loss, totalAssets = 301, totalSupply = 401 * DEAD_SHARES
         // shares = 300 * 401 * DEAD_SHARES / 301 ≈ 399.67 * DEAD_SHARES
-        uint256 expectedSharesB2 = (300 * 401 * DEAD_SHARES) / 301;
+        uint256 expectedSharesB2 = uint256(300) * 401 / 301;
         assertEq(sharesB2, expectedSharesB2, "User B second deposit shares mismatch");
 
         uint256 totalSharesB = sharesB1 + sharesB2;
@@ -78,9 +78,9 @@ contract MasterVaultScenario08Test is MasterVaultScenarioCoreTest {
         user = userA;
         _checkState(
             State({
-                userShares: 100 * DEAD_SHARES,
+                userShares: 100,
                 masterVaultTotalAssets: 601,
-                masterVaultTotalSupply: (401 * DEAD_SHARES) + expectedSharesB2,
+                masterVaultTotalSupply: (401) + expectedSharesB2,
                 masterVaultTokenBalance: 600,
                 masterVaultSubVaultShareBalance: 0,
                 subVaultTotalAssets: 0,
@@ -101,7 +101,7 @@ contract MasterVaultScenario08Test is MasterVaultScenarioCoreTest {
             State({
                 userShares: 0,
                 masterVaultTotalAssets: 1,
-                masterVaultTotalSupply: DEAD_SHARES,
+                masterVaultTotalSupply: 1,
                 masterVaultTokenBalance: 0,
                 masterVaultSubVaultShareBalance: 0,
                 subVaultTotalAssets: 0,
@@ -111,7 +111,7 @@ contract MasterVaultScenario08Test is MasterVaultScenarioCoreTest {
         );
 
         // Calculate expected redemption amounts based on share proportions
-        uint256 totalSupply = (401 * DEAD_SHARES) + expectedSharesB2;
+        uint256 totalSupply = (401) + expectedSharesB2;
         uint256 expectedAssetsA = (601 * sharesA) / totalSupply;
         uint256 expectedAssetsB = (601 * totalSharesB) / totalSupply;
 
@@ -154,9 +154,9 @@ contract MasterVaultScenario08Test is MasterVaultScenarioCoreTest {
         user = userA;
         _checkState(
             State({
-                userShares: 100 * DEAD_SHARES,
+                userShares: 100,
                 masterVaultTotalAssets: 401,
-                masterVaultTotalSupply: 401 * DEAD_SHARES,
+                masterVaultTotalSupply: 401,
                 masterVaultTokenBalance: 0,
                 masterVaultSubVaultShareBalance: 400,
                 subVaultTotalAssets: 400,
@@ -164,7 +164,7 @@ contract MasterVaultScenario08Test is MasterVaultScenarioCoreTest {
                 subVaultTokenBalance: 400
             })
         );
-        assertEq(vault.balanceOf(userB), 300 * DEAD_SHARES, "User B initial shares mismatch");
+        assertEq(vault.balanceOf(userB), 300, "User B initial shares mismatch");
         user = vm.addr(1);
 
         // Step 3: Subvault wins 100 USDC
@@ -195,7 +195,7 @@ contract MasterVaultScenario08Test is MasterVaultScenarioCoreTest {
         // Calculate expected shares for second deposit
         // After loss, totalAssets = 301, totalSupply = 401 * DEAD_SHARES
         // shares = 300 * 401 * DEAD_SHARES / 301 ≈ 399.67 * DEAD_SHARES
-        uint256 expectedSharesB2 = (300 * 401 * DEAD_SHARES) / 301;
+        uint256 expectedSharesB2 = uint256(300) * 401 / 301;
         assertEq(sharesB2, expectedSharesB2, "User B second deposit shares mismatch");
 
         uint256 totalSharesB = sharesB1 + sharesB2;
@@ -212,7 +212,7 @@ contract MasterVaultScenario08Test is MasterVaultScenarioCoreTest {
             State({
                 userShares: 0,
                 masterVaultTotalAssets: 1,
-                masterVaultTotalSupply: DEAD_SHARES,
+                masterVaultTotalSupply: 1,
                 masterVaultTokenBalance: 0,
                 masterVaultSubVaultShareBalance: 0,
                 subVaultTotalAssets: 0,
@@ -222,7 +222,7 @@ contract MasterVaultScenario08Test is MasterVaultScenarioCoreTest {
         );
 
         // Calculate expected redemption amounts based on share proportions
-        uint256 totalSupply = (401 * DEAD_SHARES) + expectedSharesB2;
+        uint256 totalSupply = (401) + expectedSharesB2;
         uint256 expectedAssetsA = (601 * sharesA) / totalSupply;
         uint256 expectedAssetsB = (601 * totalSharesB) / totalSupply;
 

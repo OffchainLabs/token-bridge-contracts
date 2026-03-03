@@ -23,9 +23,9 @@ contract MasterVaultScenario04Test is MasterVaultScenarioCoreTest {
         user = userA;
         _checkState(
             State({
-                userShares: 100 * DEAD_SHARES,
+                userShares: 100,
                 masterVaultTotalAssets: 401,
-                masterVaultTotalSupply: 401 * DEAD_SHARES,
+                masterVaultTotalSupply: 401,
                 masterVaultTokenBalance: 400,
                 masterVaultSubVaultShareBalance: 0,
                 subVaultTotalAssets: 0,
@@ -33,7 +33,7 @@ contract MasterVaultScenario04Test is MasterVaultScenarioCoreTest {
                 subVaultTokenBalance: 0
             })
         );
-        assertEq(vault.balanceOf(userB), 300 * DEAD_SHARES, "User B shares mismatch");
+        assertEq(vault.balanceOf(userB), 300, "User B shares mismatch");
         user = vm.addr(1);
 
         // Step 3: Vault wins 100 USDC (25% profit)
@@ -57,17 +57,17 @@ contract MasterVaultScenario04Test is MasterVaultScenarioCoreTest {
         uint256 sharesB2 = _deposit(userB, 300);
 
         // Step 7: User A redeems all 200 shares
-        uint256 assetsReceivedA = _redeem(userA, 200 * DEAD_SHARES);
+        uint256 assetsReceivedA = _redeem(userA, 200);
 
         // Step 8: User B redeems all 600 shares
-        uint256 assetsReceivedB = _redeem(userB, 600 * DEAD_SHARES);
+        uint256 assetsReceivedB = _redeem(userB, 600);
 
         // Verify final state
         _checkState(
             State({
                 userShares: 0,
                 masterVaultTotalAssets: 1,
-                masterVaultTotalSupply: DEAD_SHARES,
+                masterVaultTotalSupply: 1,
                 masterVaultTokenBalance: 0,
                 masterVaultSubVaultShareBalance: 0,
                 subVaultTotalAssets: 0,
@@ -122,10 +122,10 @@ contract MasterVaultScenario04Test is MasterVaultScenarioCoreTest {
         uint256 sharesB2 = _deposit(userB, 300);
 
         // Step 7: User A redeems all 200 shares
-        uint256 assetsReceivedA = _redeem(userA, 200 * DEAD_SHARES);
+        uint256 assetsReceivedA = _redeem(userA, 200);
 
         // Step 8: User B redeems all 600 shares
-        uint256 assetsReceivedB = _redeem(userB, 600 * DEAD_SHARES);
+        uint256 assetsReceivedB = _redeem(userB, 600);
 
         // Verify final state
         _checkHoldings(userAInitialBalance, userBInitialBalance, 100);
