@@ -567,8 +567,10 @@ contract MasterVault is
         if (minExchRateWad > 0) {
             revert RebalanceExchRateWrongSign(minExchRateWad);
         }
-        uint256 actualExchRate =
-            assetsSpent.mulDiv(1e18, subVaultShares, MathUpgradeable.Rounding.Up);
+        // slither-disable-next-line incorrect-equality
+        uint256 actualExchRate = subVaultShares == 0
+            ? type(uint256).max
+            : assetsSpent.mulDiv(1e18, subVaultShares, MathUpgradeable.Rounding.Up);
         if (actualExchRate > uint256(-minExchRateWad)) {
             revert RebalanceExchRateTooLow(minExchRateWad, -int256(assetsSpent), subVaultShares);
         }
@@ -583,6 +585,7 @@ contract MasterVault is
         if (minExchRateWad < 0) {
             revert RebalanceExchRateWrongSign(minExchRateWad);
         }
+        // we do not need to check for a div by zero because a subvault would never give us assets for zero shares
         uint256 actualExchRate =
             assetsReceived.mulDiv(1e18, subVaultShares, MathUpgradeable.Rounding.Down);
         if (actualExchRate < uint256(minExchRateWad)) {
