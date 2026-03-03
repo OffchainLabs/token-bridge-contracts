@@ -10,9 +10,12 @@ import {FuzzSubVault} from "../../../../contracts/tokenbridge/test/FuzzSubVault.
 import {TestERC20} from "../../../../contracts/tokenbridge/test/TestERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
-import {IGatewayRouter} from "../../../../contracts/tokenbridge/libraries/gateway/IGatewayRouter.sol";
-import {TransparentUpgradeableProxy} from
-    "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {
+    IGatewayRouter
+} from "../../../../contracts/tokenbridge/libraries/gateway/IGatewayRouter.sol";
+import {
+    TransparentUpgradeableProxy
+} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {MasterVaultWithManipulationHandler, MasterVaultHandler} from "./MasterVaultHandler.sol";
 import {console2} from "forge-std/console2.sol";
 
@@ -42,7 +45,6 @@ abstract contract BaseMasterVaultInvariant is Test {
 
     uint256 public random;
 
-    uint256 public constant DEAD_SHARES = 10 ** 6;
 
     function setUp() public virtual {
         // Deploy factory behind a TransparentUpgradeableProxy
@@ -147,7 +149,11 @@ abstract contract BaseMasterVaultInvariant is Test {
             require(iterationsRequired == 2, "too many iterations required to rebalance to zero");
         }
 
-        for (uint256 i = 0; i < iterationsRequired && vault.subVault().balanceOf(address(vault)) != 0; i++) {
+        for (
+            uint256 i = 0;
+            i < iterationsRequired && vault.subVault().balanceOf(address(vault)) != 0;
+            i++
+        ) {
             vm.warp(block.timestamp + 2);
             vm.prank(keeper);
             vault.rebalance(0);
@@ -173,23 +179,31 @@ abstract contract BaseMasterVaultInvariant is Test {
         catch (bytes memory reason) {
             bytes4 sel = _errorSelector(reason);
             if (sel == MasterVault.RebalanceExchRateTooLow.selector) {
-                (, int256 deltaAssets, uint256 subVaultShares) = abi.decode(_sliceMemoryBytes(reason, 4), (int256, int256, uint256));
+                (, int256 deltaAssets, uint256 subVaultShares) =
+                    abi.decode(_sliceMemoryBytes(reason, 4), (int256, int256, uint256));
                 if (deltaAssets != 0 && subVaultShares != 0) {
                     _revert(reason);
                 }
-            }
-            else if (sel != MasterVault.TargetAllocationMet.selector) {
+            } else if (sel != MasterVault.TargetAllocationMet.selector) {
                 _revert(reason);
             }
         }
         vm.stopPrank();
     }
 
-    function _sliceMemoryBytes(bytes memory x, uint256 start) internal view returns (bytes memory result) {
+    function _sliceMemoryBytes(bytes memory x, uint256 start)
+        internal
+        view
+        returns (bytes memory result)
+    {
         return this.sliceCalldataBytes(x, start);
     }
 
-    function sliceCalldataBytes(bytes calldata x, uint256 start) external pure returns (bytes memory) {
+    function sliceCalldataBytes(bytes calldata x, uint256 start)
+        external
+        pure
+        returns (bytes memory)
+    {
         return x[start:];
     }
 
@@ -262,7 +276,7 @@ contract MasterVaultInvariant is BaseMasterVaultInvariant {
         vault.redeem(sharesToRedeem, 0);
         uint256 assetsReceived = token.balanceOf(user) - balBefore;
 
-        assertLe(assetsReceived * DEAD_SHARES, sharesToRedeem, "redeem rate exceeded 1:1");
+        assertLe(assetsReceived, sharesToRedeem, "redeem rate exceeded 1:1");
     }
 
     /// @notice A rebalance must not change totalAssets (within tolerable error)
@@ -305,10 +319,12 @@ contract MasterVaultInvariant is BaseMasterVaultInvariant {
         vm.startPrank(keeper);
         try vault.rebalance(_rebalanceSlippage()) {
             revert("second rebalance succeeded when target allocation met");
-        }
-        catch (bytes memory reason) {
+        } catch (bytes memory reason) {
             bytes4 sel = _errorSelector(reason);
-            if (sel != MasterVault.TargetAllocationMet.selector && sel != MasterVault.RebalanceExchRateTooLow.selector) {
+            if (
+                sel != MasterVault.TargetAllocationMet.selector
+                    && sel != MasterVault.RebalanceExchRateTooLow.selector
+            ) {
                 _revert(reason);
             }
         }
@@ -319,19 +335,23 @@ contract MasterVaultInvariant is BaseMasterVaultInvariant {
     function invariant_feeDistributionCantCauseInsolvency() public {
         _clearAllLimits();
         _clearAllRoundingError();
-        if (vault.totalAssets() * DEAD_SHARES < vault.totalSupply()) {
+        if (vault.totalAssets() < vault.totalSupply()) {
             return;
         }
         uint256 subVaultPPS = vault.subVault().totalAssets() / vault.subVault().totalSupply();
         vm.prank(keeper);
         try vault.distributePerformanceFee() {} catch {}
-        assertGe((vault.totalAssets() + subVaultPPS) * DEAD_SHARES, vault.totalSupply(), "vault became insolvent after fee distribution");
+        assertGe(
+            (vault.totalAssets() + subVaultPPS),
+            vault.totalSupply(),
+            "vault became insolvent after fee distribution"
+        );
     }
 
     function invariant_noDonationAttackWhenSolvent() public {
-        if (vault.totalAssets() * DEAD_SHARES < vault.totalSupply()) {
+        if (vault.totalAssets() < vault.totalSupply()) {
             // make the vault solvent by donating some tokens
-            uint256 amountToMint = ((vault.totalSupply() / DEAD_SHARES) - vault.totalAssets()) + 1;
+            uint256 amountToMint = ((vault.totalSupply()) - vault.totalAssets()) + 1;
             vm.prank(address(vault));
             token.mintAmount(amountToMint);
         }
@@ -353,7 +373,9 @@ contract MasterVaultInvariant is BaseMasterVaultInvariant {
         uint256 sharesRecvAfter = _mintAndDeposit(userDepositAmount);
 
         // make sure user does not lose
-        assertGe(sharesRecvAfter, sharesRecvBefore, "user received fewer shares after attacker donation");
+        assertGe(
+            sharesRecvAfter, sharesRecvBefore, "user received fewer shares after attacker donation"
+        );
     }
 
     function invariant_donationAttackNotProfitable() public {
@@ -374,7 +396,11 @@ contract MasterVaultInvariant is BaseMasterVaultInvariant {
         // attacker redeem
         // make sure attacker does not profit
         vm.prank(user);
-        assertLe(vault.redeem(attackerShares, 0), attackerDepositAmount + attackerDonationAmount, "attacker made profit from donation attack");
+        assertLe(
+            vault.redeem(attackerShares, 0),
+            attackerDepositAmount + attackerDonationAmount,
+            "attacker made profit from donation attack"
+        );
     }
 }
 
@@ -386,13 +412,17 @@ contract MasterVaultNoManipulationInvariant is BaseMasterVaultInvariant {
     /// @notice When no rounding errors injected, assets cover principal.
     /// @dev    Under normal operation, the vault should never become insolvent.
     function invariant_solvency() public {
-        assertGe(vault.totalAssets() * DEAD_SHARES, vault.totalSupply(), "insolvent without manipulation");
+        assertGe(
+            vault.totalAssets(), vault.totalSupply(), "insolvent without manipulation"
+        );
     }
 
     /// @notice Performance fees must never exceed reported profit.
     function invariant_feeDistributionBounded() public {
         subVault.setMaxWithdrawLimit(type(uint256).max);
-        uint256 roundingTolerance = MasterVaultHandler(handler).ghost_callCount(MasterVaultHandler.deposit.selector) + MasterVaultHandler(handler).ghost_callCount(MasterVaultHandler.redeem.selector);
+        uint256 roundingTolerance = MasterVaultHandler(handler)
+            .ghost_callCount(MasterVaultHandler.deposit.selector)
+        + MasterVaultHandler(handler).ghost_callCount(MasterVaultHandler.redeem.selector);
         vm.prank(keeper);
         vault.distributePerformanceFee();
         assertLe(
