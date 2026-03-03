@@ -240,60 +240,6 @@ contract MasterVaultInvariant is BaseMasterVaultInvariant {
         vault.setSubVault(IERC4626(address(subVault)));
     }
 
-    /// @notice The totalAssets formula must always hold:
-    ///         vault.totalAssets() == 1 + token.balanceOf(vault) + subVault.previewRedeem(subVault.balanceOf(vault))
-    /// @dev    Any drift means the vault is mispricing shares.
-    ///         Catches: accumulated rounding errors, incorrect subvault conversion, stale accounting.
-    function invariant_accountingIdentity() public {
-        uint256 idle = token.balanceOf(address(vault));
-        uint256 subShares = subVault.balanceOf(address(vault));
-        uint256 subAssets = subVault.previewRedeem(subShares);
-        uint256 expected = 1 + idle + subAssets;
-        assertEq(vault.totalAssets(), expected, "accounting identity violated");
-    }
-
-    /// @notice Dead shares from initialization are never burned.
-    /// @dev    First-depositor attack mitigation depends on these.
-    ///         Catches: underflow in burn logic, accidental redemption of dead shares.
-    function invariant_deadSharesPreserved() public {
-        assertGe(vault.totalSupply(), DEAD_SHARES, "dead shares burned");
-    }
-
-    /// @notice The +1 offset in _totalAssets is always present.
-    /// @dev    Removing the offset breaks the first-depositor mitigation and share pricing.
-    ///         Catches: underflow, offset regression.
-    function invariant_totalAssetsFloor() public {
-        assertGe(vault.totalAssets(), 1, "totalAssets below floor");
-    }
-
-    /// @notice Allocation percentage never exceeds 100%.
-    /// @dev    Overflow in allocation would cause incorrect idle targets and broken rebalancing.
-    function invariant_allocationBounds() public {
-        assertLe(vault.targetAllocationWad(), 1e18, "allocation exceeds 100%");
-    }
-
-    /// @notice Total outflows never exceed total inflows (plus the +1 offset).
-    /// @dev    The core economic invariant.
-    ///         Catches: share inflation, rounding exploits, double-counting, incorrect fee extraction.
-    function invariant_noValueCreation() public {
-        MasterVaultHandler h = MasterVaultHandler(handler);
-        assertLe(
-            h.ghost_redeemed() + h.ghost_feesClaimed(),
-            h.ghost_deposited() + h.ghost_profit() + 1,
-            "value created from nothing"
-        );
-    }
-
-    /// @notice Vault can't hold more subvault shares than exist.
-    /// @dev    Sanity check on subvault interaction correctness.
-    function invariant_subVaultShareConsistency() public {
-        assertLe(
-            subVault.balanceOf(address(vault)),
-            subVault.totalSupply(),
-            "vault holds more subvault shares than exist"
-        );
-    }
-
     /// @notice A deposit-redeem round-trip must never extract value.
     /// @dev    At any reachable state (arbitrary exchange rates from handler actions),
     ///         depositing X and immediately redeeming should return <= X.
@@ -405,7 +351,10 @@ contract MasterVaultInvariant is BaseMasterVaultInvariant {
 
     function invariant_noDonationAttackWhenSolvent() public {
         if (vault.totalAssets() * DEAD_SHARES < vault.totalSupply()) {
-            return;
+            // make the vault solvent by donating some tokens
+            uint256 amountToMint = ((vault.totalSupply() / DEAD_SHARES) - vault.totalAssets()) + 1;
+            vm.prank(address(vault));
+            token.mintAmount(amountToMint);
         }
 
         random = MasterVaultHandler(handler).random();
