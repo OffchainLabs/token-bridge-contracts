@@ -330,7 +330,10 @@ contract MasterVaultInvariant is BaseMasterVaultInvariant {
 
     function invariant_noDonationAttackWhenSolvent() public {
         if (vault.totalAssets() * DEAD_SHARES < vault.totalSupply()) {
-            return;
+            // make the vault solvent by donating some tokens
+            uint256 amountToMint = ((vault.totalSupply() / DEAD_SHARES) - vault.totalAssets()) + 1;
+            vm.prank(address(vault));
+            token.mintAmount(amountToMint);
         }
 
         random = MasterVaultHandler(handler).random();
