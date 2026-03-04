@@ -1,0 +1,199 @@
+{
+  "$schema": "https://github.com/IBM/audit-ci/raw/main/docs/schema.json",
+  "low": true,
+  "allowlist": [
+    // OpenZeppelin Contracts's governor proposal creation may be blocked by frontrunning
+    // Governors not used
+    "GHSA-5h3x-9wvq-w4m2",
+    // OpenZeppelin Contracts base64 encoding may read from potentially dirty memory
+    // base64 not used
+    "GHSA-9vx6-7xxf-x967",
+    // OpenZeppelin Contracts vulnerable to Improper Escaping of Output
+    // ERC2771Context not used
+    "GHSA-g4vp-m682-qqmp",
+    // OpenZeppelin Contracts using MerkleProof multiproofs may allow proving arbitrary leaves for specific trees
+    // MerkleProof not used
+    "GHSA-wprv-93r4-jj2p",
+    // GovernorCompatibilityBravo may trim proposal calldata
+    // Governors not used
+    "GHSA-93hq-5wgc-jc82",
+    // OpenZeppelin Contracts TransparentUpgradeableProxy clashing selector calls may not be delegated
+    // Clashes are highly unlikely, though possible. At the time of writing, there are no clashes in this codebase.
+    "GHSA-mx2q-35m2-x2rh",
+    // OpenZeppelin Contracts's SignatureChecker may revert on invalid EIP-1271 signers
+    // SignatureChecker not used
+    "GHSA-4g63-c64m-25w9",
+    // OpenZeppelin Contracts vulnerable to ECDSA signature malleability
+    // draft-ERC20PermitUpgradeable.sol uses ECDSAUpgradeable.recover, but marks nonces as used so signature malleability is not an issue
+    "GHSA-4h98-2769-gh6h",
+    // OpenZeppelin Contracts ERC165Checker unbounded gas consumption
+    // ERC165Checker not used
+    "GHSA-7grf-83vw-6f5x",
+    // OpenZeppelin Contracts's ERC165Checker may revert instead of returning false
+    // ERC165Checker not used
+    "GHSA-qh9x-gcfh-pcrw",
+    // OpenZeppelin Contracts's GovernorVotesQuorumFraction updates to quorum may affect past defeated proposals
+    // Governors not used
+    "GHSA-xrc4-737v-9q75",
+    // sha.js is missing type checks leading to hash rewind and passing on crafted data
+    "GHSA-95m3-7q98-8xr5",
+    // cipher-base is missing type checks, leading to hash rewind and passing on crafted data
+    "GHSA-cpq7-6gpm-g9rc",
+    // minimatch ReDoS: nested *() extglobs generate catastrophically backtracking regular expressions
+    "GHSA-23c5-xmqv-rm74",
+    // Insecure Credential Storage in web3
+    "GHSA-27v7-qhfv-rqq8",
+    // Regular Expression Denial of Service (ReDoS) in lodash
+    "GHSA-29mw-wpgm-hmr9",
+    // ajv has ReDoS when using `$data` option
+    "GHSA-2g4f-4pwh-qvx6",
+    // web3-core-method is vulnerable to prototype pollution
+    "GHSA-2j4c-9qqq-896r",
+    // node-tar Vulnerable to Arbitrary File Creation/Overwrite via Hardlink Path Traversal
+    "GHSA-34x7-hfp2-rc4v",
+    // Command Injection in lodash
+    "GHSA-35jh-r3h4-6jhm",
+    // bn.js affected by an infinite loop
+    "GHSA-378v-28hj-76wf",
+    // ws affected by a DoS when handling a request with many HTTP headers
+    "GHSA-3h5v-q93c-6h6q",
+    // minimatch has a ReDoS via repeated wildcards with non-matching literal in pattern
+    "GHSA-3ppc-4f35-3m26",
+    // Regular Expression Denial of Service (ReDoS) in cross-spawn
+    "GHSA-3xgq-45jj-v275",
+    // es5-ext vulnerable to Regular Expression Denial of Service in `function#copy` and `function#toStringTokens`
+    "GHSA-4gmj-3p3h-gm8h",
+    // tmp allows arbitrary temporary file / directory write via symbolic link `dir` parameter
+    "GHSA-52f5-9888-hmc6",
+    // Babel vulnerable to arbitrary code execution when compiling specifically crafted malicious code
+    "GHSA-67hx-6x53-jw92",
+    // qs's arrayLimit bypass in its bracket notation allows DoS via memory exhaustion
+    "GHSA-6rw7-vpxm-498p",
+    // tough-cookie Prototype Pollution vulnerability
+    "GHSA-72xf-g2v4-qvf3",
+    // minimatch has ReDoS: matchOne() combinatorial backtracking via multiple non-adjacent GLOBSTAR segments
+    "GHSA-7r86-cg39-jmmj",
+    // Arbitrary File Read/Write via Hardlink Target Escape Through Symlink Chain in node-tar Extraction
+    "GHSA-83g3-92jg-28cx",
+    // node-tar is Vulnerable to Arbitrary File Overwrite and Symlink Poisoning via Insufficient Path Sanitization
+    "GHSA-8qq5-rm4j-mr97",
+    // Regular Expression Denial of Service (ReDoS) in micromatch
+    "GHSA-952p-6rrq-rcjv",
+    // Prototype Pollution in JSON5 via Parse Method
+    "GHSA-9c47-m6qq-7p4h",
+    // semver vulnerable to Regular Expression Denial of Service
+    "GHSA-c2qf-rxjj-qqgw",
+    // Arbitrary Code Execution in underscore
+    "GHSA-cf4h-3jhx-xvhq",
+    // Denial of service while parsing a tar file due to lack of folders count validation
+    "GHSA-f5x3-32g6-xq36",
+    // form-data uses unsafe random function in form-data for choosing boundary
+    "GHSA-fjxv-7rqg-78g4",
+    // Prototype Pollution in async
+    "GHSA-fwr7-v2mv-hh25",
+    // Uncontrolled resource consumption in braces
+    "GHSA-grv7-fg5c-xmjg",
+    // Regular Expression Denial of Service in debug
+    "GHSA-gxpj-cx7g-858c",
+    // web3-core-subscriptions has a Prototype Pollution vulnerability
+    "GHSA-hhf6-3xpg-pggx",
+    // yargs-parser Vulnerable to Prototype Pollution
+    "GHSA-p9pc-299p-vxgp",
+    // Got allows a redirect to a UNIX socket
+    "GHSA-pfrx-2q88-qq97",
+    // Underscore has unlimited recursion in _.flatten and _.isEqual, potential for DoS attack
+    "GHSA-qpx9-hpmf-5gmw",
+    // node-fetch forwards secure headers to untrusted sites
+    "GHSA-r683-j2x4-v87g",
+    // Race Condition in node-tar Path Reservations via Unicode Ligature Collisions on macOS APFS
+    "GHSA-r6q2-hw4h-h46w",
+    // min-document vulnerable to prototype pollution
+    "GHSA-rx8g-88g5-qh64",
+    // brace-expansion Regular Expression Denial of Service vulnerability
+    "GHSA-v6h2-p8h4-qcjw",
+    // Lodash has Prototype Pollution Vulnerability in `_.unset` and `_.omit` functions
+    "GHSA-xxjr-mmjv-4gpg",
+    // Elliptic's verify function omits uniqueness validation
+    "GHSA-434g-2637-qmqr",
+    // Elliptic allows BER-encoded signatures
+    "GHSA-49q7-c7j4-3p7m",
+    // Elliptic Uses a Cryptographic Primitive with a Risky Implementation
+    "GHSA-848j-6mx2-7j84",
+    // Elliptic's ECDSA missing check for whether leading bit of r and s is zero
+    "GHSA-977x-g7h5-7qgw",
+    // Elliptic's EDDSA missing signature length check
+    "GHSA-f7q4-pwc6-w24p",
+    // Valid ECDSA signatures erroneously rejected in Elliptic
+    "GHSA-fc9h-whq2-v747",
+    // Elliptic's private key extraction in ECDSA upon signing a malformed input (e.g. a string)
+    "GHSA-vjh7-7g9h-fjfh",
+    // secp256k1-node allows private key extraction over ECDH
+    "GHSA-584q-6j8j-r5pm",
+    // Serialize JavaScript is Vulnerable to RCE via RegExp.flags and Date.prototype.toISOString()
+    "GHSA-5c6j-r48x-rmvq",
+    // Cross-site Scripting (XSS) in serialize-javascript
+    "GHSA-76p7-773f-r4q5",
+    // follow-redirects' Proxy-Authorization header kept across hosts
+    "GHSA-cxjh-pqwp-8mfp",
+    // pbkdf2 returns predictable uninitialized/zero-filled memory for non-normalized or unimplemented algos
+    "GHSA-h7cp-r72f-jxh6",
+    // Follow Redirects improperly handles URLs in the url.parse() function
+    "GHSA-jchw-25xp-jwwc",
+    // Predictable results in nanoid generation when given non-integer values
+    "GHSA-mwcw-c2x4-8c55",
+    // cookie accepts cookie name, path, and domain with out of bounds characters
+    "GHSA-pxg6-pf52-xh8x",
+    // pbkdf2 silently disregards Uint8Array input, returning static keys
+    "GHSA-v62p-rq8g-8h59",
+    // Homograph attack allows Unicode lookalike characters to bypass validation.
+    "GHSA-xq7p-g2vc-g82p",
+    // Axios is Vulnerable to Denial of Service via __proto__ Key in mergeConfig
+    "GHSA-43fc-jf86-j433",
+    // axios Requests Vulnerable To Possible SSRF and Credential Leakage via Absolute URL
+    "GHSA-jr5f-v2jv-69x6",
+    // Axios Cross-Site Request Forgery Vulnerability
+    "GHSA-wf5p-g6vw-rhxx",
+    // Undici proxy-authorization header not cleared on cross-origin redirect in fetch
+    "GHSA-3787-6prv-h9w3",
+    // Undici's fetch with integrity option is too lax when algorithm is specified but hash value is in incorrect
+    "GHSA-9qxr-qj54-h672",
+    // Use of Insufficiently Random Values in undici
+    "GHSA-c76h-2ccp-4975",
+    // undici Denial of Service attack via bad certificate data
+    "GHSA-cxrh-j4jr-qwg3",
+    // Undici has an unbounded decompression chain in HTTP responses on Node.js Fetch API via Content-Encoding leads to resource exhaustion
+    "GHSA-g9mf-h72j-4rw9",
+    // Undici's Proxy-Authorization header not cleared on cross-origin redirect for dispatch, request, stream, pipeline
+    "GHSA-m4v8-wqvr-p9f7",
+    // Undici's cookie header not cleared on cross-origin redirect in fetch
+    "GHSA-wqq4-5wpv-mx2g",
+    // jsdiff has a Denial of Service vulnerability in parsePatch and applyPatch
+    "GHSA-73rr-hh4g-fpgx",
+    // minimatch ReDoS vulnerability
+    "GHSA-f8q6-p94x-37v3",
+    // Server-Side Request Forgery in Request
+    "GHSA-p8p7-x288-28g6",
+    // path-to-regexp outputs backtracking regular expressions
+    "GHSA-9wv6-86v2-598j",
+    // serve-static vulnerable to template injection that can lead to XSS
+    "GHSA-cm22-4g7w-348p",
+    // send vulnerable to template injection that can lead to XSS
+    "GHSA-m6fv-jmcg-4jfg",
+    // express vulnerable to XSS via response.redirect()
+    "GHSA-qw6h-vgh9-j6wx",
+    // body-parser vulnerable to denial of service when url encoding is enabled
+    "GHSA-qwcr-r2fm-qrc7",
+    // path-to-regexp contains a ReDoS
+    "GHSA-rhx6-c78j-4q9w",
+    // Express.js Open Redirect in malformed URLs
+    "GHSA-rv95-896h-c2vc",
+    // qs's arrayLimit bypass in comma parsing allows denial of service
+    "GHSA-w7fw-mjwx-w883",
+    // browserify-sign upper bound check issue in `dsaVerify` leads to a signature forgery attack
+    "GHSA-x9w5-v3q2-3rhw",
+    // Chaijs/get-func-name vulnerable to ReDoS
+    "GHSA-4q6p-r6v2-jvc5",
+    // js-yaml has prototype pollution in merge (<<)
+    "GHSA-mh29-5h37-fv8m"
+  ]
+}
