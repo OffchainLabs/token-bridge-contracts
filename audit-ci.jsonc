@@ -3,26 +3,37 @@
   "low": true,
   "allowlist": [
     // OpenZeppelin Contracts's governor proposal creation may be blocked by frontrunning
+    // Governors not used
     "GHSA-5h3x-9wvq-w4m2",
     // OpenZeppelin Contracts base64 encoding may read from potentially dirty memory
+    // base64 not used
     "GHSA-9vx6-7xxf-x967",
     // OpenZeppelin Contracts vulnerable to Improper Escaping of Output
+    // ERC2771Context not used
     "GHSA-g4vp-m682-qqmp",
     // OpenZeppelin Contracts using MerkleProof multiproofs may allow proving arbitrary leaves for specific trees
+    // MerkleProof not used
     "GHSA-wprv-93r4-jj2p",
     // GovernorCompatibilityBravo may trim proposal calldata
+    // Governors not used
     "GHSA-93hq-5wgc-jc82",
     // OpenZeppelin Contracts TransparentUpgradeableProxy clashing selector calls may not be delegated
+    // Clashes are highly unlikely, though possible. At the time of writing, there are no clashes in this codebase.
     "GHSA-mx2q-35m2-x2rh",
     // OpenZeppelin Contracts's SignatureChecker may revert on invalid EIP-1271 signers
+    // SignatureChecker not used
     "GHSA-4g63-c64m-25w9",
     // OpenZeppelin Contracts vulnerable to ECDSA signature malleability
+    // draft-ERC20PermitUpgradeable.sol uses ECDSAUpgradeable.recover, but marks nonces as used so signature malleability is not an issue
     "GHSA-4h98-2769-gh6h",
     // OpenZeppelin Contracts ERC165Checker unbounded gas consumption
+    // ERC165Checker not used
     "GHSA-7grf-83vw-6f5x",
     // OpenZeppelin Contracts's ERC165Checker may revert instead of returning false
+    // ERC165Checker not used
     "GHSA-qh9x-gcfh-pcrw",
     // OpenZeppelin Contracts's GovernorVotesQuorumFraction updates to quorum may affect past defeated proposals
+    // Governors not used
     "GHSA-xrc4-737v-9q75",
     // sha.js is missing type checks leading to hash rewind and passing on crafted data
     "GHSA-95m3-7q98-8xr5",
