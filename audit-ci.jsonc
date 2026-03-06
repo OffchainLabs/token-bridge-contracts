@@ -1,0 +1,76 @@
+{
+  "$schema": "https://github.com/IBM/audit-ci/raw/main/docs/schema.json",
+  "high": true,
+  "allowlist": [
+    // ──────────────────────────────────────────────────────────────
+    // Production deps: OpenZeppelin advisories in @arbitrum/nitro-contracts
+    // These reference code paths (Governor, MerkleProof, SignatureChecker,
+    // ERC165Checker) that are NOT used by the token bridge contracts.
+    // ──────────────────────────────────────────────────────────────
+    "GHSA-4g63-c64m-25w9",
+    "GHSA-4h98-2769-gh6h",
+    "GHSA-93hq-5wgc-jc82",
+    "GHSA-qh9x-gcfh-pcrw",
+    "GHSA-xrc4-737v-9q75",
+
+    // ──────────────────────────────────────────────────────────────
+    // Production dep: cross-spawn ReDoS via @arbitrum/nitro-contracts
+    // Build-time tool; not exploitable at runtime.
+    // ──────────────────────────────────────────────────────────────
+    "GHSA-3xgq-45jj-v275",
+
+    // ──────────────────────────────────────────────────────────────
+    // Dev-only: deeply nested transitive deps in ethereum-waffle,
+    // solidity-coverage, hardhat, hardhat-deploy, hardhat-gas-reporter.
+    // These are local dev/CI tools with no production exposure.
+    // Major-version bumps required to fix; not API-compatible.
+    // ──────────────────────────────────────────────────────────────
+
+    // tar (5 advisories) — via ganache-core>web3>swarm-js, dead code path
+    "GHSA-34x7-hfp2-rc4v",
+    "GHSA-83g3-92jg-28cx",
+    "GHSA-8qq5-rm4j-mr97",
+    "GHSA-qffp-2rhf-9h96",
+    "GHSA-r6q2-hw4h-h46w",
+
+    // immutable — hardhat internal dep, fix requires immutable 5.x (breaking)
+    "GHSA-wf6x-7x77-mvgw",
+
+    // ws — ethereum-waffle/hardhat use ws 3.x-7.x, fix requires 8.17.1+
+    "GHSA-3h5v-q93c-6h6q",
+
+    // babel-traverse — ethereum-waffle>ganache-core build chain
+    "GHSA-67hx-6x53-jw92",
+
+    // form-data — fix requires 4.x (breaking for 2.x consumers)
+    "GHSA-fjxv-7rqg-78g4",
+
+    // axios — hardhat-deploy uses 0.21.x, fix requires 1.x
+    "GHSA-43fc-jf86-j433",
+    "GHSA-jr5f-v2jv-69x6",
+
+    // underscore — ethereum-waffle>ganache-core, no maintained 1.x fix
+    "GHSA-cf4h-3jhx-xvhq",
+    "GHSA-qpx9-hpmf-5gmw",
+
+    // serialize-javascript — hardhat>mocha, fix requires 7.x
+    "GHSA-5c6j-r48x-rmvq",
+
+    // json5 — ethereum-waffle>ganache-core build chain, fix requires 2.x
+    "GHSA-9c47-m6qq-7p4h",
+
+    // path-to-regexp — express 4.x transitive dep, fix requires 6.x+
+    "GHSA-9wv6-86v2-598j",
+    "GHSA-rhx6-c78j-4q9w",
+
+    // semver — ethereum-waffle uses semver 5.x, fix requires 7.5.2+
+    "GHSA-c2qf-rxjj-qqgw",
+
+    // async, body-parser, node-fetch, get-func-name, base-x
+    "GHSA-fwr7-v2mv-hh25",
+    "GHSA-qwcr-r2fm-qrc7",
+    "GHSA-r683-j2x4-v87g",
+    "GHSA-4q6p-r6v2-jvc5",
+    "GHSA-xq7p-g2vc-g82p"
+  ]
+}

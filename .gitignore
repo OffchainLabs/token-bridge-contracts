@@ -27,3 +27,6 @@ test-mutation/mutant_test_env/
 
 # bridged usdc deployment script
 registerUsdcGatewayTx.json
+
+# npm lockfile (project uses yarn)
+package-lock.json
