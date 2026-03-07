@@ -14,7 +14,14 @@ import {
 } from "./L1TokenBridgeRetryableSender.sol";
 import {L1GatewayRouter} from "./gateway/L1GatewayRouter.sol";
 import {L1OrbitGatewayRouter} from "./gateway/L1OrbitGatewayRouter.sol";
-import {L1GatewayDeployer} from "./L1GatewayDeployer.sol";
+import {L1ERC20Gateway} from "./gateway/L1ERC20Gateway.sol";
+import {L1CustomGateway} from "./gateway/L1CustomGateway.sol";
+import {L1WethGateway} from "./gateway/L1WethGateway.sol";
+import {L1YbbERC20Gateway} from "./gateway/L1YbbERC20Gateway.sol";
+import {L1YbbCustomGateway} from "./gateway/L1YbbCustomGateway.sol";
+import {IMasterVaultFactory} from "../libraries/vault/IMasterVaultFactory.sol";
+import {IGatewayRouter} from "../libraries/gateway/IGatewayRouter.sol";
+import {ClonableBeaconProxy} from "../libraries/ClonableBeaconProxy.sol";
 import {
     L2AtomicTokenBridgeFactory,
     OrbitSalts,
@@ -315,87 +322,122 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                 );
             }
 
-            if (args.isYieldBearingBridge) {
-                // Delegate YBB deployment to library
-                L1GatewayDeployer.YbbDeploymentResult memory ybbResult =
-                    L1GatewayDeployer.deployYbbGateways(
-                        L1GatewayDeployer.YbbDeploymentParams({
-                            inbox: args.inbox,
-                            proxyAdmin: proxyAdmin,
-                            upgradeExecutor: upgradeExecutor,
-                            router: l1Deployment.router,
-                            l2StandardGateway: l2Deployment.standardGateway,
-                            l2CustomGateway: l2Deployment.customGateway,
-                            l2BeaconProxyFactory: l2Deployment.beaconProxyFactory,
-                            isFeeTokenBased: feeToken != address(0)
-                        }),
-                        L1GatewayDeployer.YbbTemplates({
-                            ybbStandardGatewayTemplate: ybbL1Templates.ybbStandardGatewayTemplate,
-                            ybbCustomGatewayTemplate: ybbL1Templates.ybbCustomGatewayTemplate,
-                            feeTokenBasedYbbStandardGatewayTemplate: ybbL1Templates.feeTokenBasedYbbStandardGatewayTemplate,
-                            feeTokenBasedYbbCustomGatewayTemplate: ybbL1Templates.feeTokenBasedYbbCustomGatewayTemplate,
-                            masterVaultFactoryTemplate: ybbL1Templates.masterVaultFactoryTemplate
-                        }),
-                        _getL1Salt(OrbitSalts.L1_MASTER_VAULT_FACTORY, args.inbox),
-                        _getL1Salt(OrbitSalts.L1_STANDARD_GATEWAY, args.inbox),
-                        _getL1Salt(OrbitSalts.L1_CUSTOM_GATEWAY, args.inbox)
-                    );
+            bool isFeeTokenBased = feeToken != address(0);
 
-                // Initialize MasterVaultFactory after router is deployed
-                L1GatewayDeployer.initializeMasterVaultFactory(
-                    ybbResult.masterVaultFactory,
-                    ybbL1Templates.masterVaultTemplate,
-                    upgradeExecutor,
-                    l1Deployment.router
+            if (args.isYieldBearingBridge) {
+                // deploy master vault factory
+                address masterVaultFactory = _deployProxyWithSalt(
+                    _getL1Salt(OrbitSalts.L1_MASTER_VAULT_FACTORY, args.inbox),
+                    ybbL1Templates.masterVaultFactoryTemplate,
+                    proxyAdmin
                 );
 
-                l1Deployment.standardGateway = ybbResult.standardGateway;
-                l1Deployment.customGateway = ybbResult.customGateway;
-            } else {
-                // Delegate standard gateway deployment to library
-                L1GatewayDeployer.StandardDeploymentResult memory standardResult =
-                    L1GatewayDeployer.deployStandardGateways(
-                        L1GatewayDeployer.StandardDeploymentParams({
-                            inbox: args.inbox,
-                            proxyAdmin: proxyAdmin,
-                            upgradeExecutor: upgradeExecutor,
-                            router: l1Deployment.router,
-                            l2StandardGateway: l2Deployment.standardGateway,
-                            l2CustomGateway: l2Deployment.customGateway,
-                            l2BeaconProxyFactory: l2Deployment.beaconProxyFactory,
-                            isFeeTokenBased: feeToken != address(0)
-                        }),
-                        L1GatewayDeployer.StandardTemplates({
-                            standardGatewayTemplate: l1Templates.standardGatewayTemplate,
-                            feeTokenBasedStandardGatewayTemplate: l1Templates.feeTokenBasedStandardGatewayTemplate,
-                            customGatewayTemplate: l1Templates.customGatewayTemplate,
-                            feeTokenBasedCustomGatewayTemplate: l1Templates.feeTokenBasedCustomGatewayTemplate
-                        }),
-                        _getL1Salt(OrbitSalts.L1_STANDARD_GATEWAY, args.inbox),
-                        _getL1Salt(OrbitSalts.L1_CUSTOM_GATEWAY, args.inbox)
+                // deploy ybb standard gateway
+                {
+                    address template = isFeeTokenBased
+                        ? ybbL1Templates.feeTokenBasedYbbStandardGatewayTemplate
+                        : ybbL1Templates.ybbStandardGatewayTemplate;
+
+                    l1Deployment.standardGateway = _deployProxyWithSalt(
+                        _getL1Salt(OrbitSalts.L1_STANDARD_GATEWAY, args.inbox), template, proxyAdmin
                     );
 
-                l1Deployment.standardGateway = standardResult.standardGateway;
-                l1Deployment.customGateway = standardResult.customGateway;
+                    L1YbbERC20Gateway(l1Deployment.standardGateway)
+                        .initialize(
+                            l2Deployment.standardGateway,
+                            l1Deployment.router,
+                            args.inbox,
+                            keccak256(type(ClonableBeaconProxy).creationCode),
+                            l2Deployment.beaconProxyFactory,
+                            masterVaultFactory
+                        );
+                }
+
+                // deploy ybb custom gateway
+                {
+                    address template = isFeeTokenBased
+                        ? ybbL1Templates.feeTokenBasedYbbCustomGatewayTemplate
+                        : ybbL1Templates.ybbCustomGatewayTemplate;
+
+                    l1Deployment.customGateway = _deployProxyWithSalt(
+                        _getL1Salt(OrbitSalts.L1_CUSTOM_GATEWAY, args.inbox), template, proxyAdmin
+                    );
+
+                    L1YbbCustomGateway(l1Deployment.customGateway)
+                        .initialize(
+                            l2Deployment.customGateway,
+                            l1Deployment.router,
+                            args.inbox,
+                            upgradeExecutor,
+                            masterVaultFactory
+                        );
+                }
+
+                // initialize master vault factory
+                IMasterVaultFactory(masterVaultFactory)
+                    .initialize(
+                        ybbL1Templates.masterVaultTemplate,
+                        upgradeExecutor,
+                        IGatewayRouter(l1Deployment.router)
+                    );
+            } else {
+                // deploy standard gateway
+                {
+                    address template = isFeeTokenBased
+                        ? l1Templates.feeTokenBasedStandardGatewayTemplate
+                        : l1Templates.standardGatewayTemplate;
+
+                    l1Deployment.standardGateway = _deployProxyWithSalt(
+                        _getL1Salt(OrbitSalts.L1_STANDARD_GATEWAY, args.inbox), template, proxyAdmin
+                    );
+
+                    L1ERC20Gateway(l1Deployment.standardGateway)
+                        .initialize(
+                            l2Deployment.standardGateway,
+                            l1Deployment.router,
+                            args.inbox,
+                            keccak256(type(ClonableBeaconProxy).creationCode),
+                            l2Deployment.beaconProxyFactory
+                        );
+                }
+
+                // deploy custom gateway
+                {
+                    address template = isFeeTokenBased
+                        ? l1Templates.feeTokenBasedCustomGatewayTemplate
+                        : l1Templates.customGatewayTemplate;
+
+                    l1Deployment.customGateway = _deployProxyWithSalt(
+                        _getL1Salt(OrbitSalts.L1_CUSTOM_GATEWAY, args.inbox), template, proxyAdmin
+                    );
+
+                    L1CustomGateway(l1Deployment.customGateway)
+                        .initialize(
+                            l2Deployment.customGateway,
+                            l1Deployment.router,
+                            args.inbox,
+                            upgradeExecutor
+                        );
+                }
             }
 
             // l1 weth gateway deployment block
-            if (feeToken == address(0)) {
-                L1GatewayDeployer.WethDeploymentResult memory wethResult =
-                    L1GatewayDeployer.deployWethGateway(
-                        L1GatewayDeployer.WethDeploymentParams({
-                            inbox: args.inbox,
-                            proxyAdmin: proxyAdmin,
-                            router: l1Deployment.router,
-                            l2WethGateway: l2Deployment.wethGateway,
-                            l1Weth: l1Weth,
-                            l2Weth: l2Deployment.weth
-                        }),
-                        l1Templates.wethGatewayTemplate,
-                        _getL1Salt(OrbitSalts.L1_WETH_GATEWAY, args.inbox)
+            if (!isFeeTokenBased) {
+                l1Deployment.wethGateway = _deployProxyWithSalt(
+                    _getL1Salt(OrbitSalts.L1_WETH_GATEWAY, args.inbox),
+                    l1Templates.wethGatewayTemplate,
+                    proxyAdmin
+                );
+
+                L1WethGateway(payable(l1Deployment.wethGateway))
+                    .initialize(
+                        l2Deployment.wethGateway,
+                        l1Deployment.router,
+                        args.inbox,
+                        l1Weth,
+                        l2Deployment.weth
                     );
 
-                l1Deployment.wethGateway = wethResult.wethGateway;
                 l1Deployment.weth = l1Weth;
             }
 

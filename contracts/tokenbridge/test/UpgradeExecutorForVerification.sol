@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-pragma solidity <0.9.0 =0.8.16 >=0.6.2 ^0.8.0 ^0.8.1 ^0.8.2;
+pragma solidity <0.9.0 =0.8.20 >=0.6.2 ^0.8.0 ^0.8.1 ^0.8.2;
 
 // node_modules/@openzeppelin/contracts/security/ReentrancyGuard.sol
 
@@ -125,7 +125,7 @@ library Address {
     function sendValue(address payable recipient, uint256 amount) internal {
         require(address(this).balance >= amount, "Address: insufficient balance");
 
-        (bool success, ) = recipient.call{value: amount}("");
+        (bool success,) = recipient.call{value: amount}("");
         require(success, "Address: unable to send value, recipient may have reverted");
     }
 
@@ -157,11 +157,10 @@ library Address {
      *
      * _Available since v3.1._
      */
-    function functionCall(
-        address target,
-        bytes memory data,
-        string memory errorMessage
-    ) internal returns (bytes memory) {
+    function functionCall(address target, bytes memory data, string memory errorMessage)
+        internal
+        returns (bytes memory)
+    {
         return functionCallWithValue(target, data, 0, errorMessage);
     }
 
@@ -176,12 +175,13 @@ library Address {
      *
      * _Available since v3.1._
      */
-    function functionCallWithValue(
-        address target,
-        bytes memory data,
-        uint256 value
-    ) internal returns (bytes memory) {
-        return functionCallWithValue(target, data, value, "Address: low-level call with value failed");
+    function functionCallWithValue(address target, bytes memory data, uint256 value)
+        internal
+        returns (bytes memory)
+    {
+        return functionCallWithValue(
+            target, data, value, "Address: low-level call with value failed"
+        );
     }
 
     /**
@@ -209,7 +209,11 @@ library Address {
      *
      * _Available since v3.3._
      */
-    function functionStaticCall(address target, bytes memory data) internal view returns (bytes memory) {
+    function functionStaticCall(address target, bytes memory data)
+        internal
+        view
+        returns (bytes memory)
+    {
         return functionStaticCall(target, data, "Address: low-level static call failed");
     }
 
@@ -219,11 +223,11 @@ library Address {
      *
      * _Available since v3.3._
      */
-    function functionStaticCall(
-        address target,
-        bytes memory data,
-        string memory errorMessage
-    ) internal view returns (bytes memory) {
+    function functionStaticCall(address target, bytes memory data, string memory errorMessage)
+        internal
+        view
+        returns (bytes memory)
+    {
         require(isContract(target), "Address: static call to non-contract");
 
         (bool success, bytes memory returndata) = target.staticcall(data);
@@ -236,7 +240,10 @@ library Address {
      *
      * _Available since v3.4._
      */
-    function functionDelegateCall(address target, bytes memory data) internal returns (bytes memory) {
+    function functionDelegateCall(address target, bytes memory data)
+        internal
+        returns (bytes memory)
+    {
         return functionDelegateCall(target, data, "Address: low-level delegate call failed");
     }
 
@@ -246,11 +253,10 @@ library Address {
      *
      * _Available since v3.4._
      */
-    function functionDelegateCall(
-        address target,
-        bytes memory data,
-        string memory errorMessage
-    ) internal returns (bytes memory) {
+    function functionDelegateCall(address target, bytes memory data, string memory errorMessage)
+        internal
+        returns (bytes memory)
+    {
         require(isContract(target), "Address: delegate call to non-contract");
 
         (bool success, bytes memory returndata) = target.delegatecall(data);
@@ -263,11 +269,11 @@ library Address {
      *
      * _Available since v4.3._
      */
-    function verifyCallResult(
-        bool success,
-        bytes memory returndata,
-        string memory errorMessage
-    ) internal pure returns (bytes memory) {
+    function verifyCallResult(bool success, bytes memory returndata, string memory errorMessage)
+        internal
+        pure
+        returns (bytes memory)
+    {
         if (success) {
             return returndata;
         } else {
@@ -302,7 +308,9 @@ interface IAccessControlUpgradeable {
      *
      * _Available since v3.1._
      */
-    event RoleAdminChanged(bytes32 indexed role, bytes32 indexed previousAdminRole, bytes32 indexed newAdminRole);
+    event RoleAdminChanged(
+        bytes32 indexed role, bytes32 indexed previousAdminRole, bytes32 indexed newAdminRole
+    );
 
     /**
      * @dev Emitted when `account` is granted `role`.
@@ -435,7 +443,7 @@ library AddressUpgradeable {
     function sendValue(address payable recipient, uint256 amount) internal {
         require(address(this).balance >= amount, "Address: insufficient balance");
 
-        (bool success, ) = recipient.call{value: amount}("");
+        (bool success,) = recipient.call{value: amount}("");
         require(success, "Address: unable to send value, recipient may have reverted");
     }
 
@@ -467,11 +475,10 @@ library AddressUpgradeable {
      *
      * _Available since v3.1._
      */
-    function functionCall(
-        address target,
-        bytes memory data,
-        string memory errorMessage
-    ) internal returns (bytes memory) {
+    function functionCall(address target, bytes memory data, string memory errorMessage)
+        internal
+        returns (bytes memory)
+    {
         return functionCallWithValue(target, data, 0, errorMessage);
     }
 
@@ -486,12 +493,13 @@ library AddressUpgradeable {
      *
      * _Available since v3.1._
      */
-    function functionCallWithValue(
-        address target,
-        bytes memory data,
-        uint256 value
-    ) internal returns (bytes memory) {
-        return functionCallWithValue(target, data, value, "Address: low-level call with value failed");
+    function functionCallWithValue(address target, bytes memory data, uint256 value)
+        internal
+        returns (bytes memory)
+    {
+        return functionCallWithValue(
+            target, data, value, "Address: low-level call with value failed"
+        );
     }
 
     /**
@@ -519,7 +527,11 @@ library AddressUpgradeable {
      *
      * _Available since v3.3._
      */
-    function functionStaticCall(address target, bytes memory data) internal view returns (bytes memory) {
+    function functionStaticCall(address target, bytes memory data)
+        internal
+        view
+        returns (bytes memory)
+    {
         return functionStaticCall(target, data, "Address: low-level static call failed");
     }
 
@@ -529,11 +541,11 @@ library AddressUpgradeable {
      *
      * _Available since v3.3._
      */
-    function functionStaticCall(
-        address target,
-        bytes memory data,
-        string memory errorMessage
-    ) internal view returns (bytes memory) {
+    function functionStaticCall(address target, bytes memory data, string memory errorMessage)
+        internal
+        view
+        returns (bytes memory)
+    {
         require(isContract(target), "Address: static call to non-contract");
 
         (bool success, bytes memory returndata) = target.staticcall(data);
@@ -546,11 +558,11 @@ library AddressUpgradeable {
      *
      * _Available since v4.3._
      */
-    function verifyCallResult(
-        bool success,
-        bytes memory returndata,
-        string memory errorMessage
-    ) internal pure returns (bytes memory) {
+    function verifyCallResult(bool success, bytes memory returndata, string memory errorMessage)
+        internal
+        pure
+        returns (bytes memory)
+    {
         if (success) {
             return returndata;
         } else {
@@ -754,7 +766,8 @@ abstract contract Initializable {
     modifier initializer() {
         bool isTopLevelCall = !_initializing;
         require(
-            (isTopLevelCall && _initialized < 1) || (!AddressUpgradeable.isContract(address(this)) && _initialized == 1),
+            (isTopLevelCall && _initialized < 1)
+                || (!AddressUpgradeable.isContract(address(this)) && _initialized == 1),
             "Initializable: contract is already initialized"
         );
         _initialized = 1;
@@ -781,7 +794,10 @@ abstract contract Initializable {
      * a contract, executing them in the right order is up to the developer or operator.
      */
     modifier reinitializer(uint8 version) {
-        require(!_initializing && _initialized < version, "Initializable: contract is already initialized");
+        require(
+            !_initializing && _initialized < version,
+            "Initializable: contract is already initialized"
+        );
         _initialized = version;
         _initializing = true;
         _;
@@ -828,11 +844,10 @@ abstract contract Initializable {
  * This contract is only required for intermediate, library-like contracts.
  */
 abstract contract ContextUpgradeable is Initializable {
-    function __Context_init() internal onlyInitializing {
-    }
+    function __Context_init() internal onlyInitializing {}
 
-    function __Context_init_unchained() internal onlyInitializing {
-    }
+    function __Context_init_unchained() internal onlyInitializing {}
+
     function _msgSender() internal view virtual returns (address) {
         return msg.sender;
     }
@@ -868,11 +883,10 @@ abstract contract ContextUpgradeable is Initializable {
  * Alternatively, {ERC165Storage} provides an easier to use but more expensive implementation.
  */
 abstract contract ERC165Upgradeable is Initializable, IERC165Upgradeable {
-    function __ERC165_init() internal onlyInitializing {
-    }
+    function __ERC165_init() internal onlyInitializing {}
 
-    function __ERC165_init_unchained() internal onlyInitializing {
-    }
+    function __ERC165_init_unchained() internal onlyInitializing {}
+
     /**
      * @dev See {IERC165-supportsInterface}.
      */
@@ -930,12 +944,16 @@ abstract contract ERC165Upgradeable is Initializable, IERC165Upgradeable {
  * grant and revoke this role. Extra precautions should be taken to secure
  * accounts that have been granted it.
  */
-abstract contract AccessControlUpgradeable is Initializable, ContextUpgradeable, IAccessControlUpgradeable, ERC165Upgradeable {
-    function __AccessControl_init() internal onlyInitializing {
-    }
+abstract contract AccessControlUpgradeable is
+    Initializable,
+    ContextUpgradeable,
+    IAccessControlUpgradeable,
+    ERC165Upgradeable
+{
+    function __AccessControl_init() internal onlyInitializing {}
 
-    function __AccessControl_init_unchained() internal onlyInitializing {
-    }
+    function __AccessControl_init_unchained() internal onlyInitializing {}
+
     struct RoleData {
         mapping(address => bool) members;
         bytes32 adminRole;
@@ -964,7 +982,8 @@ abstract contract AccessControlUpgradeable is Initializable, ContextUpgradeable,
      * @dev See {IERC165-supportsInterface}.
      */
     function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
-        return interfaceId == type(IAccessControlUpgradeable).interfaceId || super.supportsInterface(interfaceId);
+        return interfaceId == type(IAccessControlUpgradeable).interfaceId
+            || super.supportsInterface(interfaceId);
     }
 
     /**
@@ -1030,7 +1049,12 @@ abstract contract AccessControlUpgradeable is Initializable, ContextUpgradeable,
      *
      * May emit a {RoleGranted} event.
      */
-    function grantRole(bytes32 role, address account) public virtual override onlyRole(getRoleAdmin(role)) {
+    function grantRole(bytes32 role, address account)
+        public
+        virtual
+        override
+        onlyRole(getRoleAdmin(role))
+    {
         _grantRole(role, account);
     }
 
@@ -1045,7 +1069,12 @@ abstract contract AccessControlUpgradeable is Initializable, ContextUpgradeable,
      *
      * May emit a {RoleRevoked} event.
      */
-    function revokeRole(bytes32 role, address account) public virtual override onlyRole(getRoleAdmin(role)) {
+    function revokeRole(bytes32 role, address account)
+        public
+        virtual
+        override
+        onlyRole(getRoleAdmin(role))
+    {
         _revokeRole(role, account);
     }
 
@@ -1198,9 +1227,10 @@ contract UpgradeExecutor is
         nonReentrant
     {
         // OZ Address library check if the address is a contract and bubble up inner revert reason
-        address(upgrade).functionDelegateCall(
-            upgradeCallData, "UpgradeExecutor: inner delegate call failed without reason"
-        );
+        address(upgrade)
+            .functionDelegateCall(
+                upgradeCallData, "UpgradeExecutor: inner delegate call failed without reason"
+            );
 
         emit UpgradeExecuted(upgrade, msg.value, upgradeCallData);
     }
@@ -1214,9 +1244,10 @@ contract UpgradeExecutor is
         nonReentrant
     {
         // OZ Address library check if the address is a contract and bubble up inner revert reason
-        address(target).functionCallWithValue(
-            targetCallData, msg.value, "UpgradeExecutor: inner call failed without reason"
-        );
+        address(target)
+            .functionCallWithValue(
+                targetCallData, msg.value, "UpgradeExecutor: inner call failed without reason"
+            );
 
         emit TargetCallExecuted(target, msg.value, targetCallData);
     }
