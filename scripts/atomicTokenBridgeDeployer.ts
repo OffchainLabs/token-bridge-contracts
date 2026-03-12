@@ -78,7 +78,8 @@ export const createTokenBridge = async (
   l2Provider: ethers.providers.Provider,
   l1TokenBridgeCreator: L1AtomicTokenBridgeCreator,
   rollupAddress: string,
-  rollupOwnerAddress: string
+  rollupOwnerAddress: string,
+  isYbb?: boolean
 ) => {
   const gasPrice = await l2Provider.getGasPrice()
 
@@ -160,19 +161,18 @@ export const createTokenBridge = async (
   }
 
   /// do it - create token bridge
+  const value =
+    feeToken == ethers.constants.AddressZero
+      ? retryableFeeForFactory.add(retryableFeeForContracts)
+      : BigNumber.from(0)
   const receipt = await (
-    await l1TokenBridgeCreator.createTokenBridge(
-      inbox,
-      rollupOwnerAddress,
-      maxGasForContracts,
-      gasPrice,
-      {
-        value:
-          feeToken == ethers.constants.AddressZero
-            ? retryableFeeForFactory.add(retryableFeeForContracts)
-            : BigNumber.from(0),
-      }
-    )
+    await (isYbb
+      ? l1TokenBridgeCreator.createYbbTokenBridge(
+          inbox, rollupOwnerAddress, maxGasForContracts, gasPrice, { value }
+        )
+      : l1TokenBridgeCreator.createTokenBridge(
+          inbox, rollupOwnerAddress, maxGasForContracts, gasPrice, { value }
+        ))
   ).wait()
 
   console.log('Deployment TX:', receipt.transactionHash)
