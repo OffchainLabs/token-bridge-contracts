@@ -142,6 +142,14 @@ describe('YBB Token Bridge', () => {
     )
     const masterVaultFactory = await gateway.masterVaultFactory()
     expect(masterVaultFactory).to.not.be.eq(ethers.constants.AddressZero)
+
+    // verify masterVaultFactory is set on the custom gateway
+    const customGateway = L1YbbCustomGateway__factory.connect(
+      _l2Network.tokenBridge.parentCustomGateway,
+      parentProvider
+    )
+    const customMasterVaultFactory = await customGateway.masterVaultFactory()
+    expect(customMasterVaultFactory).to.eq(masterVaultFactory)
   })
 
   it('can deposit token via default gateway', async function () {
