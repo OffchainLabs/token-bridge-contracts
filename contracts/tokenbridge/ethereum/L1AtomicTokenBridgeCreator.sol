@@ -17,7 +17,10 @@ import {L1OrbitGatewayRouter} from "./gateway/L1OrbitGatewayRouter.sol";
 import {L1GatewayDeployer} from "./L1GatewayDeployer.sol";
 import {L2AtomicTokenBridgeFactory, OrbitSalts} from "../arbitrum/L2AtomicTokenBridgeFactory.sol";
 import {CreationCodeHelper} from "../libraries/CreationCodeHelper.sol";
-import {IUpgradeExecutor} from "@offchainlabs/upgrade-executor/src/IUpgradeExecutor.sol";
+import {
+    IUpgradeExecutor,
+    UpgradeExecutor
+} from "@offchainlabs/upgrade-executor/src/UpgradeExecutor.sol";
 import {AddressAliasHelper} from "../libraries/AddressAliasHelper.sol";
 import {IInbox} from "@arbitrum/nitro-contracts/src/bridge/IInbox.sol";
 import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
@@ -267,7 +270,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         // on the upgrade executor which is the owner of the rollup
         address upgradeExecutor = IInbox(args.inbox).bridge().rollup().owner();
         if (!IAccessControlUpgradeable(upgradeExecutor)
-                .hasRole(keccak256("EXECUTOR_ROLE"), args.rollupOwner)) {
+                .hasRole(UpgradeExecutor(upgradeExecutor).EXECUTOR_ROLE(), args.rollupOwner)) {
             revert L1AtomicTokenBridgeCreator_RollupOwnershipMisconfig();
         }
 
