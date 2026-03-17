@@ -20,9 +20,9 @@ contract MasterVaultScenario11Test is MasterVaultScenarioCoreTest {
         user = userA;
         _checkState(
             State({
-                userShares: 400 * DEAD_SHARES,
+                userShares: 400,
                 masterVaultTotalAssets: 401,
-                masterVaultTotalSupply: 401 * DEAD_SHARES,
+                masterVaultTotalSupply: 401,
                 masterVaultTokenBalance: 201,
                 masterVaultSubVaultShareBalance: 199,
                 subVaultTotalAssets: 199,
@@ -50,9 +50,9 @@ contract MasterVaultScenario11Test is MasterVaultScenarioCoreTest {
 
         _checkState(
             State({
-                userShares: 400 * DEAD_SHARES,
+                userShares: 400,
                 masterVaultTotalAssets: 600,
-                masterVaultTotalSupply: 401 * DEAD_SHARES,
+                masterVaultTotalSupply: 401,
                 masterVaultTokenBalance: 599,
                 masterVaultSubVaultShareBalance: 0,
                 subVaultTotalAssets: 0,

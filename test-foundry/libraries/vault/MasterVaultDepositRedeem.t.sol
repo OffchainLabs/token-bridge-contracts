@@ -20,9 +20,9 @@ contract MasterVaultFirstDepositTest is MasterVaultCoreTest {
         vm.stopPrank();
         _checkState(
             State({
-                userShares: depositAmount * DEAD_SHARES,
+                userShares: depositAmount,
                 masterVaultTotalAssets: depositAmount + 1,
-                masterVaultTotalSupply: (1 + depositAmount) * DEAD_SHARES,
+                masterVaultTotalSupply: (1 + depositAmount),
                 masterVaultTokenBalance: depositAmount,
                 masterVaultSubVaultShareBalance: 0,
                 subVaultTotalAssets: 0,
@@ -30,13 +30,13 @@ contract MasterVaultFirstDepositTest is MasterVaultCoreTest {
                 subVaultTokenBalance: 0
             })
         );
-        assertEq(shares, depositAmount * DEAD_SHARES, "shares mismatch deposit return value");
+        assertEq(shares, depositAmount, "shares mismatch deposit return value");
     }
 
     function test_redeem(uint96 _firstDeposit, uint96 _redeemAmount) public {
         uint256 firstDeposit = _firstDeposit;
         uint256 redeemAmount = _redeemAmount;
-        vm.assume(redeemAmount <= firstDeposit * DEAD_SHARES);
+        vm.assume(redeemAmount <= firstDeposit);
         test_deposit(_firstDeposit);
         State memory beforeState = _getState();
         vm.startPrank(user);
@@ -105,9 +105,9 @@ contract MasterVaultTestWithSubvaultHoldingAssets is MasterVaultFirstDepositTest
         vm.stopPrank();
         _checkState(
             State({
-                userShares: depositAmount * DEAD_SHARES,
+                userShares: depositAmount,
                 masterVaultTotalAssets: depositAmount + 1,
-                masterVaultTotalSupply: (1 + depositAmount) * DEAD_SHARES,
+                masterVaultTotalSupply: (1 + depositAmount),
                 masterVaultTokenBalance: depositAmount,
                 masterVaultSubVaultShareBalance: 0,
                 subVaultTotalAssets: initAmount,
@@ -115,13 +115,13 @@ contract MasterVaultTestWithSubvaultHoldingAssets is MasterVaultFirstDepositTest
                 subVaultTokenBalance: initAmount
             })
         );
-        assertEq(shares, depositAmount * DEAD_SHARES, "shares mismatch deposit return value");
+        assertEq(shares, depositAmount, "shares mismatch deposit return value");
     }
 
     function test_redeem(uint96 _firstDeposit, uint96 _redeemAmount, uint96 _initAmount) public {
         uint256 firstDeposit = _firstDeposit;
         uint256 redeemAmount = _redeemAmount;
-        vm.assume(redeemAmount <= firstDeposit * DEAD_SHARES);
+        vm.assume(redeemAmount <= firstDeposit);
         test_deposit(_firstDeposit, _initAmount);
         State memory beforeState = _getState();
         vm.startPrank(user);

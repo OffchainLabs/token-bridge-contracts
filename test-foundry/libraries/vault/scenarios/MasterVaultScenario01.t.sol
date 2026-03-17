@@ -24,9 +24,9 @@ contract MasterVaultScenario01Test is MasterVaultScenarioCoreTest {
         user = userA;
         _checkState(
             State({
-                userShares: 100 * DEAD_SHARES,
+                userShares: 100,
                 masterVaultTotalAssets: 401,
-                masterVaultTotalSupply: 401 * DEAD_SHARES,
+                masterVaultTotalSupply: 401,
                 masterVaultTokenBalance: 400,
                 masterVaultSubVaultShareBalance: 0,
                 subVaultTotalAssets: 0,
@@ -34,7 +34,7 @@ contract MasterVaultScenario01Test is MasterVaultScenarioCoreTest {
                 subVaultTokenBalance: 0
             })
         );
-        assertEq(vault.balanceOf(userB), 300 * DEAD_SHARES, "User B shares mismatch");
+        assertEq(vault.balanceOf(userB), 300, "User B shares mismatch");
 
         // Step 3: User A redeems 100 shares
         _redeem(userA, sharesA);
@@ -47,7 +47,7 @@ contract MasterVaultScenario01Test is MasterVaultScenarioCoreTest {
             State({
                 userShares: 0,
                 masterVaultTotalAssets: 1,
-                masterVaultTotalSupply: DEAD_SHARES,
+                masterVaultTotalSupply: 1,
                 masterVaultTokenBalance: 0,
                 masterVaultSubVaultShareBalance: 0,
                 subVaultTotalAssets: 0,
@@ -85,9 +85,9 @@ contract MasterVaultScenario01Test is MasterVaultScenarioCoreTest {
         user = userA;
         _checkState(
             State({
-                userShares: 100 * DEAD_SHARES,
+                userShares: 100,
                 masterVaultTotalAssets: 401,
-                masterVaultTotalSupply: 401 * DEAD_SHARES,
+                masterVaultTotalSupply: 401,
                 masterVaultTokenBalance: 0, // 100% allocated
                 masterVaultSubVaultShareBalance: 400, // 1:1 in DefaultSubVault
                 subVaultTotalAssets: 400,
@@ -95,7 +95,7 @@ contract MasterVaultScenario01Test is MasterVaultScenarioCoreTest {
                 subVaultTokenBalance: 400
             })
         );
-        assertEq(vault.balanceOf(userB), 300 * DEAD_SHARES, "User B shares mismatch");
+        assertEq(vault.balanceOf(userB), 300, "User B shares mismatch");
 
         // Step 3: User A redeems 100 shares
         _redeem(userA, sharesA);
@@ -108,7 +108,7 @@ contract MasterVaultScenario01Test is MasterVaultScenarioCoreTest {
             State({
                 userShares: 0,
                 masterVaultTotalAssets: 1,
-                masterVaultTotalSupply: DEAD_SHARES,
+                masterVaultTotalSupply: 1,
                 masterVaultTokenBalance: 0,
                 masterVaultSubVaultShareBalance: 0,
                 subVaultTotalAssets: 0,
