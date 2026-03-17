@@ -325,30 +325,26 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                 address routerTemplate = feeToken != address(0)
                     ? address(l1Templates.feeTokenBasedRouterTemplate)
                     : address(l1Templates.routerTemplate);
-                l1Deployment.router = L1GatewayDeployer.deployProxy(
+                l1Deployment.router = _deployProxyWithSalt(
                     _getL1Salt(OrbitSalts.L1_ROUTER, args.inbox), routerTemplate, proxyAdmin
                 );
             }
-
-            // build shared params struct used by both standard and YBB paths
-            L1GatewayDeployer.GatewayDeploymentParams memory gwParams =
-                L1GatewayDeployer.GatewayDeploymentParams({
-                    inbox: args.inbox,
-                    proxyAdmin: proxyAdmin,
-                    upgradeExecutor: upgradeExecutor,
-                    router: l1Deployment.router,
-                    l2StandardGateway: l2Deployment.standardGateway,
-                    l2CustomGateway: l2Deployment.customGateway,
-                    l2BeaconProxyFactory: l2Deployment.beaconProxyFactory,
-                    clonableBeaconProxyCreationCodeHash: clonableBeaconProxyCreationCodeHash,
-                    isFeeTokenBased: feeToken != address(0)
-                });
 
             if (args.isYieldBearingBridge) {
                 // Delegate YBB deployment to library
                 L1GatewayDeployer.YbbDeploymentResult memory ybbResult =
                     L1GatewayDeployer.deployYbbGateways(
-                        gwParams,
+                        L1GatewayDeployer.YbbDeploymentParams({
+                            inbox: args.inbox,
+                            proxyAdmin: proxyAdmin,
+                            upgradeExecutor: upgradeExecutor,
+                            router: l1Deployment.router,
+                            l2StandardGateway: l2Deployment.standardGateway,
+                            l2CustomGateway: l2Deployment.customGateway,
+                            l2BeaconProxyFactory: l2Deployment.beaconProxyFactory,
+                            clonableBeaconProxyCreationCodeHash: clonableBeaconProxyCreationCodeHash,
+                            isFeeTokenBased: feeToken != address(0)
+                        }),
                         L1GatewayDeployer.YbbTemplates({
                             ybbStandardGatewayTemplate: ybbL1Templates.ybbStandardGatewayTemplate,
                             ybbCustomGatewayTemplate: ybbL1Templates.ybbCustomGatewayTemplate,
@@ -375,7 +371,17 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                 // Delegate standard gateway deployment to library
                 L1GatewayDeployer.StandardDeploymentResult memory standardResult =
                     L1GatewayDeployer.deployStandardGateways(
-                        gwParams,
+                        L1GatewayDeployer.StandardDeploymentParams({
+                            inbox: args.inbox,
+                            proxyAdmin: proxyAdmin,
+                            upgradeExecutor: upgradeExecutor,
+                            router: l1Deployment.router,
+                            l2StandardGateway: l2Deployment.standardGateway,
+                            l2CustomGateway: l2Deployment.customGateway,
+                            l2BeaconProxyFactory: l2Deployment.beaconProxyFactory,
+                            clonableBeaconProxyCreationCodeHash: clonableBeaconProxyCreationCodeHash,
+                            isFeeTokenBased: feeToken != address(0)
+                        }),
                         L1GatewayDeployer.StandardTemplates({
                             standardGatewayTemplate: l1Templates.standardGatewayTemplate,
                             feeTokenBasedStandardGatewayTemplate: l1Templates.feeTokenBasedStandardGatewayTemplate,
@@ -392,19 +398,21 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
 
             // l1 weth gateway deployment block
             if (feeToken == address(0)) {
-                l1Deployment.wethGateway = L1GatewayDeployer.deployWethGateway(
-                    L1GatewayDeployer.WethDeploymentParams({
-                        inbox: args.inbox,
-                        proxyAdmin: proxyAdmin,
-                        router: l1Deployment.router,
-                        l2WethGateway: l2Deployment.wethGateway,
-                        l1Weth: l1Weth,
-                        l2Weth: l2Deployment.weth
-                    }),
-                    l1Templates.wethGatewayTemplate,
-                    _getL1Salt(OrbitSalts.L1_WETH_GATEWAY, args.inbox)
-                );
+                L1GatewayDeployer.WethDeploymentResult memory wethResult =
+                    L1GatewayDeployer.deployWethGateway(
+                        L1GatewayDeployer.WethDeploymentParams({
+                            inbox: args.inbox,
+                            proxyAdmin: proxyAdmin,
+                            router: l1Deployment.router,
+                            l2WethGateway: l2Deployment.wethGateway,
+                            l1Weth: l1Weth,
+                            l2Weth: l2Deployment.weth
+                        }),
+                        l1Templates.wethGatewayTemplate,
+                        _getL1Salt(OrbitSalts.L1_WETH_GATEWAY, args.inbox)
+                    );
 
+                l1Deployment.wethGateway = wethResult.wethGateway;
                 l1Deployment.weth = l1Weth;
             }
 
@@ -679,6 +687,16 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                 prefix, chainId, AddressAliasHelper.applyL1ToL2Alias(address(retryableSender))
             )
         );
+    }
+
+    /**
+     * @notice Internal method to deploy TransparentUpgradeableProxy with CREATE2 opcode.
+     */
+    function _deployProxyWithSalt(bytes32 salt, address logic, address admin)
+        internal
+        returns (address)
+    {
+        return address(new TransparentUpgradeableProxy{salt: salt}(logic, admin, bytes("")));
     }
 
     /**

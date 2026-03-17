@@ -4,8 +4,12 @@ pragma solidity ^0.8.4;
 import {L1ERC20Gateway} from "./gateway/L1ERC20Gateway.sol";
 import {L1CustomGateway} from "./gateway/L1CustomGateway.sol";
 import {L1WethGateway} from "./gateway/L1WethGateway.sol";
+import {L1OrbitERC20Gateway} from "./gateway/L1OrbitERC20Gateway.sol";
+import {L1OrbitCustomGateway} from "./gateway/L1OrbitCustomGateway.sol";
 import {L1YbbERC20Gateway} from "./gateway/L1YbbERC20Gateway.sol";
 import {L1YbbCustomGateway} from "./gateway/L1YbbCustomGateway.sol";
+import {L1OrbitYbbERC20Gateway} from "./gateway/L1OrbitYbbERC20Gateway.sol";
+import {L1OrbitYbbCustomGateway} from "./gateway/L1OrbitYbbCustomGateway.sol";
 import {IMasterVaultFactory} from "../libraries/vault/IMasterVaultFactory.sol";
 import {IGatewayRouter} from "../libraries/gateway/IGatewayRouter.sol";
 import {
@@ -17,9 +21,9 @@ import {
  * @notice Library for deploying all L1 gateway components (standard, custom, WETH, and YBB)
  */
 library L1GatewayDeployer {
-    // ============ Shared Structs ============
+    // ============ Standard Gateway Structs ============
 
-    struct GatewayDeploymentParams {
+    struct StandardDeploymentParams {
         address inbox;
         address proxyAdmin;
         address upgradeExecutor;
@@ -54,7 +58,23 @@ library L1GatewayDeployer {
         address l2Weth;
     }
 
+    struct WethDeploymentResult {
+        address wethGateway;
+    }
+
     // ============ YBB Gateway Structs ============
+
+    struct YbbDeploymentParams {
+        address inbox;
+        address proxyAdmin;
+        address upgradeExecutor;
+        address router;
+        address l2StandardGateway;
+        address l2CustomGateway;
+        address l2BeaconProxyFactory;
+        bytes32 clonableBeaconProxyCreationCodeHash;
+        bool isFeeTokenBased;
+    }
 
     struct YbbTemplates {
         address ybbStandardGatewayTemplate;
@@ -73,7 +93,7 @@ library L1GatewayDeployer {
     // ============ Standard Gateway Deployment ============
 
     function deployStandardGateways(
-        GatewayDeploymentParams memory params,
+        StandardDeploymentParams memory params,
         StandardTemplates memory templates,
         bytes32 standardGatewaySalt,
         bytes32 customGatewaySalt
@@ -83,7 +103,7 @@ library L1GatewayDeployer {
                 ? templates.feeTokenBasedStandardGatewayTemplate
                 : templates.standardGatewayTemplate;
 
-            result.standardGateway = deployProxy(standardGatewaySalt, template, params.proxyAdmin);
+            result.standardGateway = _deployProxy(standardGatewaySalt, template, params.proxyAdmin);
 
             L1ERC20Gateway(result.standardGateway)
                 .initialize(
@@ -100,7 +120,7 @@ library L1GatewayDeployer {
                 ? templates.feeTokenBasedCustomGatewayTemplate
                 : templates.customGatewayTemplate;
 
-            result.customGateway = deployProxy(customGatewaySalt, template, params.proxyAdmin);
+            result.customGateway = _deployProxy(customGatewaySalt, template, params.proxyAdmin);
 
             L1CustomGateway(result.customGateway)
                 .initialize(
@@ -117,27 +137,27 @@ library L1GatewayDeployer {
         WethDeploymentParams memory params,
         address wethGatewayTemplate,
         bytes32 wethGatewaySalt
-    ) internal returns (address) {
-        address wethGateway = deployProxy(wethGatewaySalt, wethGatewayTemplate, params.proxyAdmin);
+    ) internal returns (WethDeploymentResult memory result) {
+        result.wethGateway = _deployProxy(wethGatewaySalt, wethGatewayTemplate, params.proxyAdmin);
 
-        L1WethGateway(payable(wethGateway))
+        L1WethGateway(payable(result.wethGateway))
             .initialize(
                 params.l2WethGateway, params.router, params.inbox, params.l1Weth, params.l2Weth
             );
 
-        return wethGateway;
+        return result;
     }
 
     // ============ YBB Gateway Deployment ============
 
     function deployYbbGateways(
-        GatewayDeploymentParams memory params,
+        YbbDeploymentParams memory params,
         YbbTemplates memory templates,
         bytes32 masterVaultSalt,
         bytes32 standardGatewaySalt,
         bytes32 customGatewaySalt
     ) internal returns (YbbDeploymentResult memory result) {
-        result.masterVaultFactory = deployProxy(
+        result.masterVaultFactory = _deployProxy(
             masterVaultSalt, templates.masterVaultFactoryTemplate, params.proxyAdmin
         );
 
@@ -146,7 +166,7 @@ library L1GatewayDeployer {
                 ? templates.feeTokenBasedYbbStandardGatewayTemplate
                 : templates.ybbStandardGatewayTemplate;
 
-            result.standardGateway = deployProxy(standardGatewaySalt, template, params.proxyAdmin);
+            result.standardGateway = _deployProxy(standardGatewaySalt, template, params.proxyAdmin);
 
             L1YbbERC20Gateway(result.standardGateway)
                 .initialize(
@@ -164,7 +184,7 @@ library L1GatewayDeployer {
                 ? templates.feeTokenBasedYbbCustomGatewayTemplate
                 : templates.ybbCustomGatewayTemplate;
 
-            result.customGateway = deployProxy(customGatewaySalt, template, params.proxyAdmin);
+            result.customGateway = _deployProxy(customGatewaySalt, template, params.proxyAdmin);
 
             L1YbbCustomGateway(result.customGateway)
                 .initialize(
@@ -191,7 +211,7 @@ library L1GatewayDeployer {
 
     // ============ Internal ============
 
-    function deployProxy(bytes32 salt, address logic, address admin) internal returns (address) {
+    function _deployProxy(bytes32 salt, address logic, address admin) internal returns (address) {
         return address(new TransparentUpgradeableProxy{salt: salt}(logic, admin, bytes("")));
     }
 }
