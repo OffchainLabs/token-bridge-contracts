@@ -40,13 +40,6 @@ import {
 contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     using SafeERC20 for IERC20;
 
-    // Precomputed creation code hashes to avoid embedding full creation bytecodes.
-    // Verified by test_precomputedHashConstants.
-    bytes32 internal constant PROXY_ADMIN_HASH =
-        0xab8a74443120359b005005353e8f010da7ad8ab5570b06fb7c3e5d53ba31b935;
-    bytes32 internal constant BEACON_PROXY_FACTORY_HASH =
-        0x63be57f3861afbbef02f1829ffe500eacd2dc4ab3c89c3f617a9f005ee0c4c75;
-
     error L1AtomicTokenBridgeCreator_OnlyRollupOwner();
     error L1AtomicTokenBridgeCreator_TemplatesNotSet();
     error L1AtomicTokenBridgeCreator_RollupOwnershipMisconfig();
@@ -131,6 +124,12 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
 
     YbbL1Templates public ybbL1Templates;
 
+    // Creation code hashes stored to avoid embedding full creation bytecodes in the runtime.
+    // Set via setCreationCodeHashes() by the deployer.
+    bytes32 public proxyAdminCreationCodeHash;
+    bytes32 public beaconProxyFactoryCreationCodeHash;
+    bytes32 public clonableBeaconProxyCreationCodeHash;
+
     constructor() {
         _disableInitializers();
     }
@@ -194,6 +193,22 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     function setYbbTemplates(YbbL1Templates calldata _ybbL1Templates) external onlyOwner {
         ybbL1Templates = _ybbL1Templates;
         emit OrbitTokenBridgeTemplatesUpdated();
+    }
+
+    /**
+     * @notice Set creation code hashes used for L2 address prediction and gateway initialization.
+     * @dev These hashes are stored rather than computed inline to avoid embedding large creation
+     *      bytecodes in the contract's runtime bytecode, which would exceed the EIP-170 size limit.
+     *      The deployer must compute these from the compiled artifacts of the same compiler version.
+     */
+    function setCreationCodeHashes(
+        bytes32 _proxyAdminCreationCodeHash,
+        bytes32 _beaconProxyFactoryCreationCodeHash,
+        bytes32 _clonableBeaconProxyCreationCodeHash
+    ) external onlyOwner {
+        proxyAdminCreationCodeHash = _proxyAdminCreationCodeHash;
+        beaconProxyFactoryCreationCodeHash = _beaconProxyFactoryCreationCodeHash;
+        clonableBeaconProxyCreationCodeHash = _clonableBeaconProxyCreationCodeHash;
     }
 
     /**
@@ -322,6 +337,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                     l2StandardGateway: l2Deployment.standardGateway,
                     l2CustomGateway: l2Deployment.customGateway,
                     l2BeaconProxyFactory: l2Deployment.beaconProxyFactory,
+                    clonableBeaconProxyCreationCodeHash: clonableBeaconProxyCreationCodeHash,
                     isFeeTokenBased: feeToken != address(0)
                 });
 
@@ -561,7 +577,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     function _predictL2ProxyAdminAddress(uint256 chainId) internal view returns (address) {
         return Create2.computeAddress(
             _getL2Salt(OrbitSalts.L2_PROXY_ADMIN, chainId),
-            PROXY_ADMIN_HASH,
+            proxyAdminCreationCodeHash,
             canonicalL2FactoryAddress
         );
     }
@@ -569,7 +585,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     function _predictL2BeaconProxyFactoryAddress(uint256 chainId) internal view returns (address) {
         return Create2.computeAddress(
             _getL2Salt(OrbitSalts.BEACON_PROXY_FACTORY, chainId),
-            BEACON_PROXY_FACTORY_HASH,
+            beaconProxyFactoryCreationCodeHash,
             canonicalL2FactoryAddress
         );
     }

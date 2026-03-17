@@ -32,6 +32,8 @@ import {
   IInboxProxyAdmin__factory,
   ERC20__factory,
   UpgradeExecutor__factory,
+  BeaconProxyFactory__factory,
+  ClonableBeaconProxy__factory,
 } from '../build/types'
 import {
   abi as UpgradeExecutorABI,
@@ -504,6 +506,15 @@ export const deployL1TokenBridgeCreator = async (
       masterVaultFactoryTemplate: masterVaultFactoryTemplate.address,
       masterVaultTemplate: masterVaultTemplate.address,
     })
+  ).wait()
+
+  // set creation code hashes used for L2 address prediction
+  await (
+    await l1TokenBridgeCreator.setCreationCodeHashes(
+      ethers.utils.keccak256(ProxyAdmin__factory.bytecode),
+      ethers.utils.keccak256(BeaconProxyFactory__factory.bytecode),
+      ethers.utils.keccak256(ClonableBeaconProxy__factory.bytecode)
+    )
   ).wait()
 
   ///// verify contracts

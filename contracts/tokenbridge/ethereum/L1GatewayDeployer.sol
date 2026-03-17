@@ -17,11 +17,6 @@ import {
  * @notice Library for deploying all L1 gateway components (standard, custom, WETH, and YBB)
  */
 library L1GatewayDeployer {
-    // Precomputed CLONABLE_BEACON_PROXY_HASH to avoid embedding
-    // the full creation bytecode in the contract. Verified by test_precomputedHashConstants.
-    bytes32 internal constant CLONABLE_BEACON_PROXY_HASH =
-        0x86ad22bfb3a38ba49c9821998c00334db549117a4410e774fc91f19a15ac4cba;
-
     // ============ Shared Structs ============
 
     struct GatewayDeploymentParams {
@@ -32,6 +27,7 @@ library L1GatewayDeployer {
         address l2StandardGateway;
         address l2CustomGateway;
         address l2BeaconProxyFactory;
+        bytes32 clonableBeaconProxyCreationCodeHash;
         bool isFeeTokenBased;
     }
 
@@ -94,7 +90,7 @@ library L1GatewayDeployer {
                     params.l2StandardGateway,
                     params.router,
                     params.inbox,
-                    CLONABLE_BEACON_PROXY_HASH,
+                    params.clonableBeaconProxyCreationCodeHash,
                     params.l2BeaconProxyFactory
                 );
         }
@@ -157,7 +153,7 @@ library L1GatewayDeployer {
                     params.l2StandardGateway,
                     params.router,
                     params.inbox,
-                    CLONABLE_BEACON_PROXY_HASH,
+                    params.clonableBeaconProxyCreationCodeHash,
                     params.l2BeaconProxyFactory,
                     result.masterVaultFactory
                 );

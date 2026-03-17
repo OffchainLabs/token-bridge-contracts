@@ -14,7 +14,6 @@ import {
     BeaconProxyFactory,
     ClonableBeaconProxy
 } from "contracts/tokenbridge/libraries/ClonableBeaconProxy.sol";
-import {L1GatewayDeployer} from "contracts/tokenbridge/ethereum/L1GatewayDeployer.sol";
 import {
     L1TokenBridgeRetryableSender
 } from "contracts/tokenbridge/ethereum/L1TokenBridgeRetryableSender.sol";
@@ -914,24 +913,22 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
         );
     }
 
-    function test_precomputedHashConstants() public {
+    function test_creationCodeHashes() public {
+        _setTemplates();
         assertEq(
-            L1GatewayDeployer.CLONABLE_BEACON_PROXY_HASH,
-            keccak256(type(ClonableBeaconProxy).creationCode),
-            "CLONABLE_BEACON_PROXY_HASH mismatch"
-        );
-        // ProxyAdmin and BeaconProxyFactory hashes are internal to Creator,
-        // but verified indirectly by the address prediction tests above.
-        // Explicit check using independently computed values:
-        assertEq(
+            l1Creator.proxyAdminCreationCodeHash(),
             keccak256(type(ProxyAdmin).creationCode),
-            0xab8a74443120359b005005353e8f010da7ad8ab5570b06fb7c3e5d53ba31b935,
-            "PROXY_ADMIN_HASH mismatch"
+            "proxyAdminCreationCodeHash mismatch"
         );
         assertEq(
+            l1Creator.beaconProxyFactoryCreationCodeHash(),
             keccak256(type(BeaconProxyFactory).creationCode),
-            0x63be57f3861afbbef02f1829ffe500eacd2dc4ab3c89c3f617a9f005ee0c4c75,
-            "BEACON_PROXY_FACTORY_HASH mismatch"
+            "beaconProxyFactoryCreationCodeHash mismatch"
+        );
+        assertEq(
+            l1Creator.clonableBeaconProxyCreationCodeHash(),
+            keccak256(type(ClonableBeaconProxy).creationCode),
+            "clonableBeaconProxyCreationCodeHash mismatch"
         );
     }
 
@@ -1058,6 +1055,11 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
             1000
         );
         l1Creator.setYbbTemplates(_ybbTemplates);
+        l1Creator.setCreationCodeHashes(
+            keccak256(type(ProxyAdmin).creationCode),
+            keccak256(type(BeaconProxyFactory).creationCode),
+            keccak256(type(ClonableBeaconProxy).creationCode)
+        );
         vm.stopPrank();
     }
 
