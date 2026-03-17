@@ -8,7 +8,6 @@ import {L1YbbERC20Gateway} from "./gateway/L1YbbERC20Gateway.sol";
 import {L1YbbCustomGateway} from "./gateway/L1YbbCustomGateway.sol";
 import {IMasterVaultFactory} from "../libraries/vault/IMasterVaultFactory.sol";
 import {IGatewayRouter} from "../libraries/gateway/IGatewayRouter.sol";
-import {ClonableBeaconProxy} from "../libraries/ClonableBeaconProxy.sol";
 import {
     TransparentUpgradeableProxy
 } from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
@@ -18,6 +17,11 @@ import {
  * @notice Library for deploying all L1 gateway components (standard, custom, WETH, and YBB)
  */
 library L1GatewayDeployer {
+    // Precomputed CLONABLE_BEACON_PROXY_HASH to avoid embedding
+    // the full creation bytecode in the contract. Verified by test_precomputedHashConstants.
+    bytes32 internal constant CLONABLE_BEACON_PROXY_HASH =
+        0x86ad22bfb3a38ba49c9821998c00334db549117a4410e774fc91f19a15ac4cba;
+
     // ============ Shared Structs ============
 
     struct GatewayDeploymentParams {
@@ -90,7 +94,7 @@ library L1GatewayDeployer {
                     params.l2StandardGateway,
                     params.router,
                     params.inbox,
-                    keccak256(type(ClonableBeaconProxy).creationCode),
+                    CLONABLE_BEACON_PROXY_HASH,
                     params.l2BeaconProxyFactory
                 );
         }
@@ -153,7 +157,7 @@ library L1GatewayDeployer {
                     params.l2StandardGateway,
                     params.router,
                     params.inbox,
-                    keccak256(type(ClonableBeaconProxy).creationCode),
+                    CLONABLE_BEACON_PROXY_HASH,
                     params.l2BeaconProxyFactory,
                     result.masterVaultFactory
                 );

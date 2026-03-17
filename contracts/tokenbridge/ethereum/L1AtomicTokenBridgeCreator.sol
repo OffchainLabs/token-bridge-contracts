@@ -15,16 +15,11 @@ import {
 import {L1GatewayRouter} from "./gateway/L1GatewayRouter.sol";
 import {L1OrbitGatewayRouter} from "./gateway/L1OrbitGatewayRouter.sol";
 import {L1GatewayDeployer} from "./L1GatewayDeployer.sol";
-import {
-    L2AtomicTokenBridgeFactory,
-    OrbitSalts,
-    ProxyAdmin
-} from "../arbitrum/L2AtomicTokenBridgeFactory.sol";
+import {L2AtomicTokenBridgeFactory, OrbitSalts} from "../arbitrum/L2AtomicTokenBridgeFactory.sol";
 import {CreationCodeHelper} from "../libraries/CreationCodeHelper.sol";
 import {IUpgradeExecutor} from "@offchainlabs/upgrade-executor/src/IUpgradeExecutor.sol";
 import {AddressAliasHelper} from "../libraries/AddressAliasHelper.sol";
 import {IInbox} from "@arbitrum/nitro-contracts/src/bridge/IInbox.sol";
-import {BeaconProxyFactory} from "../libraries/ClonableBeaconProxy.sol";
 import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 import {
     Initializable,
@@ -44,6 +39,13 @@ import {
  */
 contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     using SafeERC20 for IERC20;
+
+    // Precomputed creation code hashes to avoid embedding full creation bytecodes.
+    // Verified by test_precomputedHashConstants.
+    bytes32 internal constant PROXY_ADMIN_HASH =
+        0xab8a74443120359b005005353e8f010da7ad8ab5570b06fb7c3e5d53ba31b935;
+    bytes32 internal constant BEACON_PROXY_FACTORY_HASH =
+        0x63be57f3861afbbef02f1829ffe500eacd2dc4ab3c89c3f617a9f005ee0c4c75;
 
     error L1AtomicTokenBridgeCreator_OnlyRollupOwner();
     error L1AtomicTokenBridgeCreator_TemplatesNotSet();
@@ -559,7 +561,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     function _predictL2ProxyAdminAddress(uint256 chainId) internal view returns (address) {
         return Create2.computeAddress(
             _getL2Salt(OrbitSalts.L2_PROXY_ADMIN, chainId),
-            keccak256(type(ProxyAdmin).creationCode),
+            PROXY_ADMIN_HASH,
             canonicalL2FactoryAddress
         );
     }
@@ -567,7 +569,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     function _predictL2BeaconProxyFactoryAddress(uint256 chainId) internal view returns (address) {
         return Create2.computeAddress(
             _getL2Salt(OrbitSalts.BEACON_PROXY_FACTORY, chainId),
-            keccak256(type(BeaconProxyFactory).creationCode),
+            BEACON_PROXY_FACTORY_HASH,
             canonicalL2FactoryAddress
         );
     }
