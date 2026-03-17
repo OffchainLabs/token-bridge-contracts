@@ -44,10 +44,19 @@ const config = {
           },
         },
       },
+      {
+        version: '0.8.20',
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 100,
+          },
+        },
+      },
     ],
     overrides: {
       'contracts/tokenbridge/test/UpgradeExecutorForVerification.sol': {
-        version: '0.8.16',
+        version: '0.8.20',
         settings: {
           optimizer: {
             enabled: true,

@@ -31,7 +31,8 @@ import {
     L1TokenBridgeRetryableSender
 } from "../contracts/tokenbridge/ethereum/L1TokenBridgeRetryableSender.sol";
 import {TestWETH9} from "../contracts/tokenbridge/test/TestWETH9.sol";
-import {Multicall2} from "../contracts/rpc-utils/MulticallV2.sol";
+import {Multicall2, ArbMulticall2} from "../contracts/rpc-utils/MulticallV2.sol";
+import {UpgradeExecutor} from "@offchainlabs/upgrade-executor/src/UpgradeExecutor.sol";
 
 import {
     TransparentUpgradeableProxy

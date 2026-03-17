@@ -18,17 +18,12 @@ import {L1GatewayDeployer} from "./L1GatewayDeployer.sol";
 import {
     L2AtomicTokenBridgeFactory,
     OrbitSalts,
-    L2RuntimeCode,
     ProxyAdmin
 } from "../arbitrum/L2AtomicTokenBridgeFactory.sol";
 import {CreationCodeHelper} from "../libraries/CreationCodeHelper.sol";
-import {
-    IUpgradeExecutor,
-    UpgradeExecutor
-} from "@offchainlabs/upgrade-executor/src/UpgradeExecutor.sol";
+import {IUpgradeExecutor} from "@offchainlabs/upgrade-executor/src/IUpgradeExecutor.sol";
 import {AddressAliasHelper} from "../libraries/AddressAliasHelper.sol";
 import {IInbox} from "@arbitrum/nitro-contracts/src/bridge/IInbox.sol";
-import {ArbMulticall2} from "../../rpc-utils/MulticallV2.sol";
 import {BeaconProxyFactory} from "../libraries/ClonableBeaconProxy.sol";
 import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 import {
@@ -255,7 +250,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         // on the upgrade executor which is the owner of the rollup
         address upgradeExecutor = IInbox(args.inbox).bridge().rollup().owner();
         if (!IAccessControlUpgradeable(upgradeExecutor)
-                .hasRole(UpgradeExecutor(upgradeExecutor).EXECUTOR_ROLE(), args.rollupOwner)) {
+                .hasRole(keccak256("EXECUTOR_ROLE"), args.rollupOwner)) {
             revert L1AtomicTokenBridgeCreator_RollupOwnershipMisconfig();
         }
 
@@ -310,25 +305,29 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                 address routerTemplate = feeToken != address(0)
                     ? address(l1Templates.feeTokenBasedRouterTemplate)
                     : address(l1Templates.routerTemplate);
-                l1Deployment.router = _deployProxyWithSalt(
+                l1Deployment.router = L1GatewayDeployer.deployProxy(
                     _getL1Salt(OrbitSalts.L1_ROUTER, args.inbox), routerTemplate, proxyAdmin
                 );
             }
+
+            // build shared params struct used by both standard and YBB paths
+            L1GatewayDeployer.GatewayDeploymentParams memory gwParams =
+                L1GatewayDeployer.GatewayDeploymentParams({
+                    inbox: args.inbox,
+                    proxyAdmin: proxyAdmin,
+                    upgradeExecutor: upgradeExecutor,
+                    router: l1Deployment.router,
+                    l2StandardGateway: l2Deployment.standardGateway,
+                    l2CustomGateway: l2Deployment.customGateway,
+                    l2BeaconProxyFactory: l2Deployment.beaconProxyFactory,
+                    isFeeTokenBased: feeToken != address(0)
+                });
 
             if (args.isYieldBearingBridge) {
                 // Delegate YBB deployment to library
                 L1GatewayDeployer.YbbDeploymentResult memory ybbResult =
                     L1GatewayDeployer.deployYbbGateways(
-                        L1GatewayDeployer.YbbDeploymentParams({
-                            inbox: args.inbox,
-                            proxyAdmin: proxyAdmin,
-                            upgradeExecutor: upgradeExecutor,
-                            router: l1Deployment.router,
-                            l2StandardGateway: l2Deployment.standardGateway,
-                            l2CustomGateway: l2Deployment.customGateway,
-                            l2BeaconProxyFactory: l2Deployment.beaconProxyFactory,
-                            isFeeTokenBased: feeToken != address(0)
-                        }),
+                        gwParams,
                         L1GatewayDeployer.YbbTemplates({
                             ybbStandardGatewayTemplate: ybbL1Templates.ybbStandardGatewayTemplate,
                             ybbCustomGatewayTemplate: ybbL1Templates.ybbCustomGatewayTemplate,
@@ -355,16 +354,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                 // Delegate standard gateway deployment to library
                 L1GatewayDeployer.StandardDeploymentResult memory standardResult =
                     L1GatewayDeployer.deployStandardGateways(
-                        L1GatewayDeployer.StandardDeploymentParams({
-                            inbox: args.inbox,
-                            proxyAdmin: proxyAdmin,
-                            upgradeExecutor: upgradeExecutor,
-                            router: l1Deployment.router,
-                            l2StandardGateway: l2Deployment.standardGateway,
-                            l2CustomGateway: l2Deployment.customGateway,
-                            l2BeaconProxyFactory: l2Deployment.beaconProxyFactory,
-                            isFeeTokenBased: feeToken != address(0)
-                        }),
+                        gwParams,
                         L1GatewayDeployer.StandardTemplates({
                             standardGatewayTemplate: l1Templates.standardGatewayTemplate,
                             feeTokenBasedStandardGatewayTemplate: l1Templates.feeTokenBasedStandardGatewayTemplate,
@@ -381,21 +371,19 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
 
             // l1 weth gateway deployment block
             if (feeToken == address(0)) {
-                L1GatewayDeployer.WethDeploymentResult memory wethResult =
-                    L1GatewayDeployer.deployWethGateway(
-                        L1GatewayDeployer.WethDeploymentParams({
-                            inbox: args.inbox,
-                            proxyAdmin: proxyAdmin,
-                            router: l1Deployment.router,
-                            l2WethGateway: l2Deployment.wethGateway,
-                            l1Weth: l1Weth,
-                            l2Weth: l2Deployment.weth
-                        }),
-                        l1Templates.wethGatewayTemplate,
-                        _getL1Salt(OrbitSalts.L1_WETH_GATEWAY, args.inbox)
-                    );
+                l1Deployment.wethGateway = L1GatewayDeployer.deployWethGateway(
+                    L1GatewayDeployer.WethDeploymentParams({
+                        inbox: args.inbox,
+                        proxyAdmin: proxyAdmin,
+                        router: l1Deployment.router,
+                        l2WethGateway: l2Deployment.wethGateway,
+                        l1Weth: l1Weth,
+                        l2Weth: l2Deployment.weth
+                    }),
+                    l1Templates.wethGatewayTemplate,
+                    _getL1Salt(OrbitSalts.L1_WETH_GATEWAY, args.inbox)
+                );
 
-                l1Deployment.wethGateway = wethResult.wethGateway;
                 l1Deployment.weth = l1Weth;
             }
 
@@ -670,16 +658,6 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                 prefix, chainId, AddressAliasHelper.applyL1ToL2Alias(address(retryableSender))
             )
         );
-    }
-
-    /**
-     * @notice Internal method to deploy TransparentUpgradeableProxy with CREATE2 opcode.
-     */
-    function _deployProxyWithSalt(bytes32 salt, address logic, address admin)
-        internal
-        returns (address)
-    {
-        return address(new TransparentUpgradeableProxy{salt: salt}(logic, admin, bytes("")));
     }
 
     /**

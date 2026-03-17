@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-pragma solidity <0.9.0 =0.8.16 >=0.6.2 ^0.8.0 ^0.8.1 ^0.8.2;
+pragma solidity <0.9.0 =0.8.20 >=0.6.2 ^0.8.0 ^0.8.1 ^0.8.2;
 
 // node_modules/@openzeppelin/contracts/security/ReentrancyGuard.sol
 
