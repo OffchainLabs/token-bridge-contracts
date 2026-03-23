@@ -23,6 +23,8 @@ import {
 } from "@offchainlabs/upgrade-executor/src/UpgradeExecutor.sol";
 import {AddressAliasHelper} from "../libraries/AddressAliasHelper.sol";
 import {IInbox} from "@arbitrum/nitro-contracts/src/bridge/IInbox.sol";
+import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
+import {BeaconProxyFactory, ClonableBeaconProxy} from "../libraries/ClonableBeaconProxy.sol";
 import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 import {
     Initializable,
@@ -127,14 +129,20 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
 
     YbbL1Templates public ybbL1Templates;
 
-    // Creation code hashes stored to avoid embedding full creation bytecodes in the runtime.
-    // Set via setCreationCodeHashes() by the deployer.
-    bytes32 public proxyAdminCreationCodeHash;
-    bytes32 public beaconProxyFactoryCreationCodeHash;
-    bytes32 public clonableBeaconProxyCreationCodeHash;
+    // Creation code hashes computed in the constructor to avoid embedding full creation bytecodes
+    // in the runtime bytecode. Constructor code is part of initcode only, so the large bytecode
+    // blobs don't count against the EIP-170 contract size limit. The resulting hashes are stored
+    // as immutables (embedded in runtime code as 32-byte constants), which works correctly with
+    // proxies since immutables are read from the implementation's code, not storage.
+    bytes32 public immutable proxyAdminCreationCodeHash;
+    bytes32 public immutable beaconProxyFactoryCreationCodeHash;
+    bytes32 public immutable clonableBeaconProxyCreationCodeHash;
 
     constructor() {
         _disableInitializers();
+        proxyAdminCreationCodeHash = keccak256(type(ProxyAdmin).creationCode);
+        beaconProxyFactoryCreationCodeHash = keccak256(type(BeaconProxyFactory).creationCode);
+        clonableBeaconProxyCreationCodeHash = keccak256(type(ClonableBeaconProxy).creationCode);
     }
 
     function initialize(L1TokenBridgeRetryableSender _retryableSender) public initializer {
@@ -196,22 +204,6 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     function setYbbTemplates(YbbL1Templates calldata _ybbL1Templates) external onlyOwner {
         ybbL1Templates = _ybbL1Templates;
         emit OrbitTokenBridgeTemplatesUpdated();
-    }
-
-    /**
-     * @notice Set creation code hashes used for L2 address prediction and gateway initialization.
-     * @dev These hashes are stored rather than computed inline to avoid embedding large creation
-     *      bytecodes in the contract's runtime bytecode, which would exceed the EIP-170 size limit.
-     *      The deployer must compute these from the compiled artifacts of the same compiler version.
-     */
-    function setCreationCodeHashes(
-        bytes32 _proxyAdminCreationCodeHash,
-        bytes32 _beaconProxyFactoryCreationCodeHash,
-        bytes32 _clonableBeaconProxyCreationCodeHash
-    ) external onlyOwner {
-        proxyAdminCreationCodeHash = _proxyAdminCreationCodeHash;
-        beaconProxyFactoryCreationCodeHash = _beaconProxyFactoryCreationCodeHash;
-        clonableBeaconProxyCreationCodeHash = _clonableBeaconProxyCreationCodeHash;
     }
 
     /**

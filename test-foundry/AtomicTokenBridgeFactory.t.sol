@@ -33,11 +33,6 @@ import {
 import {TestWETH9} from "../contracts/tokenbridge/test/TestWETH9.sol";
 import {Multicall2, ArbMulticall2} from "../contracts/rpc-utils/MulticallV2.sol";
 import {UpgradeExecutor} from "@offchainlabs/upgrade-executor/src/UpgradeExecutor.sol";
-import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
-import {
-    BeaconProxyFactory,
-    ClonableBeaconProxy
-} from "../contracts/tokenbridge/libraries/ClonableBeaconProxy.sol";
 
 import {
     TransparentUpgradeableProxy
@@ -208,11 +203,6 @@ contract AtomicTokenBridgeCreatorTest is Test {
             MAX_DEPLOYMENT_GAS
         );
         factory.setYbbTemplates(ybbTemplates);
-        factory.setCreationCodeHashes(
-            keccak256(type(ProxyAdmin).creationCode),
-            keccak256(type(BeaconProxyFactory).creationCode),
-            keccak256(type(ClonableBeaconProxy).creationCode)
-        );
     }
 
     function testDeployment() public {

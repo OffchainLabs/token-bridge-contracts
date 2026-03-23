@@ -914,7 +914,6 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
     }
 
     function test_creationCodeHashes() public {
-        _setTemplates();
         assertEq(
             l1Creator.proxyAdminCreationCodeHash(),
             keccak256(type(ProxyAdmin).creationCode),
@@ -1055,11 +1054,6 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
             1000
         );
         l1Creator.setYbbTemplates(_ybbTemplates);
-        l1Creator.setCreationCodeHashes(
-            keccak256(type(ProxyAdmin).creationCode),
-            keccak256(type(BeaconProxyFactory).creationCode),
-            keccak256(type(ClonableBeaconProxy).creationCode)
-        );
         vm.stopPrank();
     }
 
