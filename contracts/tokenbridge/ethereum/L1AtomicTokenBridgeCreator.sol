@@ -98,6 +98,11 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         bool isYieldBearingBridge;
     }
 
+    // Creation code hashes computed at compile time to avoid embedding full creation bytecodes in the runtime bytecode.
+    bytes32 public constant PROXY_ADMIN_CREATION_CODE_HASH = keccak256(type(ProxyAdmin).creationCode);
+    bytes32 public constant BEACON_PROXY_FACTORY_CREATION_CODE_HASH = keccak256(type(BeaconProxyFactory).creationCode);
+    bytes32 public constant CLONABLE_BEACON_PROXY_CREATION_CODE_HASH = keccak256(type(ClonableBeaconProxy).creationCode);
+
     // use separate mapping to allow appending to the struct in the future
     // and workaround some stack too deep issues
     mapping(address => L1DeploymentAddresses) public inboxToL1Deployment;
@@ -135,20 +140,8 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
 
     YbbL1Templates public ybbL1Templates;
 
-    // Creation code hashes computed in the constructor to avoid embedding full creation bytecodes
-    // in the runtime bytecode. Constructor code is part of initcode only, so the large bytecode
-    // blobs don't count against the EIP-170 contract size limit. The resulting hashes are stored
-    // as immutables (embedded in runtime code as 32-byte constants), which works correctly with
-    // proxies since immutables are read from the implementation's code, not storage.
-    bytes32 public immutable proxyAdminCreationCodeHash;
-    bytes32 public immutable beaconProxyFactoryCreationCodeHash;
-    bytes32 public immutable clonableBeaconProxyCreationCodeHash;
-
     constructor() {
         _disableInitializers();
-        proxyAdminCreationCodeHash = keccak256(type(ProxyAdmin).creationCode);
-        beaconProxyFactoryCreationCodeHash = keccak256(type(BeaconProxyFactory).creationCode);
-        clonableBeaconProxyCreationCodeHash = keccak256(type(ClonableBeaconProxy).creationCode);
     }
 
     function initialize(L1TokenBridgeRetryableSender _retryableSender) public initializer {
@@ -455,7 +448,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                     l2Deployment.standardGateway,
                     l1Deployment.router,
                     args.inbox,
-                    clonableBeaconProxyCreationCodeHash,
+                    CLONABLE_BEACON_PROXY_CREATION_CODE_HASH,
                     l2Deployment.beaconProxyFactory
                 );
         }
@@ -507,7 +500,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                     l2Deployment.standardGateway,
                     l1Deployment.router,
                     args.inbox,
-                    clonableBeaconProxyCreationCodeHash,
+                    CLONABLE_BEACON_PROXY_CREATION_CODE_HASH,
                     l2Deployment.beaconProxyFactory,
                     masterVaultFactory
                 );
@@ -638,7 +631,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     function _predictL2ProxyAdminAddress(uint256 chainId) internal view returns (address) {
         return Create2.computeAddress(
             _getL2Salt(OrbitSalts.L2_PROXY_ADMIN, chainId),
-            proxyAdminCreationCodeHash,
+            PROXY_ADMIN_CREATION_CODE_HASH,
             canonicalL2FactoryAddress
         );
     }
@@ -646,7 +639,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
     function _predictL2BeaconProxyFactoryAddress(uint256 chainId) internal view returns (address) {
         return Create2.computeAddress(
             _getL2Salt(OrbitSalts.BEACON_PROXY_FACTORY, chainId),
-            beaconProxyFactoryCreationCodeHash,
+            BEACON_PROXY_FACTORY_CREATION_CODE_HASH,
             canonicalL2FactoryAddress
         );
     }
