@@ -435,7 +435,6 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         }
     }
 
-    // REVIEW: ensure this is straight copy paste
     function _deployStandardGateways(
         CreateTokenBridgeArgs memory args,
         L1DeploymentAddresses memory l1Deployment,
@@ -507,14 +506,14 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             );
 
             L1YbbERC20Gateway(l1Deployment.standardGateway)
-                .initialize(
-                    l2Deployment.standardGateway,
-                    l1Deployment.router,
-                    args.inbox,
-                    clonableBeaconProxyCreationCodeHash,
-                    l2Deployment.beaconProxyFactory,
-                    masterVaultFactory
-                );
+                .initialize({
+                    _l2Counterpart: l2Deployment.standardGateway,
+                    _router: l1Deployment.router,
+                    _inbox: args.inbox,
+                    _cloneableProxyHash: clonableBeaconProxyCreationCodeHash,
+                    _l2BeaconProxyFactory: l2Deployment.beaconProxyFactory,
+                    _masterVaultFactory: masterVaultFactory
+                });
         }
 
         // ybb custom gateway
@@ -528,22 +527,22 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
             );
 
             L1YbbCustomGateway(l1Deployment.customGateway)
-                .initialize(
-                    l2Deployment.customGateway,
-                    l1Deployment.router,
-                    args.inbox,
-                    upgradeExecutor,
-                    masterVaultFactory
-                );
+                .initialize({
+                    _l1Counterpart: l2Deployment.customGateway,
+                    _l1Router: l1Deployment.router,
+                    _inbox: args.inbox,
+                    _owner: upgradeExecutor,
+                    _masterVaultFactory: masterVaultFactory
+                });
         }
 
         // initialize master vault factory (after router is deployed)
         IMasterVaultFactory(masterVaultFactory)
-            .initialize(
-                ybbL1Templates.masterVaultTemplate,
-                upgradeExecutor,
-                IGatewayRouter(l1Deployment.router)
-            );
+            .initialize({
+                _masterVaultImplementation: ybbL1Templates.masterVaultTemplate,
+                _admin: upgradeExecutor,
+                _gatewayRouter: IGatewayRouter(l1Deployment.router)
+            });
     }
 
     // slither-disable-next-line arbitrary-send-eth
