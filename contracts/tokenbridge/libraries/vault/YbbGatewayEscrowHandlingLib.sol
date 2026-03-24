@@ -6,11 +6,11 @@ import {IMasterVaultFactory} from "./IMasterVaultFactory.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-library YbbVaultLib {
+library YbbGatewayEscrowHandlingLib {
     using SafeERC20 for IERC20;
 
     // slither-disable-next-line arbitrary-send-erc20
-    function depositToVault(address masterVaultFactory, address token, address from, uint256 amount)
+    function handleOutboundEscrowTransfer(address masterVaultFactory, address token, address from, uint256 amount)
         internal
         returns (uint256 shares)
     {
@@ -25,7 +25,7 @@ library YbbVaultLib {
         require(shares > 0, "ZERO_SHARES");
     }
 
-    function withdrawFromVault(
+    function handleInboundEscrowTransfer(
         address masterVaultFactory,
         address token,
         address dest,

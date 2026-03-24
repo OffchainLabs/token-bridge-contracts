@@ -4,7 +4,8 @@ pragma solidity ^0.8.0;
 
 import {L1OrbitERC20Gateway} from "./L1OrbitERC20Gateway.sol";
 import {L1ERC20Gateway} from "./L1ERC20Gateway.sol";
-import {YbbVaultLib} from "../../libraries/vault/YbbVaultLib.sol";
+import {YbbGatewayEscrowHandlingLib} from "../../libraries/vault/YbbGatewayEscrowHandlingLib.sol";
+import {AbsYbbGateway} from "./AbsYbbGateway.sol";
 import {IMasterVaultFactory} from "../../libraries/vault/IMasterVaultFactory.sol";
 import {IERC20, ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -15,12 +16,7 @@ import {ITokenGateway} from "../../libraries/gateway/ITokenGateway.sol";
  * @title Layer 1 Gateway contract for bridging standard ERC20s with YBB enabled in ERC20-based rollup
  * @notice Escrows funds into MasterVaults for yield bearing bridging.
  */
-contract L1OrbitYbbERC20Gateway is L1OrbitERC20Gateway {
-    using SafeERC20 for IERC20;
-
-    /// @notice Address of the MasterVaultFactory contract
-    address public masterVaultFactory;
-
+contract L1OrbitYbbERC20Gateway is AbsYbbGateway, L1OrbitERC20Gateway {
     function initialize(
         address _l2Counterpart,
         address _router,
@@ -32,14 +28,14 @@ contract L1OrbitYbbERC20Gateway is L1OrbitERC20Gateway {
         L1ERC20Gateway.initialize(
             _l2Counterpart, _router, _inbox, _cloneableProxyHash, _l2BeaconProxyFactory
         );
-        _setMasterVaultFactory(_masterVaultFactory);
+        AbsYbbGateway._initialize(_masterVaultFactory);
     }
 
     function inboundEscrowTransfer(address _l1Token, address _dest, uint256 _amount)
         internal
         override
     {
-        YbbVaultLib.withdrawFromVault(masterVaultFactory, _l1Token, _dest, _amount);
+        YbbGatewayEscrowHandlingLib.handleInboundEscrowTransfer(masterVaultFactory, _l1Token, _dest, _amount);
     }
 
     function outboundEscrowTransfer(address _l1Token, address _from, uint256 _amount)
@@ -47,7 +43,7 @@ contract L1OrbitYbbERC20Gateway is L1OrbitERC20Gateway {
         override
         returns (uint256 amountReceived)
     {
-        amountReceived = YbbVaultLib.depositToVault(masterVaultFactory, _l1Token, _from, _amount);
+        amountReceived = YbbGatewayEscrowHandlingLib.handleOutboundEscrowTransfer(masterVaultFactory, _l1Token, _from, _amount);
     }
 
     function getOutboundCalldata(
@@ -73,10 +69,5 @@ contract L1OrbitYbbERC20Gateway is L1OrbitERC20Gateway {
             _amount,
             GatewayMessageHandler.encodeToL2GatewayMsg(deployData, _data)
         );
-    }
-
-    function _setMasterVaultFactory(address _masterVaultFactory) internal {
-        require(_masterVaultFactory != address(0), "BAD_MASTER_VAULT_FACTORY");
-        masterVaultFactory = _masterVaultFactory;
     }
 }
