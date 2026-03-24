@@ -135,20 +135,13 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
 
     YbbL1Templates public ybbL1Templates;
 
-    // Creation code hashes computed in the constructor to avoid embedding full creation bytecodes
-    // in the runtime bytecode. Constructor code is part of initcode only, so the large bytecode
-    // blobs don't count against the EIP-170 contract size limit. The resulting hashes are stored
-    // as immutables (embedded in runtime code as 32-byte constants), which works correctly with
-    // proxies since immutables are read from the implementation's code, not storage.
-    bytes32 public immutable proxyAdminCreationCodeHash;
-    bytes32 public immutable beaconProxyFactoryCreationCodeHash;
-    bytes32 public immutable clonableBeaconProxyCreationCodeHash;
+    // Creation code hashes computed during deployment to avoid embedding full creation bytecodes in the runtime bytecode.
+    bytes32 public immutable proxyAdminCreationCodeHash = keccak256(type(ProxyAdmin).creationCode);
+    bytes32 public immutable beaconProxyFactoryCreationCodeHash = keccak256(type(BeaconProxyFactory).creationCode);
+    bytes32 public immutable clonableBeaconProxyCreationCodeHash = keccak256(type(ClonableBeaconProxy).creationCode);
 
     constructor() {
         _disableInitializers();
-        proxyAdminCreationCodeHash = keccak256(type(ProxyAdmin).creationCode);
-        beaconProxyFactoryCreationCodeHash = keccak256(type(BeaconProxyFactory).creationCode);
-        clonableBeaconProxyCreationCodeHash = keccak256(type(ClonableBeaconProxy).creationCode);
     }
 
     function initialize(L1TokenBridgeRetryableSender _retryableSender) public initializer {
