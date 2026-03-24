@@ -915,19 +915,19 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
 
     function test_creationCodeHashes() public {
         assertEq(
-            l1Creator.PROXY_ADMIN_CREATION_CODE_HASH(),
+            l1Creator.proxyAdminCreationCodeHash(),
             keccak256(type(ProxyAdmin).creationCode),
-            "PROXY_ADMIN_CREATION_CODE_HASH mismatch"
+            "proxyAdminCreationCodeHash mismatch"
         );
         assertEq(
-            l1Creator.BEACON_PROXY_FACTORY_CREATION_CODE_HASH(),
+            l1Creator.beaconProxyFactoryCreationCodeHash(),
             keccak256(type(BeaconProxyFactory).creationCode),
-            "BEACON_PROXY_FACTORY_CREATION_CODE_HASH mismatch"
+            "beaconProxyFactoryCreationCodeHash mismatch"
         );
         assertEq(
-            l1Creator.CLONABLE_BEACON_PROXY_CREATION_CODE_HASH(),
+            l1Creator.clonableBeaconProxyCreationCodeHash(),
             keccak256(type(ClonableBeaconProxy).creationCode),
-            "CLONABLE_BEACON_PROXY_CREATION_CODE_HASH mismatch"
+            "clonableBeaconProxyCreationCodeHash mismatch"
         );
     }
 
