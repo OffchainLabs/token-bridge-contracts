@@ -256,6 +256,9 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         if (address(l1Templates.routerTemplate) == address(0)) {
             revert L1AtomicTokenBridgeCreator_TemplatesNotSet();
         }
+        if (address(ybbL1Templates.ybbStandardGatewayTemplate) == address(0)) {
+            revert L1AtomicTokenBridgeCreator_TemplatesNotSet();
+        }
 
         // Check that the rollupOwner account has EXECUTOR role
         // on the upgrade executor which is the owner of the rollup
