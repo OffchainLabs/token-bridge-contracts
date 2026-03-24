@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 
 import {L1OrbitCustomGateway} from "./L1OrbitCustomGateway.sol";
 import {L1CustomGateway} from "./L1CustomGateway.sol";
-import {YbbGatewayEscrowHandlingLib} from "../../libraries/vault/YbbGatewayEscrowHandlingLib.sol";
+import {L1ArbitrumGateway} from "./L1ArbitrumGateway.sol";
 import {AbsYbbGateway} from "./AbsYbbGateway.sol";
 import {IMasterVaultFactory} from "../../libraries/vault/IMasterVaultFactory.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
@@ -28,16 +28,16 @@ contract L1OrbitYbbCustomGateway is AbsYbbGateway, L1OrbitCustomGateway {
 
     function inboundEscrowTransfer(address _l1Token, address _dest, uint256 _amount)
         internal
-        override
+        override(AbsYbbGateway, L1ArbitrumGateway)
     {
-        YbbGatewayEscrowHandlingLib.handleInboundEscrowTransfer(masterVaultFactory, _l1Token, _dest, _amount);
+        AbsYbbGateway.inboundEscrowTransfer(_l1Token, _dest, _amount);
     }
 
     function outboundEscrowTransfer(address _l1Token, address _from, uint256 _amount)
         internal
-        override
+        override(AbsYbbGateway, L1ArbitrumGateway)
         returns (uint256 amountReceived)
     {
-        amountReceived = YbbGatewayEscrowHandlingLib.handleOutboundEscrowTransfer(masterVaultFactory, _l1Token, _from, _amount);
+        return AbsYbbGateway.outboundEscrowTransfer(_l1Token, _from, _amount);
     }
 }
