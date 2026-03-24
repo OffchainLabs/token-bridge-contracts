@@ -6,11 +6,6 @@ import {L1ERC20Gateway} from "./L1ERC20Gateway.sol";
 import {L1ArbitrumGateway} from "./L1ArbitrumGateway.sol";
 import {AbsYbbERC20Gateway} from "./AbsYbbERC20Gateway.sol";
 import {AbsYbbGateway} from "./AbsYbbGateway.sol";
-import {IMasterVaultFactory} from "../../libraries/vault/IMasterVaultFactory.sol";
-import {IERC20, ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {GatewayMessageHandler} from "../../libraries/gateway/GatewayMessageHandler.sol";
-import {ITokenGateway} from "../../libraries/gateway/ITokenGateway.sol";
 
 /**
  * @title Layer 1 Gateway contract for bridging standard ERC20s with YBB enabled

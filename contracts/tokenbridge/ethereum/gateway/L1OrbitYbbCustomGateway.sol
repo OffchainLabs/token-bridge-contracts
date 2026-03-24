@@ -6,9 +6,6 @@ import {L1OrbitCustomGateway} from "./L1OrbitCustomGateway.sol";
 import {L1CustomGateway} from "./L1CustomGateway.sol";
 import {L1ArbitrumGateway} from "./L1ArbitrumGateway.sol";
 import {AbsYbbGateway} from "./AbsYbbGateway.sol";
-import {IMasterVaultFactory} from "../../libraries/vault/IMasterVaultFactory.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
  * @title Layer 1 Gateway contract for bridging Custom ERC20s with YBB enabled in ERC20-based rollup
