@@ -7,11 +7,13 @@ import {
     L1AtomicTokenBridgeCreator,
     L1DeploymentAddresses,
     L2DeploymentAddresses,
-    TransparentUpgradeableProxy,
-    ProxyAdmin,
-    BeaconProxyFactory
+    TransparentUpgradeableProxy
 } from "contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol";
-import {ClonableBeaconProxy} from "contracts/tokenbridge/libraries/ClonableBeaconProxy.sol";
+import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
+import {
+    BeaconProxyFactory,
+    ClonableBeaconProxy
+} from "contracts/tokenbridge/libraries/ClonableBeaconProxy.sol";
 import {
     L1TokenBridgeRetryableSender
 } from "contracts/tokenbridge/ethereum/L1TokenBridgeRetryableSender.sol";
@@ -908,6 +910,24 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
             address(0),
             address(0),
             1000
+        );
+    }
+
+    function test_creationCodeHashes() public {
+        assertEq(
+            l1Creator.proxyAdminCreationCodeHash(),
+            keccak256(type(ProxyAdmin).creationCode),
+            "proxyAdminCreationCodeHash mismatch"
+        );
+        assertEq(
+            l1Creator.beaconProxyFactoryCreationCodeHash(),
+            keccak256(type(BeaconProxyFactory).creationCode),
+            "beaconProxyFactoryCreationCodeHash mismatch"
+        );
+        assertEq(
+            l1Creator.clonableBeaconProxyCreationCodeHash(),
+            keccak256(type(ClonableBeaconProxy).creationCode),
+            "clonableBeaconProxyCreationCodeHash mismatch"
         );
     }
 
