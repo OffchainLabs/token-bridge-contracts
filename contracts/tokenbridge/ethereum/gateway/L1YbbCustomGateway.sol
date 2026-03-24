@@ -13,7 +13,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
  * @title Layer 1 Gateway contract for bridging Custom ERC20s with YBB enabled
  * @notice Escrows funds into MasterVaults for yield bearing bridging.
  */
-contract L1YbbCustomGateway is AbsYbbGateway, L1CustomGateway {
+contract L1YbbCustomGateway is L1CustomGateway, AbsYbbGateway {
     function initialize(
         address _l1Counterpart,
         address _l1Router,

@@ -17,7 +17,7 @@ import {ITokenGateway} from "../../libraries/gateway/ITokenGateway.sol";
  * @title Layer 1 Gateway contract for bridging standard ERC20s with YBB enabled in ERC20-based rollup
  * @notice Escrows funds into MasterVaults for yield bearing bridging.
  */
-contract L1OrbitYbbERC20Gateway is AbsYbbERC20Gateway, L1OrbitERC20Gateway {
+contract L1OrbitYbbERC20Gateway is L1OrbitERC20Gateway, AbsYbbERC20Gateway {
     function initialize(
         address _l2Counterpart,
         address _router,
