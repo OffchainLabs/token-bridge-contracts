@@ -428,6 +428,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         }
     }
 
+    // REVIEW: ensure this is straight copy paste
     function _deployStandardGateways(
         CreateTokenBridgeArgs memory args,
         L1DeploymentAddresses memory l1Deployment,
