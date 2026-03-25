@@ -38,6 +38,9 @@ contract L1WethGatewayTest is L1ArbitrumExtendedGatewayTest {
     }
 
     /* solhint-disable func-name-mixedcase */
+    function registerTokenForExtraDataTest() internal override returns (address) {
+        return L1_WETH;
+    }
 
     function test_finalizeInboundTransfer() public override {
         // fund gateway with tokens being withdrawn
