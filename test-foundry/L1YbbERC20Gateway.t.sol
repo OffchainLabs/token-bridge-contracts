@@ -134,7 +134,7 @@ contract L1YbbERC20GatewayTest is Test {
         vm.deal(user, retryableCost);
 
         vm.prank(user);
-        vm.expectRevert("ZERO_SHARES");
+        vm.expectRevert("AbsYbbGateway: ZERO_SHARES");
         router.outboundTransferCustomRefund{value: retryableCost}(
             address(token), user, l2Dest, 0, maxGas, gasPriceBid, userData
         );
