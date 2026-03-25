@@ -17,7 +17,8 @@ abstract contract AbsYbbGateway {
     address public masterVaultFactory;
 
     function _initialize(address _masterVaultFactory) internal {
-        require(_masterVaultFactory != address(0), "BAD_MASTER_VAULT_FACTORY");
+        require(_masterVaultFactory != address(0), "AbsYbbGateway: BAD_MASTER_VAULT_FACTORY");
+        require(masterVaultFactory == address(0), "AbsYbbGateway: ALREADY_INITIALIZED");
         masterVaultFactory = _masterVaultFactory;
     }
 
@@ -42,6 +43,6 @@ abstract contract AbsYbbGateway {
         address masterVault = IMasterVaultFactory(masterVaultFactory).getVault(_l1Token);
         IERC20(_l1Token).safeIncreaseAllowance(masterVault, underlyingReceived);
         amountReceived = IMasterVault(masterVault).deposit(underlyingReceived);
-        require(amountReceived > 0, "ZERO_SHARES");
+        require(amountReceived > 0, "AbsYbbGateway: ZERO_SHARES");
     }
 }
