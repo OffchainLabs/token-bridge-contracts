@@ -8,7 +8,7 @@ import {ITokenGateway} from "../../libraries/gateway/ITokenGateway.sol";
 import {GatewayMessageHandler} from "../../libraries/gateway/GatewayMessageHandler.sol";
 
 /// @notice Abstract contract inherited by L1OrbitYbbERC20Gateway and L1YbbERC20Gateway.
-///         Provides shared logic for getOutboundCalldata.
+///         Provides shared logic for getOutboundCalldata and inherits escrow handling and slippage checking from AbsYbbGateway.
 abstract contract AbsYbbERC20Gateway is AbsYbbGateway {
     function getOutboundCalldata(
         address _token,

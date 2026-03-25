@@ -21,6 +21,31 @@ abstract contract AbsYbbGateway {
         masterVaultFactory = _masterVaultFactory;
     }
 
+    /// @notice Same as outboundTransferCustomRefund but supports an optional slippage tolerance parameter.
+    /// @param  minReceivedOnL2 Minimum amount of tokens expected to be received on L2 after the transfer, used for slippage protection.
+    function outboundTransferCustomRefundWithSlippageTolerance(
+        address _l1Token,
+        address _refundTo,
+        address _to,
+        uint256 _amount,
+        uint256 _maxGas,
+        uint256 _gasPriceBid,
+        bytes calldata _data,
+        uint256 minReceivedOnL2
+    ) public payable returns (bytes memory res) {
+        uint256 receivedOnL2;
+        (res, receivedOnL2) = _outboundTransferCustomRefund(
+            _l1Token,
+            _refundTo,
+            _to,
+            _amount,
+            _maxGas,
+            _gasPriceBid,
+            _data
+        );
+        require(receivedOnL2 >= minReceivedOnL2, "SLIPPAGE_EXCEEDED");
+    }
+
     function inboundEscrowTransfer(address _l1Token, address _dest, uint256 _amount)
         internal
         virtual
@@ -44,4 +69,14 @@ abstract contract AbsYbbGateway {
         amountReceived = IMasterVault(masterVault).deposit(underlyingReceived);
         require(amountReceived > 0, "ZERO_SHARES");
     }
+
+    function _outboundTransferCustomRefund(
+        address _l1Token,
+        address _refundTo,
+        address _to,
+        uint256 _amount,
+        uint256 _maxGas,
+        uint256 _gasPriceBid,
+        bytes calldata _data
+    ) internal virtual returns (bytes memory res, uint256 amountOnL2);
 }
