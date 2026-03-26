@@ -37,8 +37,8 @@ import {IMasterVault} from "./IMasterVault.sol";
 ///           Superlinear previewMint or sublinear previewDeposit may cause the MasterVault to overcharge on deposits and underpay on withdrawals.
 ///         - must not have deposit / withdrawal fees (because rebalancing can happen frequently)
 ///
-///         The underlying asset must be a standard ERC20. Fee-on-transfer tokens are supported.
-///         Rebasing, inflationary, or other non-standard balance-changing tokens are not supported,
+///         The underlying asset must be a standard ERC20.
+///         Fee-on-transfer, rebasing, inflationary, or other non-standard balance-changing tokens are not supported,
 ///         consistent with the token bridge's general requirement that such tokens use their own custom gateway.
 ///
 ///         Roles are primarily managed via an external MasterVaultRoles contract,
@@ -79,6 +79,7 @@ contract MasterVault is
     );
     error RebalanceExchRateWrongSign(int256 minExchRateWad);
     error InsufficientAssets(uint256 assets, uint256 minAssets);
+    error FeeOnTransferNotSupported(uint256 expectedBalance, uint256 actualBalance);
 
     /*
     Storage layout notes:
@@ -214,16 +215,13 @@ contract MasterVault is
         onlyGateway
         returns (uint256 shares)
     {
-        uint256 totalAssetsRoundedDown = _totalAssets(MathUpgradeable.Rounding.Down);
-        uint256 totalAssetsRoundedUp = _totalAssets(MathUpgradeable.Rounding.Up);
-
-        uint256 prevBalance = asset.balanceOf(address(this));
-        asset.safeTransferFrom(msg.sender, address(this), assets);
-        uint256 actualReceived = asset.balanceOf(address(this)) - prevBalance;
-
-        shares = _convertToSharesRoundDown(actualReceived, totalAssetsRoundedDown, totalAssetsRoundedUp, totalSupply());
-
+        shares = _convertToSharesRoundDown(assets);
         _mint(msg.sender, shares);
+        uint256 idleAssets = asset.balanceOf(address(this));
+        asset.safeTransferFrom(msg.sender, address(this), assets);
+        if (idleAssets + assets != asset.balanceOf(address(this))) {
+            revert FeeOnTransferNotSupported(idleAssets + assets, asset.balanceOf(address(this)));
+        }
     }
 
     /// @notice Redeem some vault shares in exchange for underlying assets
@@ -237,7 +235,7 @@ contract MasterVault is
         nonReentrant
         returns (uint256 assets)
     {
-        assets = _convertToAssetsRoundDown(shares, _totalAssets(MathUpgradeable.Rounding.Down), totalSupply());
+        assets = _convertToAssetsRoundDown(shares);
         if (minAssets > 0 && assets < minAssets) {
             revert InsufficientAssets(assets, minAssets);
         }
@@ -516,13 +514,13 @@ contract MasterVault is
 
     /// @dev Converts assets to shares, rounding down.
     ///      Uses ideal ratio when solvent, standard formula when in loss.
-    function _convertToSharesRoundDown(uint256 assets, uint256 totalAssetsRoundedDown, uint256 totalAssetsRoundedUp, uint256 _totalSupply) internal pure returns (uint256 shares) {
+    function _convertToSharesRoundDown(uint256 assets) internal view returns (uint256 shares) {
         // bias against the depositor by rounding DOWN totalAssets to more easily detect losses
-        if (totalAssetsRoundedDown < _totalSupply) {
+        if (_haveLoss()) {
             // we have losses
             return assets.mulDiv(
-                _totalSupply,
-                totalAssetsRoundedUp,
+                totalSupply(),
+                _totalAssets(MathUpgradeable.Rounding.Up),
                 MathUpgradeable.Rounding.Down
             );
         }
@@ -532,18 +530,23 @@ contract MasterVault is
 
     /// @dev Converts shares to assets, rounding down.
     ///      Uses ideal ratio when solvent, standard formula when in loss.
-    function _convertToAssetsRoundDown(uint256 shares, uint256 totalAssetsRoundedDown, uint256 _totalSupply) internal pure returns (uint256 assets) {
+    function _convertToAssetsRoundDown(uint256 shares) internal view returns (uint256 assets) {
         // bias against the depositor by rounding DOWN totalAssets to more easily detect losses
-        if (totalAssetsRoundedDown < _totalSupply) {
+        if (_haveLoss()) {
             // we have losses
             return shares.mulDiv(
-                totalAssetsRoundedDown,
-                _totalSupply,
+                _totalAssets(MathUpgradeable.Rounding.Down),
+                totalSupply(),
                 MathUpgradeable.Rounding.Down
             );
         }
         // no losses, use ideal 1:1 ratio
         return shares;
+    }
+
+    /// @dev Whether the vault has losses
+    function _haveLoss() internal view returns (bool) {
+        return _totalAssets(MathUpgradeable.Rounding.Down) < totalSupply();
     }
 
     /// @dev Converts subvault shares to assets using the subvault's preview functions

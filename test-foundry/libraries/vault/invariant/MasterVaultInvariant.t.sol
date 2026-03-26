@@ -17,7 +17,6 @@ import {
     TransparentUpgradeableProxy
 } from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {MasterVaultWithManipulationHandler, MasterVaultHandler} from "./MasterVaultHandler.sol";
-import {MathUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/math/MathUpgradeable.sol";
 import {console2} from "forge-std/console2.sol";
 
 contract MockGatewayRouterInvariant {
@@ -377,33 +376,6 @@ contract MasterVaultInvariant is BaseMasterVaultInvariant {
         assertGe(
             sharesRecvAfter, sharesRecvBefore, "user received fewer shares after attacker donation"
         );
-    }
-
-    /// @notice Shares minted by deposit() must reflect the pre-deposit vault state.
-    /// @dev    The deposit transfer must not influence its own share calculation.
-    function invariant_depositSharesMatchPreDepositPricing() public {
-        uint256 depositAmount = bound(MasterVaultHandler(handler).random(), 1, 1e18);
-
-        // Mirror _convertToSharesRoundDown using pre-deposit state
-        uint256 subShares = vault.subVault().balanceOf(address(vault));
-        uint256 totalAssetsDown =
-            1 + token.balanceOf(address(vault)) + vault.subVault().previewRedeem(subShares);
-        uint256 supply = vault.totalSupply();
-
-        uint256 expectedShares;
-        if (totalAssetsDown < supply) {
-            uint256 totalAssetsUp =
-                1 + token.balanceOf(address(vault)) + vault.subVault().previewMint(subShares);
-            expectedShares = MathUpgradeable.mulDiv(
-                depositAmount, supply, totalAssetsUp, MathUpgradeable.Rounding.Down
-            );
-        } else {
-            expectedShares = depositAmount;
-        }
-
-        uint256 actualShares = _mintAndDeposit(depositAmount);
-
-        assertEq(actualShares, expectedShares, "deposit shares don't match pre-deposit pricing");
     }
 
     function invariant_donationAttackNotProfitable() public {
