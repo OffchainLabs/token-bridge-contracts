@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import {IMasterVaultFactory} from "../../libraries/vault/IMasterVaultFactory.sol";
 import {IMasterVault} from "../../libraries/vault/IMasterVault.sol";
+import {IYbbGateway} from "./IYbbGateway.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
@@ -10,7 +11,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 ///         Inherited directly by L1YbbCustomGateway and L1OrbitYbbCustomGateway, 
 ///         and inherited indirectly by L1YbbERC20Gateway and L1OrbitYbbERC20Gateway through AbsYbbERC20Gateway.
 ///         Provides shared logic for initialization and escrow handling.
-abstract contract AbsYbbGateway {
+abstract contract AbsYbbGateway is IYbbGateway {
     using SafeERC20 for IERC20;
 
     /// @notice Address of the MasterVaultFactory contract
@@ -22,8 +23,7 @@ abstract contract AbsYbbGateway {
         masterVaultFactory = _masterVaultFactory;
     }
 
-    /// @notice Same as outboundTransferCustomRefund but supports an optional slippage tolerance parameter.
-    /// @param  minReceivedOnL2 Minimum amount of tokens expected to be received on L2 after the transfer, used for slippage protection.
+    /// @inheritdoc IYbbGateway
     function outboundTransferCustomRefundWithSlippageTolerance(
         address _l1Token,
         address _refundTo,
