@@ -39,8 +39,8 @@ const config = {
   childUrl: 'http://127.0.0.1:3347',
 }
 
-const LOCALHOST_L3_OWNER_KEY =
-  '0xecdf21cb41c65afb51f91df408b7656e2c8739a5877f2814add0afd780cc210e'
+const DEPOSIT_AMOUNT = 120
+const WITHDRAWAL_AMOUNT = 50
 
 let parentProvider: JsonRpcProvider
 let childProvider: JsonRpcProvider
@@ -154,980 +154,230 @@ describe('YBB Token Bridge', () => {
   })
 
   it('can deposit token via default gateway', async function () {
-    // fund user to be able to pay retryable fees
-    if (nativeToken) {
-      await (
-        await nativeToken
-          .connect(deployerL1Wallet)
-          .transfer(
-            userL1Wallet.address,
-            ethers.utils.parseUnits('100', await nativeToken.decimals())
-          )
-      ).wait()
-      nativeToken.connect(userL1Wallet)
-    }
+    await fundUserForRetryableFees()
 
-    // create token to be bridged
     const token = await (
       await new TestERC20__factory(userL1Wallet).deploy()
     ).deployed()
     await (await token.mint()).wait()
 
-    const depositAmount = 120
-
-    // snapshot state before
     const userTokenBalanceBefore = await token.balanceOf(userL1Wallet.address)
 
-    // approve token
     await (
       await token.approve(
         _l2Network.tokenBridge.parentErc20Gateway,
-        depositAmount
+        DEPOSIT_AMOUNT
       )
     ).wait()
 
-    // calculate retryable params
-    const maxSubmissionCost = nativeToken
-      ? BigNumber.from(0)
-      : BigNumber.from(584000000000)
-    const callhook = '0x'
+    const gatewayAddress = _l2Network.tokenBridge.parentErc20Gateway
+    const { router } = await deposit({
+      tokenAddress: token.address,
+      gatewayAddress,
+      amount: DEPOSIT_AMOUNT,
+    })
 
-    const gateway = L1YbbERC20Gateway__factory.connect(
-      _l2Network.tokenBridge.parentErc20Gateway,
-      userL1Wallet
-    )
-    const outboundCalldata = await gateway.getOutboundCalldata(
-      token.address,
-      userL1Wallet.address,
-      userL2Wallet.address,
-      depositAmount,
-      callhook
-    )
-
-    const l1ToL2MessageGasEstimate = new ParentToChildMessageGasEstimator(
-      childProvider
-    )
-    const retryableParams = await l1ToL2MessageGasEstimate.estimateAll(
-      {
-        from: userL1Wallet.address,
-        to: userL2Wallet.address,
-        l2CallValue: BigNumber.from(0),
-        excessFeeRefundAddress: userL1Wallet.address,
-        callValueRefundAddress: userL1Wallet.address,
-        data: outboundCalldata,
-      },
-      await getBaseFee(parentProvider),
-      parentProvider
-    )
-
-    const gasLimit = retryableParams.gasLimit.mul(60)
-    const maxFeePerGas = retryableParams.maxFeePerGas
-    const tokenTotalFeeAmount = nativeToken
-      ? await _getScaledAmount(
-          nativeToken.address,
-          gasLimit.mul(maxFeePerGas).mul(2),
-          nativeToken.provider!
-        )
-      : gasLimit.mul(maxFeePerGas).mul(2)
-
-    // approve fee amount
-    if (nativeToken) {
-      await (
-        await nativeToken.approve(
-          _l2Network.tokenBridge.parentErc20Gateway,
-          tokenTotalFeeAmount
-        )
-      ).wait()
-    }
-
-    // bridge it
-    const userEncodedData = nativeToken
-      ? defaultAbiCoder.encode(
-          ['uint256', 'bytes', 'uint256'],
-          [maxSubmissionCost, callhook, tokenTotalFeeAmount]
-        )
-      : defaultAbiCoder.encode(
-          ['uint256', 'bytes'],
-          [maxSubmissionCost, callhook]
-        )
-
-    const router = nativeToken
-      ? L1OrbitGatewayRouter__factory.connect(
-          _l2Network.tokenBridge.parentGatewayRouter,
-          userL1Wallet
-        )
-      : L1GatewayRouter__factory.connect(
-          _l2Network.tokenBridge.parentGatewayRouter,
-          userL1Wallet
-        )
-
-    const depositTx = await router.outboundTransferCustomRefund(
-      token.address,
-      userL1Wallet.address,
-      userL2Wallet.address,
-      depositAmount,
-      gasLimit,
-      maxFeePerGas,
-      userEncodedData,
-      { value: nativeToken ? BigNumber.from(0) : tokenTotalFeeAmount }
-    )
-
-    // wait for L2 msg to be executed
-    await waitOnL2Msg(depositTx)
-
-    ///// checks
-
-    // user L1 token balance decreased
     const userTokenBalanceAfter = await token.balanceOf(userL1Wallet.address)
     expect(userTokenBalanceBefore.sub(userTokenBalanceAfter)).to.be.eq(
-      depositAmount
+      DEPOSIT_AMOUNT
     )
 
-    // gateway token balance is 0 (tokens in vault, not gateway)
-    expect(
-      await token.balanceOf(_l2Network.tokenBridge.parentErc20Gateway)
-    ).to.be.eq(0)
+    expect(await token.balanceOf(gatewayAddress)).to.be.eq(0)
 
-    // vault holds the underlying tokens
-    const masterVaultFactoryAddr = await gateway.masterVaultFactory()
-    const masterVaultFactory = MasterVaultFactory__factory.connect(
-      masterVaultFactoryAddr,
-      parentProvider
-    )
-    const vaultAddress = await masterVaultFactory.calculateVaultAddress(
+    const { vaultAddress, vaultToken } = await getVaultReferences(
+      gatewayAddress,
       token.address
     )
-    expect(await token.balanceOf(vaultAddress)).to.be.eq(depositAmount)
+    expect(await token.balanceOf(vaultAddress)).to.be.eq(DEPOSIT_AMOUNT)
+    expect(await vaultToken.balanceOf(gatewayAddress)).to.be.eq(DEPOSIT_AMOUNT)
 
-    // gateway holds vault shares == depositAmount (1:1 ratio)
-    const vaultToken = ERC20__factory.connect(vaultAddress, parentProvider)
-    expect(
-      await vaultToken.balanceOf(_l2Network.tokenBridge.parentErc20Gateway)
-    ).to.be.eq(depositAmount)
-
-    // L2 token balance correct
     const l2TokenAddress = await router.calculateL2TokenAddress(token.address)
     const l2Token = ERC20__factory.connect(l2TokenAddress, childProvider)
     expect(await l2Token.balanceOf(userL2Wallet.address)).to.be.eq(
-      depositAmount
+      DEPOSIT_AMOUNT
     )
-
-    // L2 token decimals == L1 token decimals
     expect(await l2Token.decimals()).to.be.eq(await token.decimals())
   })
 
   it('can deposit token via default gateway with slippage tolerance', async function () {
-    // fund user to be able to pay retryable fees
-    if (nativeToken) {
-      await (
-        await nativeToken
-          .connect(deployerL1Wallet)
-          .transfer(
-            userL1Wallet.address,
-            ethers.utils.parseUnits('100', await nativeToken.decimals())
-          )
-      ).wait()
-      nativeToken.connect(userL1Wallet)
-    }
+    await fundUserForRetryableFees()
 
-    // create token to be bridged
     const token = await (
       await new TestERC20__factory(userL1Wallet).deploy()
     ).deployed()
     await (await token.mint()).wait()
 
-    const depositAmount = 120
-
-    // snapshot state before
     const userTokenBalanceBefore = await token.balanceOf(userL1Wallet.address)
 
-    // approve token
     await (
       await token.approve(
         _l2Network.tokenBridge.parentErc20Gateway,
-        depositAmount
+        DEPOSIT_AMOUNT
       )
     ).wait()
 
-    // calculate retryable params
-    const maxSubmissionCost = nativeToken
-      ? BigNumber.from(0)
-      : BigNumber.from(584000000000)
-    const callhook = '0x'
+    const gatewayAddress = _l2Network.tokenBridge.parentErc20Gateway
+    const { router } = await deposit({
+      tokenAddress: token.address,
+      gatewayAddress,
+      amount: DEPOSIT_AMOUNT,
+      withSlippage: true,
+    })
 
-    const gateway = L1YbbERC20Gateway__factory.connect(
-      _l2Network.tokenBridge.parentErc20Gateway,
-      userL1Wallet
-    )
-    const outboundCalldata = await gateway.getOutboundCalldata(
-      token.address,
-      userL1Wallet.address,
-      userL2Wallet.address,
-      depositAmount,
-      callhook
-    )
-
-    const l1ToL2MessageGasEstimate = new ParentToChildMessageGasEstimator(
-      childProvider
-    )
-    const retryableParams = await l1ToL2MessageGasEstimate.estimateAll(
-      {
-        from: userL1Wallet.address,
-        to: userL2Wallet.address,
-        l2CallValue: BigNumber.from(0),
-        excessFeeRefundAddress: userL1Wallet.address,
-        callValueRefundAddress: userL1Wallet.address,
-        data: outboundCalldata,
-      },
-      await getBaseFee(parentProvider),
-      parentProvider
-    )
-
-    const gasLimit = retryableParams.gasLimit.mul(60)
-    const maxFeePerGas = retryableParams.maxFeePerGas
-    const tokenTotalFeeAmount = nativeToken
-      ? await _getScaledAmount(
-          nativeToken.address,
-          gasLimit.mul(maxFeePerGas).mul(2),
-          nativeToken.provider!
-        )
-      : gasLimit.mul(maxFeePerGas).mul(2)
-
-    // approve fee amount
-    if (nativeToken) {
-      await (
-        await nativeToken.approve(
-          _l2Network.tokenBridge.parentErc20Gateway,
-          tokenTotalFeeAmount
-        )
-      ).wait()
-    }
-
-    // bridge it
-    const userEncodedData = nativeToken
-      ? defaultAbiCoder.encode(
-          ['uint256', 'bytes', 'uint256'],
-          [maxSubmissionCost, callhook, tokenTotalFeeAmount]
-        )
-      : defaultAbiCoder.encode(
-          ['uint256', 'bytes'],
-          [maxSubmissionCost, callhook]
-        )
-
-    const router = nativeToken
-      ? L1OrbitGatewayRouter__factory.connect(
-          _l2Network.tokenBridge.parentGatewayRouter,
-          userL1Wallet
-        )
-      : L1GatewayRouter__factory.connect(
-          _l2Network.tokenBridge.parentGatewayRouter,
-          userL1Wallet
-        )
-
-    const depositTx =
-      await router.outboundTransferCustomRefundWithSlippageTolerance(
-        token.address,
-        userL1Wallet.address,
-        userL2Wallet.address,
-        depositAmount,
-        gasLimit,
-        maxFeePerGas,
-        userEncodedData,
-        depositAmount,
-        { value: nativeToken ? BigNumber.from(0) : tokenTotalFeeAmount }
-      )
-
-    // wait for L2 msg to be executed
-    await waitOnL2Msg(depositTx)
-
-    ///// checks
-
-    // user L1 token balance decreased
     const userTokenBalanceAfter = await token.balanceOf(userL1Wallet.address)
     expect(userTokenBalanceBefore.sub(userTokenBalanceAfter)).to.be.eq(
-      depositAmount
+      DEPOSIT_AMOUNT
     )
 
-    // gateway token balance is 0 (tokens in vault, not gateway)
-    expect(
-      await token.balanceOf(_l2Network.tokenBridge.parentErc20Gateway)
-    ).to.be.eq(0)
+    expect(await token.balanceOf(gatewayAddress)).to.be.eq(0)
 
-    // vault holds the underlying tokens
-    const masterVaultFactoryAddr = await gateway.masterVaultFactory()
-    const masterVaultFactory = MasterVaultFactory__factory.connect(
-      masterVaultFactoryAddr,
-      parentProvider
-    )
-    const vaultAddress = await masterVaultFactory.calculateVaultAddress(
+    const { vaultAddress, vaultToken } = await getVaultReferences(
+      gatewayAddress,
       token.address
     )
-    expect(await token.balanceOf(vaultAddress)).to.be.eq(depositAmount)
+    expect(await token.balanceOf(vaultAddress)).to.be.eq(DEPOSIT_AMOUNT)
+    expect(await vaultToken.balanceOf(gatewayAddress)).to.be.eq(DEPOSIT_AMOUNT)
 
-    // gateway holds vault shares == depositAmount (1:1 ratio)
-    const vaultToken = ERC20__factory.connect(vaultAddress, parentProvider)
-    expect(
-      await vaultToken.balanceOf(_l2Network.tokenBridge.parentErc20Gateway)
-    ).to.be.eq(depositAmount)
-
-    // L2 token balance correct
     const l2TokenAddress = await router.calculateL2TokenAddress(token.address)
     const l2Token = ERC20__factory.connect(l2TokenAddress, childProvider)
     expect(await l2Token.balanceOf(userL2Wallet.address)).to.be.eq(
-      depositAmount
+      DEPOSIT_AMOUNT
     )
-
-    // L2 token decimals == L1 token decimals
     expect(await l2Token.decimals()).to.be.eq(await token.decimals())
   })
 
   it('can deposit token via custom gateway', async function () {
-    // fund user to be able to pay retryable fees
-    if (nativeToken) {
-      await (
-        await nativeToken
-          .connect(deployerL1Wallet)
-          .transfer(
-            userL1Wallet.address,
-            ethers.utils.parseUnits('100', await nativeToken.decimals())
-          )
-      ).wait()
-    }
+    await fundUserForRetryableFees()
+    const { customL1Token, router } = await deployAndRegisterCustomToken()
 
-    // create L1 custom token
-    const customL1TokenFactory = nativeToken
-      ? await new TestOrbitCustomTokenL1__factory(deployerL1Wallet).deploy(
-          _l2Network.tokenBridge.parentCustomGateway,
-          _l2Network.tokenBridge.parentGatewayRouter
-        )
-      : await new TestCustomTokenL1__factory(deployerL1Wallet).deploy(
-          _l2Network.tokenBridge.parentCustomGateway,
-          _l2Network.tokenBridge.parentGatewayRouter
-        )
-    const customL1Token = await customL1TokenFactory.deployed()
-    await (await customL1Token.connect(userL1Wallet).mint()).wait()
-
-    // create L2 custom token
-    if (nativeToken) {
-      await depositNativeToL2()
-    }
-    const customL2TokenFactory = await new TestArbCustomToken__factory(
-      deployerL2Wallet
-    ).deploy(_l2Network.tokenBridge.childCustomGateway, customL1Token.address)
-    const customL2Token = await customL2TokenFactory.deployed()
-
-    // prepare custom gateway registration params
-    const router = nativeToken
-      ? L1OrbitGatewayRouter__factory.connect(
-          _l2Network.tokenBridge.parentGatewayRouter,
-          userL1Wallet
-        )
-      : L1GatewayRouter__factory.connect(
-          _l2Network.tokenBridge.parentGatewayRouter,
-          userL1Wallet
-        )
-    const l1ToL2MessageGasEstimate = new ParentToChildMessageGasEstimator(
-      childProvider
-    )
-
-    const routerData =
-      L2GatewayRouter__factory.createInterface().encodeFunctionData(
-        'setGateway',
-        [[customL1Token.address], [_l2Network.tokenBridge.childCustomGateway]]
-      )
-    const routerRetryableParams = await l1ToL2MessageGasEstimate.estimateAll(
-      {
-        from: _l2Network.tokenBridge.parentGatewayRouter,
-        to: _l2Network.tokenBridge.childGatewayRouter,
-        l2CallValue: BigNumber.from(0),
-        excessFeeRefundAddress: userL1Wallet.address,
-        callValueRefundAddress: userL1Wallet.address,
-        data: routerData,
-      },
-      await getBaseFee(parentProvider),
-      parentProvider
-    )
-
-    const gatewayData =
-      L2CustomGateway__factory.createInterface().encodeFunctionData(
-        'registerTokenFromL1',
-        [[customL1Token.address], [customL2Token.address]]
-      )
-    const gwRetryableParams = await l1ToL2MessageGasEstimate.estimateAll(
-      {
-        from: _l2Network.tokenBridge.parentCustomGateway,
-        to: _l2Network.tokenBridge.childCustomGateway,
-        l2CallValue: BigNumber.from(0),
-        excessFeeRefundAddress: userL1Wallet.address,
-        callValueRefundAddress: userL1Wallet.address,
-        data: gatewayData,
-      },
-      await getBaseFee(parentProvider),
-      parentProvider
-    )
-
-    // approve fee amount
-    const valueForGateway = gwRetryableParams.deposit
-    const valueForRouter = routerRetryableParams.deposit
-    const registrationFee = valueForGateway.add(valueForRouter).mul(2)
-    if (nativeToken) {
-      await (
-        await nativeToken.approve(customL1Token.address, registrationFee)
-      ).wait()
-    }
-
-    // do the custom gateway registration
-    const receipt = await (
-      await customL1Token
-        .connect(userL1Wallet)
-        .registerTokenOnL2(
-          customL2Token.address,
-          gwRetryableParams.maxSubmissionCost,
-          routerRetryableParams.maxSubmissionCost,
-          gwRetryableParams.gasLimit.mul(2),
-          routerRetryableParams.gasLimit.mul(2),
-          BigNumber.from(100000000),
-          valueForGateway,
-          valueForRouter,
-          userL1Wallet.address,
-          {
-            value: nativeToken
-              ? BigNumber.from(0)
-              : valueForGateway.add(valueForRouter),
-          }
-        )
-    ).wait()
-
-    /// wait for execution of both tickets
-    const l1TxReceipt = new ParentTransactionReceipt(receipt)
-    const messages = await l1TxReceipt.getParentToChildMessages(childProvider)
-    const messageResults = await Promise.all(
-      messages.map(message => message.waitForStatus())
-    )
-    if (
-      messageResults[0].status !== ParentToChildMessageStatus.REDEEMED ||
-      messageResults[1].status !== ParentToChildMessageStatus.REDEEMED
-    ) {
-      console.log(
-        `Retryable ticket (ID ${messages[0].retryableCreationId}) status: ${
-          ParentToChildMessageStatus[messageResults[0].status]
-        }`
-      )
-      console.log(
-        `Retryable ticket (ID ${messages[1].retryableCreationId}) status: ${
-          ParentToChildMessageStatus[messageResults[1].status]
-        }`
-      )
-      exit()
-    }
-
-    // verify router uses custom gateway
-    expect(await router.getGateway(customL1Token.address)).to.be.eq(
-      _l2Network.tokenBridge.parentCustomGateway
-    )
-
-    // snapshot state before deposit
     const userTokenBalanceBefore = await customL1Token.balanceOf(
       userL1Wallet.address
     )
 
-    // approve token for deposit
-    const depositAmount = 110
     await (
       await customL1Token
         .connect(userL1Wallet)
-        .approve(_l2Network.tokenBridge.parentCustomGateway, depositAmount)
+        .approve(_l2Network.tokenBridge.parentCustomGateway, DEPOSIT_AMOUNT)
     ).wait()
 
-    // calculate retryable params
-    const maxSubmissionCost = nativeToken
-      ? BigNumber.from(0)
-      : BigNumber.from(584000000000)
-    const callhook = '0x'
+    const gatewayAddress = _l2Network.tokenBridge.parentCustomGateway
+    await deposit({
+      tokenAddress: customL1Token.address,
+      gatewayAddress,
+      amount: DEPOSIT_AMOUNT,
+    })
 
-    const gasLimit = BigNumber.from(1000000)
-    const maxFeePerGas = BigNumber.from(300000000)
-    const tokenTotalFeeAmount = nativeToken
-      ? await _getScaledAmount(
-          nativeToken.address,
-          gasLimit.mul(maxFeePerGas).mul(2),
-          nativeToken.provider!
-        )
-      : gasLimit.mul(maxFeePerGas).mul(2)
-
-    // approve fee amount
-    if (nativeToken) {
-      await (
-        await nativeToken.approve(
-          _l2Network.tokenBridge.parentCustomGateway,
-          tokenTotalFeeAmount
-        )
-      ).wait()
-    }
-
-    // bridge it
-    const userEncodedData = nativeToken
-      ? defaultAbiCoder.encode(
-          ['uint256', 'bytes', 'uint256'],
-          [maxSubmissionCost, callhook, tokenTotalFeeAmount]
-        )
-      : defaultAbiCoder.encode(
-          ['uint256', 'bytes'],
-          [BigNumber.from(334400000000), callhook]
-        )
-
-    const depositTx = await router.outboundTransferCustomRefund(
-      customL1Token.address,
-      userL1Wallet.address,
-      userL2Wallet.address,
-      depositAmount,
-      gasLimit,
-      maxFeePerGas,
-      userEncodedData,
-      { value: nativeToken ? BigNumber.from(0) : tokenTotalFeeAmount }
-    )
-
-    // wait for L2 msg to be executed
-    await waitOnL2Msg(depositTx)
-
-    ///// checks
-
-    // user L1 token balance decreased
     const userTokenBalanceAfter = await customL1Token.balanceOf(
       userL1Wallet.address
     )
     expect(userTokenBalanceBefore.sub(userTokenBalanceAfter)).to.be.eq(
-      depositAmount
+      DEPOSIT_AMOUNT
     )
 
-    // gateway token balance is 0 (tokens in vault, not gateway)
-    expect(
-      await customL1Token.balanceOf(
-        _l2Network.tokenBridge.parentCustomGateway
-      )
-    ).to.be.eq(0)
+    expect(await customL1Token.balanceOf(gatewayAddress)).to.be.eq(0)
 
-    // vault holds the underlying tokens
-    const customGateway = L1YbbCustomGateway__factory.connect(
-      _l2Network.tokenBridge.parentCustomGateway,
-      parentProvider
-    )
-    const masterVaultFactoryAddr = await customGateway.masterVaultFactory()
-    const masterVaultFactory = MasterVaultFactory__factory.connect(
-      masterVaultFactoryAddr,
-      parentProvider
-    )
-    const vaultAddress = await masterVaultFactory.calculateVaultAddress(
+    const { vaultAddress, vaultToken } = await getVaultReferences(
+      gatewayAddress,
       customL1Token.address
     )
-    expect(await customL1Token.balanceOf(vaultAddress)).to.be.eq(depositAmount)
+    expect(await customL1Token.balanceOf(vaultAddress)).to.be.eq(DEPOSIT_AMOUNT)
+    expect(await vaultToken.balanceOf(gatewayAddress)).to.be.eq(DEPOSIT_AMOUNT)
 
-    // gateway holds vault shares == depositAmount (1:1 ratio)
-    const vaultToken = ERC20__factory.connect(vaultAddress, parentProvider)
-    expect(
-      await vaultToken.balanceOf(_l2Network.tokenBridge.parentCustomGateway)
-    ).to.be.eq(depositAmount)
-
-    // L2 custom token balance correct
     const l2TokenAddress = await router.calculateL2TokenAddress(
       customL1Token.address
     )
     const l2Token = ERC20__factory.connect(l2TokenAddress, childProvider)
     expect(await l2Token.balanceOf(userL2Wallet.address)).to.be.eq(
-      depositAmount
+      DEPOSIT_AMOUNT
     )
   })
 
   it('can deposit token via custom gateway with slippage tolerance', async function () {
-    // fund user to be able to pay retryable fees
-    if (nativeToken) {
-      await (
-        await nativeToken
-          .connect(deployerL1Wallet)
-          .transfer(
-            userL1Wallet.address,
-            ethers.utils.parseUnits('100', await nativeToken.decimals())
-          )
-      ).wait()
-    }
+    await fundUserForRetryableFees()
+    const { customL1Token, router } = await deployAndRegisterCustomToken()
 
-    // create L1 custom token
-    const customL1TokenFactory = nativeToken
-      ? await new TestOrbitCustomTokenL1__factory(deployerL1Wallet).deploy(
-          _l2Network.tokenBridge.parentCustomGateway,
-          _l2Network.tokenBridge.parentGatewayRouter
-        )
-      : await new TestCustomTokenL1__factory(deployerL1Wallet).deploy(
-          _l2Network.tokenBridge.parentCustomGateway,
-          _l2Network.tokenBridge.parentGatewayRouter
-        )
-    const customL1Token = await customL1TokenFactory.deployed()
-    await (await customL1Token.connect(userL1Wallet).mint()).wait()
-
-    // create L2 custom token
-    if (nativeToken) {
-      await depositNativeToL2()
-    }
-    const customL2TokenFactory = await new TestArbCustomToken__factory(
-      deployerL2Wallet
-    ).deploy(_l2Network.tokenBridge.childCustomGateway, customL1Token.address)
-    const customL2Token = await customL2TokenFactory.deployed()
-
-    // prepare custom gateway registration params
-    const router = nativeToken
-      ? L1OrbitGatewayRouter__factory.connect(
-          _l2Network.tokenBridge.parentGatewayRouter,
-          userL1Wallet
-        )
-      : L1GatewayRouter__factory.connect(
-          _l2Network.tokenBridge.parentGatewayRouter,
-          userL1Wallet
-        )
-    const l1ToL2MessageGasEstimate = new ParentToChildMessageGasEstimator(
-      childProvider
-    )
-
-    const routerData =
-      L2GatewayRouter__factory.createInterface().encodeFunctionData(
-        'setGateway',
-        [[customL1Token.address], [_l2Network.tokenBridge.childCustomGateway]]
-      )
-    const routerRetryableParams = await l1ToL2MessageGasEstimate.estimateAll(
-      {
-        from: _l2Network.tokenBridge.parentGatewayRouter,
-        to: _l2Network.tokenBridge.childGatewayRouter,
-        l2CallValue: BigNumber.from(0),
-        excessFeeRefundAddress: userL1Wallet.address,
-        callValueRefundAddress: userL1Wallet.address,
-        data: routerData,
-      },
-      await getBaseFee(parentProvider),
-      parentProvider
-    )
-
-    const gatewayData =
-      L2CustomGateway__factory.createInterface().encodeFunctionData(
-        'registerTokenFromL1',
-        [[customL1Token.address], [customL2Token.address]]
-      )
-    const gwRetryableParams = await l1ToL2MessageGasEstimate.estimateAll(
-      {
-        from: _l2Network.tokenBridge.parentCustomGateway,
-        to: _l2Network.tokenBridge.childCustomGateway,
-        l2CallValue: BigNumber.from(0),
-        excessFeeRefundAddress: userL1Wallet.address,
-        callValueRefundAddress: userL1Wallet.address,
-        data: gatewayData,
-      },
-      await getBaseFee(parentProvider),
-      parentProvider
-    )
-
-    // approve fee amount
-    const valueForGateway = gwRetryableParams.deposit
-    const valueForRouter = routerRetryableParams.deposit
-    const registrationFee = valueForGateway.add(valueForRouter).mul(2)
-    if (nativeToken) {
-      await (
-        await nativeToken.approve(customL1Token.address, registrationFee)
-      ).wait()
-    }
-
-    // do the custom gateway registration
-    const receipt = await (
-      await customL1Token
-        .connect(userL1Wallet)
-        .registerTokenOnL2(
-          customL2Token.address,
-          gwRetryableParams.maxSubmissionCost,
-          routerRetryableParams.maxSubmissionCost,
-          gwRetryableParams.gasLimit.mul(2),
-          routerRetryableParams.gasLimit.mul(2),
-          BigNumber.from(100000000),
-          valueForGateway,
-          valueForRouter,
-          userL1Wallet.address,
-          {
-            value: nativeToken
-              ? BigNumber.from(0)
-              : valueForGateway.add(valueForRouter),
-          }
-        )
-    ).wait()
-
-    /// wait for execution of both tickets
-    const l1TxReceipt = new ParentTransactionReceipt(receipt)
-    const messages = await l1TxReceipt.getParentToChildMessages(childProvider)
-    const messageResults = await Promise.all(
-      messages.map(message => message.waitForStatus())
-    )
-    if (
-      messageResults[0].status !== ParentToChildMessageStatus.REDEEMED ||
-      messageResults[1].status !== ParentToChildMessageStatus.REDEEMED
-    ) {
-      console.log(
-        `Retryable ticket (ID ${messages[0].retryableCreationId}) status: ${
-          ParentToChildMessageStatus[messageResults[0].status]
-        }`
-      )
-      console.log(
-        `Retryable ticket (ID ${messages[1].retryableCreationId}) status: ${
-          ParentToChildMessageStatus[messageResults[1].status]
-        }`
-      )
-      exit()
-    }
-
-    // verify router uses custom gateway
-    expect(await router.getGateway(customL1Token.address)).to.be.eq(
-      _l2Network.tokenBridge.parentCustomGateway
-    )
-
-    // snapshot state before deposit
     const userTokenBalanceBefore = await customL1Token.balanceOf(
       userL1Wallet.address
     )
 
-    // approve token for deposit
-    const depositAmount = 110
     await (
       await customL1Token
         .connect(userL1Wallet)
-        .approve(_l2Network.tokenBridge.parentCustomGateway, depositAmount)
+        .approve(_l2Network.tokenBridge.parentCustomGateway, DEPOSIT_AMOUNT)
     ).wait()
 
-    // calculate retryable params
-    const maxSubmissionCost = nativeToken
-      ? BigNumber.from(0)
-      : BigNumber.from(584000000000)
-    const callhook = '0x'
+    const gatewayAddress = _l2Network.tokenBridge.parentCustomGateway
+    await deposit({
+      tokenAddress: customL1Token.address,
+      gatewayAddress,
+      amount: DEPOSIT_AMOUNT,
+      withSlippage: true,
+    })
 
-    const gasLimit = BigNumber.from(1000000)
-    const maxFeePerGas = BigNumber.from(300000000)
-    const tokenTotalFeeAmount = nativeToken
-      ? await _getScaledAmount(
-          nativeToken.address,
-          gasLimit.mul(maxFeePerGas).mul(2),
-          nativeToken.provider!
-        )
-      : gasLimit.mul(maxFeePerGas).mul(2)
-
-    // approve fee amount
-    if (nativeToken) {
-      await (
-        await nativeToken.approve(
-          _l2Network.tokenBridge.parentCustomGateway,
-          tokenTotalFeeAmount
-        )
-      ).wait()
-    }
-
-    // bridge it
-    const userEncodedData = nativeToken
-      ? defaultAbiCoder.encode(
-          ['uint256', 'bytes', 'uint256'],
-          [maxSubmissionCost, callhook, tokenTotalFeeAmount]
-        )
-      : defaultAbiCoder.encode(
-          ['uint256', 'bytes'],
-          [BigNumber.from(334400000000), callhook]
-        )
-
-    const depositTx =
-      await router.outboundTransferCustomRefundWithSlippageTolerance(
-        customL1Token.address,
-        userL1Wallet.address,
-        userL2Wallet.address,
-        depositAmount,
-        gasLimit,
-        maxFeePerGas,
-        userEncodedData,
-        depositAmount,
-        { value: nativeToken ? BigNumber.from(0) : tokenTotalFeeAmount }
-      )
-
-    // wait for L2 msg to be executed
-    await waitOnL2Msg(depositTx)
-
-    ///// checks
-
-    // user L1 token balance decreased
     const userTokenBalanceAfter = await customL1Token.balanceOf(
       userL1Wallet.address
     )
     expect(userTokenBalanceBefore.sub(userTokenBalanceAfter)).to.be.eq(
-      depositAmount
+      DEPOSIT_AMOUNT
     )
 
-    // gateway token balance is 0 (tokens in vault, not gateway)
-    expect(
-      await customL1Token.balanceOf(
-        _l2Network.tokenBridge.parentCustomGateway
-      )
-    ).to.be.eq(0)
+    expect(await customL1Token.balanceOf(gatewayAddress)).to.be.eq(0)
 
-    // vault holds the underlying tokens
-    const customGateway = L1YbbCustomGateway__factory.connect(
-      _l2Network.tokenBridge.parentCustomGateway,
-      parentProvider
-    )
-    const masterVaultFactoryAddr = await customGateway.masterVaultFactory()
-    const masterVaultFactory = MasterVaultFactory__factory.connect(
-      masterVaultFactoryAddr,
-      parentProvider
-    )
-    const vaultAddress = await masterVaultFactory.calculateVaultAddress(
+    const { vaultAddress, vaultToken } = await getVaultReferences(
+      gatewayAddress,
       customL1Token.address
     )
-    expect(await customL1Token.balanceOf(vaultAddress)).to.be.eq(depositAmount)
+    expect(await customL1Token.balanceOf(vaultAddress)).to.be.eq(DEPOSIT_AMOUNT)
+    expect(await vaultToken.balanceOf(gatewayAddress)).to.be.eq(DEPOSIT_AMOUNT)
 
-    // gateway holds vault shares == depositAmount (1:1 ratio)
-    const vaultToken = ERC20__factory.connect(vaultAddress, parentProvider)
-    expect(
-      await vaultToken.balanceOf(_l2Network.tokenBridge.parentCustomGateway)
-    ).to.be.eq(depositAmount)
-
-    // L2 custom token balance correct
     const l2TokenAddress = await router.calculateL2TokenAddress(
       customL1Token.address
     )
     const l2Token = ERC20__factory.connect(l2TokenAddress, childProvider)
     expect(await l2Token.balanceOf(userL2Wallet.address)).to.be.eq(
-      depositAmount
+      DEPOSIT_AMOUNT
     )
   })
 
   it('can withdraw token via default gateway', async function () {
-    // fund user for L2 withdraw TX
     if (nativeToken) {
       await depositNativeToL2()
     }
 
-    // deploy and deposit token first
     const token = await (
       await new TestERC20__factory(userL1Wallet).deploy()
     ).deployed()
     await (await token.mint()).wait()
 
-    const depositAmount = 120
-
     await (
       await token.approve(
         _l2Network.tokenBridge.parentErc20Gateway,
-        depositAmount
+        DEPOSIT_AMOUNT
       )
     ).wait()
 
-    const maxSubmissionCost = nativeToken
-      ? BigNumber.from(0)
-      : BigNumber.from(584000000000)
-    const callhook = '0x'
+    const gatewayAddress = _l2Network.tokenBridge.parentErc20Gateway
+    const { router } = await deposit({
+      tokenAddress: token.address,
+      gatewayAddress,
+      amount: DEPOSIT_AMOUNT,
+    })
 
-    const gateway = L1YbbERC20Gateway__factory.connect(
-      _l2Network.tokenBridge.parentErc20Gateway,
-      userL1Wallet
-    )
-    const outboundCalldata = await gateway.getOutboundCalldata(
-      token.address,
-      userL1Wallet.address,
-      userL2Wallet.address,
-      depositAmount,
-      callhook
-    )
-
-    const l1ToL2MessageGasEstimate = new ParentToChildMessageGasEstimator(
-      childProvider
-    )
-    const retryableParams = await l1ToL2MessageGasEstimate.estimateAll(
-      {
-        from: userL1Wallet.address,
-        to: userL2Wallet.address,
-        l2CallValue: BigNumber.from(0),
-        excessFeeRefundAddress: userL1Wallet.address,
-        callValueRefundAddress: userL1Wallet.address,
-        data: outboundCalldata,
-      },
-      await getBaseFee(parentProvider),
-      parentProvider
-    )
-
-    const gasLimit = retryableParams.gasLimit.mul(60)
-    const maxFeePerGas = retryableParams.maxFeePerGas
-    const tokenTotalFeeAmount = nativeToken
-      ? await _getScaledAmount(
-          nativeToken.address,
-          gasLimit.mul(maxFeePerGas).mul(2),
-          nativeToken.provider!
-        )
-      : gasLimit.mul(maxFeePerGas).mul(2)
-
-    if (nativeToken) {
-      await (
-        await nativeToken.approve(
-          _l2Network.tokenBridge.parentErc20Gateway,
-          tokenTotalFeeAmount
-        )
-      ).wait()
-    }
-
-    const userEncodedData = nativeToken
-      ? defaultAbiCoder.encode(
-          ['uint256', 'bytes', 'uint256'],
-          [maxSubmissionCost, callhook, tokenTotalFeeAmount]
-        )
-      : defaultAbiCoder.encode(
-          ['uint256', 'bytes'],
-          [maxSubmissionCost, callhook]
-        )
-
-    const router = nativeToken
-      ? L1OrbitGatewayRouter__factory.connect(
-          _l2Network.tokenBridge.parentGatewayRouter,
-          userL1Wallet
-        )
-      : L1GatewayRouter__factory.connect(
-          _l2Network.tokenBridge.parentGatewayRouter,
-          userL1Wallet
-        )
-
-    const depositTx = await router.outboundTransferCustomRefund(
-      token.address,
-      userL1Wallet.address,
-      userL2Wallet.address,
-      depositAmount,
-      gasLimit,
-      maxFeePerGas,
-      userEncodedData,
-      { value: nativeToken ? BigNumber.from(0) : tokenTotalFeeAmount }
-    )
-    await waitOnL2Msg(depositTx)
-
-    // get vault references
-    const masterVaultFactoryAddr = await gateway.masterVaultFactory()
-    const masterVaultFactory = MasterVaultFactory__factory.connect(
-      masterVaultFactoryAddr,
-      parentProvider
-    )
-    const vaultAddress = await masterVaultFactory.calculateVaultAddress(
+    const { vaultAddress, vaultToken } = await getVaultReferences(
+      gatewayAddress,
       token.address
     )
-    const vaultToken = ERC20__factory.connect(vaultAddress, parentProvider)
-
     const l2TokenAddress = await router.calculateL2TokenAddress(token.address)
     const l2Token = ERC20__factory.connect(l2TokenAddress, childProvider)
 
-    // snapshot state before withdrawal
     const userSharesBefore = await vaultToken.balanceOf(userL1Wallet.address)
     const userL2TokenBalanceBefore = await l2Token.balanceOf(
       userL2Wallet.address
     )
-    const gatewaySharesBefore = await vaultToken.balanceOf(
-      _l2Network.tokenBridge.parentErc20Gateway
-    )
+    const gatewaySharesBefore = await vaultToken.balanceOf(gatewayAddress)
     const l2TokenSupplyBefore = await l2Token.totalSupply()
 
-    // start withdrawal
-    const withdrawalAmount = 50
+    const withdrawalAmount = WITHDRAWAL_AMOUNT
     const l2Router = L2GatewayRouter__factory.connect(
       _l2Network.tokenBridge.childGatewayRouter,
       userL2Wallet
@@ -1141,269 +391,66 @@ describe('YBB Token Bridge', () => {
     const messages = await l2Receipt.getChildToParentMessages(userL1Wallet)
     const l2ToL1Msg = messages[0]
     await l2ToL1Msg.waitUntilReadyToExecute(childProvider, 1000)
-
-    // execute on L1
     await (await l2ToL1Msg.execute(childProvider)).wait()
 
-    //// checks
+    expect(
+      (await vaultToken.balanceOf(userL1Wallet.address)).sub(userSharesBefore)
+    ).to.be.eq(withdrawalAmount)
 
-    // user receives vault shares on L1 (not underlying tokens)
-    const userSharesAfter = await vaultToken.balanceOf(userL1Wallet.address)
-    expect(userSharesAfter.sub(userSharesBefore)).to.be.eq(withdrawalAmount)
+    expect(
+      userL2TokenBalanceBefore.sub(
+        await l2Token.balanceOf(userL2Wallet.address)
+      )
+    ).to.be.eq(withdrawalAmount)
 
-    // user L2 token balance decreased
-    const userL2TokenBalanceAfter = await l2Token.balanceOf(
-      userL2Wallet.address
-    )
-    expect(userL2TokenBalanceBefore.sub(userL2TokenBalanceAfter)).to.be.eq(
-      withdrawalAmount
-    )
+    expect(
+      gatewaySharesBefore.sub(await vaultToken.balanceOf(gatewayAddress))
+    ).to.be.eq(withdrawalAmount)
 
-    // gateway vault shares decreased
-    const gatewaySharesAfter = await vaultToken.balanceOf(
-      _l2Network.tokenBridge.parentErc20Gateway
-    )
-    expect(gatewaySharesBefore.sub(gatewaySharesAfter)).to.be.eq(
-      withdrawalAmount
-    )
+    expect(await token.balanceOf(vaultAddress)).to.be.eq(DEPOSIT_AMOUNT)
 
-    // vault still holds underlying (shares transferred, not redeemed)
-    expect(await token.balanceOf(vaultAddress)).to.be.eq(depositAmount)
-
-    // L2 token supply decreased
-    const l2TokenSupplyAfter = await l2Token.totalSupply()
-    expect(l2TokenSupplyBefore.sub(l2TokenSupplyAfter)).to.be.eq(
+    expect(l2TokenSupplyBefore.sub(await l2Token.totalSupply())).to.be.eq(
       withdrawalAmount
     )
   })
 
   it('can withdraw token via custom gateway', async function () {
-    // fund user for L2 withdraw TX
     if (nativeToken) {
       await depositNativeToL2()
     }
+    await fundUserForRetryableFees()
+    const { customL1Token, router } = await deployAndRegisterCustomToken()
 
-    // create and register custom token (same as deposit test)
-    if (nativeToken) {
-      await (
-        await nativeToken
-          .connect(deployerL1Wallet)
-          .transfer(
-            userL1Wallet.address,
-            ethers.utils.parseUnits('100', await nativeToken.decimals())
-          )
-      ).wait()
-    }
-
-    const customL1TokenFactory = nativeToken
-      ? await new TestOrbitCustomTokenL1__factory(deployerL1Wallet).deploy(
-          _l2Network.tokenBridge.parentCustomGateway,
-          _l2Network.tokenBridge.parentGatewayRouter
-        )
-      : await new TestCustomTokenL1__factory(deployerL1Wallet).deploy(
-          _l2Network.tokenBridge.parentCustomGateway,
-          _l2Network.tokenBridge.parentGatewayRouter
-        )
-    const customL1Token = await customL1TokenFactory.deployed()
-    await (await customL1Token.connect(userL1Wallet).mint()).wait()
-
-    if (nativeToken) {
-      await depositNativeToL2()
-    }
-    const customL2TokenFactory = await new TestArbCustomToken__factory(
-      deployerL2Wallet
-    ).deploy(_l2Network.tokenBridge.childCustomGateway, customL1Token.address)
-    const customL2Token = await customL2TokenFactory.deployed()
-
-    // register custom gateway
-    const router = nativeToken
-      ? L1OrbitGatewayRouter__factory.connect(
-          _l2Network.tokenBridge.parentGatewayRouter,
-          userL1Wallet
-        )
-      : L1GatewayRouter__factory.connect(
-          _l2Network.tokenBridge.parentGatewayRouter,
-          userL1Wallet
-        )
-    const l1ToL2MessageGasEstimate = new ParentToChildMessageGasEstimator(
-      childProvider
-    )
-
-    const routerData =
-      L2GatewayRouter__factory.createInterface().encodeFunctionData(
-        'setGateway',
-        [[customL1Token.address], [_l2Network.tokenBridge.childCustomGateway]]
-      )
-    const routerRetryableParams = await l1ToL2MessageGasEstimate.estimateAll(
-      {
-        from: _l2Network.tokenBridge.parentGatewayRouter,
-        to: _l2Network.tokenBridge.childGatewayRouter,
-        l2CallValue: BigNumber.from(0),
-        excessFeeRefundAddress: userL1Wallet.address,
-        callValueRefundAddress: userL1Wallet.address,
-        data: routerData,
-      },
-      await getBaseFee(parentProvider),
-      parentProvider
-    )
-
-    const gatewayData =
-      L2CustomGateway__factory.createInterface().encodeFunctionData(
-        'registerTokenFromL1',
-        [[customL1Token.address], [customL2Token.address]]
-      )
-    const gwRetryableParams = await l1ToL2MessageGasEstimate.estimateAll(
-      {
-        from: _l2Network.tokenBridge.parentCustomGateway,
-        to: _l2Network.tokenBridge.childCustomGateway,
-        l2CallValue: BigNumber.from(0),
-        excessFeeRefundAddress: userL1Wallet.address,
-        callValueRefundAddress: userL1Wallet.address,
-        data: gatewayData,
-      },
-      await getBaseFee(parentProvider),
-      parentProvider
-    )
-
-    const valueForGateway = gwRetryableParams.deposit
-    const valueForRouter = routerRetryableParams.deposit
-    const registrationFee = valueForGateway.add(valueForRouter).mul(2)
-    if (nativeToken) {
-      await (
-        await nativeToken.approve(customL1Token.address, registrationFee)
-      ).wait()
-    }
-
-    const regReceipt = await (
-      await customL1Token
-        .connect(userL1Wallet)
-        .registerTokenOnL2(
-          customL2Token.address,
-          gwRetryableParams.maxSubmissionCost,
-          routerRetryableParams.maxSubmissionCost,
-          gwRetryableParams.gasLimit.mul(2),
-          routerRetryableParams.gasLimit.mul(2),
-          BigNumber.from(100000000),
-          valueForGateway,
-          valueForRouter,
-          userL1Wallet.address,
-          {
-            value: nativeToken
-              ? BigNumber.from(0)
-              : valueForGateway.add(valueForRouter),
-          }
-        )
-    ).wait()
-
-    const l1TxReceipt = new ParentTransactionReceipt(regReceipt)
-    const regMessages = await l1TxReceipt.getParentToChildMessages(
-      childProvider
-    )
-    const regResults = await Promise.all(
-      regMessages.map(message => message.waitForStatus())
-    )
-    if (
-      regResults[0].status !== ParentToChildMessageStatus.REDEEMED ||
-      regResults[1].status !== ParentToChildMessageStatus.REDEEMED
-    ) {
-      console.log(
-        `Retryable ticket (ID ${regMessages[0].retryableCreationId}) status: ${
-          ParentToChildMessageStatus[regResults[0].status]
-        }`
-      )
-      console.log(
-        `Retryable ticket (ID ${regMessages[1].retryableCreationId}) status: ${
-          ParentToChildMessageStatus[regResults[1].status]
-        }`
-      )
-      exit()
-    }
-
-    // deposit via custom gateway
-    const depositAmount = 110
     await (
       await customL1Token
         .connect(userL1Wallet)
-        .approve(_l2Network.tokenBridge.parentCustomGateway, depositAmount)
+        .approve(_l2Network.tokenBridge.parentCustomGateway, DEPOSIT_AMOUNT)
     ).wait()
 
-    const maxSubmissionCost = nativeToken
-      ? BigNumber.from(0)
-      : BigNumber.from(584000000000)
-    const callhook = '0x'
-    const gasLimit = BigNumber.from(1000000)
-    const maxFeePerGas = BigNumber.from(300000000)
-    const tokenTotalFeeAmount = nativeToken
-      ? await _getScaledAmount(
-          nativeToken.address,
-          gasLimit.mul(maxFeePerGas).mul(2),
-          nativeToken.provider!
-        )
-      : gasLimit.mul(maxFeePerGas).mul(2)
+    const gatewayAddress = _l2Network.tokenBridge.parentCustomGateway
+    await deposit({
+      tokenAddress: customL1Token.address,
+      gatewayAddress,
+      amount: DEPOSIT_AMOUNT,
+    })
 
-    if (nativeToken) {
-      await (
-        await nativeToken.approve(
-          _l2Network.tokenBridge.parentCustomGateway,
-          tokenTotalFeeAmount
-        )
-      ).wait()
-    }
-
-    const userEncodedData = nativeToken
-      ? defaultAbiCoder.encode(
-          ['uint256', 'bytes', 'uint256'],
-          [maxSubmissionCost, callhook, tokenTotalFeeAmount]
-        )
-      : defaultAbiCoder.encode(
-          ['uint256', 'bytes'],
-          [BigNumber.from(334400000000), callhook]
-        )
-
-    const depositTx = await router.outboundTransferCustomRefund(
-      customL1Token.address,
-      userL1Wallet.address,
-      userL2Wallet.address,
-      depositAmount,
-      gasLimit,
-      maxFeePerGas,
-      userEncodedData,
-      { value: nativeToken ? BigNumber.from(0) : tokenTotalFeeAmount }
-    )
-    await waitOnL2Msg(depositTx)
-
-    // get vault references
-    const customGateway = L1YbbCustomGateway__factory.connect(
-      _l2Network.tokenBridge.parentCustomGateway,
-      parentProvider
-    )
-    const masterVaultFactoryAddr = await customGateway.masterVaultFactory()
-    const masterVaultFactory = MasterVaultFactory__factory.connect(
-      masterVaultFactoryAddr,
-      parentProvider
-    )
-    const vaultAddress = await masterVaultFactory.calculateVaultAddress(
+    const { vaultAddress, vaultToken } = await getVaultReferences(
+      gatewayAddress,
       customL1Token.address
     )
-    const vaultToken = ERC20__factory.connect(vaultAddress, parentProvider)
-
     const l2TokenAddress = await router.calculateL2TokenAddress(
       customL1Token.address
     )
     const l2Token = ERC20__factory.connect(l2TokenAddress, childProvider)
 
-    // snapshot state before withdrawal
     const userSharesBefore = await vaultToken.balanceOf(userL1Wallet.address)
     const userL2TokenBalanceBefore = await l2Token.balanceOf(
       userL2Wallet.address
     )
-    const gatewaySharesBefore = await vaultToken.balanceOf(
-      _l2Network.tokenBridge.parentCustomGateway
-    )
+    const gatewaySharesBefore = await vaultToken.balanceOf(gatewayAddress)
     const l2TokenSupplyBefore = await l2Token.totalSupply()
 
-    // start withdrawal
-    const withdrawalAmount = 50
+    const withdrawalAmount = WITHDRAWAL_AMOUNT
     const l2Router = L2GatewayRouter__factory.connect(
       _l2Network.tokenBridge.childGatewayRouter,
       userL2Wallet
@@ -1417,42 +464,256 @@ describe('YBB Token Bridge', () => {
     const messages = await l2Receipt.getChildToParentMessages(userL1Wallet)
     const l2ToL1Msg = messages[0]
     await l2ToL1Msg.waitUntilReadyToExecute(childProvider, 1000)
-
-    // execute on L1
     await (await l2ToL1Msg.execute(childProvider)).wait()
 
-    //// checks
+    expect(
+      (await vaultToken.balanceOf(userL1Wallet.address)).sub(userSharesBefore)
+    ).to.be.eq(withdrawalAmount)
 
-    // user receives vault shares on L1 (not underlying tokens)
-    const userSharesAfter = await vaultToken.balanceOf(userL1Wallet.address)
-    expect(userSharesAfter.sub(userSharesBefore)).to.be.eq(withdrawalAmount)
+    expect(
+      userL2TokenBalanceBefore.sub(
+        await l2Token.balanceOf(userL2Wallet.address)
+      )
+    ).to.be.eq(withdrawalAmount)
 
-    // user L2 token balance decreased
-    const userL2TokenBalanceAfter = await l2Token.balanceOf(
-      userL2Wallet.address
-    )
-    expect(userL2TokenBalanceBefore.sub(userL2TokenBalanceAfter)).to.be.eq(
-      withdrawalAmount
-    )
+    expect(
+      gatewaySharesBefore.sub(await vaultToken.balanceOf(gatewayAddress))
+    ).to.be.eq(withdrawalAmount)
 
-    // gateway vault shares decreased
-    const gatewaySharesAfter = await vaultToken.balanceOf(
-      _l2Network.tokenBridge.parentCustomGateway
-    )
-    expect(gatewaySharesBefore.sub(gatewaySharesAfter)).to.be.eq(
-      withdrawalAmount
-    )
+    expect(await customL1Token.balanceOf(vaultAddress)).to.be.eq(DEPOSIT_AMOUNT)
 
-    // vault still holds underlying (shares transferred, not redeemed)
-    expect(await customL1Token.balanceOf(vaultAddress)).to.be.eq(depositAmount)
-
-    // L2 token supply decreased
-    const l2TokenSupplyAfter = await l2Token.totalSupply()
-    expect(l2TokenSupplyBefore.sub(l2TokenSupplyAfter)).to.be.eq(
+    expect(l2TokenSupplyBefore.sub(await l2Token.totalSupply())).to.be.eq(
       withdrawalAmount
     )
   })
 })
+
+// --- helpers ---
+
+function connectRouter(wallet: Wallet) {
+  return nativeToken
+    ? L1OrbitGatewayRouter__factory.connect(
+        _l2Network.tokenBridge.parentGatewayRouter,
+        wallet
+      )
+    : L1GatewayRouter__factory.connect(
+        _l2Network.tokenBridge.parentGatewayRouter,
+        wallet
+      )
+}
+
+async function fundUserForRetryableFees() {
+  if (!nativeToken) return
+  await (
+    await nativeToken
+      .connect(deployerL1Wallet)
+      .transfer(
+        userL1Wallet.address,
+        ethers.utils.parseUnits('100', await nativeToken.decimals())
+      )
+  ).wait()
+}
+
+async function getVaultReferences(
+  gatewayAddress: string,
+  tokenAddress: string
+) {
+  const gw = L1YbbERC20Gateway__factory.connect(gatewayAddress, parentProvider)
+  const mvfAddr = await gw.masterVaultFactory()
+  const mvf = MasterVaultFactory__factory.connect(mvfAddr, parentProvider)
+  const vaultAddress = await mvf.calculateVaultAddress(tokenAddress)
+  const vaultToken = ERC20__factory.connect(vaultAddress, parentProvider)
+  return { vaultAddress, vaultToken }
+}
+
+async function deposit(opts: {
+  tokenAddress: string
+  gatewayAddress: string
+  amount: number
+  withSlippage?: boolean
+}) {
+  const { tokenAddress, gatewayAddress, amount, withSlippage } = opts
+
+  const maxSubmissionCost = nativeToken
+    ? BigNumber.from(0)
+    : BigNumber.from(584000000000)
+  const gasLimit = BigNumber.from(1000000)
+  const maxFeePerGas = BigNumber.from(300000000)
+  const tokenTotalFeeAmount = nativeToken
+    ? await _getScaledAmount(
+        nativeToken.address,
+        gasLimit.mul(maxFeePerGas).mul(2),
+        nativeToken.provider!
+      )
+    : gasLimit.mul(maxFeePerGas).mul(2)
+
+  if (nativeToken) {
+    await (
+      await nativeToken.approve(gatewayAddress, tokenTotalFeeAmount)
+    ).wait()
+  }
+
+  const userEncodedData = nativeToken
+    ? defaultAbiCoder.encode(
+        ['uint256', 'bytes', 'uint256'],
+        [maxSubmissionCost, '0x', tokenTotalFeeAmount]
+      )
+    : defaultAbiCoder.encode(
+        ['uint256', 'bytes'],
+        [maxSubmissionCost, '0x']
+      )
+
+  const router = connectRouter(userL1Wallet)
+
+  const depositTx = withSlippage
+    ? await router.outboundTransferCustomRefundWithSlippageTolerance(
+        tokenAddress,
+        userL1Wallet.address,
+        userL2Wallet.address,
+        amount,
+        gasLimit,
+        maxFeePerGas,
+        userEncodedData,
+        amount,
+        { value: nativeToken ? BigNumber.from(0) : tokenTotalFeeAmount }
+      )
+    : await router.outboundTransferCustomRefund(
+        tokenAddress,
+        userL1Wallet.address,
+        userL2Wallet.address,
+        amount,
+        gasLimit,
+        maxFeePerGas,
+        userEncodedData,
+        { value: nativeToken ? BigNumber.from(0) : tokenTotalFeeAmount }
+      )
+
+  await waitOnL2Msg(depositTx)
+  return { router }
+}
+
+async function deployAndRegisterCustomToken() {
+  const customL1TokenFactory = nativeToken
+    ? await new TestOrbitCustomTokenL1__factory(deployerL1Wallet).deploy(
+        _l2Network.tokenBridge.parentCustomGateway,
+        _l2Network.tokenBridge.parentGatewayRouter
+      )
+    : await new TestCustomTokenL1__factory(deployerL1Wallet).deploy(
+        _l2Network.tokenBridge.parentCustomGateway,
+        _l2Network.tokenBridge.parentGatewayRouter
+      )
+  const customL1Token = await customL1TokenFactory.deployed()
+  await (await customL1Token.connect(userL1Wallet).mint()).wait()
+
+  if (nativeToken) {
+    await depositNativeToL2()
+  }
+  const customL2Token = await (
+    await new TestArbCustomToken__factory(deployerL2Wallet).deploy(
+      _l2Network.tokenBridge.childCustomGateway,
+      customL1Token.address
+    )
+  ).deployed()
+
+  const router = connectRouter(userL1Wallet)
+  const l1ToL2MessageGasEstimate = new ParentToChildMessageGasEstimator(
+    childProvider
+  )
+
+  const routerData =
+    L2GatewayRouter__factory.createInterface().encodeFunctionData(
+      'setGateway',
+      [[customL1Token.address], [_l2Network.tokenBridge.childCustomGateway]]
+    )
+  const routerRetryableParams = await l1ToL2MessageGasEstimate.estimateAll(
+    {
+      from: _l2Network.tokenBridge.parentGatewayRouter,
+      to: _l2Network.tokenBridge.childGatewayRouter,
+      l2CallValue: BigNumber.from(0),
+      excessFeeRefundAddress: userL1Wallet.address,
+      callValueRefundAddress: userL1Wallet.address,
+      data: routerData,
+    },
+    await getBaseFee(parentProvider),
+    parentProvider
+  )
+
+  const gatewayData =
+    L2CustomGateway__factory.createInterface().encodeFunctionData(
+      'registerTokenFromL1',
+      [[customL1Token.address], [customL2Token.address]]
+    )
+  const gwRetryableParams = await l1ToL2MessageGasEstimate.estimateAll(
+    {
+      from: _l2Network.tokenBridge.parentCustomGateway,
+      to: _l2Network.tokenBridge.childCustomGateway,
+      l2CallValue: BigNumber.from(0),
+      excessFeeRefundAddress: userL1Wallet.address,
+      callValueRefundAddress: userL1Wallet.address,
+      data: gatewayData,
+    },
+    await getBaseFee(parentProvider),
+    parentProvider
+  )
+
+  const valueForGateway = gwRetryableParams.deposit
+  const valueForRouter = routerRetryableParams.deposit
+  if (nativeToken) {
+    const registrationFee = valueForGateway.add(valueForRouter).mul(2)
+    await (
+      await nativeToken.approve(customL1Token.address, registrationFee)
+    ).wait()
+  }
+
+  const receipt = await (
+    await customL1Token
+      .connect(userL1Wallet)
+      .registerTokenOnL2(
+        customL2Token.address,
+        gwRetryableParams.maxSubmissionCost,
+        routerRetryableParams.maxSubmissionCost,
+        gwRetryableParams.gasLimit.mul(2),
+        routerRetryableParams.gasLimit.mul(2),
+        BigNumber.from(100000000),
+        valueForGateway,
+        valueForRouter,
+        userL1Wallet.address,
+        {
+          value: nativeToken
+            ? BigNumber.from(0)
+            : valueForGateway.add(valueForRouter),
+        }
+      )
+  ).wait()
+
+  const l1TxReceipt = new ParentTransactionReceipt(receipt)
+  const messages = await l1TxReceipt.getParentToChildMessages(childProvider)
+  const messageResults = await Promise.all(
+    messages.map(message => message.waitForStatus())
+  )
+  if (
+    messageResults[0].status !== ParentToChildMessageStatus.REDEEMED ||
+    messageResults[1].status !== ParentToChildMessageStatus.REDEEMED
+  ) {
+    console.log(
+      `Retryable ticket (ID ${messages[0].retryableCreationId}) status: ${
+        ParentToChildMessageStatus[messageResults[0].status]
+      }`
+    )
+    console.log(
+      `Retryable ticket (ID ${messages[1].retryableCreationId}) status: ${
+        ParentToChildMessageStatus[messageResults[1].status]
+      }`
+    )
+    exit()
+  }
+
+  expect(await router.getGateway(customL1Token.address)).to.be.eq(
+    _l2Network.tokenBridge.parentCustomGateway
+  )
+
+  return { customL1Token, router }
+}
 
 async function depositNativeToL2() {
   const amountToDeposit = ethers.utils.parseUnits(
