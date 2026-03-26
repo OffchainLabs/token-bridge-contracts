@@ -113,6 +113,8 @@
     "GHSA-rv95-896h-c2vc",
     // qs's arrayLimit bypass in comma parsing allows denial of service
     "GHSA-w7fw-mjwx-w883",
+    // brace-expansion: Zero-step sequence causes process hang and memory exhaustion
+    "GHSA-f886-m6hf-6m8v",
     // node-tar Symlink Path Traversal via Drive-Relative Linkpath
     "GHSA-9ppj-qmqm-q256",
     // tar has Hardlink Path Traversal via Drive-Relative Linkpath
