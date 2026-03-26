@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 /// @notice Interface implemented by AbsYbbGateway (which is inherited by all YBB gateways).
 interface IYbbGateway {
     /// @notice Same as IL1ArbitrumGateway.outboundTransferCustomRefund but supports an optional slippage tolerance parameter.
-    /// @param  minReceivedOnL2 Minimum amount of tokens expected to be received on L2 after the transfer, used for slippage protection.
+    /// @param  minReceivedOnL2 Minimum amount of tokens (MasterVault shares) expected to be received on L2 after the transfer, used for slippage protection.
     function outboundTransferCustomRefundWithSlippageTolerance(
         address _l1Token,
         address _refundTo,
