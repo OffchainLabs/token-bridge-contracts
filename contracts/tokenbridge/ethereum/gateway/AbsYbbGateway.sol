@@ -17,6 +17,21 @@ abstract contract AbsYbbGateway is IYbbGateway {
     /// @notice Address of the MasterVaultFactory contract
     address public masterVaultFactory;
 
+    // start of inline reentrancy guard
+    // https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v3.4.2/contracts/utils/ReentrancyGuard.sol
+    uint256 private constant _NOT_ENTERED = 1;
+    uint256 private constant _ENTERED = 2;
+    uint256 private _status;
+
+    modifier absYbbNonReentrant() {
+        // On the first call to nonReentrant, _notEntered will be true
+        require(_status != _ENTERED, "ReentrancyGuard: reentrant call");
+        // Any calls to nonReentrant after this point will fail
+        _status = _ENTERED;
+        _;
+        _status = _NOT_ENTERED;
+    }
+
     function _initialize(address _masterVaultFactory) internal {
         require(_masterVaultFactory != address(0), "AbsYbbGateway: BAD_MASTER_VAULT_FACTORY");
         require(masterVaultFactory == address(0), "AbsYbbGateway: ALREADY_INITIALIZED");
@@ -33,7 +48,7 @@ abstract contract AbsYbbGateway is IYbbGateway {
         uint256 _gasPriceBid,
         bytes calldata _data,
         uint256 minReceivedOnL2
-    ) public payable returns (bytes memory res) {
+    ) public payable absYbbNonReentrant returns (bytes memory res) {
         uint256 receivedOnL2;
         (res, receivedOnL2) = _outboundTransferCustomRefund(
             _l1Token,
