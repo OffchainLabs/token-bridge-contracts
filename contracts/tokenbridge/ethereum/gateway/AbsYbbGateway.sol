@@ -19,7 +19,10 @@ abstract contract AbsYbbGateway is IYbbGateway {
 
     // start of inline reentrancy guard
     // https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v3.4.2/contracts/utils/ReentrancyGuard.sol
-    uint256 private constant _NOT_ENTERED = 1;
+    // _NOT_ENTERED is 1 in OpenZeppelin's implementation. 
+    // We set it to 0 because calls to outboundTransferCustomRefundWithSlippageTolerance
+    // cost 19900 less gas when we make it 0.
+    uint256 private constant _NOT_ENTERED = 0;
     uint256 private constant _ENTERED = 2;
     uint256 private _status;
 
