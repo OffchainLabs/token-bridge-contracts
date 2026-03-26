@@ -112,6 +112,7 @@ contract L1ERC20Gateway is L1ArbitrumExtendedGateway {
      */
     function callStatic(address targetContract, bytes4 targetFunction)
         internal
+        virtual
         view
         returns (bytes memory)
     {
