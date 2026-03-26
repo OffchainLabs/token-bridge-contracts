@@ -210,9 +210,16 @@ contract MasterVault is
         onlyGateway
         returns (uint256 shares)
     {
-        shares = _convertToSharesRoundDown(assets);
-        _mint(msg.sender, shares);
+        uint256 totalAssetsRoundedDown = _totalAssets(MathUpgradeable.Rounding.Down);
+        uint256 totalAssetsRoundedUp = _totalAssets(MathUpgradeable.Rounding.Up);
+
+        uint256 prevBalance = asset.balanceOf(address(this));
         asset.safeTransferFrom(msg.sender, address(this), assets);
+        uint256 actualReceived = asset.balanceOf(address(this)) - prevBalance;
+
+        shares = _convertToSharesRoundDown(actualReceived, totalAssetsRoundedDown, totalAssetsRoundedUp, totalSupply());
+
+        _mint(msg.sender, shares);
     }
 
     /// @notice Redeem some vault shares in exchange for underlying assets
@@ -226,7 +233,7 @@ contract MasterVault is
         nonReentrant
         returns (uint256 assets)
     {
-        assets = _convertToAssetsRoundDown(shares);
+        assets = _convertToAssetsRoundDown(shares, _totalAssets(MathUpgradeable.Rounding.Down), totalSupply());
         if (minAssets > 0 && assets < minAssets) {
             revert InsufficientAssets(assets, minAssets);
         }
@@ -505,13 +512,13 @@ contract MasterVault is
 
     /// @dev Converts assets to shares, rounding down.
     ///      Uses ideal ratio when solvent, standard formula when in loss.
-    function _convertToSharesRoundDown(uint256 assets) internal view returns (uint256 shares) {
+    function _convertToSharesRoundDown(uint256 assets, uint256 totalAssetsRoundedDown, uint256 totalAssetsRoundedUp, uint256 _totalSupply) internal pure returns (uint256 shares) {
         // bias against the depositor by rounding DOWN totalAssets to more easily detect losses
-        if (_haveLoss()) {
+        if (totalAssetsRoundedDown < _totalSupply) {
             // we have losses
             return assets.mulDiv(
-                totalSupply(),
-                _totalAssets(MathUpgradeable.Rounding.Up),
+                _totalSupply,
+                totalAssetsRoundedUp,
                 MathUpgradeable.Rounding.Down
             );
         }
@@ -521,23 +528,18 @@ contract MasterVault is
 
     /// @dev Converts shares to assets, rounding down.
     ///      Uses ideal ratio when solvent, standard formula when in loss.
-    function _convertToAssetsRoundDown(uint256 shares) internal view returns (uint256 assets) {
+    function _convertToAssetsRoundDown(uint256 shares, uint256 totalAssetsRoundedDown, uint256 _totalSupply) internal pure returns (uint256 assets) {
         // bias against the depositor by rounding DOWN totalAssets to more easily detect losses
-        if (_haveLoss()) {
+        if (totalAssetsRoundedDown < _totalSupply) {
             // we have losses
             return shares.mulDiv(
-                _totalAssets(MathUpgradeable.Rounding.Down),
-                totalSupply(),
+                totalAssetsRoundedDown,
+                _totalSupply,
                 MathUpgradeable.Rounding.Down
             );
         }
         // no losses, use ideal 1:1 ratio
         return shares;
-    }
-
-    /// @dev Whether the vault has losses
-    function _haveLoss() internal view returns (bool) {
-        return _totalAssets(MathUpgradeable.Rounding.Down) < totalSupply();
     }
 
     /// @dev Converts subvault shares to assets using the subvault's preview functions
