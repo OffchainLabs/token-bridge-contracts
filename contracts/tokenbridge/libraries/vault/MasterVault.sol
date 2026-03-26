@@ -37,6 +37,10 @@ import {IMasterVault} from "./IMasterVault.sol";
 ///           Superlinear previewMint or sublinear previewDeposit may cause the MasterVault to overcharge on deposits and underpay on withdrawals.
 ///         - must not have deposit / withdrawal fees (because rebalancing can happen frequently)
 ///
+///         The underlying asset must be a standard ERC20. Fee-on-transfer tokens are supported.
+///         Rebasing, inflationary, or other non-standard balance-changing tokens are not supported,
+///         consistent with the token bridge's general requirement that such tokens use their own custom gateway.
+///
 ///         Roles are primarily managed via an external MasterVaultRoles contract,
 ///         which allows multiple vaults to share a common roles registry.
 ///         Individual MasterVaults can also have local roles assigned, which are checked in addition to the roles registry.
