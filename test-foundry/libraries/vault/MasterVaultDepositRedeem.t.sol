@@ -1,11 +1,39 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import {MasterVaultCoreTest} from "./MasterVaultCore.t.sol";
+import {MasterVaultCoreTest, MockGatewayRouter} from "./MasterVaultCore.t.sol";
+import {MasterVault} from "../../../contracts/tokenbridge/libraries/vault/MasterVault.sol";
+import {
+    MasterVaultFactory
+} from "../../../contracts/tokenbridge/libraries/vault/MasterVaultFactory.sol";
+import {IGatewayRouter} from "../../../contracts/tokenbridge/libraries/gateway/IGatewayRouter.sol";
 import {MockSubVault} from "../../../contracts/tokenbridge/test/MockSubVault.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
+
+contract FeeOnTransferToken is ERC20 {
+    uint256 public flatFee;
+
+    constructor() ERC20("FeeToken", "FEE") {}
+
+    function setFee(uint256 _flatFee) external {
+        flatFee = _flatFee;
+    }
+
+    function mint(address to, uint256 amount) external {
+        _mint(to, amount);
+    }
+
+    function transferFrom(address from, address to, uint256 amount) public override returns (bool) {
+        if (flatFee > 0) {
+            super.transferFrom(from, address(0xdead), flatFee);
+            return super.transferFrom(from, to, amount - flatFee);
+        }
+        return super.transferFrom(from, to, amount);
+    }
+}
 
 contract MasterVaultFirstDepositTest is MasterVaultCoreTest {
     using Math for uint256;
@@ -31,6 +59,28 @@ contract MasterVaultFirstDepositTest is MasterVaultCoreTest {
             })
         );
         assertEq(shares, depositAmount, "shares mismatch deposit return value");
+    }
+
+    function test_deposit_revertsFeeOnTransfer() public {
+        FeeOnTransferToken fotToken = new FeeOnTransferToken();
+        MockGatewayRouter mockRouter = new MockGatewayRouter(user);
+        MasterVault impl = new MasterVault();
+        MasterVaultFactory f = new MasterVaultFactory();
+        f.initialize(address(impl), address(this), IGatewayRouter(address(mockRouter)));
+        MasterVault v = MasterVault(f.deployVault(address(fotToken)));
+
+        uint256 amount = 1000e18;
+        uint256 fee = 1e18;
+        fotToken.mint(user, amount);
+        fotToken.setFee(fee);
+
+        vm.startPrank(user);
+        fotToken.approve(address(v), amount);
+        vm.expectRevert(
+            abi.encodeWithSelector(MasterVault.FeeOnTransferNotSupported.selector, amount, amount - fee)
+        );
+        v.deposit(amount);
+        vm.stopPrank();
     }
 
     function test_redeem(uint96 _firstDeposit, uint96 _redeemAmount) public {
