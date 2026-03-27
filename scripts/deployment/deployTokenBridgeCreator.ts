@@ -19,6 +19,10 @@ export const envVars = {
   rollupAddress: process.env['ROLLUP_ADDRESS'] as string,
   gasLimitForL2FactoryDeployment:
     process.env['GAS_LIMIT_FOR_L2_FACTORY_DEPLOYMENT'],
+  pollingInterval: process.env['POLLING_INTERVAL'] as string,
+  disableContractVerification: process.env[
+    'DISABLE_CONTRACT_VERIFICATION'
+  ] as string,
 }
 
 /**
@@ -54,6 +58,10 @@ export const deployTokenBridgeCreator = async () => {
   }
 
   const l1Provider = new JsonRpcProvider(envVars.baseChainRpc)
+  if (envVars.pollingInterval) {
+    l1Provider.pollingInterval = parseInt(envVars.pollingInterval)
+  }
+
   const l1Deployer = getSigner(l1Provider, envVars.baseChainDeployerKey)
 
   // get gas limit for L2 factory deployment from env var or do retryable estimate
@@ -64,6 +72,10 @@ export const deployTokenBridgeCreator = async () => {
     )
   } else {
     const l2Provider = new JsonRpcProvider(envVars.childChainRpc)
+    if (envVars.pollingInterval) {
+      l2Provider.pollingInterval = parseInt(envVars.pollingInterval)
+    }
+
     await registerNetworks(l1Provider, l2Provider, envVars.rollupAddress)
     //// run retryable estimate for deploying L2 factory
     const deployFactoryGasParams = await getEstimateForDeployingFactory(
@@ -79,7 +91,10 @@ export const deployTokenBridgeCreator = async () => {
       l1Deployer,
       envVars.baseChainWeth,
       gasLimitForL2FactoryDeployment,
-      true
+      envVars.disableContractVerification &&
+        envVars.disableContractVerification.toLowerCase() === 'true'
+        ? false
+        : true
     )
 
   return { l1TokenBridgeCreator, retryableSender }
