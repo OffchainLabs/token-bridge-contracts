@@ -60,4 +60,24 @@ contract L1OrbitYbbERC20Gateway is L1OrbitERC20Gateway, AbsYbbERC20Gateway {
     {
         return L1ERC20Gateway.callStatic(targetContract, targetFunction);
     }
+
+    function _outboundTransferCustomRefund(
+        address _l1Token,
+        address _refundTo,
+        address _to,
+        uint256 _amount,
+        uint256 _maxGas,
+        uint256 _gasPriceBid,
+        bytes calldata _data
+    ) internal override(AbsYbbGateway, L1ArbitrumGateway) returns (bytes memory res, uint256 amountOnL2) {
+        return L1ArbitrumGateway._outboundTransferCustomRefund(
+            _l1Token,
+            _refundTo,
+            _to,
+            _amount,
+            _maxGas,
+            _gasPriceBid,
+            _data
+        );
+    }
 }
