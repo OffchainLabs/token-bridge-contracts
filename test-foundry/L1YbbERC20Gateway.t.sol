@@ -134,7 +134,7 @@ contract L1YbbERC20GatewayTest is Test {
         vm.deal(user, retryableCost);
 
         vm.prank(user);
-        vm.expectRevert("ZERO_SHARES");
+        vm.expectRevert("AbsYbbGateway: ZERO_SHARES");
         router.outboundTransferCustomRefund{value: retryableCost}(
             address(token), user, l2Dest, 0, maxGas, gasPriceBid, userData
         );
@@ -155,6 +155,73 @@ contract L1YbbERC20GatewayTest is Test {
             gasPriceBid,
             abi.encode(maxSubmissionCost, "")
         );
+    }
+
+    function test_slippageTolerance_zeroMin() public {
+        _depositWithSlippage(DEPOSIT_AMOUNT, 0, "");
+        assertEq(_vaultShares(), DEPOSIT_AMOUNT);
+    }
+
+    function test_slippageTolerance_exactAmount() public {
+        _depositWithSlippage(DEPOSIT_AMOUNT, DEPOSIT_AMOUNT, "");
+        assertEq(_vaultShares(), DEPOSIT_AMOUNT);
+    }
+
+    function test_slippageTolerance_revert_exceedsActual() public {
+        _depositWithSlippage(DEPOSIT_AMOUNT, DEPOSIT_AMOUNT + 1, "SLIPPAGE_EXCEEDED");
+    }
+
+    function test_slippageTolerance_exactAmount_lossyVault() public {
+        _depositToCreateVault();
+        _simulateVaultLoss(500e18); // halve vault balance
+
+        uint256 sharesBefore = _vaultShares();
+        _mintAndDepositWithSlippage(100e18, 200e18 - 1, "");
+        assertEq(_vaultShares(), sharesBefore + 200e18 - 1, "Should receive shares proportional to vault loss");
+    }
+
+    function test_slippageTolerance_revert_exceedsActual_lossyVault() public {
+        _depositToCreateVault();
+        _simulateVaultLoss(500e18); // halve vault balance
+
+        _mintAndDepositWithSlippage(100e18, 200e18, "SLIPPAGE_EXCEEDED");
+    }
+
+    function _depositWithSlippage(uint256 amount, uint256 minReceived, bytes memory revertReason)
+        internal
+    {
+        vm.prank(user);
+        token.approve(address(gateway), amount);
+        uint256 retryableCost = maxSubmissionCost + maxGas * gasPriceBid;
+        vm.deal(address(router), retryableCost);
+        if (revertReason.length > 0) vm.expectRevert(revertReason);
+        vm.prank(address(router));
+        gateway.outboundTransferCustomRefundWithSlippageTolerance{value: retryableCost}(
+            address(token), user, l2Dest, amount, maxGas, gasPriceBid,
+            abi.encode(user, abi.encode(maxSubmissionCost, "")), minReceived
+        );
+    }
+
+    function _mintAndDepositWithSlippage(
+        uint256 amount,
+        uint256 minReceived,
+        bytes memory revertReason
+    ) internal {
+        vm.prank(user);
+        token.mintAmount(amount);
+        _depositWithSlippage(amount, minReceived, revertReason);
+    }
+
+    function _simulateVaultLoss(uint256 lossAmount) internal {
+        address vaultAddr = factory.calculateVaultAddress(address(token));
+        uint256 desiredBalance = token.balanceOf(vaultAddr) - lossAmount;
+        deal(address(token), vaultAddr, desiredBalance);
+        assertEq(token.balanceOf(vaultAddr), desiredBalance, "Vault balance should reflect simulated loss");
+    }
+
+    function _vaultShares() internal view returns (uint256) {
+        address vaultAddr = factory.calculateVaultAddress(address(token));
+        return MasterVault(vaultAddr).balanceOf(address(gateway));
     }
 
     function test_getOutboundCalldata_reportsVaultDecimals() public {

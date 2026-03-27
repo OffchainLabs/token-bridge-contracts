@@ -37,6 +37,10 @@ import {IMasterVault} from "./IMasterVault.sol";
 ///           Superlinear previewMint or sublinear previewDeposit may cause the MasterVault to overcharge on deposits and underpay on withdrawals.
 ///         - must not have deposit / withdrawal fees (because rebalancing can happen frequently)
 ///
+///         The underlying asset must be a standard ERC20.
+///         Fee-on-transfer, rebasing, inflationary, or other non-standard balance-changing tokens are not supported,
+///         consistent with the token bridge's general requirement that such tokens use their own custom gateway.
+///
 ///         Roles are primarily managed via an external MasterVaultRoles contract,
 ///         which allows multiple vaults to share a common roles registry.
 ///         Individual MasterVaults can also have local roles assigned, which are checked in addition to the roles registry.
@@ -75,6 +79,7 @@ contract MasterVault is
     );
     error RebalanceExchRateWrongSign(int256 minExchRateWad);
     error InsufficientAssets(uint256 assets, uint256 minAssets);
+    error FeeOnTransferNotSupported(uint256 expectedBalance, uint256 actualBalance);
 
     /*
     Storage layout notes:
@@ -212,7 +217,11 @@ contract MasterVault is
     {
         shares = _convertToSharesRoundDown(assets);
         _mint(msg.sender, shares);
+        uint256 idleAssets = asset.balanceOf(address(this));
         asset.safeTransferFrom(msg.sender, address(this), assets);
+        if (idleAssets + assets != asset.balanceOf(address(this))) {
+            revert FeeOnTransferNotSupported(idleAssets + assets, asset.balanceOf(address(this)));
+        }
     }
 
     /// @notice Redeem some vault shares in exchange for underlying assets
