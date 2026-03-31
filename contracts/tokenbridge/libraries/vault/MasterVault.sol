@@ -462,8 +462,8 @@ contract MasterVault is
     /// @notice Get the total profit earned by the vault
     function totalProfit() public view returns (uint256) {
         uint256 __totalAssets = _totalAssets(MathUpgradeable.Rounding.Down);
-        uint256 __totalPrincipal = totalSupply();
-        return __totalAssets > __totalPrincipal ? __totalAssets - __totalPrincipal : 0;
+        uint256 _totalSupply = totalSupply();
+        return __totalAssets > _totalSupply ? __totalAssets - _totalSupply : 0;
     }
 
     /// @dev Overriden to check MasterVaultRoles registry in addition to local roles
