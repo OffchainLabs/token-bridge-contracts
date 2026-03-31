@@ -34,7 +34,7 @@ const LOCALHOST_L3_OWNER_KEY =
  * @param l2Url
  * @returns
  */
-export const setupTokenBridgeInLocalEnv = async (opts?: { isYbb?: boolean }) => {
+export const setupTokenBridgeInLocalEnv = async () => {
   // set RPCs either from env vars or use defaults
   let parentRpc = process.env['PARENT_RPC'] as string
   let childRpc = process.env['CHILD_RPC'] as string
@@ -124,8 +124,7 @@ export const setupTokenBridgeInLocalEnv = async (opts?: { isYbb?: boolean }) => 
       childDeployer.provider!,
       l1TokenBridgeCreator,
       coreL2Network.ethBridge.rollup,
-      rollupOwnerAddress,
-      opts?.isYbb
+      rollupOwnerAddress
     )
 
   // register weth gateway if it exists
