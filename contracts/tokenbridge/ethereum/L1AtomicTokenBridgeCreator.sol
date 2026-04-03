@@ -256,7 +256,7 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
         if (address(l1Templates.routerTemplate) == address(0)) {
             revert L1AtomicTokenBridgeCreator_TemplatesNotSet();
         }
-        if (isYieldBearingBridge && address(ybbL1Templates.ybbStandardGatewayTemplate) == address(0)) {
+        if (args.isYieldBearingBridge && address(ybbL1Templates.ybbStandardGatewayTemplate) == address(0)) {
             revert L1AtomicTokenBridgeCreator_TemplatesNotSet();
         }
 
