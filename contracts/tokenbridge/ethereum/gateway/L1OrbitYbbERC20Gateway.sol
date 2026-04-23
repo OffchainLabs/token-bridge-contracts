@@ -19,12 +19,13 @@ contract L1OrbitYbbERC20Gateway is L1OrbitERC20Gateway, AbsYbbERC20Gateway {
         address _inbox,
         bytes32 _cloneableProxyHash,
         address _l2BeaconProxyFactory,
-        address _masterVaultFactory
+        address _masterVaultFactory,
+        address _owner
     ) public {
         L1ERC20Gateway.initialize(
             _l2Counterpart, _router, _inbox, _cloneableProxyHash, _l2BeaconProxyFactory
         );
-        AbsYbbGateway._initialize(_masterVaultFactory);
+        __AbsYbbERC20Gateway_init(_masterVaultFactory, _owner);
     }
 
     function inboundEscrowTransfer(address _l1Token, address _dest, uint256 _amount)

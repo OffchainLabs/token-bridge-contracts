@@ -54,7 +54,8 @@ contract L1YbbERC20GatewayTest is Test {
             address(inbox),
             keccak256(type(ClonableBeaconProxy).creationCode),
             l2BeaconProxyFactory,
-            address(factory)
+            address(factory),
+            address(this)
         );
 
         router.initialize(
@@ -258,5 +259,41 @@ contract L1YbbERC20GatewayTest is Test {
         );
 
         assertEq(outboundCalldata, expectedCalldata, "Should encode vault decimals in calldata");
+    }
+
+    function test_setTokenPrefixSuffix_appliesPrefixSuffix() public {
+        _depositToCreateVault();
+
+        gateway.setTokenPrefixSuffix("Bridged ", " (YBB)", "brg", ".ybb");
+
+        uint8 vaultDecimals = token.decimals();
+
+        bytes memory outboundCalldata = gateway.getOutboundCalldata(
+            address(token), user, l2Dest, DEPOSIT_AMOUNT, abi.encode("test")
+        );
+
+        bytes memory expectedCalldata = abi.encodeWithSelector(
+            ITokenGateway.finalizeInboundTransfer.selector,
+            address(token),
+            user,
+            l2Dest,
+            DEPOSIT_AMOUNT,
+            abi.encode(
+                abi.encode(
+                    abi.encode("Bridged IntArbTestToken (YBB)"),
+                    abi.encode("brgIARB.ybb"),
+                    abi.encode(vaultDecimals)
+                ),
+                abi.encode("test")
+            )
+        );
+
+        assertEq(outboundCalldata, expectedCalldata, "Should apply prefix and suffix to name and symbol");
+    }
+
+    function test_setTokenPrefixSuffix_revertsForNonOwner() public {
+        vm.prank(user);
+        vm.expectRevert("AbsYbbERC20Gateway: NOT_OWNER");
+        gateway.setTokenPrefixSuffix("Bridged ", "", "brg", "");
     }
 }

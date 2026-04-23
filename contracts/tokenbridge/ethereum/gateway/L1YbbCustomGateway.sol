@@ -19,7 +19,7 @@ contract L1YbbCustomGateway is L1CustomGateway, AbsYbbGateway {
         address _masterVaultFactory
     ) public virtual {
         L1CustomGateway.initialize(_l1Counterpart, _l1Router, _inbox, _owner);
-        AbsYbbGateway._initialize(_masterVaultFactory);
+        __AbsYbbGateway_init(_masterVaultFactory);
     }
 
     function inboundEscrowTransfer(address _l1Token, address _dest, uint256 _amount)

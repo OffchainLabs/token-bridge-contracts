@@ -29,6 +29,7 @@ import {
   TestERC20__factory,
   TestOrbitCustomTokenL1__factory,
 } from '../build/types'
+import { abi as UpgradeExecutorABI } from '@offchainlabs/upgrade-executor/build/contracts/src/UpgradeExecutor.sol/UpgradeExecutor.json'
 import { defaultAbiCoder } from 'ethers/lib/utils'
 import { BigNumber, Wallet, ethers } from 'ethers'
 import { exit } from 'process'
@@ -244,6 +245,74 @@ describe('YBB Token Bridge', () => {
       DEPOSIT_AMOUNT
     )
     expect(await l2Token.decimals()).to.be.eq(await token.decimals())
+  })
+
+  it('deposit reflects token name prefix/suffix on L2', async function () {
+    await fundUserForRetryableFees()
+
+    // set prefix/suffix via upgradeExecutor using the rollup owner key
+    const rollupOwnerKey =
+      '0xecdf21cb41c65afb51f91df408b7656e2c8739a5877f2814add0afd780cc210e'
+    const rollupOwnerWallet = new ethers.Wallet(rollupOwnerKey, parentProvider)
+
+    const gatewayAddress = _l2Network.tokenBridge.parentErc20Gateway
+    const gateway = L1YbbERC20Gateway__factory.connect(
+      gatewayAddress,
+      parentProvider
+    )
+    const upgradeExecutorAddr = await gateway.owner()
+    const upgradeExecutor = new ethers.Contract(
+      upgradeExecutorAddr,
+      UpgradeExecutorABI,
+      rollupOwnerWallet
+    )
+
+    const setPrefixSuffixCalldata =
+      gateway.interface.encodeFunctionData('setTokenPrefixSuffix', [
+        'Bridged ',
+        ' (YBB)',
+        'brg',
+        '.ybb',
+      ])
+    await (
+      await upgradeExecutor.executeCall(gatewayAddress, setPrefixSuffixCalldata)
+    ).wait()
+
+    expect(await gateway.tokenNamePrefix()).to.eq('Bridged ')
+    expect(await gateway.tokenNameSuffix()).to.eq(' (YBB)')
+    expect(await gateway.tokenSymbolPrefix()).to.eq('brg')
+    expect(await gateway.tokenSymbolSuffix()).to.eq('.ybb')
+
+    // deposit a token
+    const token = await (
+      await new TestERC20__factory(userL1Wallet).deploy()
+    ).deployed()
+    await (await token.mint()).wait()
+
+    await (
+      await token.approve(gatewayAddress, DEPOSIT_AMOUNT)
+    ).wait()
+
+    const { router } = await deposit({
+      tokenAddress: token.address,
+      gatewayAddress,
+      amount: DEPOSIT_AMOUNT,
+    })
+
+    // verify L2 token name and symbol include prefix/suffix
+    const l2TokenAddress = await router.calculateL2TokenAddress(token.address)
+    const l2Token = ERC20__factory.connect(l2TokenAddress, childProvider)
+    expect(await l2Token.name()).to.eq('Bridged IntArbTestToken (YBB)')
+    expect(await l2Token.symbol()).to.eq('brgIARB.ybb')
+
+    // reset prefix/suffix for subsequent tests
+    const resetCalldata = gateway.interface.encodeFunctionData(
+      'setTokenPrefixSuffix',
+      ['', '', '', '']
+    )
+    await (
+      await upgradeExecutor.executeCall(gatewayAddress, resetCalldata)
+    ).wait()
   })
 
   it('can deposit token via custom gateway', async function () {
