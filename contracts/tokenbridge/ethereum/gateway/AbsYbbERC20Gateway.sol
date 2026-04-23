@@ -11,11 +11,17 @@ import {BytesParser} from "../../libraries/BytesParser.sol";
 /// @notice Abstract contract inherited by L1OrbitYbbERC20Gateway and L1YbbERC20Gateway.
 ///         Provides shared logic for getOutboundCalldata and inherits escrow handling and slippage checking from AbsYbbGateway.
 abstract contract AbsYbbERC20Gateway is AbsYbbGateway {
+    /// @notice Set once at initialization to the rollup's UpgradeExecutor and never changes.
+    ///         No transfer or renounce path is provided by design.
     address public owner;
     string public tokenNamePrefix;
     string public tokenNameSuffix;
     string public tokenSymbolPrefix;
     string public tokenSymbolSuffix;
+
+    event TokenPrefixSuffixSet(
+        string namePrefix, string nameSuffix, string symbolPrefix, string symbolSuffix
+    );
 
     modifier onlyOwner() {
         require(msg.sender == owner, "AbsYbbERC20Gateway: NOT_OWNER");
@@ -29,6 +35,10 @@ abstract contract AbsYbbERC20Gateway is AbsYbbGateway {
         owner = _owner;
     }
 
+    /// @notice Set strings that wrap every subsequently-bridged token's L2 name and symbol.
+    /// @dev    Changing prefix/suffix does NOT rename tokens that have already been bridged:
+    ///         StandardArbERC20.bridgeInit runs only on the first deposit of a given L1 token,
+    ///         so new values only apply to tokens bridged for the first time after this call.
     function setTokenPrefixSuffix(
         string calldata _namePrefix,
         string calldata _nameSuffix,
@@ -39,6 +49,7 @@ abstract contract AbsYbbERC20Gateway is AbsYbbGateway {
         tokenNameSuffix = _nameSuffix;
         tokenSymbolPrefix = _symbolPrefix;
         tokenSymbolSuffix = _symbolSuffix;
+        emit TokenPrefixSuffixSet(_namePrefix, _nameSuffix, _symbolPrefix, _symbolSuffix);
     }
 
     function getOutboundCalldata(
@@ -79,6 +90,10 @@ abstract contract AbsYbbERC20Gateway is AbsYbbGateway {
         view
         returns (bytes memory);
 
+    /// @dev If BytesParser.toString returns success=false (empty returndata from a failed
+    ///      name()/symbol() call, or a non-null-terminated bytes32 return), the original
+    ///      bytes pass through unchanged and the configured prefix/suffix is silently
+    ///      skipped.
     function _applyPrefixSuffix(bytes memory data, string memory prefix, string memory suffix)
         private
         pure

@@ -184,6 +184,84 @@ contract L1OrbitYbbERC20GatewayTest is Test {
         gateway.setTokenPrefixSuffix("Bridged ", "", "brg", "");
     }
 
+    function test_initialize_revertsOnZeroOwner() public {
+        L1OrbitYbbERC20Gateway gw = new L1OrbitYbbERC20Gateway();
+        vm.expectRevert("AbsYbbERC20Gateway: ZERO_OWNER");
+        gw.initialize(
+            l2Gateway,
+            address(router),
+            address(inbox),
+            keccak256(type(ClonableBeaconProxy).creationCode),
+            l2BeaconProxyFactory,
+            address(factory),
+            address(0)
+        );
+    }
+
+    event TokenPrefixSuffixSet(
+        string namePrefix, string nameSuffix, string symbolPrefix, string symbolSuffix
+    );
+
+    function test_setTokenPrefixSuffix_emitsEvent() public {
+        vm.expectEmit(true, true, true, true, address(gateway));
+        emit TokenPrefixSuffixSet("Bridged ", " (YBB)", "brg", ".ybb");
+        gateway.setTokenPrefixSuffix("Bridged ", " (YBB)", "brg", ".ybb");
+    }
+
+    function test_getOutboundCalldata_asymmetricPrefixOnly() public {
+        _depositToCreateVault();
+        // name: prefix only; symbol: suffix only
+        gateway.setTokenPrefixSuffix("pfx-", "", "", "-sfx");
+
+        uint8 vaultDecimals = token.decimals();
+        bytes memory outboundCalldata = gateway.getOutboundCalldata(
+            address(token), user, l2Dest, DEPOSIT_AMOUNT, abi.encode("test")
+        );
+
+        bytes memory expectedCalldata = abi.encodeWithSelector(
+            ITokenGateway.finalizeInboundTransfer.selector,
+            address(token),
+            user,
+            l2Dest,
+            DEPOSIT_AMOUNT,
+            abi.encode(
+                abi.encode(
+                    abi.encode("pfx-IntArbTestToken"),
+                    abi.encode("IARB-sfx"),
+                    abi.encode(vaultDecimals)
+                ),
+                abi.encode("test")
+            )
+        );
+        assertEq(outboundCalldata, expectedCalldata, "Should apply asymmetric prefix/suffix");
+    }
+
+    function test_getOutboundCalldata_parseFailPassthrough() public {
+        // Address with no code: staticcall returns empty bytes for name/symbol/decimals,
+        // so BytesParser.toString fails and _applyPrefixSuffix must return the original bytes.
+        address brokenToken = makeAddr("brokenToken");
+        gateway.setTokenPrefixSuffix("Bridged ", " (YBB)", "brg", ".ybb");
+
+        bytes memory outboundCalldata = gateway.getOutboundCalldata(
+            brokenToken, user, l2Dest, DEPOSIT_AMOUNT, abi.encode("test")
+        );
+
+        bytes memory empty = new bytes(0);
+        bytes memory expectedCalldata = abi.encodeWithSelector(
+            ITokenGateway.finalizeInboundTransfer.selector,
+            brokenToken,
+            user,
+            l2Dest,
+            DEPOSIT_AMOUNT,
+            abi.encode(abi.encode(empty, empty, empty), abi.encode("test"))
+        );
+        assertEq(
+            outboundCalldata,
+            expectedCalldata,
+            "Parse failure should leave original bytes untouched"
+        );
+    }
+
     function _buildRouterEncodedData(bytes memory callHookData)
         internal
         view
