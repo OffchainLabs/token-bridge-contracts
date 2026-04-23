@@ -50,21 +50,12 @@ abstract contract AbsYbbERC20Gateway is AbsYbbGateway {
     ) public virtual view returns (bytes memory outboundCalldata) {
         address vault = IMasterVaultFactory(masterVaultFactory).calculateVaultAddress(_token);
 
-        bytes memory nameBytes = callStatic(_token, ERC20.name.selector);
-        bytes memory symbolBytes = callStatic(_token, ERC20.symbol.selector);
-
-        if (bytes(tokenNamePrefix).length > 0 || bytes(tokenNameSuffix).length > 0) {
-            (bool parseSuccess, string memory name) = BytesParser.toString(nameBytes);
-            if (parseSuccess) {
-                nameBytes = abi.encode(string(abi.encodePacked(tokenNamePrefix, name, tokenNameSuffix)));
-            }
-        }
-        if (bytes(tokenSymbolPrefix).length > 0 || bytes(tokenSymbolSuffix).length > 0) {
-            (bool parseSuccess, string memory symbol) = BytesParser.toString(symbolBytes);
-            if (parseSuccess) {
-                symbolBytes = abi.encode(string(abi.encodePacked(tokenSymbolPrefix, symbol, tokenSymbolSuffix)));
-            }
-        }
+        bytes memory nameBytes = _applyPrefixSuffix(
+            callStatic(_token, ERC20.name.selector), tokenNamePrefix, tokenNameSuffix
+        );
+        bytes memory symbolBytes = _applyPrefixSuffix(
+            callStatic(_token, ERC20.symbol.selector), tokenSymbolPrefix, tokenSymbolSuffix
+        );
 
         bytes memory deployData = abi.encode(
             nameBytes,
@@ -87,4 +78,19 @@ abstract contract AbsYbbERC20Gateway is AbsYbbGateway {
         virtual
         view
         returns (bytes memory);
+
+    function _applyPrefixSuffix(bytes memory data, string memory prefix, string memory suffix)
+        private
+        pure
+        returns (bytes memory)
+    {
+        if (bytes(prefix).length == 0 && bytes(suffix).length == 0) {
+            return data;
+        }
+        (bool parseSuccess, string memory value) = BytesParser.toString(data);
+        if (!parseSuccess) {
+            return data;
+        }
+        return abi.encode(string(abi.encodePacked(prefix, value, suffix)));
+    }
 }
