@@ -54,12 +54,16 @@ abstract contract AbsYbbERC20Gateway is AbsYbbGateway {
         bytes memory symbolBytes = callStatic(_token, ERC20.symbol.selector);
 
         if (bytes(tokenNamePrefix).length > 0 || bytes(tokenNameSuffix).length > 0) {
-            (, string memory name) = BytesParser.toString(nameBytes);
-            nameBytes = abi.encode(string(abi.encodePacked(tokenNamePrefix, name, tokenNameSuffix)));
+            (bool parseSuccess, string memory name) = BytesParser.toString(nameBytes);
+            if (parseSuccess) {
+                nameBytes = abi.encode(string(abi.encodePacked(tokenNamePrefix, name, tokenNameSuffix)));
+            }
         }
         if (bytes(tokenSymbolPrefix).length > 0 || bytes(tokenSymbolSuffix).length > 0) {
-            (, string memory symbol) = BytesParser.toString(symbolBytes);
-            symbolBytes = abi.encode(string(abi.encodePacked(tokenSymbolPrefix, symbol, tokenSymbolSuffix)));
+            (bool parseSuccess, string memory symbol) = BytesParser.toString(symbolBytes);
+            if (parseSuccess) {
+                symbolBytes = abi.encode(string(abi.encodePacked(tokenSymbolPrefix, symbol, tokenSymbolSuffix)));
+            }
         }
 
         bytes memory deployData = abi.encode(
