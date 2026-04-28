@@ -32,7 +32,7 @@ abstract contract AbsYbbGateway is IYbbGateway {
         _status = _NOT_ENTERED;
     }
 
-    function _initialize(address _masterVaultFactory) internal {
+    function __AbsYbbGateway_init(address _masterVaultFactory) internal {
         require(_masterVaultFactory != address(0), "AbsYbbGateway: BAD_MASTER_VAULT_FACTORY");
         require(masterVaultFactory == address(0), "AbsYbbGateway: ALREADY_INITIALIZED");
         masterVaultFactory = _masterVaultFactory;

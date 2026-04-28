@@ -505,7 +505,8 @@ contract L1AtomicTokenBridgeCreator is Initializable, OwnableUpgradeable {
                     _inbox: args.inbox,
                     _cloneableProxyHash: clonableBeaconProxyCreationCodeHash,
                     _l2BeaconProxyFactory: l2Deployment.beaconProxyFactory,
-                    _masterVaultFactory: masterVaultFactory
+                    _masterVaultFactory: masterVaultFactory,
+                    _owner: upgradeExecutor
                 });
         }
 
