@@ -280,13 +280,7 @@ abstract contract L1ArbitrumGateway is
                 bytes memory extraData;
                 uint256 _maxSubmissionCost;
                 uint256 tokenTotalFeeAmount;
-                if (super.isRouter(msg.sender)) {
-                    // router encoded
-                    (_from, extraData) = GatewayMessageHandler.parseFromRouterToGateway(_data);
-                } else {
-                    _from = msg.sender;
-                    extraData = _data;
-                }
+                (_from, extraData) = GatewayMessageHandler.parseFromRouterToGateway(_data);
                 // unpack user encoded data
                 (_maxSubmissionCost, extraData, tokenTotalFeeAmount) = _parseUserEncodedData(extraData);
 
