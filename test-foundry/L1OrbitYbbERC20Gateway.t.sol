@@ -280,4 +280,18 @@ contract L1OrbitYbbERC20GatewayTest is Test {
             abi.encode(maxSubmissionCost, callHookData, nativeTokenTotalFee);
         return abi.encode(user, userEncodedData);
     }
+
+    function test_supportsInterface_slippageTolerance() public {
+        assertTrue(
+            gateway.supportsInterface(
+                gateway.outboundTransferCustomRefundWithSlippageTolerance.selector
+            ),
+            "slippage-tolerance selector should be supported"
+        );
+        assertTrue(
+            gateway.supportsInterface(gateway.outboundTransferCustomRefund.selector),
+            "outboundTransferCustomRefund selector should still be supported"
+        );
+        assertFalse(gateway.supportsInterface(bytes4(0)), "zero selector should not be supported");
+    }
 }

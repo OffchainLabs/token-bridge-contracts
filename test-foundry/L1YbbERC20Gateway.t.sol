@@ -374,4 +374,18 @@ contract L1YbbERC20GatewayTest is Test {
             "Parse failure should leave original bytes untouched"
         );
     }
+
+    function test_supportsInterface_slippageTolerance() public {
+        assertTrue(
+            gateway.supportsInterface(
+                gateway.outboundTransferCustomRefundWithSlippageTolerance.selector
+            ),
+            "slippage-tolerance selector should be supported"
+        );
+        assertTrue(
+            gateway.supportsInterface(gateway.outboundTransferCustomRefund.selector),
+            "outboundTransferCustomRefund selector should still be supported"
+        );
+        assertFalse(gateway.supportsInterface(bytes4(0)), "zero selector should not be supported");
+    }
 }

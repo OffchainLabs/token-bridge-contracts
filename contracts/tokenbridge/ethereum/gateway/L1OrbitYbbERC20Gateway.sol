@@ -82,4 +82,15 @@ contract L1OrbitYbbERC20Gateway is L1OrbitERC20Gateway, AbsYbbERC20Gateway {
             _data
         );
     }
+
+    // advertise the YBB slippage-tolerance entrypoint (ERC-165)
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        override(L1ArbitrumGateway)
+        returns (bool)
+    {
+        return interfaceId == this.outboundTransferCustomRefundWithSlippageTolerance.selector
+            || super.supportsInterface(interfaceId);
+    }
 }

@@ -57,4 +57,15 @@ contract L1OrbitYbbCustomGateway is L1OrbitCustomGateway, AbsYbbGateway {
             _data
         );
     }
+
+    // advertise the YBB slippage-tolerance entrypoint (ERC-165)
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        override(L1ArbitrumGateway)
+        returns (bool)
+    {
+        return interfaceId == this.outboundTransferCustomRefundWithSlippageTolerance.selector
+            || super.supportsInterface(interfaceId);
+    }
 }
