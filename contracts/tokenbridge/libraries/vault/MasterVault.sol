@@ -491,7 +491,12 @@ contract MasterVault is
         uint256 totalIdle = asset.balanceOf(address(this));
 
         uint256 amountToTransfer = profit <= totalIdle ? profit : totalIdle;
+
+        // cap the subvault withdrawal at maxWithdraw so temporary illiquidity yields a partial
+        // distribution instead of reverting; the remainder stays as profit for a later call
+        uint256 maxWithdrawAmount = subVault.maxWithdraw(address(this));
         uint256 amountToWithdraw = profit - amountToTransfer;
+        if (amountToWithdraw > maxWithdrawAmount) amountToWithdraw = maxWithdrawAmount;
 
         if (amountToTransfer > 0) {
             asset.safeTransfer(beneficiary, amountToTransfer);

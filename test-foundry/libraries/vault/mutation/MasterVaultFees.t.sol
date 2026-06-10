@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import {MasterVaultCoreTest} from "../MasterVaultCore.t.sol";
 import {MasterVault} from "../../../../contracts/tokenbridge/libraries/vault/MasterVault.sol";
 import {TestERC20} from "../../../../contracts/tokenbridge/test/TestERC20.sol";
+import {FuzzSubVault} from "../../../../contracts/tokenbridge/test/FuzzSubVault.sol";
 import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Vm} from "forge-std/Test.sol";
@@ -156,5 +157,31 @@ contract MasterVaultFeesTest is MasterVaultCoreTest {
         uint256 subVaultBalAfter = token.balanceOf(address(vault.subVault()));
         assertEq(token.balanceOf(beneficiaryAddr), profit, "beneficiary should receive all profit");
         assertTrue(subVaultBalBefore > subVaultBalAfter, "subvault balance should decrease");
+    }
+
+    function test_distributePerformanceFee_partialWhenSubVaultIlliquid() public {
+        // illiquid subvault must yield a partial distribution, not revert the whole call
+        FuzzSubVault fuzzSv = new FuzzSubVault(IERC20(address(token)), "Fuzz", "FZ");
+        vault.setSubVaultWhitelist(address(fuzzSv), true);
+        vault.setSubVault(IERC4626(address(fuzzSv)));
+
+        _setupWithAllocation(100e18, 1e18); // 100% to subvault, idle = 0
+        assertEq(token.balanceOf(address(vault)), 0, "idle should be 0");
+
+        token.mintAmount(10e18);
+        token.transfer(address(fuzzSv), 10e18); // profit accrues in the subvault
+        uint256 profitBefore = vault.totalProfit();
+        assertGt(profitBefore, 0, "should have profit");
+
+        uint256 liquidCap = 4e18;
+        assertLt(liquidCap, profitBefore, "cap must be below profit");
+        fuzzSv.setMaxWithdrawLimit(liquidCap);
+
+        // pre-fix: reverts ("FuzzSubVault: withdraw exceeds max"); post-fix: partial distribution
+        vm.prank(keeper);
+        vault.distributePerformanceFee();
+
+        assertEq(token.balanceOf(beneficiaryAddr), liquidCap, "beneficiary gets capped amount");
+        assertGt(vault.totalProfit(), 0, "remainder stays as profit");
     }
 }
