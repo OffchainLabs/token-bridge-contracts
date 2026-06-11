@@ -120,6 +120,16 @@ contract L1OrbitYbbERC20GatewayTest is Test {
         gateway.outboundTransfer(address(nativeToken), user, 100, maxGas, gasPriceBid, "");
     }
 
+    function test_outboundTransferCustomRefundWithSlippageTolerance_revert_NotAllowedToBridgeFeeToken()
+        public
+    {
+        vm.prank(address(router));
+        vm.expectRevert("NOT_ALLOWED_TO_BRIDGE_FEE_TOKEN");
+        gateway.outboundTransferCustomRefundWithSlippageTolerance(
+            address(nativeToken), user, user, 100, maxGas, gasPriceBid, "", 0
+        );
+    }
+
     function test_getOutboundCalldata_reportsVaultDecimals() public {
         _depositToCreateVault();
 
