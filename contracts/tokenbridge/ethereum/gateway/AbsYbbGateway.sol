@@ -76,6 +76,7 @@ abstract contract AbsYbbGateway is IYbbGateway {
         returns (uint256 amountReceived)
     {
         uint256 prevBalance = IERC20(_l1Token).balanceOf(address(this));
+        // slither-disable-next-line arbitrary-send-erc20
         IERC20(_l1Token).safeTransferFrom(_from, address(this), _amount);
         uint256 postBalance = IERC20(_l1Token).balanceOf(address(this));
         uint256 underlyingReceived = postBalance - prevBalance;
