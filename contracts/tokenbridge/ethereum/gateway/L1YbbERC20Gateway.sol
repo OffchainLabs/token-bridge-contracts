@@ -81,14 +81,13 @@ contract L1YbbERC20Gateway is L1ERC20Gateway, AbsYbbERC20Gateway {
         );
     }
 
-    // advertise the YBB slippage-tolerance entrypoint (ERC-165)
     function supportsInterface(bytes4 interfaceId)
         public
         view
-        override(L1ArbitrumGateway)
+        override(L1ArbitrumGateway, AbsYbbGateway)
         returns (bool)
     {
-        return interfaceId == this.outboundTransferCustomRefundWithSlippageTolerance.selector
-            || super.supportsInterface(interfaceId);
+        return L1ArbitrumGateway.supportsInterface(interfaceId)
+            || AbsYbbGateway.supportsInterface(interfaceId);
     }
 }

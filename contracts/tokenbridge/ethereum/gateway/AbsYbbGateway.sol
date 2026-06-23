@@ -6,12 +6,13 @@ import {IMasterVault} from "../../libraries/vault/IMasterVault.sol";
 import {IYbbGateway} from "./IYbbGateway.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {ERC165} from "../../libraries/ERC165.sol";
 
 /// @notice Abstract contract inherited by all YBB gateways.
 ///         Inherited directly by L1YbbCustomGateway and L1OrbitYbbCustomGateway, 
 ///         and inherited indirectly by L1YbbERC20Gateway and L1OrbitYbbERC20Gateway through AbsYbbERC20Gateway.
 ///         Provides shared logic for initialization and escrow handling.
-abstract contract AbsYbbGateway is IYbbGateway {
+abstract contract AbsYbbGateway is IYbbGateway, ERC165 {
     using SafeERC20 for IERC20;
 
     /// @notice Address of the MasterVaultFactory contract
@@ -60,6 +61,17 @@ abstract contract AbsYbbGateway is IYbbGateway {
             _data
         );
         require(receivedOnL2 >= minReceivedOnL2, "SLIPPAGE_EXCEEDED");
+    }
+
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        virtual
+        override
+        returns (bool)
+    {
+        return interfaceId == this.outboundTransferCustomRefundWithSlippageTolerance.selector
+            || super.supportsInterface(interfaceId);
     }
 
     function inboundEscrowTransfer(address _l1Token, address _dest, uint256 _amount)
