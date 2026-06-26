@@ -78,6 +78,7 @@ contract L1WethGateway is L1ArbitrumExtendedGateway {
         address _from,
         uint256 _amount
     ) internal override returns (uint256) {
+        // slither-disable-next-line arbitrary-send-erc20
         IERC20(_l1Token).safeTransferFrom(_from, address(this), _amount);
         IWETH9(_l1Token).withdraw(_amount);
         // the weth token doesn't contain any special behaviour that changes the amount
@@ -90,6 +91,7 @@ contract L1WethGateway is L1ArbitrumExtendedGateway {
         address _dest,
         uint256 _amount
     ) internal override {
+        // slither-disable-next-line arbitrary-send-eth
         IWETH9(_l1Token).deposit{ value: _amount }();
         IERC20(_l1Token).safeTransfer(_dest, _amount);
     }

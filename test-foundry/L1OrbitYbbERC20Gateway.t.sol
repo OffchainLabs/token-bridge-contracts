@@ -105,10 +105,29 @@ contract L1OrbitYbbERC20GatewayTest is Test {
         );
     }
 
+    function test_outboundTransferCustomRefundWithSlippageTolerance_revert_NoValue() public {
+        vm.deal(address(router), 100 ether);
+        vm.prank(address(router));
+        vm.expectRevert("NO_VALUE");
+        gateway.outboundTransferCustomRefundWithSlippageTolerance{value: 1 ether}(
+            address(token), user, user, 100, maxGas, gasPriceBid, "", 0
+        );
+    }
+
     function test_outboundTransfer_revert_NotAllowedToBridgeFeeToken() public {
         vm.prank(address(router));
         vm.expectRevert("NOT_ALLOWED_TO_BRIDGE_FEE_TOKEN");
         gateway.outboundTransfer(address(nativeToken), user, 100, maxGas, gasPriceBid, "");
+    }
+
+    function test_outboundTransferCustomRefundWithSlippageTolerance_revert_NotAllowedToBridgeFeeToken()
+        public
+    {
+        vm.prank(address(router));
+        vm.expectRevert("NOT_ALLOWED_TO_BRIDGE_FEE_TOKEN");
+        gateway.outboundTransferCustomRefundWithSlippageTolerance(
+            address(nativeToken), user, user, 100, maxGas, gasPriceBid, "", 0
+        );
     }
 
     function test_getOutboundCalldata_reportsVaultDecimals() public {
@@ -270,5 +289,19 @@ contract L1OrbitYbbERC20GatewayTest is Test {
         bytes memory userEncodedData =
             abi.encode(maxSubmissionCost, callHookData, nativeTokenTotalFee);
         return abi.encode(user, userEncodedData);
+    }
+
+    function test_supportsInterface_slippageTolerance() public {
+        assertTrue(
+            gateway.supportsInterface(
+                gateway.outboundTransferCustomRefundWithSlippageTolerance.selector
+            ),
+            "slippage-tolerance selector should be supported"
+        );
+        assertTrue(
+            gateway.supportsInterface(gateway.outboundTransferCustomRefund.selector),
+            "outboundTransferCustomRefund selector should still be supported"
+        );
+        assertFalse(gateway.supportsInterface(bytes4(0)), "zero selector should not be supported");
     }
 }

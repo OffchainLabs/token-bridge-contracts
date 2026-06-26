@@ -57,4 +57,14 @@ contract L1OrbitYbbCustomGateway is L1OrbitCustomGateway, AbsYbbGateway {
             _data
         );
     }
+
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        override(L1ArbitrumGateway, AbsYbbGateway)
+        returns (bool)
+    {
+        return L1ArbitrumGateway.supportsInterface(interfaceId)
+            || AbsYbbGateway.supportsInterface(interfaceId);
+    }
 }

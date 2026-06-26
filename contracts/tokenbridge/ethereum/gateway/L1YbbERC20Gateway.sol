@@ -80,4 +80,14 @@ contract L1YbbERC20Gateway is L1ERC20Gateway, AbsYbbERC20Gateway {
             _data
         );
     }
+
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        override(L1ArbitrumGateway, AbsYbbGateway)
+        returns (bool)
+    {
+        return L1ArbitrumGateway.supportsInterface(interfaceId)
+            || AbsYbbGateway.supportsInterface(interfaceId);
+    }
 }

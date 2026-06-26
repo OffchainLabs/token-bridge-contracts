@@ -280,13 +280,7 @@ abstract contract L1ArbitrumGateway is
                 bytes memory extraData;
                 uint256 _maxSubmissionCost;
                 uint256 tokenTotalFeeAmount;
-                if (super.isRouter(msg.sender)) {
-                    // router encoded
-                    (_from, extraData) = GatewayMessageHandler.parseFromRouterToGateway(_data);
-                } else {
-                    _from = msg.sender;
-                    extraData = _data;
-                }
+                (_from, extraData) = GatewayMessageHandler.parseFromRouterToGateway(_data);
                 // unpack user encoded data
                 (_maxSubmissionCost, extraData, tokenTotalFeeAmount) = _parseUserEncodedData(extraData);
 
@@ -323,6 +317,7 @@ abstract contract L1ArbitrumGateway is
         // this method is virtual since different subclasses can handle escrow differently
         // user funds are escrowed on the gateway using this function
         uint256 prevBalance = IERC20(_l1Token).balanceOf(address(this));
+        // slither-disable-next-line arbitrary-send-erc20
         IERC20(_l1Token).safeTransferFrom(_from, address(this), _amount);
         uint256 postBalance = IERC20(_l1Token).balanceOf(address(this));
         return postBalance - prevBalance;
