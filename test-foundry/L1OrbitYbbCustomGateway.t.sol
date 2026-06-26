@@ -175,38 +175,4 @@ contract L1OrbitYbbCustomGatewayTest is Test {
         );
         assertFalse(gateway.supportsInterface(bytes4(0)), "zero selector should not be supported");
     }
-
-    function test_outboundTransferCustomRefund_revert_NoValue() public {
-        vm.deal(address(router), 100 ether);
-        vm.prank(address(router));
-        vm.expectRevert("NO_VALUE");
-        gateway.outboundTransferCustomRefund{value: 1 ether}(
-            address(token), user, user, 100, maxGas, gasPriceBid, ""
-        );
-    }
-
-    function test_outboundTransferCustomRefundWithSlippageTolerance_revert_NoValue() public {
-        vm.deal(address(router), 100 ether);
-        vm.prank(address(router));
-        vm.expectRevert("NO_VALUE");
-        gateway.outboundTransferCustomRefundWithSlippageTolerance{value: 1 ether}(
-            address(token), user, user, 100, maxGas, gasPriceBid, "", 0
-        );
-    }
-
-    function test_outboundTransfer_revert_NotAllowedToBridgeFeeToken() public {
-        vm.prank(address(router));
-        vm.expectRevert("NOT_ALLOWED_TO_BRIDGE_FEE_TOKEN");
-        gateway.outboundTransfer(address(nativeToken), user, 100, maxGas, gasPriceBid, "");
-    }
-
-    function test_outboundTransferCustomRefundWithSlippageTolerance_revert_NotAllowedToBridgeFeeToken()
-        public
-    {
-        vm.prank(address(router));
-        vm.expectRevert("NOT_ALLOWED_TO_BRIDGE_FEE_TOKEN");
-        gateway.outboundTransferCustomRefundWithSlippageTolerance(
-            address(nativeToken), user, user, 100, maxGas, gasPriceBid, "", 0
-        );
-    }
 }

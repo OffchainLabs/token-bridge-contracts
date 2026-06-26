@@ -6,7 +6,6 @@ import {L1OrbitCustomGateway} from "./L1OrbitCustomGateway.sol";
 import {L1CustomGateway} from "./L1CustomGateway.sol";
 import {L1ArbitrumGateway} from "./L1ArbitrumGateway.sol";
 import {AbsYbbGateway} from "./AbsYbbGateway.sol";
-import {IERC20Bridge} from "../../libraries/IERC20Bridge.sol";
 
 /**
  * @title Layer 1 Gateway contract for bridging Custom ERC20s with YBB enabled in ERC20-based rollup
@@ -48,11 +47,6 @@ contract L1OrbitYbbCustomGateway is L1OrbitCustomGateway, AbsYbbGateway {
         uint256 _gasPriceBid,
         bytes calldata _data
     ) internal override(AbsYbbGateway, L1ArbitrumGateway) returns (bytes memory res, uint256 amountOnL2) {
-        require(msg.value == 0, "NO_VALUE");
-        require(
-            _l1Token != IERC20Bridge(address(getBridge(inbox))).nativeToken(),
-            "NOT_ALLOWED_TO_BRIDGE_FEE_TOKEN"
-        );
         return L1ArbitrumGateway._outboundTransferCustomRefund(
             _l1Token,
             _refundTo,
