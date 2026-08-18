@@ -41,12 +41,11 @@ import {
   bytecode as MasterMinterBytecode,
 } from '@offchainlabs/stablecoin-evm/artifacts/hardhat/contracts/minting/MasterMinter.sol/MasterMinter.json'
 import {
-  addCustomNetwork,
-  L1Network,
-  L1ToL2MessageGasEstimator,
-  L1ToL2MessageStatus,
-  L1TransactionReceipt,
-  L2Network,
+  registerCustomArbitrumNetwork,
+  ParentToChildMessageGasEstimator,
+  ParentToChildMessageStatus,
+  ParentTransactionReceipt,
+  ArbitrumNetwork
 } from '@arbitrum/sdk'
 import { RollupAdminLogic__factory } from '@arbitrum/sdk/dist/lib/abi/factories/RollupAdminLogic__factory'
 import { getBaseFee } from '@arbitrum/sdk/dist/lib/utils/lib'
@@ -71,6 +70,9 @@ main().then(() => console.log('Done.'))
  * - if `ROLLUP_OWNER_KEY` is provided, register the gateway in the router through the UpgradeExecutor
  * - if `ROLLUP_OWNER_KEY` is not provided, prepare calldata and store it in `registerUsdcGatewayTx.json` file
  * - set minter role to L2 USDC gateway with max allowance
+ *
+ * Note: Same implementation is used for bridged EURC (Circle's euro stablecoin). The only difference is in the
+ * name/symbol/currency of the L2 token deployment.
  */
 async function main() {
   console.log('Starting USDC bridge deployment')
@@ -184,14 +186,18 @@ async function _deployBridgedUsdc(
     deployerL2Wallet
   )
 
+  const tokenName = process.env['L2_TOKEN_NAME'] as string
+  const tokenSymbol = process.env['L2_TOKEN_SYMBOL'] as string
+  const tokenCurrency = process.env['L2_TOKEN_CURRENCY'] as string
+
   const pauserL2 = deployerL2Wallet
   const blacklisterL2 = deployerL2Wallet
   const lostAndFound = deployerL2Wallet
   await (
     await l2UsdcFiatToken.initialize(
-      'USDC',
-      'USDC.e',
-      'USD',
+      tokenName,
+      tokenSymbol,
+      tokenCurrency,
       6,
       masterMinter.address,
       pauserL2.address,
@@ -199,15 +205,16 @@ async function _deployBridgedUsdc(
       deployerL2Wallet.address
     )
   ).wait()
-  await (await l2UsdcFiatToken.initializeV2('USDC')).wait()
+
+  await (await l2UsdcFiatToken.initializeV2(tokenName)).wait()
   await (await l2UsdcFiatToken.initializeV2_1(lostAndFound.address)).wait()
-  await (await l2UsdcFiatToken.initializeV2_2([], 'USDC.e')).wait()
+  await (await l2UsdcFiatToken.initializeV2_2([], tokenSymbol)).wait()
 
   /// verify initialization
   if (
-    (await l2UsdcFiatToken.name()) != 'USDC' ||
-    (await l2UsdcFiatToken.symbol()) != 'USDC.e' ||
-    (await l2UsdcFiatToken.currency()) != 'USD' ||
+    (await l2UsdcFiatToken.name()) != tokenName ||
+    (await l2UsdcFiatToken.symbol()) != tokenSymbol ||
+    (await l2UsdcFiatToken.currency()) != tokenCurrency ||
     (await l2UsdcFiatToken.decimals()) != 6 ||
     (await l2UsdcFiatToken.masterMinter()) != masterMinter.address ||
     (await l2UsdcFiatToken.pauser()) != pauserL2.address ||
@@ -443,7 +450,7 @@ async function _registerGateway(
       [[l1UsdcAddress], [l1UsdcGatewayAddress]]
     )
 
-  const l1ToL2MessageGasEstimate = new L1ToL2MessageGasEstimator(childProvider)
+  const l1ToL2MessageGasEstimate = new ParentToChildMessageGasEstimator(childProvider)
   const retryableParams = await l1ToL2MessageGasEstimate.estimateAll(
     {
       from: l1RouterAddress,
@@ -471,7 +478,7 @@ async function _registerGateway(
 
   const registrationCalldata = isFeeToken
     ? L1OrbitGatewayRouter__factory.createInterface().encodeFunctionData(
-        'setGateways(address[],address[],uint256,uint256,uint256,uint256)',
+        'setGateways',
         [
           [l1UsdcAddress],
           [l1UsdcGatewayAddress],
@@ -482,7 +489,7 @@ async function _registerGateway(
         ]
       )
     : L1GatewayRouter__factory.createInterface().encodeFunctionData(
-        'setGateways(address[],address[],uint256,uint256,uint256)',
+        'setGateways',
         [
           [l1UsdcAddress],
           [l1UsdcGatewayAddress],
@@ -623,14 +630,14 @@ async function _isUpgradeExecutor(
  */
 async function _waitOnL2Msg(tx: ContractTransaction, childProvider: Provider) {
   const retryableReceipt = await tx.wait()
-  const l1TxReceipt = new L1TransactionReceipt(retryableReceipt)
-  const messages = await l1TxReceipt.getL1ToL2Messages(childProvider)
+  const l1TxReceipt = new ParentTransactionReceipt(retryableReceipt)
+  const messages = await l1TxReceipt.getParentToChildMessages(childProvider)
 
   // 1 msg expected
   const messageResult = await messages[0].waitForStatus()
   const status = messageResult.status
 
-  if (status != L1ToL2MessageStatus.REDEEMED) {
+  if (status != ParentToChildMessageStatus.REDEEMED) {
     throw new Error('L1->L2 message not redeemed')
   }
 }
@@ -647,31 +654,19 @@ async function _registerNetworks(
   l2Provider: Provider,
   inboxAddress: string
 ): Promise<{
-  l1Network: L1Network
-  l2Network: Omit<L2Network, 'tokenBridge'>
+  l2Network: ArbitrumNetwork
 }> {
   const l1NetworkInfo = await l1Provider.getNetwork()
   const l2NetworkInfo = await l2Provider.getNetwork()
-
-  const l1Network: L1Network = {
-    blockTime: 10,
-    chainID: l1NetworkInfo.chainId,
-    explorerUrl: '',
-    isCustom: true,
-    name: l1NetworkInfo.name,
-    partnerChainIDs: [l2NetworkInfo.chainId],
-    isArbitrum: false,
-  }
 
   const rollupAddress = await IBridge__factory.connect(
     await IInboxBase__factory.connect(inboxAddress, l1Provider).bridge(),
     l1Provider
   ).rollup()
   const rollup = RollupAdminLogic__factory.connect(rollupAddress, l1Provider)
-  const l2Network: L2Network = {
-    blockTime: 10,
-    partnerChainIDs: [],
-    chainID: l2NetworkInfo.chainId,
+  const l2Network: ArbitrumNetwork = {
+    isTestnet: false,
+    chainId: l2NetworkInfo.chainId,
     confirmPeriodBlocks: (await rollup.confirmPeriodBlocks()).toNumber(),
     ethBridge: {
       bridge: await rollup.bridge(),
@@ -680,41 +675,16 @@ async function _registerNetworks(
       rollup: rollup.address,
       sequencerInbox: await rollup.sequencerInbox(),
     },
-    explorerUrl: '',
-    isArbitrum: true,
     isCustom: true,
     name: 'OrbitChain',
-    partnerChainID: l1NetworkInfo.chainId,
+    parentChainId: l1NetworkInfo.chainId,
     retryableLifetimeSeconds: 7 * 24 * 60 * 60,
-    nitroGenesisBlock: 0,
-    nitroGenesisL1Block: 0,
-    depositTimeout: 900000,
-    tokenBridge: {
-      l1CustomGateway: '',
-      l1ERC20Gateway: '',
-      l1GatewayRouter: '',
-      l1MultiCall: '',
-      l1ProxyAdmin: '',
-      l1Weth: '',
-      l1WethGateway: '',
-      l2CustomGateway: '',
-      l2ERC20Gateway: '',
-      l2GatewayRouter: '',
-      l2Multicall: '',
-      l2ProxyAdmin: '',
-      l2Weth: '',
-      l2WethGateway: '',
-    },
   }
 
   // register - needed for retryables
-  addCustomNetwork({
-    customL1Network: l1Network,
-    customL2Network: l2Network,
-  })
+  registerCustomArbitrumNetwork(l2Network)
 
   return {
-    l1Network,
     l2Network,
   }
 }
@@ -755,6 +725,9 @@ function _checkEnvVars() {
     'L2_ROUTER',
     'INBOX',
     'L1_USDC',
+    'L2_TOKEN_NAME',
+    'L2_TOKEN_SYMBOL',
+    'L2_TOKEN_CURRENCY',
   ]
 
   for (const envVar of requiredEnvVars) {
