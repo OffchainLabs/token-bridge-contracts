@@ -118,7 +118,8 @@ contract L1GatewayRouterTest is GatewayRouterTest {
             address(l1Router),
             inbox,
             0x0000000000000000000000000000000000000000000000000000000000000001,
-            makeAddr("l2BeaconProxyFactory")
+            makeAddr("l2BeaconProxyFactory"),
+            address(0)
         );
 
         // event checkers
@@ -207,7 +208,7 @@ contract L1GatewayRouterTest is GatewayRouterTest {
         // create gateway
         L1CustomGateway customGateway = new L1CustomGateway();
         address l2Counterpart = makeAddr("l2Counterpart");
-        customGateway.initialize(l2Counterpart, address(l1Router), address(inbox), owner);
+        customGateway.initialize(l2Counterpart, address(l1Router), address(inbox), owner, address(0));
 
         // create token
         ERC20 customToken = new ERC20("X", "Y");
@@ -275,7 +276,7 @@ contract L1GatewayRouterTest is GatewayRouterTest {
         // create gateway
         L1CustomGateway customGateway = new L1CustomGateway();
         address l2Counterpart = makeAddr("l2Counterpart");
-        customGateway.initialize(l2Counterpart, address(l1Router), address(inbox), owner);
+        customGateway.initialize(l2Counterpart, address(l1Router), address(inbox), owner, address(0));
 
         // create token
         ERC20 customToken = new ERC20("X", "Y");
@@ -386,7 +387,8 @@ contract L1GatewayRouterTest is GatewayRouterTest {
             l2Counterpart,
             address(l1Router),
             address(inbox),
-            owner
+            owner,
+            address(0)
         );
 
         // create token
@@ -470,7 +472,8 @@ contract L1GatewayRouterTest is GatewayRouterTest {
                 l2Counterpart,
                 address(l1Router),
                 address(inbox),
-                owner
+                owner,
+                address(0)
             );
 
             vm.mockCall(
@@ -559,7 +562,8 @@ contract L1GatewayRouterTest is GatewayRouterTest {
             l2Counterpart,
             address(l1Router),
             address(inbox),
-            owner
+            owner,
+            address(0)
         );
 
         // create token
@@ -685,7 +689,8 @@ contract L1GatewayRouterTest is GatewayRouterTest {
             address(l1Router),
             inbox,
             0x0000000000000000000000000000000000000000000000000000000000000001,
-            makeAddr("l2BeaconProxyFactory")
+            makeAddr("l2BeaconProxyFactory"),
+            address(0)
         );
 
         // set default gateway
@@ -746,7 +751,8 @@ contract L1GatewayRouterTest is GatewayRouterTest {
             address(l1Router),
             inbox,
             0x0000000000000000000000000000000000000000000000000000000000000001,
-            makeAddr("l2BeaconProxyFactory")
+            makeAddr("l2BeaconProxyFactory"),
+            address(0)
         );
 
         // set default gateway

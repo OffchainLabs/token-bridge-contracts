@@ -22,6 +22,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/Create2.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 import "../L1ArbitrumMessenger.sol";
 import "./IL1ArbitrumGateway.sol";
 import "../../libraries/ProxyUtil.sol";
@@ -29,6 +30,7 @@ import "../../libraries/gateway/GatewayMessageHandler.sol";
 import "../../libraries/gateway/TokenGateway.sol";
 import "../../libraries/ITransferAndCall.sol";
 import "../../libraries/ERC165.sol";
+import { IMasterVaultFactory } from "../IMasterVaultFactory.sol";
 
 /**
  * @title Common interface for gatways on L1 messaging to Arbitrum.
@@ -43,6 +45,12 @@ abstract contract L1ArbitrumGateway is
     using Address for address;
 
     address public override inbox;
+
+    /// @notice Address of the MasterVaultFactory contract
+    ///         If set to zero, the yield bearing bridge (YBB) feature is disabled
+    ///         If set, this contract is called to create and lookup MasterVaults for each L1 token
+    /// @dev    There is no setter for this variable. YBB must be enabled/disabled at deployment time.
+    address public masterVaultFactory;
 
     event DepositInitiated(
         address l1Token,
@@ -84,13 +92,15 @@ abstract contract L1ArbitrumGateway is
     function _initialize(
         address _l2Counterpart,
         address _router,
-        address _inbox
+        address _inbox,
+        address _masterVaultFactory
     ) internal {
         TokenGateway._initialize(_l2Counterpart, _router);
         // L1 gateway must have a router
         require(_router != address(0), "BAD_ROUTER");
         require(_inbox != address(0), "BAD_INBOX");
         inbox = _inbox;
+        masterVaultFactory = _masterVaultFactory;
     }
 
     /**
@@ -142,7 +152,12 @@ abstract contract L1ArbitrumGateway is
         uint256 _amount
     ) internal virtual {
         // this method is virtual since different subclasses can handle escrow differently
-        IERC20(_l1Token).safeTransfer(_dest, _amount);
+        if (masterVaultFactory != address(0)) {
+            address masterVault = IMasterVaultFactory(masterVaultFactory).getVault(_l1Token);
+            IERC20(masterVault).safeTransfer(_dest, _amount);
+        } else {
+            IERC20(_l1Token).safeTransfer(_dest, _amount);
+        }
     }
 
     /**
@@ -301,7 +316,12 @@ abstract contract L1ArbitrumGateway is
         uint256 prevBalance = IERC20(_l1Token).balanceOf(address(this));
         IERC20(_l1Token).safeTransferFrom(_from, address(this), _amount);
         uint256 postBalance = IERC20(_l1Token).balanceOf(address(this));
-        return postBalance - prevBalance;
+        amountReceived = postBalance - prevBalance;
+
+        if (masterVaultFactory != address(0)) {
+            address masterVault = IMasterVaultFactory(masterVaultFactory).getVault(_l1Token);
+            amountReceived = IERC4626(masterVault).deposit(amountReceived, address(this));
+        }
     }
 
     function getOutboundCalldata(
