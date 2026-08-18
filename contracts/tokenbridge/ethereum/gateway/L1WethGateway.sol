@@ -16,10 +16,10 @@
  * limitations under the License.
  */
 
-pragma solidity ^0.6.11;
+pragma solidity ^0.8.0;
 
 import "@arbitrum/nitro-contracts/src/bridge/IInbox.sol";
-import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../../libraries/IWETH9.sol";
 import "../../test/TestWETH9.sol";
@@ -32,13 +32,13 @@ contract L1WethGateway is L1ArbitrumExtendedGateway {
     address public l2Weth;
 
     function initialize(
-        address _l1Counterpart,
+        address _l2Counterpart,
         address _l1Router,
         address _inbox,
         address _l1Weth,
         address _l2Weth
     ) public {
-        L1ArbitrumGateway._initialize(_l1Counterpart, _l1Router, _inbox);
+        L1ArbitrumGateway._initialize(_l2Counterpart, _l1Router, _inbox);
         require(_l1Weth != address(0), "INVALID_L1WETH");
         require(_l2Weth != address(0), "INVALID_L2WETH");
         l1Weth = _l1Weth;
@@ -101,12 +101,29 @@ contract L1WethGateway is L1ArbitrumExtendedGateway {
      * @param l1ERC20 address of L1 token
      * @return L2 address of a bridged ERC20 token
      */
-    function calculateL2TokenAddress(address l1ERC20) public view override returns (address) {
+    function calculateL2TokenAddress(address l1ERC20)
+        public
+        view
+        override(ITokenGateway, TokenGateway)
+        returns (address)
+    {
         if (l1ERC20 != l1Weth) {
             // invalid L1 weth address
             return address(0);
         }
         return l2Weth;
+    }
+
+    /**
+     * @notice  Temporary disable the ability to trade exits
+     */
+    function setRedirectedExit(
+        uint256 _exitNum,
+        address _initialDestination,
+        address _newDestination,
+        bytes memory _newData
+    ) internal override {
+        revert("TRADABLE_EXIT_TEMP_DISABLED");
     }
 
     receive() external payable {}

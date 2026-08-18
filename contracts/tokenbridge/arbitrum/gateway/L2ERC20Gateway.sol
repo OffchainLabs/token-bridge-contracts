@@ -16,9 +16,9 @@
  * limitations under the License.
  */
 
-pragma solidity ^0.6.11;
+pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/proxy/UpgradeableBeacon.sol";
+import "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import "@openzeppelin/contracts/utils/Create2.sol";
 import "./L2ArbitrumGateway.sol";
 import "../StandardArbERC20.sol";

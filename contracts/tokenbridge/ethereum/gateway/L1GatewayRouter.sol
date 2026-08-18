@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-pragma solidity ^0.6.11;
+pragma solidity ^0.8.0;
 
 import "../../libraries/Whitelist.sol";
 
@@ -39,6 +39,8 @@ contract L1GatewayRouter is
     ERC165,
     IL1GatewayRouter
 {
+    using Address for address;
+
     address public override owner;
     address public override inbox;
 
@@ -65,7 +67,24 @@ contract L1GatewayRouter is
         uint256 _maxGas,
         uint256 _gasPriceBid,
         uint256 _maxSubmissionCost
-    ) external payable onlyOwner returns (uint256) {
+    ) external payable virtual onlyOwner returns (uint256) {
+        return
+            _setDefaultGateway(
+                newL1DefaultGateway,
+                _maxGas,
+                _gasPriceBid,
+                _maxSubmissionCost,
+                msg.value
+            );
+    }
+
+    function _setDefaultGateway(
+        address newL1DefaultGateway,
+        uint256 _maxGas,
+        uint256 _gasPriceBid,
+        uint256 _maxSubmissionCost,
+        uint256 feeAmount
+    ) internal returns (uint256) {
         defaultGateway = newL1DefaultGateway;
 
         emit DefaultGatewayUpdated(newL1DefaultGateway);
@@ -86,7 +105,7 @@ contract L1GatewayRouter is
                 inbox,
                 counterpartGateway,
                 msg.sender,
-                msg.value,
+                feeAmount,
                 0,
                 L2GasParams({
                     _maxSubmissionCost: _maxSubmissionCost,
@@ -103,13 +122,118 @@ contract L1GatewayRouter is
         owner = newOwner;
     }
 
+    /**
+     * @notice Allows L1 Token contract to trustlessly register its gateway. (other setGateway method allows excess eth recovery from _maxSubmissionCost and is recommended)
+     * @param _gateway l1 gateway address
+     * @param _maxGas max gas for L2 retryable exrecution
+     * @param _gasPriceBid gas price for L2 retryable ticket
+     * @param  _maxSubmissionCost base submission cost  L2 retryable tick3et
+     * @return Retryable ticket ID
+     */
+    function setGateway(
+        address _gateway,
+        uint256 _maxGas,
+        uint256 _gasPriceBid,
+        uint256 _maxSubmissionCost
+    ) external payable virtual override returns (uint256) {
+        return setGateway(_gateway, _maxGas, _gasPriceBid, _maxSubmissionCost, msg.sender);
+    }
+
+    /**
+     * @notice Allows L1 Token contract to trustlessly register its gateway.
+     * @param _gateway l1 gateway address
+     * @param _maxGas max gas for L2 retryable exrecution
+     * @param _gasPriceBid gas price for L2 retryable ticket
+     * @param  _maxSubmissionCost base submission cost  L2 retryable tick3et
+     * @param _creditBackAddress address for crediting back overpayment of _maxSubmissionCost
+     * @return Retryable ticket ID
+     */
+    function setGateway(
+        address _gateway,
+        uint256 _maxGas,
+        uint256 _gasPriceBid,
+        uint256 _maxSubmissionCost,
+        address _creditBackAddress
+    ) public payable virtual override returns (uint256) {
+        return
+            _setGatewayWithCreditBack(
+                _gateway,
+                _maxGas,
+                _gasPriceBid,
+                _maxSubmissionCost,
+                _creditBackAddress,
+                msg.value
+            );
+    }
+
+    function _setGatewayWithCreditBack(
+        address _gateway,
+        uint256 _maxGas,
+        uint256 _gasPriceBid,
+        uint256 _maxSubmissionCost,
+        address _creditBackAddress,
+        uint256 feeAmount
+    ) internal returns (uint256) {
+        require(
+            ArbitrumEnabledToken(msg.sender).isArbitrumEnabled() == uint8(0xb1),
+            "NOT_ARB_ENABLED"
+        );
+
+        require(_gateway.isContract(), "NOT_TO_CONTRACT");
+
+        address currGateway = getGateway(msg.sender);
+        if (currGateway != address(0) && currGateway != defaultGateway) {
+            // if gateway is already set to a non-default gateway, don't allow it to set a different gateway
+            require(currGateway == _gateway, "NO_UPDATE_TO_DIFFERENT_ADDR");
+        }
+
+        address[] memory _tokenArr = new address[](1);
+        _tokenArr[0] = address(msg.sender);
+
+        address[] memory _gatewayArr = new address[](1);
+        _gatewayArr[0] = _gateway;
+
+        return
+            _setGateways(
+                _tokenArr,
+                _gatewayArr,
+                _maxGas,
+                _gasPriceBid,
+                _maxSubmissionCost,
+                _creditBackAddress,
+                feeAmount
+            );
+    }
+
+    function setGateways(
+        address[] memory _token,
+        address[] memory _gateway,
+        uint256 _maxGas,
+        uint256 _gasPriceBid,
+        uint256 _maxSubmissionCost
+    ) external payable virtual onlyOwner returns (uint256) {
+        // it is assumed that token and gateway are both contracts
+        // require(_token[i].isContract() && _gateway[i].isContract(), "NOT_CONTRACT");
+        return
+            _setGateways(
+                _token,
+                _gateway,
+                _maxGas,
+                _gasPriceBid,
+                _maxSubmissionCost,
+                msg.sender,
+                msg.value
+            );
+    }
+
     function _setGateways(
         address[] memory _token,
         address[] memory _gateway,
         uint256 _maxGas,
         uint256 _gasPriceBid,
         uint256 _maxSubmissionCost,
-        address _creditBackAddress
+        address _creditBackAddress,
+        uint256 feeAmount
     ) internal returns (uint256) {
         require(_token.length == _gateway.length, "WRONG_LENGTH");
 
@@ -140,7 +264,7 @@ contract L1GatewayRouter is
                 inbox,
                 counterpartGateway,
                 _creditBackAddress,
-                msg.value,
+                feeAmount,
                 0,
                 L2GasParams({
                     _maxSubmissionCost: _maxSubmissionCost,
@@ -151,99 +275,6 @@ contract L1GatewayRouter is
             );
     }
 
-    /**
-     * @notice Allows L1 Token contract to trustlessly register its gateway. (other setGateway method allows excess eth recovery from _maxSubmissionCost and is recommended)
-     * @param _gateway l1 gateway address
-     * @param _maxGas max gas for L2 retryable exrecution
-     * @param _gasPriceBid gas price for L2 retryable ticket
-     * @param  _maxSubmissionCost base submission cost  L2 retryable tick3et
-     * @return Retryable ticket ID
-     */
-    function setGateway(
-        address _gateway,
-        uint256 _maxGas,
-        uint256 _gasPriceBid,
-        uint256 _maxSubmissionCost
-    ) external payable override returns (uint256) {
-        return setGateway(_gateway, _maxGas, _gasPriceBid, _maxSubmissionCost, msg.sender);
-    }
-
-    /**
-     * @notice Allows L1 Token contract to trustlessly register its gateway.
-     * @param _gateway l1 gateway address
-     * @param _maxGas max gas for L2 retryable exrecution
-     * @param _gasPriceBid gas price for L2 retryable ticket
-     * @param  _maxSubmissionCost base submission cost  L2 retryable tick3et
-     * @param _creditBackAddress address for crediting back overpayment of _maxSubmissionCost
-     * @return Retryable ticket ID
-     */
-    function setGateway(
-        address _gateway,
-        uint256 _maxGas,
-        uint256 _gasPriceBid,
-        uint256 _maxSubmissionCost,
-        address _creditBackAddress
-    ) public payable override returns (uint256) {
-        require(
-            ArbitrumEnabledToken(msg.sender).isArbitrumEnabled() == uint8(0xa4b1),
-            "NOT_ARB_ENABLED"
-        );
-        require(_gateway.isContract(), "NOT_TO_CONTRACT");
-
-        address currGateway = getGateway(msg.sender);
-        if (currGateway != address(0) && currGateway != defaultGateway) {
-            // if gateway is already set to a non-default gateway, don't allow it to set a different gateway
-            require(currGateway == _gateway, "NO_UPDATE_TO_DIFFERENT_ADDR");
-        }
-
-        address[] memory _tokenArr = new address[](1);
-        _tokenArr[0] = address(msg.sender);
-
-        address[] memory _gatewayArr = new address[](1);
-        _gatewayArr[0] = _gateway;
-
-        return
-            _setGateways(
-                _tokenArr,
-                _gatewayArr,
-                _maxGas,
-                _gasPriceBid,
-                _maxSubmissionCost,
-                _creditBackAddress
-            );
-    }
-
-    function setGateways(
-        address[] memory _token,
-        address[] memory _gateway,
-        uint256 _maxGas,
-        uint256 _gasPriceBid,
-        uint256 _maxSubmissionCost
-    ) external payable onlyOwner returns (uint256) {
-        // it is assumed that token and gateway are both contracts
-        // require(_token[i].isContract() && _gateway[i].isContract(), "NOT_CONTRACT");
-        return
-            _setGateways(_token, _gateway, _maxGas, _gasPriceBid, _maxSubmissionCost, msg.sender);
-    }
-
-    function _outboundTransferChecks(
-        uint256 _maxGas,
-        uint256 _gasPriceBid,
-        bytes calldata _data
-    ) internal view {
-        // when sending a L1 to L2 transaction, we expect the user to send
-        // eth in flight in order to pay for L2 gas costs
-        // this check prevents users from misconfiguring the msg.value
-
-        // _data is (uint256, bytes) encoded, but we don't need the bytes
-        uint256 _maxSubmissionCost = abi.decode(_data, (uint256));
-
-        // here we don't use SafeMath since this validation is to prevent users
-        // from shooting themselves on the foot.
-        require(_maxSubmissionCost != 0, "NO_SUBMISSION_COST");
-        require(msg.value == _maxSubmissionCost + (_maxGas * _gasPriceBid), "WRONG_ETH_VALUE");
-    }
-
     function outboundTransfer(
         address _token,
         address _to,
@@ -252,8 +283,6 @@ contract L1GatewayRouter is
         uint256 _gasPriceBid,
         bytes calldata _data
     ) public payable override(GatewayRouter, ITokenGateway) returns (bytes memory) {
-        _outboundTransferChecks(_maxGas, _gasPriceBid, _data);
-
         return super.outboundTransfer(_token, _to, _amount, _maxGas, _gasPriceBid, _data);
     }
 
@@ -265,10 +294,11 @@ contract L1GatewayRouter is
      *      - a contract in construction
      *      - an address where a contract will be created
      *      - an address where a contract lived, but was destroyed
+     *    The msg.sender that calls this method, or its L2 alias if it has code in L1, will be set to the callValueRefundAddress;
+     *    this means it can cancel the retryable ticket if its auto-redeem fails, and also that it receives the l2 callvalue refund.
      * @param _token L1 address of ERC20
      * @param _refundTo Account, or its L2 alias if it have code in L1, to be credited with excess gas refund in L2
-     * @param _to Account to be credited with the tokens in the L2 (can be the user's L2 account or a contract), not subject to L2 aliasing
-                  This account, or its L2 alias if it have code in L1, will also be able to cancel the retryable ticket and receive callvalue refund
+     * @param _to Account to be credited with the tokens in the L2 (can be an EOA or a contract), not subject to L2 aliasing.
      * @param _amount Token Amount
      * @param _maxGas Max gas deducted from user's L2 balance to cover L2 execution
      * @param _gasPriceBid Gas price for L2 execution

@@ -16,9 +16,10 @@
  * limitations under the License.
  */
 
-pragma solidity ^0.6.11;
+pragma solidity ^0.8.0;
 
 import "../arbitrum/IArbToken.sol";
+import "../arbitrum/ReverseArbToken.sol";
 import "../libraries/aeERC20.sol";
 
 contract TestArbCustomToken is aeERC20, IArbToken {
@@ -30,7 +31,7 @@ contract TestArbCustomToken is aeERC20, IArbToken {
         _;
     }
 
-    constructor(address _l2Gateway, address _l1Address) public {
+    constructor(address _l2Gateway, address _l1Address) {
         l2Gateway = _l2Gateway;
         l1Address = _l1Address;
         aeERC20._initialize("TestCustomToken", "CARB", uint8(18));
@@ -38,22 +39,43 @@ contract TestArbCustomToken is aeERC20, IArbToken {
 
     function someWackyCustomStuff() public {}
 
-    function bridgeMint(address account, uint256 amount) external override onlyGateway {
+    function bridgeMint(address account, uint256 amount) external virtual override onlyGateway {
         _mint(account, amount);
     }
 
-    function bridgeBurn(address account, uint256 amount) external override onlyGateway {
+    function bridgeBurn(address account, uint256 amount) external virtual override onlyGateway {
         _burn(account, amount);
     }
 }
 
 contract MintableTestArbCustomToken is TestArbCustomToken {
     constructor(address _l2Gateway, address _l1Address)
-        public
         TestArbCustomToken(_l2Gateway, _l1Address)
     {}
 
     function userMint(address account, uint256 amount) external {
         _mint(account, amount);
+    }
+}
+
+contract ReverseTestArbCustomToken is aeERC20, IArbToken, ReverseArbToken {
+    address public l2Gateway;
+    address public override l1Address;
+
+    modifier onlyGateway() {
+        require(msg.sender == l2Gateway, "ONLY_l2GATEWAY");
+        _;
+    }
+
+    constructor(address _l2Gateway, address _l1Address) {
+        l2Gateway = _l2Gateway;
+        l1Address = _l1Address;
+        aeERC20._initialize("TestReverseCustomToken", "RARB", uint8(18));
+    }
+
+    function someWackyCustomStuff() public {}
+
+    function mint() external {
+        _mint(msg.sender, 50000000);
     }
 }

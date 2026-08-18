@@ -364,9 +364,14 @@ describe('Bridge peripherals layer 2', () => {
     const balance = await erc20.balanceOf(dest)
     assert.equal(balance.toString(), amount, 'Tokens not minted correctly')
 
+    const prevExitNum = await testBridge.exitNum()
+
     await testBridge.functions[
       'outboundTransfer(address,address,uint256,bytes)'
     ](l1ERC20, accounts[1].address, balance, '0x')
+
+    const newExitNum = await testBridge.exitNum()
+    expect(newExitNum).to.be.gt(prevExitNum)
 
     const newBalance = await erc20.balanceOf(dest)
     assert.equal(newBalance.toString(), '0', 'Tokens not minted correctly')

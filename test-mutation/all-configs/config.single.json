@@ -1,0 +1,10 @@
+[
+  {
+    "filename": "../contracts/tokenbridge/ethereum/gateway/L1ERC20Gateway.sol",
+    "sourceroot": "..",
+    "solc_remappings": [
+      "@openzeppelin=../node_modules/@openzeppelin",
+      "@arbitrum=../node_modules/@arbitrum"
+    ]
+  }
+]

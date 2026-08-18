@@ -1,0 +1,147 @@
+import { JsonRpcProvider } from '@ethersproject/providers'
+import { ArbitrumNetwork, registerCustomArbitrumNetwork } from '@arbitrum/sdk'
+import { RollupAdminLogic__factory } from '@arbitrum/sdk/dist/lib/abi/factories/RollupAdminLogic__factory'
+import { createTokenBridge, getSigner } from '../atomicTokenBridgeDeployer'
+import dotenv from 'dotenv'
+import { L1AtomicTokenBridgeCreator__factory } from '../../build/types'
+import * as fs from 'fs'
+import { env } from 'process'
+
+dotenv.config()
+
+export const envVars = {
+  rollupAddress: process.env['ROLLUP_ADDRESS'] as string,
+  rollupOwner: process.env['ROLLUP_OWNER'] as string,
+  l1TokenBridgeCreator: process.env['L1_TOKEN_BRIDGE_CREATOR'] as string,
+  baseChainRpc: process.env['BASECHAIN_RPC'] as string,
+  baseChainDeployerKey: process.env['BASECHAIN_DEPLOYER_KEY'] as string,
+  childChainRpc: process.env['ORBIT_RPC'] as string,
+}
+
+/**
+ * Steps:
+ * - read network info from local container and register networks
+ * - deploy L1 bridge creator and set templates
+ * - do single TX deployment of token bridge
+ * - populate network objects with new addresses and return it
+ *
+ * @param l1Deployer
+ * @param l2Deployer
+ * @param l1Url
+ * @param l2Url
+ * @returns
+ */
+export const createTokenBridgeOnTargetChain = async () => {
+  if (envVars.rollupAddress == undefined)
+    throw new Error('Missing ROLLUP_ADDRESS in env vars')
+  if (envVars.rollupOwner == undefined)
+    throw new Error('Missing ROLLUP_OWNER in env vars')
+  if (envVars.l1TokenBridgeCreator == undefined)
+    throw new Error('Missing L1_TOKEN_BRIDGE_CREATOR in env vars')
+  if (envVars.baseChainRpc == undefined)
+    throw new Error('Missing BASECHAIN_RPC in env vars')
+  if (envVars.baseChainDeployerKey == undefined)
+    throw new Error('Missing BASECHAIN_DEPLOYER_KEY in env vars')
+  if (envVars.childChainRpc == undefined)
+    throw new Error('Missing ORBIT_RPC in env vars')
+
+  console.log('Creating token bridge for rollup', envVars.rollupAddress)
+
+  const l1Provider = new JsonRpcProvider(envVars.baseChainRpc)
+  const l1Deployer = getSigner(l1Provider, envVars.baseChainDeployerKey)
+  const l2Provider = new JsonRpcProvider(envVars.childChainRpc)
+
+  const { l2Network: corel2Network } = await registerNetworks(
+    l1Provider,
+    l2Provider,
+    envVars.rollupAddress
+  )
+
+  const l1TokenBridgeCreator = L1AtomicTokenBridgeCreator__factory.connect(
+    envVars.l1TokenBridgeCreator,
+    l1Deployer
+  )
+
+  // create token bridge
+  const { l1Deployment, l2Deployment, l1MultiCall, l1ProxyAdmin } =
+    await createTokenBridge(
+      l1Deployer,
+      l2Provider,
+      l1TokenBridgeCreator,
+      envVars.rollupAddress,
+      envVars.rollupOwner
+    )
+
+  const l2Network: ArbitrumNetwork = {
+    ...corel2Network,
+    tokenBridge: {
+      parentCustomGateway: l1Deployment.customGateway,
+      parentErc20Gateway: l1Deployment.standardGateway,
+      parentGatewayRouter: l1Deployment.router,
+      parentMultiCall: l1MultiCall,
+      parentProxyAdmin: l1ProxyAdmin,
+      parentWeth: l1Deployment.weth,
+      parentWethGateway: l1Deployment.wethGateway,
+
+      childCustomGateway: l2Deployment.customGateway,
+      childErc20Gateway: l2Deployment.standardGateway,
+      childGatewayRouter: l2Deployment.router,
+      childMultiCall: l2Deployment.multicall,
+      childProxyAdmin: l2Deployment.proxyAdmin,
+      childWeth: l2Deployment.weth,
+      childWethGateway: l2Deployment.wethGateway,
+    },
+  }
+
+  return {
+    l2Network,
+  }
+}
+
+const registerNetworks = async (
+  l1Provider: JsonRpcProvider,
+  l2Provider: JsonRpcProvider,
+  rollupAddress: string
+): Promise<{
+  l2Network: ArbitrumNetwork
+}> => {
+  const l1NetworkInfo = await l1Provider.getNetwork()
+  const l2NetworkInfo = await l2Provider.getNetwork()
+
+  const rollup = RollupAdminLogic__factory.connect(rollupAddress, l1Provider)
+  const l2Network: ArbitrumNetwork = {
+    isTestnet: false,
+    chainId: l2NetworkInfo.chainId,
+    confirmPeriodBlocks: (await rollup.confirmPeriodBlocks()).toNumber(),
+    ethBridge: {
+      bridge: await rollup.bridge(),
+      inbox: await rollup.inbox(),
+      outbox: await rollup.outbox(),
+      rollup: rollup.address,
+      sequencerInbox: await rollup.sequencerInbox(),
+    },
+    isCustom: true,
+    name: 'OrbitChain',
+    parentChainId: l1NetworkInfo.chainId,
+    retryableLifetimeSeconds: 7 * 24 * 60 * 60,
+  }
+
+  // register - needed for retryables
+  registerCustomArbitrumNetwork(l2Network)
+
+  return {
+    l2Network,
+  }
+}
+
+async function main() {
+  const { l2Network } = await createTokenBridgeOnTargetChain()
+  const NETWORK_FILE = 'network.json'
+  fs.writeFileSync(
+    NETWORK_FILE,
+    JSON.stringify({ l2Network }, null, 2)
+  )
+  console.log(NETWORK_FILE + ' updated')
+}
+
+main().then(() => console.log('Done.'))

@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
-pragma solidity ^0.6.11;
+pragma solidity ^0.8.0;
 
 import "../libraries/IWETH9.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/proxy/ProxyAdmin.sol";
+import "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 
 contract TestWETH9 is ERC20, IWETH9 {
-    constructor(string memory name_, string memory symbol_) public ERC20(name_, symbol_) {}
+    constructor(string memory name_, string memory symbol_) ERC20(name_, symbol_) {}
 
     function deposit() external payable override {
         _mint(msg.sender, msg.value);

@@ -1,0 +1,7 @@
+{
+  "exclude_dependencies": true,
+  "exclude_informational": true,
+  "exclude_low": true,
+  "exclude_optimization": true,
+  "filter_paths": "contracts/tokenbridge/test|node_modules/"
+}

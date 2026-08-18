@@ -22,7 +22,7 @@ import { Contract, ContractFactory } from 'ethers'
 import { AeWETH, L2WethGateway, L2WethGateway__factory } from '../build/types'
 import { applyAlias, impersonateAccount } from './testhelper'
 
-describe.only('Bridge peripherals weth layer 2', () => {
+describe('Bridge peripherals weth layer 2', () => {
   let accounts: SignerWithAddress[]
   let TestBridge: L2WethGateway__factory
   let testBridge: L2WethGateway
@@ -126,9 +126,14 @@ describe.only('Bridge peripherals weth layer 2', () => {
     const balance = await l2Weth.balanceOf(dest)
     assert.equal(balance.toString(), amount, 'Tokens not minted correctly')
 
+    const prevExitNum = await testBridge.exitNum()
+
     await testBridge.functions[
       'outboundTransfer(address,address,uint256,bytes)'
     ](l1WethAddr, accounts[1].address, balance, '0x')
+
+    const newExitNum = await testBridge.exitNum()
+    expect(newExitNum).to.be.gt(prevExitNum)
 
     const newBalance = await l2Weth.balanceOf(dest)
     assert.equal(newBalance.toString(), '0', 'Tokens not burnt correctly')

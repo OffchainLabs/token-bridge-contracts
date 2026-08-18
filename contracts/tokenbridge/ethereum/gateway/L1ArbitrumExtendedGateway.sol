@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-pragma solidity ^0.6.11;
+pragma solidity ^0.8.0;
 
 import "../../libraries/ITransferAndCall.sol";
 
@@ -31,6 +31,8 @@ interface ITradeableExitReceiver {
 }
 
 abstract contract L1ArbitrumExtendedGateway is L1ArbitrumGateway {
+    using Address for address;
+
     struct ExitData {
         bool isExit;
         address _newTo;
@@ -122,7 +124,7 @@ abstract contract L1ArbitrumExtendedGateway is L1ArbitrumGateway {
         address _initialDestination,
         address _newDestination,
         bytes memory _newData
-    ) internal {
+    ) internal virtual {
         bytes32 withdrawData = encodeWithdrawal(_exitNum, _initialDestination);
         redirectedExits[withdrawData] = ExitData(true, _newDestination, _newData);
     }

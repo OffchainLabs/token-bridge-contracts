@@ -1,4 +1,4 @@
-pragma solidity ^0.6.11;
+pragma solidity ^0.8.0;
 
 contract ArbSysMock {
     event ArbSysL2ToL1Tx(address from, address to, uint256 value, bytes data);

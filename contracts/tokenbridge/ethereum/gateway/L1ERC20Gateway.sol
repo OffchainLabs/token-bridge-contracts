@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-pragma solidity ^0.6.11;
+pragma solidity ^0.8.0;
 
 import "./L1ArbitrumExtendedGateway.sol";
 import "@openzeppelin/contracts/utils/Create2.sol";
@@ -62,7 +62,7 @@ contract L1ERC20Gateway is L1ArbitrumExtendedGateway {
         uint256 _maxGas,
         uint256 _gasPriceBid,
         bytes calldata _data
-    ) public payable override nonReentrant returns (bytes memory res) {
+    ) public payable virtual override nonReentrant returns (bytes memory res) {
         return
             super.outboundTransferCustomRefund(
                 _l1Token,
@@ -149,7 +149,12 @@ contract L1ERC20Gateway is L1ArbitrumExtendedGateway {
         return outboundCalldata;
     }
 
-    function calculateL2TokenAddress(address l1ERC20) public view override returns (address) {
+    function calculateL2TokenAddress(address l1ERC20)
+        public
+        view
+        override(ITokenGateway, TokenGateway)
+        returns (address)
+    {
         bytes32 salt = getSalt(l1ERC20);
         return Create2.computeAddress(salt, cloneableProxyHash, l2BeaconProxyFactory);
     }

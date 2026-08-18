@@ -1,3 +1,4 @@
+import './tasks/peripheralsTasks'
 import '@typechain/hardhat'
 import '@nomiclabs/hardhat-waffle'
 import 'dotenv/config'
@@ -5,6 +6,7 @@ import 'solidity-coverage'
 import 'hardhat-gas-reporter'
 import '@nomiclabs/hardhat-etherscan'
 import 'hardhat-deploy'
+import 'hardhat-contract-sizer'
 
 import { task } from 'hardhat/config'
 import '@nomiclabs/hardhat-ethers'
@@ -34,7 +36,7 @@ const config = {
         },
       },
       {
-        version: '0.8.7',
+        version: '0.8.16',
         settings: {
           optimizer: {
             enabled: true,
@@ -43,7 +45,17 @@ const config = {
         },
       },
     ],
-    overrides: {},
+    overrides: {
+      'contracts/tokenbridge/test/UpgradeExecutorForVerification.sol': {
+        version: '0.8.16',
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 20000,
+          },
+        },
+      },
+    },
   },
   networks: {
     hardhat: {
@@ -111,8 +123,20 @@ const config = {
         ? [process.env['DEVNET_PRIVKEY']]
         : [],
     },
+    sepolia: {
+      url: 'https://sepolia.infura.io/v3/' + process.env['INFURA_KEY'],
+      accounts: process.env['DEVNET_PRIVKEY']
+        ? [process.env['DEVNET_PRIVKEY']]
+        : [],
+    },
     arbGoerliRollup: {
       url: 'https://goerli-rollup.arbitrum.io/rpc',
+      accounts: process.env['DEVNET_PRIVKEY']
+        ? [process.env['DEVNET_PRIVKEY']]
+        : [],
+    },
+    arbSepoliaRollup: {
+      url: 'https://sepolia-rollup.arbitrum.io/rpc',
       accounts: process.env['DEVNET_PRIVKEY']
         ? [process.env['DEVNET_PRIVKEY']]
         : [],
@@ -128,6 +152,9 @@ const config = {
         count: 10,
       },
       timeout: 100000,
+    },
+    orbit: {
+      url: 'http://127.0.0.1:8547',
     },
   },
   typechain: {
@@ -159,18 +186,21 @@ const config = {
       kovan: process.env['ETHERSCAN_API_KEY'],
       rinkeby: process.env['ETHERSCAN_API_KEY'],
       goerli: process.env['ETHERSCAN_API_KEY'],
+      sepolia: process.env['ETHERSCAN_API_KEY'],
       arbitrumOne: process.env['ARBISCAN_API_KEY'],
       arbitrumTestnet: process.env['ARBISCAN_API_KEY'],
-      nova: '0',
+      nova: process.env['NOVA_ARBISCAN_API_KEY'],
       arbGoerliRollup: process.env['ARBISCAN_API_KEY'],
+      arbSepoliaRollup: 'x',
+      orbit: 'x',
     },
     customChains: [
       {
         network: 'nova',
         chainId: 42170,
         urls: {
-          apiURL: 'https://nova-explorer.arbitrum.io/api',
-          browserURL: 'https://nova-explorer.arbitrum.io/',
+          apiURL: 'https://api-nova.arbiscan.io/api',
+          browserURL: 'https://nova.arbiscan.io/',
         },
       },
       {
@@ -179,6 +209,23 @@ const config = {
         urls: {
           apiURL: 'https://api-goerli.arbiscan.io/api',
           browserURL: 'https://goerli.arbiscan.io/',
+        },
+      },
+      {
+        network: 'arbSepoliaRollup',
+        chainId: 421614,
+        urls: {
+          apiURL:
+            'https://sepolia-explorer.arbitrum.io/api?module=contract&action=verify',
+          browserURL: 'https://sepolia-explorer.arbitrum.io/',
+        },
+      },
+      {
+        network: 'orbit',
+        chainId: 412346,
+        urls: {
+          apiURL: 'http://127.0.0.1:4000/api?module=contract&action=verify',
+          browserURL: 'http://127.0.0.1:4000/',
         },
       },
     ],

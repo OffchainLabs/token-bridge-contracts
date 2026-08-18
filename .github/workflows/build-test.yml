@@ -1,0 +1,228 @@
+name: Build and test
+
+on:
+  workflow_dispatch:
+  pull_request:
+
+jobs:
+  test-unit:
+    name: Test unit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+
+      - name: Setup node/yarn
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          cache: 'yarn'
+          cache-dependency-path: '**/yarn.lock'
+
+      - name: Install packages
+        run: yarn
+
+      - name: Run tests
+        run: yarn test:unit
+
+  test-only-doesnt-exist:
+    name: No .only
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Check if .only exists in integration test
+        run: fgrep .only -R test/ && exit 1 || exit 0
+
+  test-hardhat:
+    name: Test hardhat
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Setup node/yarn
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          cache: 'yarn'
+          cache-dependency-path: '**/yarn.lock'
+
+      - name: Install packages
+        run: yarn
+
+      - name: Compile contracts
+        run: yarn build
+
+      - name: Run integration tests
+        run: yarn test
+
+  test-contracts:
+    name: Test storage layout, signatures and look for unused errors
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+
+      - name: Setup node/yarn
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          cache: 'yarn'
+          cache-dependency-path: '**/yarn.lock'
+
+      - name: Install packages
+        run: yarn
+
+      - name: Build
+        run: forge build
+
+      - name: Test Storage Layouts
+        run: yarn run test:storage
+
+      - name: Test function signatures
+        run: yarn run test:signatures
+
+      - name: Run unused Solidity errors checker
+        uses: OffchainLabs/actions/check-unused-errors@main
+        with:
+          directory: './contracts'
+          exceptions_file: './test/unused-errors/exceptions.txt'
+
+  test-e2e:
+    name: Test e2e
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - uses: OffchainLabs/actions/run-nitro-test-node@main
+        with:
+          l3-node: true
+          no-token-bridge: true
+          no-l3-token-bridge: true
+          token-bridge-branch: '${{ github.head_ref }}'
+
+      - name: Setup node/yarn
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          cache: 'yarn'
+          cache-dependency-path: '**/yarn.lock'
+
+      - name: Install packages
+        run: yarn
+
+      - name: Compile contracts
+        run: yarn build
+
+      - name: Deploy creator and create token bridge
+        run: yarn deploy:local:token-bridge
+
+      - name: Verify deployed token bridge
+        run: yarn test:tokenbridge:deployment
+
+      - name: Verify creation code generation
+        run: yarn test:creation-code
+
+      - name: Test e2e orbit token bridge actions
+        run: yarn hardhat test test-e2e/orbitTokenBridge.ts
+
+  test-e2e-custom-fee-token:
+    name: Test e2e on custom fee token chain
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - uses: OffchainLabs/actions/run-nitro-test-node@main
+        with:
+          l3-node: true
+          args: --l3-fee-token
+          no-token-bridge: true
+          no-l3-token-bridge: true
+          token-bridge-branch: '${{ github.head_ref }}'
+
+      - name: Setup node/yarn
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          cache: 'yarn'
+          cache-dependency-path: '**/yarn.lock'
+
+      - name: Install packages
+        run: yarn
+
+      - name: Compile contracts
+        run: yarn build
+
+      - name: Deploy creator and create token bridge
+        run: yarn deploy:local:token-bridge
+
+      - name: Verify deployed token bridge
+        run: yarn test:tokenbridge:deployment
+
+      - name: Verify creation code generation
+        run: yarn test:creation-code
+
+      - name: Test e2e orbit token bridge actions
+        run: yarn hardhat test test-e2e/orbitTokenBridge.ts
+
+  test-e2e-6-decimals-fee-token:
+    name: Test e2e on 6-decimals custom fee token chain
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - uses: OffchainLabs/actions/run-nitro-test-node@main
+        with:
+          l3-node: true
+          args: --l3-fee-token --l3-fee-token-decimals 6
+          no-token-bridge: true
+          no-l3-token-bridge: true
+          token-bridge-branch: '${{ github.head_ref }}'
+          nitro-contracts-branch: 'develop'
+
+      - name: Setup node/yarn
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          cache: 'yarn'
+          cache-dependency-path: '**/yarn.lock'
+
+      - name: Install packages
+        run: yarn
+
+      - name: Compile contracts
+        run: yarn build
+
+      - name: Deploy creator and create token bridge
+        run: yarn deploy:local:token-bridge
+
+      - name: Verify deployed token bridge
+        run: yarn test:tokenbridge:deployment
+
+      - name: Verify creation code generation
+        run: yarn test:creation-code
+
+      - name: Test e2e orbit token bridge actions
+        run: yarn hardhat test test-e2e/orbitTokenBridge.ts

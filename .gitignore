@@ -1,7 +1,29 @@
+.gitignore
+.env
 node_modules
+.vscode/
 
 #Hardhat files
 cache
 build
 artifacts
 deployment.json
+
+#Foundry files
+out/
+forge-cache/
+
+#Storage layout test files
+test/storage/*-old.dot
+test/storage/*-old
+test/signatures/*-old
+
+# local deployment files
+network.json
+
+# Gambit (mutation test) files
+gambit_out/
+test-mutation/mutant_test_env/
+
+# bridged usdc deployment script
+registerUsdcGatewayTx.json

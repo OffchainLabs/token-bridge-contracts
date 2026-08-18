@@ -1,8 +1,9 @@
 {
   "name": "@arbitrum/token-bridge-contracts",
-  "version": "1.0.0-beta.0",
+  "version": "1.2.5",
   "license": "Apache-2.0",
   "scripts": {
+    "prepublishOnly": "hardhat clean && hardhat compile",
     "build": "hardhat compile",
     "build:0.6": "INTERFACE_TESTER_SOLC_VERSION=0.6.9 yarn run build",
     "build:0.7": "INTERFACE_TESTER_SOLC_VERSION=0.7.0 yarn run build",
@@ -12,10 +13,23 @@
     "lint": "yarn lint:solidity && yarn lint:js",
     "format": "prettier './**/*.{js,json,md,ts,yml,sol}' --write && yarn lint --fix",
     "test:compatibility": "yarn run build:0.6 && yarn run build:0.7 && yarn run build:0.8",
-    "test": "hardhat test test/*",
+    "test": "hardhat test test/*.ts",
     "test:e2e": "hardhat test test/*.e2e.ts",
     "test:l1": "hardhat test test/*.l1.ts",
     "test:l2": "hardhat test test/*.l2.ts",
+    "test:unit": "forge test",
+    "test:e2e:local-env": "yarn hardhat test test-e2e/*",
+    "test:storage": "./test/storage/test-storage.bash",
+    "test:signatures": "./test/signatures/test-sigs.bash",
+    "test:mutation": "ts-node test-mutation/gambitTester.ts",
+    "test:unused:errors": "./test/unused-errors/find_unused_errors.sh",
+    "deploy:local:token-bridge": "ts-node ./scripts/local-deployment/deployCreatorAndCreateTokenBridge.ts",
+    "deploy:token-bridge-creator": "ts-node ./scripts/deployment/deployTokenBridgeCreator.ts",
+    "create:token-bridge": "ts-node ./scripts/deployment/createTokenBridge.ts",
+    "test:tokenbridge:deployment": "hardhat test test-e2e/tokenBridgeDeploymentTest.ts",
+    "test:creation-code": "hardhat test test-e2e/creationCodeTest.ts",
+    "blockscout:verify": "hardhat run ./scripts/orbitVerifyOnBlockscout.ts",
+    "deploy:usdc-token-bridge": "hardhat run scripts/usdc-bridge-deployment/deployUsdcBridge.ts",
     "typechain": "hardhat typechain",
     "deploy:tokenbridge": "hardhat run scripts/deploy_token_bridge_l1.ts --network mainnet",
     "gen:uml": "sol2uml ./contracts/tokenbridge/arbitrum,./contracts/tokenbridge/ethereum,./contracts/tokenbridge/libraries -o ./gatewayUML.svg",
@@ -26,22 +40,27 @@
   },
   "files": [
     "contracts",
-    "build/contracts"
+    "build/contracts/contracts"
   ],
   "dependencies": {
-    "@arbitrum/nitro-contracts": "^1.0.0-beta.8",
-    "@openzeppelin/contracts": "3.4.2",
-    "@openzeppelin/contracts-upgradeable": "3.4.2"
+    "@arbitrum/nitro-contracts": "1.1.1",
+    "@offchainlabs/stablecoin-evm": "1.0.0-orbit-alpha.2",
+    "@offchainlabs/upgrade-executor": "1.1.0-beta.0",
+    "@openzeppelin/contracts": "4.8.3",
+    "@openzeppelin/contracts-upgradeable": "4.8.3"
   },
   "devDependencies": {
+    "@arbitrum/sdk": "^4.0.4",
     "@nomiclabs/hardhat-ethers": "^2.0.1",
     "@nomiclabs/hardhat-etherscan": "^3.1.0",
     "@nomiclabs/hardhat-waffle": "^2.0.1",
     "@typechain/ethers-v5": "^7.0.1",
     "@typechain/hardhat": "^2.3.0",
     "@types/chai": "^4.2.15",
+    "@types/fs-extra": "^11.0.4",
     "@types/mocha": "^9.0.0",
     "@types/node": "^14.14.28",
+    "@types/prompts": "^2.0.14",
     "@typescript-eslint/eslint-plugin": "^4.29.0",
     "@typescript-eslint/eslint-plugin-tslint": "^5.30.6",
     "@typescript-eslint/parser": "^4.29.0",
@@ -54,12 +73,14 @@
     "eslint-plugin-prettier": "^4.0.0",
     "ethereum-waffle": "^3.2.0",
     "ethers": "^5.4.5",
-    "hardhat": "2.9.9",
+    "fs-extra": "^11.2.0",
+    "hardhat": "2.17.3",
+    "hardhat-contract-sizer": "^2.10.0",
     "hardhat-deploy": "^0.9.1",
     "hardhat-gas-reporter": "^1.0.4",
     "prettier": "^2.3.2",
     "prettier-plugin-solidity": "^1.0.0-beta.17",
-    "sol2uml": "^1.1.29",
+    "prompts": "^2.4.1",
     "solhint": "^3.2.0",
     "solhint-plugin-prettier": "^0.0.5",
     "solidity-coverage": "v0.7.17",
@@ -69,6 +90,6 @@
     "typescript": "^4.2.2"
   },
   "optionalDependencies": {
-    "@openzeppelin/upgrades-core": "^1.7.6"
+    "@openzeppelin/upgrades-core": "^1.24.1"
   }
 }

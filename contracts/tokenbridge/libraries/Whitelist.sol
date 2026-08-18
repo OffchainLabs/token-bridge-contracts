@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-pragma solidity ^0.6.11;
+pragma solidity ^0.8.0;
 
 abstract contract WhitelistConsumer {
     address public whitelist;
@@ -44,7 +44,7 @@ contract Whitelist {
     event OwnerUpdated(address newOwner);
     event WhitelistUpgraded(address newWhitelist, address[] targets);
 
-    constructor() public {
+    constructor() {
         owner = msg.sender;
     }
 

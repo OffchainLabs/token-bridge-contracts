@@ -3,4 +3,5 @@ build
 coverage
 deployments
 dist
-slither.db.json
+lib
+out

@@ -1,0 +1,82 @@
+[
+  {
+    "filename": "../contracts/tokenbridge/arbitrum/gateway/L2ArbitrumGateway.sol",
+    "sourceroot": "..",
+    "solc_remappings": [
+      "@openzeppelin=../node_modules/@openzeppelin",
+      "@arbitrum=../node_modules/@arbitrum"
+    ]
+  },
+  {
+    "filename": "../contracts/tokenbridge/arbitrum/gateway/L2CustomGateway.sol",
+    "sourceroot": "..",
+    "solc_remappings": [
+      "@openzeppelin=../node_modules/@openzeppelin",
+      "@arbitrum=../node_modules/@arbitrum"
+    ]
+  },
+  {
+    "filename": "../contracts/tokenbridge/arbitrum/gateway/L2ERC20Gateway.sol",
+    "sourceroot": "..",
+    "solc_remappings": [
+      "@openzeppelin=../node_modules/@openzeppelin",
+      "@arbitrum=../node_modules/@arbitrum"
+    ]
+  },
+  {
+    "filename": "../contracts/tokenbridge/arbitrum/gateway/L2GatewayRouter.sol",
+    "sourceroot": "..",
+    "solc_remappings": [
+      "@openzeppelin=../node_modules/@openzeppelin",
+      "@arbitrum=../node_modules/@arbitrum"
+    ]
+  },
+  {
+    "filename": "../contracts/tokenbridge/arbitrum/gateway/L2ReverseCustomGateway.sol",
+    "sourceroot": "..",
+    "solc_remappings": [
+      "@openzeppelin=../node_modules/@openzeppelin",
+      "@arbitrum=../node_modules/@arbitrum"
+    ]
+  },
+  {
+    "filename": "../contracts/tokenbridge/arbitrum/gateway/L2WethGateway.sol",
+    "sourceroot": "..",
+    "solc_remappings": [
+      "@openzeppelin=../node_modules/@openzeppelin",
+      "@arbitrum=../node_modules/@arbitrum"
+    ]
+  },
+  {
+    "filename": "../contracts/tokenbridge/arbitrum/L2ArbitrumMessenger.sol",
+    "sourceroot": "..",
+    "solc_remappings": [
+      "@openzeppelin=../node_modules/@openzeppelin",
+      "@arbitrum=../node_modules/@arbitrum"
+    ]
+  },
+  {
+    "filename": "../contracts/tokenbridge/arbitrum/L2AtomicTokenBridgeFactory.sol",
+    "sourceroot": "..",
+    "solc_remappings": [
+      "@openzeppelin=../node_modules/@openzeppelin",
+      "@arbitrum=../node_modules/@arbitrum"
+    ]
+  },
+  {
+    "filename": "../contracts/tokenbridge/arbitrum/ReverseArbToken.sol",
+    "sourceroot": "..",
+    "solc_remappings": [
+      "@openzeppelin=../node_modules/@openzeppelin",
+      "@arbitrum=../node_modules/@arbitrum"
+    ]
+  },
+  {
+    "filename": "../contracts/tokenbridge/arbitrum/StandardArbERC20.sol",
+    "sourceroot": "..",
+    "solc_remappings": [
+      "@openzeppelin=../node_modules/@openzeppelin",
+      "@arbitrum=../node_modules/@arbitrum"
+    ]
+  }
+]
