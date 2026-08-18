@@ -1,6 +1,6 @@
 {
   "name": "@arbitrum/token-bridge-contracts",
-  "version": "1.2.3",
+  "version": "1.2.5",
   "license": "Apache-2.0",
   "scripts": {
     "prepublishOnly": "hardhat clean && hardhat compile",
@@ -19,8 +19,8 @@
     "test:l2": "hardhat test test/*.l2.ts",
     "test:unit": "forge test",
     "test:e2e:local-env": "yarn hardhat test test-e2e/*",
-    "test:storage": "./scripts/storage_layout_test.bash",
-    "test:signatures": "./scripts/signatures_test.bash",
+    "test:storage": "./test/storage/test-storage.bash",
+    "test:signatures": "./test/signatures/test-sigs.bash",
     "test:mutation": "ts-node test-mutation/gambitTester.ts",
     "test:unused:errors": "./test/unused-errors/find_unused_errors.sh",
     "deploy:local:token-bridge": "ts-node ./scripts/local-deployment/deployCreatorAndCreateTokenBridge.ts",
@@ -50,7 +50,7 @@
     "@openzeppelin/contracts-upgradeable": "4.8.3"
   },
   "devDependencies": {
-    "@arbitrum/sdk": "^3.5.1",
+    "@arbitrum/sdk": "^4.0.4",
     "@nomiclabs/hardhat-ethers": "^2.0.1",
     "@nomiclabs/hardhat-etherscan": "^3.1.0",
     "@nomiclabs/hardhat-waffle": "^2.0.1",

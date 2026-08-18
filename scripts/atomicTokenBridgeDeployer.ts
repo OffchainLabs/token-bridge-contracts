@@ -1,4 +1,12 @@
-import { BigNumber, Signer, Wallet, ethers } from 'ethers'
+import {
+  BigNumber,
+  Contract,
+  ContractFactory,
+  Overrides,
+  Signer,
+  Wallet,
+  ethers,
+} from 'ethers'
 import {
   L1CustomGateway__factory,
   L1ERC20Gateway__factory,
@@ -33,23 +41,118 @@ import {
 } from '@offchainlabs/upgrade-executor/build/contracts/src/UpgradeExecutor.sol/UpgradeExecutor.json'
 import { JsonRpcProvider } from '@ethersproject/providers'
 import {
-  L1ToL2MessageGasEstimator,
-  L1ToL2MessageStatus,
-  L1TransactionReceipt,
+  ParentToChildMessageGasEstimator,
+  ParentToChildMessageStatus,
+  ParentTransactionReceipt,
+  ParentContractCallTransactionReceipt
 } from '@arbitrum/sdk'
 import { exit } from 'process'
 import { getBaseFee } from '@arbitrum/sdk/dist/lib/utils/lib'
 import { RollupAdminLogic__factory } from '@arbitrum/sdk/dist/lib/abi/factories/RollupAdminLogic__factory'
 import { ContractVerifier } from './contractVerifier'
 import { OmitTyped } from '@arbitrum/sdk/dist/lib/utils/types'
-import { L1ToL2MessageGasParams } from '@arbitrum/sdk/dist/lib/message/L1ToL2MessageCreator'
-import { L1ContractCallTransactionReceipt } from '@arbitrum/sdk/dist/lib/message/L1Transaction'
 import { _getScaledAmount } from './local-deployment/localDeploymentLib'
+import { ParentToChildMessageGasParams } from '@arbitrum/sdk/dist/lib/message/ParentToChildMessageCreator'
 
 /**
  * Dummy non-zero address which is provided to logic contracts initializers
  */
 const ADDRESS_DEAD = '0x000000000000000000000000000000000000dEaD'
+
+/**
+ * ContractVerifier instance for L1 contracts
+ */
+let l1Verifier: ContractVerifier
+
+/**
+ * @notice Deploys a contract using the provided factory class and signer.
+ * @dev Supports optional contract verification and deployment via CREATE2.
+ * @param FactoryClass - The contract factory class to use for deployment.
+ * @param signer - The signer to deploy the contract.
+ * @param constructorArgs - Arguments for the contract constructor.
+ * @param verify - Whether to verify the contract after deployment.
+ * @param useCreate2 - Whether to use CREATE2 for deployment.
+ * @param overrides - Optional transaction overrides.
+ * @return The deployed contract instance.
+ */
+export async function deployContract(
+  FactoryClass: new (signer: Signer) => ContractFactory,
+  signer: Signer,
+  constructorArgs: any[] = [],
+  verify = true,
+  useCreate2 = false,
+  overrides?: Overrides
+): Promise<Contract> {
+  const factory = new FactoryClass(signer)
+
+  const deploymentArgs = [...constructorArgs]
+  if (overrides) {
+    deploymentArgs.push(overrides)
+  }
+
+  let contract: Contract
+  if (useCreate2) {
+    contract = await create2(
+      factory,
+      constructorArgs,
+      ethers.constants.HashZero,
+      overrides
+    )
+  } else {
+    contract = await factory.deploy(...deploymentArgs)
+    await contract.deployTransaction.wait()
+  }
+
+  const contractName = FactoryClass.name.replace('__factory', '')
+
+  console.log(
+    `* ${contractName} created at address: ${
+      contract.address
+    } ${constructorArgs.join(' ')}`
+  )
+
+  if (verify) {
+    l1Verifier.queueContractForVerification(
+      signer,
+      contractName,
+      contract.address,
+      constructorArgs
+    )
+  }
+
+  return contract
+}
+
+/**
+ * @notice Initializes a contract by calling its `initialize` function with the provided arguments.
+ * @dev If the contract is already initialized, logs a message and does not throw.
+ * @param contract The contract instance to initialize.
+ * @param initializationArgs Arguments to pass to the contract's `initialize` function.
+ * @throws If initialization fails for reasons other than the contract being already initialized.
+ */
+export async function initializeContract(
+  contract: Contract,
+  initializationArgs: any[] = []
+): Promise<void> {
+  try {
+    await (await contract.initialize(...initializationArgs)).wait()
+    console.log(`   => Initialized successfully`)
+  } catch (error: any) {
+    // Revert reason will be in `error.error.reason`
+    if (
+      error.error &&
+      error.error.reason &&
+      [
+        'execution reverted: ALREADY_INIT',
+        'execution reverted: Initializable: contract is already initialized',
+      ].includes(error.error.reason)
+    ) {
+      console.log(`   => Already initialized`)
+    } else {
+      throw error
+    }
+  }
+}
 
 /**
  * Use already deployed L1TokenBridgeCreator to create and init token bridge contracts.
@@ -168,25 +271,25 @@ export const createTokenBridge = async (
   console.log('Deployment TX:', receipt.transactionHash)
 
   /// wait for execution of both tickets
-  const l1TxReceipt = new L1TransactionReceipt(receipt)
-  const messages = await l1TxReceipt.getL1ToL2Messages(l2Provider)
+  const l1TxReceipt = new ParentTransactionReceipt(receipt)
+  const messages = await l1TxReceipt.getParentToChildMessages(l2Provider)
   const messageResults = await Promise.all(
     messages.map(message => message.waitForStatus())
   )
 
   // if both tickets are not redeemed log it and exit
   if (
-    messageResults[0].status !== L1ToL2MessageStatus.REDEEMED ||
-    messageResults[1].status !== L1ToL2MessageStatus.REDEEMED
+    messageResults[0].status !== ParentToChildMessageStatus.REDEEMED ||
+    messageResults[1].status !== ParentToChildMessageStatus.REDEEMED
   ) {
     console.log(
       `Retryable ticket (ID ${messages[0].retryableCreationId}) status: ${
-        L1ToL2MessageStatus[messageResults[0].status]
+        ParentToChildMessageStatus[messageResults[0].status]
       }`
     )
     console.log(
       `Retryable ticket (ID ${messages[1].retryableCreationId}) status: ${
-        L1ToL2MessageStatus[messageResults[1].status]
+        ParentToChildMessageStatus[messageResults[1].status]
       }`
     )
     exit()
@@ -195,7 +298,7 @@ export const createTokenBridge = async (
   /// pick up L2 factory address from 1st ticket
   const l2AtomicTokenBridgeFactory =
     L2AtomicTokenBridgeFactory__factory.connect(
-      messageResults[0].l2TxReceipt.contractAddress,
+      messageResults[0].childTxReceipt.contractAddress,
       l2Provider
     )
   console.log('L2AtomicTokenBridgeFactory', l2AtomicTokenBridgeFactory.address)
@@ -225,30 +328,53 @@ export const deployL1TokenBridgeCreator = async (
   l1Deployer: Signer,
   l1WethAddress: string,
   gasLimitForL2FactoryDeployment: BigNumber,
-  verifyContracts = false
+  verifyContracts = false,
+  useCreate2 = false
 ) => {
+  // Start the ContractVerifier instance if needed
+  if (verifyContracts) {
+    l1Verifier = new ContractVerifier(
+      (await l1Deployer.provider!.getNetwork()).chainId,
+      process.env.ARBISCAN_API_KEY!
+    )
+  }
+
   /// deploy creator behind proxy
-  const l2MulticallAddressOnL1Fac = await new ArbMulticall2__factory(
-    l1Deployer
-  ).deploy()
-  const l2MulticallAddressOnL1 = await l2MulticallAddressOnL1Fac.deployed()
+  const l2MulticallAddressOnL1 = await deployContract(
+    ArbMulticall2__factory,
+    l1Deployer,
+    [],
+    verifyContracts,
+    useCreate2
+  )
 
-  const l1TokenBridgeCreatorProxyAdmin = await new ProxyAdmin__factory(
-    l1Deployer
-  ).deploy()
-  await l1TokenBridgeCreatorProxyAdmin.deployed()
+  const l1TokenBridgeCreatorProxyAdmin = await deployContract(
+    ProxyAdmin__factory,
+    l1Deployer,
+    [],
+    verifyContracts,
+    useCreate2
+  )
 
-  const l1TokenBridgeCreatorLogic =
-    await new L1AtomicTokenBridgeCreator__factory(l1Deployer).deploy()
-  await l1TokenBridgeCreatorLogic.deployed()
+  const l1TokenBridgeCreatorLogic = await deployContract(
+    L1AtomicTokenBridgeCreator__factory,
+    l1Deployer,
+    [],
+    verifyContracts,
+    useCreate2
+  )
 
-  const l1TokenBridgeCreatorProxy =
-    await new TransparentUpgradeableProxy__factory(l1Deployer).deploy(
+  const l1TokenBridgeCreatorProxy = await deployContract(
+    TransparentUpgradeableProxy__factory,
+    l1Deployer,
+    [
       l1TokenBridgeCreatorLogic.address,
       l1TokenBridgeCreatorProxyAdmin.address,
-      '0x'
-    )
-  await l1TokenBridgeCreatorProxy.deployed()
+      '0x',
+    ],
+    verifyContracts,
+    useCreate2
+  )
 
   const l1TokenBridgeCreator = L1AtomicTokenBridgeCreator__factory.connect(
     l1TokenBridgeCreatorProxy.address,
@@ -256,19 +382,25 @@ export const deployL1TokenBridgeCreator = async (
   )
 
   /// deploy retryable sender behind proxy
-  const retryableSenderLogic = await new L1TokenBridgeRetryableSender__factory(
-    l1Deployer
-  ).deploy()
-  await retryableSenderLogic.deployed()
-
-  const retryableSenderProxy = await new TransparentUpgradeableProxy__factory(
-    l1Deployer
-  ).deploy(
-    retryableSenderLogic.address,
-    l1TokenBridgeCreatorProxyAdmin.address,
-    '0x'
+  const retryableSenderLogic = await deployContract(
+    L1TokenBridgeRetryableSender__factory,
+    l1Deployer,
+    [],
+    verifyContracts,
+    useCreate2
   )
-  await retryableSenderProxy.deployed()
+
+  const retryableSenderProxy = await deployContract(
+    TransparentUpgradeableProxy__factory,
+    l1Deployer,
+    [
+      retryableSenderLogic.address,
+      l1TokenBridgeCreatorProxyAdmin.address,
+      '0x',
+    ],
+    verifyContracts,
+    useCreate2
+  )
 
   const retryableSender = L1TokenBridgeRetryableSender__factory.connect(
     retryableSenderProxy.address,
@@ -276,111 +408,132 @@ export const deployL1TokenBridgeCreator = async (
   )
 
   // initialize retryable sender logic contract
-  await (await retryableSenderLogic.initialize()).wait()
+  await initializeContract(retryableSenderLogic, [])
+
+  // initialize creator logic
+  await initializeContract(l1TokenBridgeCreatorLogic, [
+    retryableSenderLogic.address,
+  ])
 
   /// init creator
-  await (await l1TokenBridgeCreator.initialize(retryableSender.address)).wait()
+  await initializeContract(l1TokenBridgeCreator, [retryableSender.address])
 
   /// deploy L1 logic contracts. Initialize them with dummy data
-  const routerTemplate = await new L1GatewayRouter__factory(l1Deployer).deploy()
-  await routerTemplate.deployed()
-  await (
-    await routerTemplate.initialize(
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD
-    )
-  ).wait()
-
-  const standardGatewayTemplate = await new L1ERC20Gateway__factory(
-    l1Deployer
-  ).deploy()
-  await standardGatewayTemplate.deployed()
-  await (
-    await standardGatewayTemplate.initialize(
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ethers.utils.hexZeroPad('0x01', 32),
-      ADDRESS_DEAD
-    )
-  ).wait()
-
-  const customGatewayTemplate = await new L1CustomGateway__factory(
-    l1Deployer
-  ).deploy()
-  await customGatewayTemplate.deployed()
-  await (
-    await customGatewayTemplate.initialize(
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD
-    )
-  ).wait()
-
-  const wethGatewayTemplate = await new L1WethGateway__factory(
-    l1Deployer
-  ).deploy()
-  await wethGatewayTemplate.deployed()
-  await (
-    await wethGatewayTemplate.initialize(
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD
-    )
-  ).wait()
-
-  const feeTokenBasedRouterTemplate = await new L1OrbitGatewayRouter__factory(
-    l1Deployer
-  ).deploy()
-  await feeTokenBasedRouterTemplate.deployed()
-  await (
-    await feeTokenBasedRouterTemplate.initialize(
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD
-    )
-  ).wait()
-
-  const feeTokenBasedStandardGatewayTemplate =
-    await new L1OrbitERC20Gateway__factory(l1Deployer).deploy()
-  await feeTokenBasedStandardGatewayTemplate.deployed()
-  await (
-    await feeTokenBasedStandardGatewayTemplate.initialize(
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ethers.utils.hexZeroPad('0x01', 32),
-      ADDRESS_DEAD
-    )
-  ).wait()
-
-  const feeTokenBasedCustomGatewayTemplate =
-    await new L1OrbitCustomGateway__factory(l1Deployer).deploy()
-  await feeTokenBasedCustomGatewayTemplate.deployed()
-  await (
-    await feeTokenBasedCustomGatewayTemplate.initialize(
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD
-    )
-  ).wait()
-
-  const upgradeExecutorFactory = new ethers.ContractFactory(
-    UpgradeExecutorABI,
-    UpgradeExecutorBytecode,
-    l1Deployer
+  const routerTemplate = await deployContract(
+    L1GatewayRouter__factory,
+    l1Deployer,
+    [],
+    verifyContracts,
+    useCreate2
   )
-  const upgradeExecutor = await upgradeExecutorFactory.deploy()
-  await upgradeExecutor.deployed()
+  await initializeContract(routerTemplate, [
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+  ])
+
+  const standardGatewayTemplate = await deployContract(
+    L1ERC20Gateway__factory,
+    l1Deployer,
+    [],
+    verifyContracts,
+    useCreate2
+  )
+  await initializeContract(standardGatewayTemplate, [
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+    ethers.utils.hexZeroPad('0x01', 32),
+    ADDRESS_DEAD,
+  ])
+
+  const customGatewayTemplate = await deployContract(
+    L1CustomGateway__factory,
+    l1Deployer,
+    [],
+    verifyContracts,
+    useCreate2
+  )
+  await initializeContract(customGatewayTemplate, [
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+  ])
+
+  const wethGatewayTemplate = await deployContract(
+    L1WethGateway__factory,
+    l1Deployer,
+    [],
+    verifyContracts,
+    useCreate2
+  )
+  await initializeContract(wethGatewayTemplate, [
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+  ])
+
+  const feeTokenBasedRouterTemplate = await deployContract(
+    L1OrbitGatewayRouter__factory,
+    l1Deployer,
+    [],
+    verifyContracts,
+    useCreate2
+  )
+  await initializeContract(feeTokenBasedRouterTemplate, [
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+  ])
+
+  const feeTokenBasedStandardGatewayTemplate = await deployContract(
+    L1OrbitERC20Gateway__factory,
+    l1Deployer,
+    [],
+    verifyContracts,
+    useCreate2
+  )
+  await initializeContract(feeTokenBasedStandardGatewayTemplate, [
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+    ethers.utils.hexZeroPad('0x01', 32),
+    ADDRESS_DEAD,
+  ])
+
+  const feeTokenBasedCustomGatewayTemplate = await deployContract(
+    L1OrbitCustomGateway__factory,
+    l1Deployer,
+    [],
+    verifyContracts,
+    useCreate2
+  )
+  await initializeContract(feeTokenBasedCustomGatewayTemplate, [
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+  ])
+
+  const upgradeExecutor = await deployContract(
+    class UpgradeExecutorFactory extends ContractFactory {
+      constructor(signer: Signer) {
+        super(UpgradeExecutorABI, UpgradeExecutorBytecode, signer)
+      }
+    },
+    l1Deployer,
+    [],
+    verifyContracts,
+    useCreate2
+  )
+  await initializeContract(upgradeExecutor, [ADDRESS_DEAD, [ADDRESS_DEAD]])
 
   const l1Templates = {
     routerTemplate: routerTemplate.address,
@@ -396,56 +549,84 @@ export const deployL1TokenBridgeCreator = async (
   }
 
   /// deploy L2 contracts as placeholders on L1. Initialize them with dummy data
-  const l2TokenBridgeFactoryOnL1 =
-    await new L2AtomicTokenBridgeFactory__factory(l1Deployer).deploy()
-  await l2TokenBridgeFactoryOnL1.deployed()
+  const l2TokenBridgeFactoryOnL1 = await deployContract(
+    L2AtomicTokenBridgeFactory__factory,
+    l1Deployer,
+    [],
+    verifyContracts,
+    useCreate2
+  )
 
-  const l2GatewayRouterOnL1 = await new L2GatewayRouter__factory(
-    l1Deployer
-  ).deploy()
-  await l2GatewayRouterOnL1.deployed()
-  await (
-    await l2GatewayRouterOnL1.initialize(ADDRESS_DEAD, ADDRESS_DEAD)
-  ).wait()
+  const l2GatewayRouterOnL1 = await deployContract(
+    L2GatewayRouter__factory,
+    l1Deployer,
+    [],
+    verifyContracts,
+    useCreate2
+  )
+  await initializeContract(l2GatewayRouterOnL1, [ADDRESS_DEAD, ADDRESS_DEAD])
 
-  const l2StandardGatewayAddressOnL1 = await new L2ERC20Gateway__factory(
-    l1Deployer
-  ).deploy()
-  await l2StandardGatewayAddressOnL1.deployed()
-  await (
-    await l2StandardGatewayAddressOnL1.initialize(
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD
-    )
-  ).wait()
+  const l2StandardGatewayAddressOnL1 = await deployContract(
+    L2ERC20Gateway__factory,
+    l1Deployer,
+    [],
+    verifyContracts,
+    useCreate2
+  )
+  await initializeContract(l2StandardGatewayAddressOnL1, [
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+  ])
 
-  const l2CustomGatewayAddressOnL1 = await new L2CustomGateway__factory(
-    l1Deployer
-  ).deploy()
-  await l2CustomGatewayAddressOnL1.deployed()
-  await (
-    await l2CustomGatewayAddressOnL1.initialize(ADDRESS_DEAD, ADDRESS_DEAD)
-  ).wait()
+  const l2CustomGatewayAddressOnL1 = await deployContract(
+    L2CustomGateway__factory,
+    l1Deployer,
+    [],
+    verifyContracts,
+    useCreate2
+  )
+  await initializeContract(l2CustomGatewayAddressOnL1, [
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+  ])
 
-  const l2WethGatewayAddressOnL1 = await new L2WethGateway__factory(
-    l1Deployer
-  ).deploy()
-  await l2WethGatewayAddressOnL1.deployed()
-  await (
-    await l2WethGatewayAddressOnL1.initialize(
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD,
-      ADDRESS_DEAD
-    )
-  ).wait()
+  const l2WethGatewayAddressOnL1 = await deployContract(
+    L2WethGateway__factory,
+    l1Deployer,
+    [],
+    verifyContracts,
+    useCreate2
+  )
+  await initializeContract(l2WethGatewayAddressOnL1, [
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+  ])
 
-  const l2WethAddressOnL1 = await new AeWETH__factory(l1Deployer).deploy()
-  await l2WethAddressOnL1.deployed()
+  const l2WethAddressOnL1 = await deployContract(
+    AeWETH__factory,
+    l1Deployer,
+    [],
+    verifyContracts,
+    useCreate2
+  )
+  await initializeContract(l2WethAddressOnL1, [
+    'WethTemplate',
+    'WETHT',
+    18,
+    ADDRESS_DEAD,
+    ADDRESS_DEAD,
+  ])
 
-  const l1Multicall = await new Multicall2__factory(l1Deployer).deploy()
-  await l1Multicall.deployed()
+  const l1Multicall = await deployContract(
+    Multicall2__factory,
+    l1Deployer,
+    [],
+    verifyContracts,
+    useCreate2
+  )
 
   await (
     await l1TokenBridgeCreator.setTemplates(
@@ -463,116 +644,9 @@ export const deployL1TokenBridgeCreator = async (
     )
   ).wait()
 
-  ///// verify contracts
+  // Trigger the verification of contracts
   if (verifyContracts) {
-    console.log('\n\n Start contract verification \n\n')
-    const l1Verifier = new ContractVerifier(
-      (await l1Deployer.provider!.getNetwork()).chainId,
-      process.env.ARBISCAN_API_KEY!
-    )
-    const abi = ethers.utils.defaultAbiCoder
-
-    await l1Verifier.verifyWithAddress(
-      'l1TokenBridgeCreatorProxyAdmin',
-      l1TokenBridgeCreatorProxyAdmin.address
-    )
-    await l1Verifier.verifyWithAddress(
-      'l1TokenBridgeCreatorLogic',
-      l1TokenBridgeCreatorLogic.address,
-      abi.encode(['address'], [l2MulticallAddressOnL1.address])
-    )
-    await l1Verifier.verifyWithAddress(
-      'l1TokenBridgeCreatorProxy',
-      l1TokenBridgeCreatorProxy.address,
-      abi.encode(
-        ['address', 'address', 'bytes'],
-        [
-          l1TokenBridgeCreatorLogic.address,
-          l1TokenBridgeCreatorProxyAdmin.address,
-          '0x',
-        ]
-      )
-    )
-    await l1Verifier.verifyWithAddress(
-      'retryableSenderLogic',
-      retryableSenderLogic.address
-    )
-    await l1Verifier.verifyWithAddress(
-      'retryableSenderProxy',
-      retryableSenderProxy.address,
-      abi.encode(
-        ['address', 'address', 'bytes'],
-        [
-          retryableSenderLogic.address,
-          l1TokenBridgeCreatorProxyAdmin.address,
-          '0x',
-        ]
-      )
-    )
-    await l1Verifier.verifyWithAddress('routerTemplate', routerTemplate.address)
-    await l1Verifier.verifyWithAddress(
-      'standardGatewayTemplate',
-      standardGatewayTemplate.address
-    )
-    await l1Verifier.verifyWithAddress(
-      'customGatewayTemplate',
-      customGatewayTemplate.address
-    )
-    await l1Verifier.verifyWithAddress(
-      'wethGatewayTemplate',
-      wethGatewayTemplate.address
-    )
-    await l1Verifier.verifyWithAddress(
-      'feeTokenBasedRouterTemplate',
-      feeTokenBasedRouterTemplate.address
-    )
-    await l1Verifier.verifyWithAddress(
-      'feeTokenBasedStandardGatewayTemplate',
-      feeTokenBasedStandardGatewayTemplate.address
-    )
-    await l1Verifier.verifyWithAddress(
-      'feeTokenBasedCustomGatewayTemplate',
-      feeTokenBasedCustomGatewayTemplate.address
-    )
-    await l1Verifier.verifyWithAddress(
-      'upgradeExecutor',
-      upgradeExecutor.address,
-      '',
-      20000
-    )
-    await l1Verifier.verifyWithAddress(
-      'l2TokenBridgeFactoryOnL1',
-      l2TokenBridgeFactoryOnL1.address
-    )
-    await l1Verifier.verifyWithAddress(
-      'l2GatewayRouterOnL1',
-      l2GatewayRouterOnL1.address
-    )
-    await l1Verifier.verifyWithAddress(
-      'l2StandardGatewayAddressOnL1',
-      l2StandardGatewayAddressOnL1.address
-    )
-    await l1Verifier.verifyWithAddress(
-      'l2CustomGatewayAddressOnL1',
-      l2CustomGatewayAddressOnL1.address
-    )
-    await l1Verifier.verifyWithAddress(
-      'l2WethGatewayAddressOnL1',
-      l2WethGatewayAddressOnL1.address
-    )
-    await l1Verifier.verifyWithAddress(
-      'l2WethAddressOnL1',
-      l2WethAddressOnL1.address
-    )
-    await l1Verifier.verifyWithAddress(
-      'l2MulticallAddressOnL1',
-      l2MulticallAddressOnL1.address
-    )
-
-    await l1Verifier.verifyWithAddress('l1Multicall', l1Multicall.address)
-
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    console.log('\n\n Contract verification done \n\n')
+    await l1Verifier.verifyAllQueuedContracts()
   }
 
   return { l1TokenBridgeCreator, retryableSender }
@@ -603,7 +677,7 @@ export const registerGateway = async (
 
   const executorAddress = await l1Executor.getAddress()
 
-  const buildCall = (params: OmitTyped<L1ToL2MessageGasParams, 'deposit'>) => {
+  const buildCall = (params: OmitTyped<ParentToChildMessageGasParams, 'deposit'>) => {
     const routerCalldata =
       L1GatewayRouter__factory.createInterface().encodeFunctionData(
         'setGateways',
@@ -628,13 +702,13 @@ export const registerGateway = async (
     }
   }
 
-  const estimator = new L1ToL2MessageGasEstimator(l2Provider)
+  const estimator = new ParentToChildMessageGasEstimator(l2Provider)
   const txRequest = await estimator.populateFunctionParams(
     buildCall,
     l1Executor.provider!
   )
 
-  const receipt = new L1ContractCallTransactionReceipt(
+  const receipt = new ParentContractCallTransactionReceipt(
     await (
       await l1Executor.sendTransaction({
         to: txRequest.to,
@@ -645,12 +719,12 @@ export const registerGateway = async (
   )
 
   // wait for execution of ticket
-  const message = (await receipt.getL1ToL2Messages(l2Provider))[0]
+  const message = (await receipt.getParentToChildMessages(l2Provider))[0]
   const messageResult = await message.waitForStatus()
-  if (messageResult.status !== L1ToL2MessageStatus.REDEEMED) {
+  if (messageResult.status !== ParentToChildMessageStatus.REDEEMED) {
     console.log(
       `Retryable ticket (ID ${message.retryableCreationId}) status: ${
-        L1ToL2MessageStatus[messageResult.status]
+        ParentToChildMessageStatus[messageResult.status]
       }`
     )
     exit()
@@ -663,7 +737,7 @@ export const getEstimateForDeployingFactory = async (
 ) => {
   //// run retryable estimate for deploying L2 factory
   const l1DeployerAddress = await l1Deployer.getAddress()
-  const l1ToL2MsgGasEstimate = new L1ToL2MessageGasEstimator(l2Provider)
+  const l1ToL2MsgGasEstimate = new ParentToChildMessageGasEstimator(l2Provider)
   const deployFactoryGasParams = await l1ToL2MsgGasEstimate.estimateAll(
     {
       from: ethers.Wallet.createRandom().address,
@@ -723,4 +797,60 @@ const _getFeeToken = async (
 
 export function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+/**
+ * @notice Deploys a contract using the CREATE2 opcode for deterministic address generation.
+ * @dev The Create2 factory address can be overridden by the CREATE2_FACTORY environment variable.
+ *      Default factory: https://github.com/Arachnid/deterministic-deployment-proxy/
+ *
+ * @param fac The contract factory used to generate the deployment bytecode.
+ * @param deploymentArgs The arguments to pass to the contract constructor.
+ * @param salt The 32-byte salt used for CREATE2 address calculation. Defaults to HashZero.
+ * @param overrides Optional transaction overrides.
+ * @return The deployed contract instance at the deterministic address.
+ */
+export async function create2(
+  fac: ContractFactory,
+  deploymentArgs: Array<any>,
+  salt = ethers.constants.HashZero,
+  overrides?: Overrides
+): Promise<Contract> {
+  if (ethers.utils.hexDataLength(salt) !== 32) {
+    throw new Error('Salt must be a 32-byte hex string')
+  }
+
+  const DEFAULT_FACTORY = '0x4e59b44847b379578588920cA78FbF26c0B4956C'
+  const FACTORY = process.env.CREATE2_FACTORY ?? DEFAULT_FACTORY
+  if ((await fac.signer.provider!.getCode(FACTORY)).length <= 2) {
+    throw new Error(
+      `Factory contract not deployed at address: ${FACTORY}${
+        FACTORY.toLowerCase() === DEFAULT_FACTORY.toLowerCase()
+          ? '\n(For deployment instructions, see https://github.com/Arachnid/deterministic-deployment-proxy/ )'
+          : ''
+      }`
+    )
+  }
+  const data = fac.getDeployTransaction(...deploymentArgs).data
+  if (!data) {
+    throw new Error('No deploy data found for contract factory')
+  }
+
+  const address = ethers.utils.getCreate2Address(
+    FACTORY,
+    salt,
+    ethers.utils.keccak256(data)
+  )
+  if ((await fac.signer.provider!.getCode(address)).length > 2) {
+    return fac.attach(address)
+  }
+
+  const tx = await fac.signer.sendTransaction({
+    to: FACTORY,
+    data: ethers.utils.concat([salt, data]),
+    ...overrides,
+  })
+  await tx.wait()
+
+  return fac.attach(address)
 }

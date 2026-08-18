@@ -1,10 +1,9 @@
 import {
-  L1Network,
-  L1ToL2MessageGasEstimator,
-  L1ToL2MessageStatus,
-  L1TransactionReceipt,
-  L2Network,
-  L2TransactionReceipt,
+  ParentToChildMessageGasEstimator,
+  ParentToChildMessageStatus,
+  ParentTransactionReceipt,
+  ArbitrumNetwork,
+  ChildTransactionReceipt
 } from '@arbitrum/sdk'
 import { getBaseFee } from '@arbitrum/sdk/dist/lib/utils/lib'
 import { JsonRpcProvider } from '@ethersproject/providers'
@@ -54,6 +53,7 @@ import {
   abi as UsdcProxyAbi,
   bytecode as UsdcProxyBytecode,
 } from '@offchainlabs/stablecoin-evm/artifacts/hardhat/contracts/v1/FiatTokenProxy.sol/FiatTokenProxy.json'
+import { TokenBridge } from '@arbitrum/sdk/dist/lib/dataEntities/networks'
 const config = {
   parentUrl: 'http://127.0.0.1:8547',
   childUrl: 'http://127.0.0.1:3347',
@@ -71,8 +71,7 @@ let deployerL2Wallet: Wallet
 let userL1Wallet: Wallet
 let userL2Wallet: Wallet
 
-let _l1Network: L1Network
-let _l2Network: L2Network
+let _l2Network: ArbitrumNetwork & {tokenBridge: TokenBridge}
 
 let token: TestERC20
 let l2Token: ERC20
@@ -109,10 +108,11 @@ describe('orbitTokenBridge', () => {
       })
     ).wait()
 
-    const { l1Network, l2Network } = await setupTokenBridgeInLocalEnv()
-
-    _l1Network = l1Network
-    _l2Network = l2Network
+    const { l2Network } = await setupTokenBridgeInLocalEnv()
+    if (!l2Network.tokenBridge) {
+      throw new Error('L2 network does not have token bridge configured')
+    }
+    _l2Network = l2Network as ArbitrumNetwork & {tokenBridge: TokenBridge}
 
     // create user wallets and fund it
     const userKey = ethers.utils.sha256(ethers.utils.toUtf8Bytes('user_wallet'))
@@ -153,12 +153,12 @@ describe('orbitTokenBridge', () => {
   it('should have deployed token bridge contracts', async function () {
     // get router as entry point
     const l1Router = L1OrbitGatewayRouter__factory.connect(
-      _l2Network.tokenBridge.l1GatewayRouter,
+      _l2Network.tokenBridge.parentGatewayRouter,
       parentProvider
     )
 
     expect((await l1Router.defaultGateway()).toLowerCase()).to.be.eq(
-      _l2Network.tokenBridge.l1ERC20Gateway.toLowerCase()
+      _l2Network.tokenBridge.parentErc20Gateway.toLowerCase()
     )
   })
 
@@ -185,7 +185,7 @@ describe('orbitTokenBridge', () => {
     const userTokenBalanceBefore = await token.balanceOf(userL1Wallet.address)
 
     const gatewayTokenBalanceBefore = await token.balanceOf(
-      _l2Network.tokenBridge.l1ERC20Gateway
+      _l2Network.tokenBridge.parentErc20Gateway
     )
     const userNativeTokenBalanceBefore = nativeToken
       ? await nativeToken.balanceOf(userL1Wallet.address)
@@ -197,7 +197,7 @@ describe('orbitTokenBridge', () => {
     // approve token
     const depositAmount = 120
     await (
-      await token.approve(_l2Network.tokenBridge.l1ERC20Gateway, depositAmount)
+      await token.approve(_l2Network.tokenBridge.parentErc20Gateway, depositAmount)
     ).wait()
 
     // calculate retryable params
@@ -207,7 +207,7 @@ describe('orbitTokenBridge', () => {
     const callhook = '0x'
 
     const gateway = L1OrbitERC20Gateway__factory.connect(
-      _l2Network.tokenBridge.l1ERC20Gateway,
+      _l2Network.tokenBridge.parentErc20Gateway,
       userL1Wallet
     )
     const outboundCalldata = await gateway.getOutboundCalldata(
@@ -218,7 +218,7 @@ describe('orbitTokenBridge', () => {
       callhook
     )
 
-    const l1ToL2MessageGasEstimate = new L1ToL2MessageGasEstimator(
+    const l1ToL2MessageGasEstimate = new ParentToChildMessageGasEstimator(
       childProvider
     )
     const retryableParams = await l1ToL2MessageGasEstimate.estimateAll(
@@ -248,7 +248,7 @@ describe('orbitTokenBridge', () => {
     if (nativeToken) {
       await (
         await nativeToken.approve(
-          _l2Network.tokenBridge.l1ERC20Gateway,
+          _l2Network.tokenBridge.parentErc20Gateway,
           tokenTotalFeeAmount
         )
       ).wait()
@@ -267,11 +267,11 @@ describe('orbitTokenBridge', () => {
 
     const router = nativeToken
       ? L1OrbitGatewayRouter__factory.connect(
-          _l2Network.tokenBridge.l1GatewayRouter,
+          _l2Network.tokenBridge.parentGatewayRouter,
           userL1Wallet
         )
       : L1GatewayRouter__factory.connect(
-          _l2Network.tokenBridge.l1GatewayRouter,
+          _l2Network.tokenBridge.parentGatewayRouter,
           userL1Wallet
         )
 
@@ -303,7 +303,7 @@ describe('orbitTokenBridge', () => {
     )
 
     const gatewayTokenBalanceAfter = await token.balanceOf(
-      _l2Network.tokenBridge.l1ERC20Gateway
+      _l2Network.tokenBridge.parentErc20Gateway
     )
     expect(gatewayTokenBalanceAfter.sub(gatewayTokenBalanceBefore)).to.be.eq(
       depositAmount
@@ -340,26 +340,26 @@ describe('orbitTokenBridge', () => {
       userL2Wallet.address
     )
     const l1GatewayTokenBalanceBefore = await token.balanceOf(
-      _l2Network.tokenBridge.l1ERC20Gateway
+      _l2Network.tokenBridge.parentErc20Gateway
     )
     const l2TokenSupplyBefore = await l2Token.totalSupply()
 
     // start withdrawal
     const withdrawalAmount = 250
     const l2Router = L2GatewayRouter__factory.connect(
-      _l2Network.tokenBridge.l2GatewayRouter,
+      _l2Network.tokenBridge.childGatewayRouter,
       userL2Wallet
     )
     const withdrawTx = await l2Router[
       'outboundTransfer(address,address,uint256,bytes)'
     ](token.address, userL1Wallet.address, withdrawalAmount, '0x')
     const withdrawReceipt = await withdrawTx.wait()
-    const l2Receipt = new L2TransactionReceipt(withdrawReceipt)
+    const l2Receipt = new ChildTransactionReceipt(withdrawReceipt)
 
     // wait until dispute period passes and withdrawal is ready for execution
     await sleep(5 * 1000)
 
-    const messages = await l2Receipt.getL2ToL1Messages(userL1Wallet)
+    const messages = await l2Receipt.getChildToParentMessages(userL1Wallet)
     const l2ToL1Msg = messages[0]
     const timeToWaitMs = 1000
     await l2ToL1Msg.waitUntilReadyToExecute(childProvider, timeToWaitMs)
@@ -381,7 +381,7 @@ describe('orbitTokenBridge', () => {
     )
 
     const l1GatewayTokenBalanceAfter = await token.balanceOf(
-      _l2Network.tokenBridge.l1ERC20Gateway
+      _l2Network.tokenBridge.parentErc20Gateway
     )
     expect(
       l1GatewayTokenBalanceBefore.sub(l1GatewayTokenBalanceAfter)
@@ -409,12 +409,12 @@ describe('orbitTokenBridge', () => {
     // create L1 custom token
     const customL1TokenFactory = nativeToken
       ? await new TestOrbitCustomTokenL1__factory(deployerL1Wallet).deploy(
-          _l2Network.tokenBridge.l1CustomGateway,
-          _l2Network.tokenBridge.l1GatewayRouter
+          _l2Network.tokenBridge.parentCustomGateway,
+          _l2Network.tokenBridge.parentGatewayRouter
         )
       : await new TestCustomTokenL1__factory(deployerL1Wallet).deploy(
-          _l2Network.tokenBridge.l1CustomGateway,
-          _l2Network.tokenBridge.l1GatewayRouter
+          _l2Network.tokenBridge.parentCustomGateway,
+          _l2Network.tokenBridge.parentGatewayRouter
         )
     const customL1Token = await customL1TokenFactory.deployed()
     await (await customL1Token.connect(userL1Wallet).mint()).wait()
@@ -425,32 +425,32 @@ describe('orbitTokenBridge', () => {
     }
     const customL2TokenFactory = await new TestArbCustomToken__factory(
       deployerL2Wallet
-    ).deploy(_l2Network.tokenBridge.l2CustomGateway, customL1Token.address)
+    ).deploy(_l2Network.tokenBridge.childCustomGateway, customL1Token.address)
     const customL2Token = await customL2TokenFactory.deployed()
 
     // prepare custom gateway registration params
     const router = nativeToken
       ? L1OrbitGatewayRouter__factory.connect(
-          _l2Network.tokenBridge.l1GatewayRouter,
+          _l2Network.tokenBridge.parentGatewayRouter,
           userL1Wallet
         )
       : L1GatewayRouter__factory.connect(
-          _l2Network.tokenBridge.l1GatewayRouter,
+          _l2Network.tokenBridge.parentGatewayRouter,
           userL1Wallet
         )
-    const l1ToL2MessageGasEstimate = new L1ToL2MessageGasEstimator(
+    const l1ToL2MessageGasEstimate = new ParentToChildMessageGasEstimator(
       childProvider
     )
 
     const routerData =
       L2GatewayRouter__factory.createInterface().encodeFunctionData(
         'setGateway',
-        [[customL1Token.address], [_l2Network.tokenBridge.l2CustomGateway]]
+        [[customL1Token.address], [_l2Network.tokenBridge.childCustomGateway]]
       )
     const routerRetryableParams = await l1ToL2MessageGasEstimate.estimateAll(
       {
-        from: _l2Network.tokenBridge.l1GatewayRouter,
-        to: _l2Network.tokenBridge.l2GatewayRouter,
+        from: _l2Network.tokenBridge.parentGatewayRouter,
+        to: _l2Network.tokenBridge.childGatewayRouter,
         l2CallValue: BigNumber.from(0),
         excessFeeRefundAddress: userL1Wallet.address,
         callValueRefundAddress: userL1Wallet.address,
@@ -467,8 +467,8 @@ describe('orbitTokenBridge', () => {
       )
     const gwRetryableParams = await l1ToL2MessageGasEstimate.estimateAll(
       {
-        from: _l2Network.tokenBridge.l1CustomGateway,
-        to: _l2Network.tokenBridge.l2CustomGateway,
+        from: _l2Network.tokenBridge.parentCustomGateway,
+        to: _l2Network.tokenBridge.childCustomGateway,
         l2CallValue: BigNumber.from(0),
         excessFeeRefundAddress: userL1Wallet.address,
         callValueRefundAddress: userL1Wallet.address,
@@ -479,20 +479,8 @@ describe('orbitTokenBridge', () => {
     )
 
     // approve fee amount
-    const valueForGateway = nativeToken
-      ? await _getScaledAmount(
-          nativeToken.address,
-          gwRetryableParams.deposit,
-          nativeToken.provider!
-        )
-      : gwRetryableParams.deposit
-    const valueForRouter = nativeToken
-      ? await _getScaledAmount(
-          nativeToken.address,
-          routerRetryableParams.deposit,
-          nativeToken.provider!
-        )
-      : routerRetryableParams.deposit
+    const valueForGateway = gwRetryableParams.deposit
+    const valueForRouter = routerRetryableParams.deposit
     const registrationFee = valueForGateway.add(valueForRouter).mul(2)
     if (nativeToken) {
       await (
@@ -523,23 +511,23 @@ describe('orbitTokenBridge', () => {
     ).wait()
 
     /// wait for execution of both tickets
-    const l1TxReceipt = new L1TransactionReceipt(receipt)
-    const messages = await l1TxReceipt.getL1ToL2Messages(childProvider)
+    const l1TxReceipt = new ParentTransactionReceipt(receipt)
+    const messages = await l1TxReceipt.getParentToChildMessages(childProvider)
     const messageResults = await Promise.all(
       messages.map(message => message.waitForStatus())
     )
     if (
-      messageResults[0].status !== L1ToL2MessageStatus.REDEEMED ||
-      messageResults[1].status !== L1ToL2MessageStatus.REDEEMED
+      messageResults[0].status !== ParentToChildMessageStatus.REDEEMED ||
+      messageResults[1].status !== ParentToChildMessageStatus.REDEEMED
     ) {
       console.log(
         `Retryable ticket (ID ${messages[0].retryableCreationId}) status: ${
-          L1ToL2MessageStatus[messageResults[0].status]
+          ParentToChildMessageStatus[messageResults[0].status]
         }`
       )
       console.log(
         `Retryable ticket (ID ${messages[1].retryableCreationId}) status: ${
-          L1ToL2MessageStatus[messageResults[1].status]
+          ParentToChildMessageStatus[messageResults[1].status]
         }`
       )
       exit()
@@ -550,7 +538,7 @@ describe('orbitTokenBridge', () => {
       userL1Wallet.address
     )
     const gatewayTokenBalanceBefore = await customL1Token.balanceOf(
-      _l2Network.tokenBridge.l1CustomGateway
+      _l2Network.tokenBridge.parentCustomGateway
     )
     const userNativeTokenBalanceBefore = nativeToken
       ? await nativeToken.balanceOf(userL1Wallet.address)
@@ -564,7 +552,7 @@ describe('orbitTokenBridge', () => {
     await (
       await customL1Token
         .connect(userL1Wallet)
-        .approve(_l2Network.tokenBridge.l1CustomGateway, depositAmount)
+        .approve(_l2Network.tokenBridge.parentCustomGateway, depositAmount)
     ).wait()
 
     // calculate retryable params
@@ -587,7 +575,7 @@ describe('orbitTokenBridge', () => {
     if (nativeToken) {
       await (
         await nativeToken.approve(
-          _l2Network.tokenBridge.l1CustomGateway,
+          _l2Network.tokenBridge.parentCustomGateway,
           tokenTotalFeeAmount
         )
       ).wait()
@@ -620,7 +608,7 @@ describe('orbitTokenBridge', () => {
 
     ///// checks
     expect(await router.getGateway(customL1Token.address)).to.be.eq(
-      _l2Network.tokenBridge.l1CustomGateway
+      _l2Network.tokenBridge.parentCustomGateway
     )
 
     const l2TokenAddress = await router.calculateL2TokenAddress(
@@ -640,7 +628,7 @@ describe('orbitTokenBridge', () => {
     )
 
     const gatewayTokenBalanceAfter = await customL1Token.balanceOf(
-      _l2Network.tokenBridge.l1CustomGateway
+      _l2Network.tokenBridge.parentCustomGateway
     )
     expect(gatewayTokenBalanceAfter.sub(gatewayTokenBalanceBefore)).to.be.eq(
       depositAmount
@@ -781,7 +769,7 @@ describe('orbitTokenBridge', () => {
     await (
       await l1USDCCustomGateway.initialize(
         l2USDCCustomGateway.address,
-        _l2Network.tokenBridge.l1GatewayRouter,
+        _l2Network.tokenBridge.parentGatewayRouter,
         _l2Network.ethBridge.inbox,
         l1Usdc.address,
         l2Usdc.address,
@@ -793,7 +781,7 @@ describe('orbitTokenBridge', () => {
     await (
       await l2USDCCustomGateway.initialize(
         l1USDCCustomGateway.address,
-        _l2Network.tokenBridge.l2GatewayRouter,
+        _l2Network.tokenBridge.childGatewayRouter,
         l1Usdc.address,
         l2Usdc.address,
         deployerL2Wallet.address
@@ -803,11 +791,11 @@ describe('orbitTokenBridge', () => {
 
     /// register USDC custom gateway
     const router = L1GatewayRouter__factory.connect(
-      _l2Network.tokenBridge.l1GatewayRouter,
+      _l2Network.tokenBridge.parentGatewayRouter,
       deployerL1Wallet
     )
     const l2Router = L2GatewayRouter__factory.connect(
-      _l2Network.tokenBridge.l2GatewayRouter,
+      _l2Network.tokenBridge.childGatewayRouter,
       deployerL2Wallet
     )
     const maxGas = BigNumber.from(500000)
@@ -1129,7 +1117,7 @@ describe('orbitTokenBridge', () => {
     await (
       await l1USDCCustomGateway.initialize(
         l2USDCCustomGateway.address,
-        _l2Network.tokenBridge.l1GatewayRouter,
+        _l2Network.tokenBridge.parentGatewayRouter,
         _l2Network.ethBridge.inbox,
         l1Usdc.address,
         l2Usdc.address,
@@ -1141,7 +1129,7 @@ describe('orbitTokenBridge', () => {
     await (
       await l2USDCCustomGateway.initialize(
         l1USDCCustomGateway.address,
-        _l2Network.tokenBridge.l2GatewayRouter,
+        _l2Network.tokenBridge.childGatewayRouter,
         l1Usdc.address,
         l2Usdc.address,
         deployerL2Wallet.address
@@ -1151,11 +1139,11 @@ describe('orbitTokenBridge', () => {
 
     /// register USDC custom gateway
     const router = L1OrbitGatewayRouter__factory.connect(
-      _l2Network.tokenBridge.l1GatewayRouter,
+      _l2Network.tokenBridge.parentGatewayRouter,
       deployerL1Wallet
     )
     const l2Router = L2GatewayRouter__factory.connect(
-      _l2Network.tokenBridge.l2GatewayRouter,
+      _l2Network.tokenBridge.childGatewayRouter,
       deployerL2Wallet
     )
     const maxGas = BigNumber.from(500000)
@@ -1427,21 +1415,21 @@ async function depositNativeToL2() {
   const depositTx = await inbox.depositERC20(amountToDeposit)
 
   // wait for deposit to be processed
-  const depositRec = await L1TransactionReceipt.monkeyPatchEthDepositWait(
+  const depositRec = await ParentTransactionReceipt.monkeyPatchEthDepositWait(
     depositTx
   ).wait()
-  await depositRec.waitForL2(childProvider)
+  await depositRec.waitForChildTransactionReceipt(childProvider)
 }
 
 async function waitOnL2Msg(tx: ethers.ContractTransaction) {
   const retryableReceipt = await tx.wait()
-  const l1TxReceipt = new L1TransactionReceipt(retryableReceipt)
-  const messages = await l1TxReceipt.getL1ToL2Messages(childProvider)
+  const l1TxReceipt = new ParentTransactionReceipt(retryableReceipt)
+  const messages = await l1TxReceipt.getParentToChildMessages(childProvider)
 
   // 1 msg expected
   const messageResult = await messages[0].waitForStatus()
   const status = messageResult.status
-  expect(status).to.be.eq(L1ToL2MessageStatus.REDEEMED)
+  expect(status).to.be.eq(ParentToChildMessageStatus.REDEEMED)
 }
 
 const getFeeToken = async (inbox: string, parentProvider: any) => {
