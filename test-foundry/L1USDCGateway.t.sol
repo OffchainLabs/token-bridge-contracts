@@ -27,6 +27,10 @@ contract L1USDCGatewayTest is L1ArbitrumExtendedGatewayTest {
     }
 
     /* solhint-disable func-name-mixedcase */
+    function registerTokenForExtraDataTest() internal virtual override returns (address) {
+        return L1_USDC;
+    }
+
     function test_burnLockedUSDC() public {
         /// add some USDC to the gateway
         uint256 lockedAmount = 234 ether;

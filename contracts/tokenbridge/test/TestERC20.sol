@@ -25,8 +25,12 @@ contract TestERC20 is aeERC20 {
         aeERC20._initialize("IntArbTestToken", "IARB", uint8(18));
     }
 
+    function mintAmount(uint256 amount) external {
+        _mint(msg.sender, amount);
+    }
+
     function mint() external {
-        _mint(msg.sender, 50000000);
+        _mint(msg.sender, 50_000_000);
     }
 }
 
@@ -39,11 +43,7 @@ contract Bytes32ERC20 {
         return transferFrom(msg.sender, dst, wad);
     }
 
-    function transferFrom(
-        address src,
-        address dst,
-        uint256 wad
-    ) public returns (bool) {
+    function transferFrom(address src, address dst, uint256 wad) public returns (bool) {
         if (src != msg.sender) {
             allowance[src][msg.sender] = allowance[src][msg.sender] - wad;
         }

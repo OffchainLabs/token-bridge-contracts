@@ -39,6 +39,18 @@ contract L1CustomGatewayTest is L1ArbitrumExtendedGatewayTest {
     }
 
     /* solhint-disable func-name-mixedcase */
+    function registerTokenForExtraDataTest() internal virtual override returns (address) {
+        address[] memory l1Tokens = new address[](1);
+        l1Tokens[0] = address(token);
+        address[] memory l2Tokens = new address[](1);
+        l2Tokens[0] = makeAddr("l2Token");
+        vm.prank(owner);
+        L1CustomGateway(address(l1Gateway)).forceRegisterTokenToL2{value: retryableCost}(
+            l1Tokens, l2Tokens, maxGas, gasPriceBid, maxSubmissionCost
+        );
+        return address(token);
+    }
+
     function test_calculateL2TokenAddress(address l1Token, address l2Token) public virtual {
         vm.assume(l1Token != FOUNDRY_CHEATCODE_ADDRESS && l2Token != FOUNDRY_CHEATCODE_ADDRESS);
         vm.deal(l1Token, 100 ether);

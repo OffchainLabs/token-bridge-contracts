@@ -245,50 +245,68 @@ abstract contract L1ArbitrumGateway is
         uint256 _gasPriceBid,
         bytes calldata _data
     ) public payable virtual override returns (bytes memory res) {
+        (res,) = _outboundTransferCustomRefund(
+            _l1Token,
+            _refundTo,
+            _to,
+            _amount,
+            _maxGas,
+            _gasPriceBid,
+            _data
+        );
+    }
+
+    function _outboundTransferCustomRefund(
+        address _l1Token,
+        address _refundTo,
+        address _to,
+        uint256 _amount,
+        uint256 _maxGas,
+        uint256 _gasPriceBid,
+        bytes calldata _data
+    ) internal virtual returns (bytes memory res, uint256 amountOnL2) {
         require(isRouter(msg.sender), "NOT_FROM_ROUTER");
         // This function is set as public and virtual so that subclasses can override
         // it and add custom validation for callers (ie only whitelisted users)
-        address _from;
-        uint256 seqNum;
-        bytes memory extraData;
+        require(_l1Token.isContract(), "L1_NOT_CONTRACT");
         {
-            uint256 _maxSubmissionCost;
-            uint256 tokenTotalFeeAmount;
-            if (super.isRouter(msg.sender)) {
-                // router encoded
-                (_from, extraData) = GatewayMessageHandler.parseFromRouterToGateway(_data);
-            } else {
-                _from = msg.sender;
-                extraData = _data;
-            }
-            // unpack user encoded data
-            (_maxSubmissionCost, extraData, tokenTotalFeeAmount) = _parseUserEncodedData(extraData);
-
-            // the inboundEscrowAndCall functionality has been disabled, so no data is allowed
-            require(extraData.length == 0, "EXTRA_DATA_DISABLED");
-
-            require(_l1Token.isContract(), "L1_NOT_CONTRACT");
             address l2Token = calculateL2TokenAddress(_l1Token);
             require(l2Token != address(0), "NO_L2_TOKEN_SET");
-
-            _amount = outboundEscrowTransfer(_l1Token, _from, _amount);
-
-            // we override the res field to save on the stack
-            res = getOutboundCalldata(_l1Token, _from, _to, _amount, extraData);
-
-            seqNum = _initiateDeposit(
-                _refundTo,
-                _from,
-                _amount,
-                _maxGas,
-                _gasPriceBid,
-                _maxSubmissionCost,
-                tokenTotalFeeAmount,
-                res
-            );
         }
-        emit DepositInitiated(_l1Token, _from, _to, seqNum, _amount);
-        return abi.encode(seqNum);
+        uint256 seqNum;
+        {
+            address _from;
+            {
+                bytes memory extraData;
+                uint256 _maxSubmissionCost;
+                uint256 tokenTotalFeeAmount;
+                (_from, extraData) = GatewayMessageHandler.parseFromRouterToGateway(_data);
+                // unpack user encoded data
+                (_maxSubmissionCost, extraData, tokenTotalFeeAmount) = _parseUserEncodedData(extraData);
+
+                // the inboundEscrowAndCall functionality has been disabled, so no data is allowed
+                require(extraData.length == 0, "EXTRA_DATA_DISABLED");
+
+                _amount = outboundEscrowTransfer(_l1Token, _from, _amount);
+
+                // we override the res field to save on the stack
+                res = getOutboundCalldata(_l1Token, _from, _to, _amount, extraData);
+
+                seqNum = _initiateDeposit(
+                    _refundTo,
+                    _from,
+                    _amount,
+                    _maxGas,
+                    _gasPriceBid,
+                    _maxSubmissionCost,
+                    tokenTotalFeeAmount,
+                    res
+                );
+            }
+            emit DepositInitiated(_l1Token, _from, _to, seqNum, _amount);
+        }
+        amountOnL2 = _amount;
+        res = abi.encode(seqNum);
     }
 
     function outboundEscrowTransfer(
@@ -299,6 +317,7 @@ abstract contract L1ArbitrumGateway is
         // this method is virtual since different subclasses can handle escrow differently
         // user funds are escrowed on the gateway using this function
         uint256 prevBalance = IERC20(_l1Token).balanceOf(address(this));
+        // slither-disable-next-line arbitrary-send-erc20
         IERC20(_l1Token).safeTransferFrom(_from, address(this), _amount);
         uint256 postBalance = IERC20(_l1Token).balanceOf(address(this));
         return postBalance - prevBalance;

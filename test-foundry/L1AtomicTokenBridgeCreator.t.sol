@@ -7,22 +7,39 @@ import {
     L1AtomicTokenBridgeCreator,
     L1DeploymentAddresses,
     L2DeploymentAddresses,
-    TransparentUpgradeableProxy,
-    ProxyAdmin,
-    ClonableBeaconProxy,
-    BeaconProxyFactory
+    TransparentUpgradeableProxy
 } from "contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol";
-import {L1TokenBridgeRetryableSender} from
-    "contracts/tokenbridge/ethereum/L1TokenBridgeRetryableSender.sol";
+import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
+import {
+    BeaconProxyFactory,
+    ClonableBeaconProxy
+} from "contracts/tokenbridge/libraries/ClonableBeaconProxy.sol";
+import {
+    L1TokenBridgeRetryableSender
+} from "contracts/tokenbridge/ethereum/L1TokenBridgeRetryableSender.sol";
 import {TestUtil} from "./util/TestUtil.sol";
 import {AddressAliasHelper} from "contracts/tokenbridge/libraries/AddressAliasHelper.sol";
 import {L1GatewayRouter} from "contracts/tokenbridge/ethereum/gateway/L1GatewayRouter.sol";
 import {L1ERC20Gateway} from "contracts/tokenbridge/ethereum/gateway/L1ERC20Gateway.sol";
 import {L1CustomGateway} from "contracts/tokenbridge/ethereum/gateway/L1CustomGateway.sol";
 import {L1WethGateway} from "contracts/tokenbridge/ethereum/gateway/L1WethGateway.sol";
-import {L1OrbitGatewayRouter} from "contracts/tokenbridge/ethereum/gateway/L1OrbitGatewayRouter.sol";
+import {
+    L1OrbitGatewayRouter
+} from "contracts/tokenbridge/ethereum/gateway/L1OrbitGatewayRouter.sol";
 import {L1OrbitERC20Gateway} from "contracts/tokenbridge/ethereum/gateway/L1OrbitERC20Gateway.sol";
-import {L1OrbitCustomGateway} from "contracts/tokenbridge/ethereum/gateway/L1OrbitCustomGateway.sol";
+import {
+    L1OrbitCustomGateway
+} from "contracts/tokenbridge/ethereum/gateway/L1OrbitCustomGateway.sol";
+import {L1YbbERC20Gateway} from "contracts/tokenbridge/ethereum/gateway/L1YbbERC20Gateway.sol";
+import {L1YbbCustomGateway} from "contracts/tokenbridge/ethereum/gateway/L1YbbCustomGateway.sol";
+import {
+    L1OrbitYbbERC20Gateway
+} from "contracts/tokenbridge/ethereum/gateway/L1OrbitYbbERC20Gateway.sol";
+import {
+    L1OrbitYbbCustomGateway
+} from "contracts/tokenbridge/ethereum/gateway/L1OrbitYbbCustomGateway.sol";
+import {MasterVaultFactory} from "contracts/tokenbridge/libraries/vault/MasterVaultFactory.sol";
+import {MasterVault} from "contracts/tokenbridge/libraries/vault/MasterVault.sol";
 import {
     IUpgradeExecutor,
     UpgradeExecutor
@@ -43,8 +60,9 @@ import {RollupAdminLogic} from "lib/nitro-contracts/src/rollup/RollupAdminLogic.
 import {RollupUserLogic} from "lib/nitro-contracts/src/rollup/RollupUserLogic.sol";
 import {Config, ContractDependencies} from "lib/nitro-contracts/src/rollup/Config.sol";
 import {ISequencerInbox} from "lib/nitro-contracts/src/bridge/ISequencerInbox.sol";
-import {ERC20PresetMinterPauser} from
-    "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetMinterPauser.sol";
+import {
+    ERC20PresetMinterPauser
+} from "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetMinterPauser.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 
@@ -167,7 +185,7 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
         (address l1RouterAddress, address l1StandardGatewayAddress,,,) =
             l1Creator.inboxToL1Deployment(address(inbox));
 
-        (, L1ERC20Gateway standardGatewayTemplate,,,,,,) = l1Creator.l1Templates();
+        (, address standardGatewayTemplate,,,,,,) = l1Creator.l1Templates();
 
         address expectedL1StandardGatewayAddress = Create2.computeAddress(
             keccak256(abi.encodePacked(bytes("L1SGW"), address(inbox))),
@@ -230,7 +248,7 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
         (address l1RouterAddress,, address l1CustomGatewayAddress,,) =
             l1Creator.inboxToL1Deployment(address(inbox));
 
-        (,, L1CustomGateway customGatewayTemplate,,,,,) = l1Creator.l1Templates();
+        (,, address customGatewayTemplate,,,,,) = l1Creator.l1Templates();
 
         address expectedL1CustomGatewayAddress = Create2.computeAddress(
             keccak256(abi.encodePacked(bytes("L1CGW"), address(inbox))),
@@ -272,7 +290,7 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
         (address l1RouterAddress,,, address l1WethGatewayAddress,) =
             l1Creator.inboxToL1Deployment(address(inbox));
 
-        (,,, L1WethGateway wethGatewayTemplate,,,,) = l1Creator.l1Templates();
+        (,,, address wethGatewayTemplate,,,,) = l1Creator.l1Templates();
 
         address expectedL1WethGatewayAddress = Create2.computeAddress(
             keccak256(abi.encodePacked(bytes("L1WGW"), address(inbox))),
@@ -323,8 +341,12 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
         ERC20Inbox _inbox;
         ERC20 _nativeToken;
         {
-            (RollupProxy rollup, ERC20Inbox inbox,, UpgradeExecutor upgExecutor, ERC20 nativeToken)
-            = _createERC20Rollup(18);
+            (
+                RollupProxy rollup,
+                ERC20Inbox inbox,,
+                UpgradeExecutor upgExecutor,
+                ERC20 nativeToken
+            ) = _createERC20Rollup(18);
 
             // mock owner() => upgExecutor
             vm.mockCall(
@@ -428,8 +450,12 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
         ERC20Inbox _inbox;
         ERC20 _nativeToken;
         {
-            (RollupProxy rollup, ERC20Inbox inbox,, UpgradeExecutor upgExecutor, ERC20 nativeToken)
-            = _createERC20Rollup(decimals);
+            (
+                RollupProxy rollup,
+                ERC20Inbox inbox,,
+                UpgradeExecutor upgExecutor,
+                ERC20 nativeToken
+            ) = _createERC20Rollup(decimals);
 
             // mock owner() => upgExecutor
             vm.mockCall(
@@ -570,9 +596,8 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
         // expect revert when creating bridge
         vm.expectRevert(
             abi.encodeWithSelector(
-                L1AtomicTokenBridgeCreator
-                    .L1AtomicTokenBridgeCreator_RollupOwnershipMisconfig
-                    .selector
+                L1AtomicTokenBridgeCreator.L1AtomicTokenBridgeCreator_RollupOwnershipMisconfig
+                .selector
             )
         );
         l1Creator.createTokenBridge(address(inbox), deployer, 100, 200);
@@ -735,17 +760,17 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
     }
 
     function test_setTemplates() public {
-        L1AtomicTokenBridgeCreator.L1Templates memory _l1Templates = L1AtomicTokenBridgeCreator
-            .L1Templates(
-            new L1GatewayRouter(),
-            new L1ERC20Gateway(),
-            new L1CustomGateway(),
-            new L1WethGateway(),
-            new L1OrbitGatewayRouter(),
-            new L1OrbitERC20Gateway(),
-            new L1OrbitCustomGateway(),
-            new UpgradeExecutor()
-        );
+        L1AtomicTokenBridgeCreator.L1Templates memory _l1Templates =
+            L1AtomicTokenBridgeCreator.L1Templates(
+                new L1GatewayRouter(),
+                address(new L1ERC20Gateway()),
+                address(new L1CustomGateway()),
+                address(new L1WethGateway()),
+                new L1OrbitGatewayRouter(),
+                address(new L1OrbitERC20Gateway()),
+                address(new L1OrbitCustomGateway()),
+                new UpgradeExecutor()
+            );
 
         vm.expectEmit(true, true, true, true);
         emit OrbitTokenBridgeTemplatesUpdated();
@@ -767,25 +792,21 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
 
         (
             L1GatewayRouter router,
-            L1ERC20Gateway gw,
-            L1CustomGateway customGw,
-            L1WethGateway wGw,
+            address gw,
+            address customGw,
+            address wGw,
             L1OrbitGatewayRouter oRouter,
-            L1OrbitERC20Gateway oGw,
-            L1OrbitCustomGateway oCustomGw,
+            address oGw,
+            address oCustomGw,
             IUpgradeExecutor executor
         ) = l1Creator.l1Templates();
         assertEq(address(router), address(_l1Templates.routerTemplate), "Wrong templates");
-        assertEq(address(gw), address(_l1Templates.standardGatewayTemplate), "Wrong templates");
-        assertEq(address(customGw), address(_l1Templates.customGatewayTemplate), "Wrong templates");
-        assertEq(address(wGw), address(_l1Templates.wethGatewayTemplate), "Wrong templates");
+        assertEq(gw, _l1Templates.standardGatewayTemplate, "Wrong templates");
+        assertEq(customGw, _l1Templates.customGatewayTemplate, "Wrong templates");
+        assertEq(wGw, _l1Templates.wethGatewayTemplate, "Wrong templates");
         assertEq(address(oRouter), address(_l1Templates.feeTokenBasedRouterTemplate), "Wrong temp");
-        assertEq(
-            address(oGw), address(_l1Templates.feeTokenBasedStandardGatewayTemplate), "Wrong gw"
-        );
-        assertEq(
-            address(oCustomGw), address(_l1Templates.feeTokenBasedCustomGatewayTemplate), "Wrong gw"
-        );
+        assertEq(oGw, _l1Templates.feeTokenBasedStandardGatewayTemplate, "Wrong gw");
+        assertEq(oCustomGw, _l1Templates.feeTokenBasedCustomGatewayTemplate, "Wrong gw");
         assertEq(address(executor), address(_l1Templates.upgradeExecutor), "Wrong executor");
 
         assertEq(
@@ -811,17 +832,17 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
     }
 
     function test_setTemplates_revert_OnlyOwner() public {
-        L1AtomicTokenBridgeCreator.L1Templates memory _l1Templates = L1AtomicTokenBridgeCreator
-            .L1Templates(
-            new L1GatewayRouter(),
-            new L1ERC20Gateway(),
-            new L1CustomGateway(),
-            new L1WethGateway(),
-            new L1OrbitGatewayRouter(),
-            new L1OrbitERC20Gateway(),
-            new L1OrbitCustomGateway(),
-            new UpgradeExecutor()
-        );
+        L1AtomicTokenBridgeCreator.L1Templates memory _l1Templates =
+            L1AtomicTokenBridgeCreator.L1Templates(
+                new L1GatewayRouter(),
+                address(new L1ERC20Gateway()),
+                address(new L1CustomGateway()),
+                address(new L1WethGateway()),
+                new L1OrbitGatewayRouter(),
+                address(new L1OrbitERC20Gateway()),
+                address(new L1OrbitCustomGateway()),
+                new UpgradeExecutor()
+            );
 
         vm.expectRevert("Ownable: caller is not the owner");
         l1Creator.setTemplates(
@@ -840,17 +861,17 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
     }
 
     function test_setTemplates_revert_L2FactoryCannotBeChanged() public {
-        L1AtomicTokenBridgeCreator.L1Templates memory _l1Templates = L1AtomicTokenBridgeCreator
-            .L1Templates(
-            new L1GatewayRouter(),
-            new L1ERC20Gateway(),
-            new L1CustomGateway(),
-            new L1WethGateway(),
-            new L1OrbitGatewayRouter(),
-            new L1OrbitERC20Gateway(),
-            new L1OrbitCustomGateway(),
-            new UpgradeExecutor()
-        );
+        L1AtomicTokenBridgeCreator.L1Templates memory _l1Templates =
+            L1AtomicTokenBridgeCreator.L1Templates(
+                new L1GatewayRouter(),
+                address(new L1ERC20Gateway()),
+                address(new L1CustomGateway()),
+                address(new L1WethGateway()),
+                new L1OrbitGatewayRouter(),
+                address(new L1OrbitERC20Gateway()),
+                address(new L1OrbitCustomGateway()),
+                new UpgradeExecutor()
+            );
 
         address originalL2Factory = makeAddr("originalL2Factory");
 
@@ -872,9 +893,8 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
         address newL2FactoryTemplate = makeAddr("newL2FactoryTemplate");
         vm.expectRevert(
             abi.encodeWithSelector(
-                L1AtomicTokenBridgeCreator
-                    .L1AtomicTokenBridgeCreator_L2FactoryCannotBeChanged
-                    .selector
+                L1AtomicTokenBridgeCreator.L1AtomicTokenBridgeCreator_L2FactoryCannotBeChanged
+                .selector
             )
         );
         vm.prank(deployer);
@@ -893,6 +913,24 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
         );
     }
 
+    function test_creationCodeHashes() public {
+        assertEq(
+            l1Creator.proxyAdminCreationCodeHash(),
+            keccak256(type(ProxyAdmin).creationCode),
+            "proxyAdminCreationCodeHash mismatch"
+        );
+        assertEq(
+            l1Creator.beaconProxyFactoryCreationCodeHash(),
+            keccak256(type(BeaconProxyFactory).creationCode),
+            "beaconProxyFactoryCreationCodeHash mismatch"
+        );
+        assertEq(
+            l1Creator.clonableBeaconProxyCreationCodeHash(),
+            keccak256(type(ClonableBeaconProxy).creationCode),
+            "clonableBeaconProxyCreationCodeHash mismatch"
+        );
+    }
+
     function _createRollup()
         internal
         returns (RollupProxy rollup, Inbox inbox, ProxyAdmin pa, UpgradeExecutor upgExecutor)
@@ -901,8 +939,9 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
         rollup = new RollupProxy();
         upgExecutor = new UpgradeExecutor();
 
-        Bridge bridge =
-            Bridge(address(new TransparentUpgradeableProxy(address(new Bridge()), address(pa), "")));
+        Bridge bridge = Bridge(
+            address(new TransparentUpgradeableProxy(address(new Bridge()), address(pa), ""))
+        );
         inbox = Inbox(
             address(new TransparentUpgradeableProxy(address(new Inbox(104_857)), address(pa), ""))
         );
@@ -978,19 +1017,29 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
     }
 
     function _setTemplates() internal {
-        L1AtomicTokenBridgeCreator.L1Templates memory _l1Templates = L1AtomicTokenBridgeCreator
-            .L1Templates(
-            new L1GatewayRouter(),
-            new L1ERC20Gateway(),
-            new L1CustomGateway(),
-            new L1WethGateway(),
-            new L1OrbitGatewayRouter(),
-            new L1OrbitERC20Gateway(),
-            new L1OrbitCustomGateway(),
-            new UpgradeExecutor()
-        );
+        L1AtomicTokenBridgeCreator.L1Templates memory _l1Templates =
+            L1AtomicTokenBridgeCreator.L1Templates(
+                new L1GatewayRouter(),
+                address(new L1ERC20Gateway()),
+                address(new L1CustomGateway()),
+                address(new L1WethGateway()),
+                new L1OrbitGatewayRouter(),
+                address(new L1OrbitERC20Gateway()),
+                address(new L1OrbitCustomGateway()),
+                new UpgradeExecutor()
+            );
 
-        vm.prank(deployer);
+        L1AtomicTokenBridgeCreator.YbbL1Templates memory _ybbTemplates =
+            L1AtomicTokenBridgeCreator.YbbL1Templates(
+                address(new L1YbbERC20Gateway()),
+                address(new L1YbbCustomGateway()),
+                address(new L1OrbitYbbERC20Gateway()),
+                address(new L1OrbitYbbCustomGateway()),
+                address(new MasterVaultFactory()),
+                address(new MasterVault())
+            );
+
+        vm.startPrank(deployer);
         l1Creator.setTemplates(
             _l1Templates,
             makeAddr("_l2TokenBridgeFactoryTemplate"),
@@ -1004,6 +1053,8 @@ contract L1AtomicTokenBridgeCreatorTest is Test {
             makeAddr("_l1Multicall"),
             1000
         );
+        l1Creator.setYbbTemplates(_ybbTemplates);
+        vm.stopPrank();
     }
 
     ////

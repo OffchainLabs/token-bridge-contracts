@@ -93,6 +93,18 @@ export class ContractVerifier {
     AeWETH: 'contracts/tokenbridge/libraries/aeWETH.sol:aeWETH',
     ArbMulticall2: 'contracts/rpc-utils/MulticallV2.sol:ArbMulticall2',
     Multicall2: 'contracts/rpc-utils/MulticallV2.sol:Multicall2',
+    L1YbbERC20Gateway:
+      'contracts/tokenbridge/ethereum/gateway/L1YbbERC20Gateway.sol:L1YbbERC20Gateway',
+    L1YbbCustomGateway:
+      'contracts/tokenbridge/ethereum/gateway/L1YbbCustomGateway.sol:L1YbbCustomGateway',
+    L1OrbitYbbERC20Gateway:
+      'contracts/tokenbridge/ethereum/gateway/L1OrbitYbbERC20Gateway.sol:L1OrbitYbbERC20Gateway',
+    L1OrbitYbbCustomGateway:
+      'contracts/tokenbridge/ethereum/gateway/L1OrbitYbbCustomGateway.sol:L1OrbitYbbCustomGateway',
+    MasterVaultFactory:
+      'contracts/tokenbridge/libraries/vault/MasterVaultFactory.sol:MasterVaultFactory',
+    MasterVault:
+      'contracts/tokenbridge/libraries/vault/MasterVault.sol:MasterVault',
   }
 
   constructor(chainId: number, apiKey: string) {
