@@ -30,6 +30,8 @@
     "test:creation-code": "hardhat test test-e2e/creationCodeTest.ts",
     "blockscout:verify": "hardhat run ./scripts/orbitVerifyOnBlockscout.ts",
     "deploy:usdc-token-bridge": "hardhat run scripts/usdc-bridge-deployment/deployUsdcBridge.ts",
+    "verify:usdc-token-bridge": "hardhat run scripts/usdc-bridge-deployment/verifyUsdcBridge.ts",
+    "verify:l1-usdc-token-bridge": "hardhat run scripts/usdc-bridge-deployment/verifyParentUsdcBridge.ts",
     "typechain": "hardhat typechain",
     "deploy:tokenbridge": "hardhat run scripts/deploy_token_bridge_l1.ts --network mainnet",
     "gen:uml": "sol2uml ./contracts/tokenbridge/arbitrum,./contracts/tokenbridge/ethereum,./contracts/tokenbridge/libraries -o ./gatewayUML.svg",
