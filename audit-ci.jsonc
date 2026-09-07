@@ -1,0 +1,123 @@
+{
+  "$schema": "https://github.com/IBM/audit-ci/raw/main/docs/schema.json",
+  "low": true,
+  "allowlist": [
+    // OpenZeppelin Contracts's governor proposal creation may be blocked by frontrunning
+    // Governors not used
+    "GHSA-5h3x-9wvq-w4m2",
+    // OpenZeppelin Contracts base64 encoding may read from potentially dirty memory
+    // base64 not used
+    "GHSA-9vx6-7xxf-x967",
+    // OpenZeppelin Contracts vulnerable to Improper Escaping of Output
+    // ERC2771Context not used
+    "GHSA-g4vp-m682-qqmp",
+    // OpenZeppelin Contracts using MerkleProof multiproofs may allow proving arbitrary leaves for specific trees
+    // MerkleProof not used
+    "GHSA-wprv-93r4-jj2p",
+    // GovernorCompatibilityBravo may trim proposal calldata
+    // Governors not used
+    "GHSA-93hq-5wgc-jc82",
+    // OpenZeppelin Contracts TransparentUpgradeableProxy clashing selector calls may not be delegated
+    // Clashes are highly unlikely, though possible. At the time of writing, there are no clashes in this codebase.
+    "GHSA-mx2q-35m2-x2rh",
+    // OpenZeppelin Contracts's SignatureChecker may revert on invalid EIP-1271 signers
+    // SignatureChecker not used
+    "GHSA-4g63-c64m-25w9",
+    // OpenZeppelin Contracts vulnerable to ECDSA signature malleability
+    // draft-ERC20PermitUpgradeable.sol uses ECDSAUpgradeable.recover, but marks nonces as used so signature malleability is not an issue
+    "GHSA-4h98-2769-gh6h",
+    // OpenZeppelin Contracts ERC165Checker unbounded gas consumption
+    // ERC165Checker not used
+    "GHSA-7grf-83vw-6f5x",
+    // OpenZeppelin Contracts's ERC165Checker may revert instead of returning false
+    // ERC165Checker not used
+    "GHSA-qh9x-gcfh-pcrw",
+    // OpenZeppelin Contracts's GovernorVotesQuorumFraction updates to quorum may affect past defeated proposals
+    // Governors not used
+    "GHSA-xrc4-737v-9q75",
+    // Insecure Credential Storage in web3
+    "GHSA-27v7-qhfv-rqq8",
+    // web3-core-method is vulnerable to prototype pollution
+    "GHSA-2j4c-9qqq-896r",
+    // node-tar Vulnerable to Arbitrary File Creation/Overwrite via Hardlink Path Traversal
+    "GHSA-34x7-hfp2-rc4v",
+    // tmp allows arbitrary temporary file / directory write via symbolic link `dir` parameter
+    "GHSA-52f5-9888-hmc6",
+    // Babel vulnerable to arbitrary code execution when compiling specifically crafted malicious code
+    "GHSA-67hx-6x53-jw92",
+    // qs's arrayLimit bypass in its bracket notation allows DoS via memory exhaustion
+    "GHSA-6rw7-vpxm-498p",
+    // tough-cookie Prototype Pollution vulnerability
+    "GHSA-72xf-g2v4-qvf3",
+    // Arbitrary File Read/Write via Hardlink Target Escape Through Symlink Chain in node-tar Extraction
+    "GHSA-83g3-92jg-28cx",
+    // node-tar is Vulnerable to Arbitrary File Overwrite and Symlink Poisoning via Insufficient Path Sanitization
+    "GHSA-8qq5-rm4j-mr97",
+    // Regular Expression Denial of Service (ReDoS) in micromatch
+    "GHSA-952p-6rrq-rcjv",
+    // Prototype Pollution in JSON5 via Parse Method
+    "GHSA-9c47-m6qq-7p4h",
+    // semver vulnerable to Regular Expression Denial of Service
+    "GHSA-c2qf-rxjj-qqgw",
+    // Denial of service while parsing a tar file due to lack of folders count validation
+    "GHSA-f5x3-32g6-xq36",
+    // web3-core-subscriptions has a Prototype Pollution vulnerability
+    "GHSA-hhf6-3xpg-pggx",
+    // yargs-parser Vulnerable to Prototype Pollution
+    "GHSA-p9pc-299p-vxgp",
+    // Got allows a redirect to a UNIX socket
+    "GHSA-pfrx-2q88-qq97",
+    // node-fetch forwards secure headers to untrusted sites
+    "GHSA-r683-j2x4-v87g",
+    // Race Condition in node-tar Path Reservations via Unicode Ligature Collisions on macOS APFS
+    "GHSA-r6q2-hw4h-h46w",
+    // min-document vulnerable to prototype pollution
+    "GHSA-rx8g-88g5-qh64",
+    // Lodash has Prototype Pollution Vulnerability in `_.unset` and `_.omit` functions
+    "GHSA-xxjr-mmjv-4gpg",
+    // Elliptic Uses a Cryptographic Primitive with a Risky Implementation
+    "GHSA-848j-6mx2-7j84",
+    // Serialize JavaScript is Vulnerable to RCE via RegExp.flags and Date.prototype.toISOString()
+    "GHSA-5c6j-r48x-rmvq",
+    // cookie accepts cookie name, path, and domain with out of bounds characters
+    "GHSA-pxg6-pf52-xh8x",
+    // Axios is Vulnerable to Denial of Service via __proto__ Key in mergeConfig
+    "GHSA-43fc-jf86-j433",
+    // axios Requests Vulnerable To Possible SSRF and Credential Leakage via Absolute URL
+    "GHSA-jr5f-v2jv-69x6",
+    // Axios Cross-Site Request Forgery Vulnerability
+    "GHSA-wf5p-g6vw-rhxx",
+    // Undici has an unbounded decompression chain in HTTP responses via Content-Encoding
+    "GHSA-g9mf-h72j-4rw9",
+    // Undici has Unbounded Memory Consumption in WebSocket permessage-deflate Decompression
+    "GHSA-vrm6-8vpv-qv8q",
+    // Undici has Unhandled Exception in WebSocket Client Due to Invalid server_max_window_bits
+    "GHSA-v9p9-hfj2-hcw8",
+    // Undici has an HTTP Request/Response Smuggling issue
+    "GHSA-2mjp-6q6p-2qxm",
+    // Undici has CRLF Injection in undici via `upgrade` option
+    "GHSA-4992-7rv2-5pvq",
+    // Server-Side Request Forgery in Request
+    "GHSA-p8p7-x288-28g6",
+    // path-to-regexp outputs backtracking regular expressions
+    "GHSA-9wv6-86v2-598j",
+    // serve-static vulnerable to template injection that can lead to XSS
+    "GHSA-cm22-4g7w-348p",
+    // send vulnerable to template injection that can lead to XSS
+    "GHSA-m6fv-jmcg-4jfg",
+    // express vulnerable to XSS via response.redirect()
+    "GHSA-qw6h-vgh9-j6wx",
+    // path-to-regexp contains a ReDoS
+    "GHSA-rhx6-c78j-4q9w",
+    // Express.js Open Redirect in malformed URLs
+    "GHSA-rv95-896h-c2vc",
+    // qs's arrayLimit bypass in comma parsing allows denial of service
+    "GHSA-w7fw-mjwx-w883",
+    // brace-expansion: Zero-step sequence causes process hang and memory exhaustion
+    "GHSA-f886-m6hf-6m8v",
+    // node-tar Symlink Path Traversal via Drive-Relative Linkpath
+    "GHSA-9ppj-qmqm-q256",
+    // tar has Hardlink Path Traversal via Drive-Relative Linkpath
+    "GHSA-qffp-2rhf-9h96"
+  ]
+}
