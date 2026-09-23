@@ -1,0 +1,73 @@
+name: Foundry Version
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  checks: write
+
+jobs:
+  foundry-version:
+    name: Foundry Version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Compare pinned Foundry against latest stable
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          CAN_WRITE_CHECKS: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+        run: |
+          set -euo pipefail
+
+          # Read only versions following the Foundry toolchain action.
+          pinned=$(grep -rhA3 'uses: foundry-rs/foundry-toolchain@' .github/workflows \
+            | sed -nE 's/^[[:space:]]+version: v?([^[:space:]]+)[[:space:]]*$/\1/p' \
+            | sort -u) || true
+
+          # All jobs must pin the same release to keep builds consistent.
+          if ! [[ "$pinned" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Expected one pinned Foundry release; found: ${pinned:-none}"
+            exit 1
+          fi
+
+          # The latest release endpoint excludes prereleases and nightlies.
+          latest=$(gh api repos/foundry-rs/foundry/releases/latest --jq .tag_name)
+          latest=${latest#v}
+
+          {
+            echo "| | version |"
+            echo "|---|---|"
+            echo "| pinned (workflows) | \`$pinned\` |"
+            echo "| latest stable | \`$latest\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$pinned" = "$latest" ]; then
+            echo "Foundry is up to date at $pinned"
+            exit 0
+          fi
+
+          echo "::warning::Foundry $latest is available; CI is pinned to $pinned"
+
+          # Fork PRs have read-only tokens, so leave just the warning and summary.
+          if [ "$CAN_WRITE_CHECKS" != true ]; then
+            exit 0
+          fi
+
+          # Flag the update separately without failing this workflow job.
+          jq -n \
+            --arg sha "$HEAD_SHA" \
+            --arg title "Foundry $latest available (pinned $pinned)" \
+            --arg summary "CI pins Foundry \`$pinned\`. The latest stable release is \`$latest\`. Update the workflow pins together." \
+            '{
+              name: "Foundry needs updating",
+              head_sha: $sha,
+              status: "completed",
+              conclusion: "action_required",
+              output: { title: $title, summary: $summary }
+            }' \
+          | gh api -X POST "repos/${GITHUB_REPOSITORY}/check-runs" --input - --silent
