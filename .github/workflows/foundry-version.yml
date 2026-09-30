@@ -1,0 +1,17 @@
+name: Foundry Version
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  checks: write
+
+jobs:
+  foundry-version:
+    name: Foundry Version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: OffchainLabs/actions/foundry-version@main
