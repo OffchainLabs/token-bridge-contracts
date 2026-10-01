@@ -36,6 +36,15 @@ const config = {
         },
       },
       {
+        version: '0.6.12',
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 100,
+          },
+        },
+      },
+      {
         version: '0.8.16',
         settings: {
           optimizer: {
@@ -191,7 +200,7 @@ const config = {
       arbitrumTestnet: process.env['ARBISCAN_API_KEY'],
       nova: process.env['NOVA_ARBISCAN_API_KEY'],
       arbGoerliRollup: process.env['ARBISCAN_API_KEY'],
-      arbSepoliaRollup: 'x',
+      arbSepoliaRollup: process.env['ARBISCAN_API_KEY'],
       orbit: 'x',
     },
     customChains: [
@@ -215,9 +224,8 @@ const config = {
         network: 'arbSepoliaRollup',
         chainId: 421614,
         urls: {
-          apiURL:
-            'https://sepolia-explorer.arbitrum.io/api?module=contract&action=verify',
-          browserURL: 'https://sepolia-explorer.arbitrum.io/',
+          apiURL: 'https://api-sepolia.arbiscan.io/api',
+          browserURL: 'https://sepolia.arbiscan.io/',
         },
       },
       {
