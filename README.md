@@ -17,6 +17,23 @@ This repository is offered under the Apache 2.0 license. See [LICENSE](https://g
 ## Deployment
 Check [this doc](./docs/deployment.md) for instructions on deployment and verification of token bridge.
 
+## Pre-commit Hook
+
+A local CI pre-commit hook lives in `.githooks/pre-commit`. To install it:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+The hook runs `scripts/ci-local.sh` with optionally a full e2e suite.
+
+### Environment Variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `SKIP_LOCAL_CI` | `0` | Set to `1` to bypass the entire hook or you can simply use --no-verify flag |
+| `RUN_E2E` | `0` | Set to `1` to run the e2e suite in the background, you will need to have docker installed and running to use the nitro-testnode |
+
 ## Contact
 
 Discord: [Arbitrum](https://discord.com/invite/5KE54JwyTs)
