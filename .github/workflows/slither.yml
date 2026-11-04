@@ -16,6 +16,7 @@ jobs:
         with:
           sarif: results.sarif
           fail-on: medium
+          node-version: 18
 
       - name: Upload SARIF file
         if: always()
