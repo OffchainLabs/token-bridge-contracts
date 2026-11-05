@@ -5,4 +5,4 @@ runs:
   steps:
     - uses: foundry-rs/foundry-toolchain@v1
       with:
-        version: v1.8.6
+        version: v1.8.7
