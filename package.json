@@ -22,6 +22,7 @@
     "test:storage": "./test/storage/test-storage.bash",
     "test:signatures": "./test/signatures/test-sigs.bash",
     "test:mutation": "ts-node test-mutation/gambitTester.ts",
+    "audit:ci": "audit-ci --config ./audit-ci.jsonc",
     "test:unused:errors": "./test/unused-errors/find_unused_errors.sh",
     "deploy:local:token-bridge": "ts-node ./scripts/local-deployment/deployCreatorAndCreateTokenBridge.ts",
     "deploy:token-bridge-creator": "ts-node ./scripts/deployment/deployTokenBridgeCreator.ts",
@@ -64,6 +65,7 @@
     "@typescript-eslint/eslint-plugin": "^4.29.0",
     "@typescript-eslint/eslint-plugin-tslint": "^5.30.6",
     "@typescript-eslint/parser": "^4.29.0",
+    "audit-ci": "^6.6.1",
     "arb-upgrades": "0.0.1",
     "chai": "^4.2.0",
     "dotenv": "^10.0.0",
@@ -74,7 +76,7 @@
     "ethereum-waffle": "^3.2.0",
     "ethers": "^5.4.5",
     "fs-extra": "^11.2.0",
-    "hardhat": "2.17.3",
+    "hardhat": "2.22.19",
     "hardhat-contract-sizer": "^2.10.0",
     "hardhat-deploy": "^0.9.1",
     "hardhat-gas-reporter": "^1.0.4",
@@ -91,5 +93,22 @@
   },
   "optionalDependencies": {
     "@openzeppelin/upgrades-core": "^1.24.1"
+  },
+  "resolutions": {
+    "elliptic": "^6.6.1",
+    "underscore": "^1.13.7",
+    "form-data": "^2.5.4",
+    "body-parser": "^1.20.3",
+    "ws": "^5.2.4",
+    "minimatch": "^3.1.2",
+    "braces": "^3.0.3",
+    "async": "^2.6.4",
+    "lodash": "^4.17.21",
+    "nanoid": "^3.3.8",
+    "serialize-javascript": "^6.0.2",
+    "js-yaml": "^3.14.2",
+    "bn.js": "^4.12.3",
+    "debug": "^3.2.7",
+    "diff": "^3.5.1"
   }
 }
