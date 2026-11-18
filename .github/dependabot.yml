@@ -1,44 +1,13 @@
 version: 2
 updates:
-  - package-ecosystem: gomod
-    directory: '/packages/arb-node-core'
-    schedule:
-      interval: daily
-    open-pull-requests-limit: 10
-    target-branch: master
-  - package-ecosystem: gomod
-    directory: '/packages/arb-rpc-node'
-    schedule:
-      interval: daily
-    open-pull-requests-limit: 10
-    target-branch: master
-  - package-ecosystem: gomod
-    directory: '/packages/arb-avm-cpp'
-    schedule:
-      interval: daily
-    open-pull-requests-limit: 10
-    target-branch: master
-  - package-ecosystem: gomod
-    directory: '/packages/arb-evm'
-    schedule:
-      interval: daily
-    open-pull-requests-limit: 10
-    target-branch: master
-  - package-ecosystem: gomod
-    directory: '/packages/arb-util'
-    schedule:
-      interval: daily
-    open-pull-requests-limit: 10
-    target-branch: master
   - package-ecosystem: npm
-    directory: '/'
+    directories:
+      - '**/*'
     schedule:
       interval: daily
-    open-pull-requests-limit: 10
-    target-branch: master
-  - package-ecosystem: gitsubmodule
-    directory: '/packages/arb-avm-cpp/external'
-    schedule:
-      interval: daily
-    open-pull-requests-limit: 10
-    target-branch: master
+    versioning-strategy: increase
+    open-pull-requests-limit: 5
+    target-branch: develop
+    allow:
+      - dependency-name: '@arbitrum/*'
+      - dependency-name: '@offchainlabs/*'
