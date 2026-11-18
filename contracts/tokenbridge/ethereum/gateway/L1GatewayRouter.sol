@@ -27,6 +27,7 @@ import "../../arbitrum/gateway/L2GatewayRouter.sol";
 import "../../libraries/ERC165.sol";
 import "./IL1GatewayRouter.sol";
 import "./IL1ArbitrumGateway.sol";
+import {IYbbGateway} from "./IYbbGateway.sol";
 
 /**
  * @title Handles deposits from Erhereum into Arbitrum. Tokens are routered to their appropriate L1 gateway (Router itself also conforms to the Gateway itnerface).
@@ -331,6 +332,38 @@ contract L1GatewayRouter is
                 _maxGas,
                 _gasPriceBid,
                 gatewayData
+            );
+    }
+
+    /// @notice Same as outboundTransferCustomRefund but supports an optional slippage tolerance parameter.
+    /// @dev    Only used for YBB gateways. Will revert if the gateway doesn't implement outboundTransferCustomRefundWithSlippageTolerance.
+    function outboundTransferCustomRefundWithSlippageTolerance(
+        address _token,
+        address _refundTo,
+        address _to,
+        uint256 _amount,
+        uint256 _maxGas,
+        uint256 _gasPriceBid,
+        bytes calldata _data,
+        uint256 minReceivedOnL2
+    ) public payable returns (bytes memory) {
+        address gateway = getGateway(_token);
+        bytes memory gatewayData = GatewayMessageHandler.encodeFromRouterToGateway(
+            msg.sender,
+            _data
+        );
+
+        emit TransferRouted(_token, msg.sender, _to, gateway);
+        return
+            IYbbGateway(gateway).outboundTransferCustomRefundWithSlippageTolerance{ value: msg.value }(
+                _token,
+                _refundTo,
+                _to,
+                _amount,
+                _maxGas,
+                _gasPriceBid,
+                gatewayData,
+                minReceivedOnL2
             );
     }
 

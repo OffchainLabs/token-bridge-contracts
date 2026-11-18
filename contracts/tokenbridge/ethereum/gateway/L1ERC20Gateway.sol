@@ -112,6 +112,7 @@ contract L1ERC20Gateway is L1ArbitrumExtendedGateway {
      */
     function callStatic(address targetContract, bytes4 targetFunction)
         internal
+        virtual
         view
         returns (bytes memory)
     {
@@ -129,7 +130,7 @@ contract L1ERC20Gateway is L1ArbitrumExtendedGateway {
         address _to,
         uint256 _amount,
         bytes memory _data
-    ) public view override returns (bytes memory outboundCalldata) {
+    ) public view virtual override returns (bytes memory outboundCalldata) {
         // TODO: cheaper to make static calls or save isDeployed to storage?
         bytes memory deployData = abi.encode(
             callStatic(_token, ERC20.name.selector),

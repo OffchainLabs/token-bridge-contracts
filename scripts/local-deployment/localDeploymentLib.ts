@@ -59,7 +59,7 @@ export const deployCreate2Factory = async (
  * @param l2Url
  * @returns
  */
-export const setupTokenBridgeInLocalEnv = async () => {
+export const setupTokenBridgeInLocalEnv = async (opts?: { isYbb?: boolean }) => {
   // set RPCs either from env vars or use defaults
   let parentRpc = process.env['PARENT_RPC'] as string
   let childRpc = process.env['CHILD_RPC'] as string
@@ -154,7 +154,8 @@ export const setupTokenBridgeInLocalEnv = async () => {
       childDeployer.provider!,
       l1TokenBridgeCreator,
       coreL2Network.ethBridge.rollup,
-      rollupOwnerAddress
+      rollupOwnerAddress,
+      opts?.isYbb
     )
 
   // register weth gateway if it exists

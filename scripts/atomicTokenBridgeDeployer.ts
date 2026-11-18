@@ -26,6 +26,12 @@ import {
   L1OrbitERC20Gateway__factory,
   L1OrbitCustomGateway__factory,
   L1OrbitGatewayRouter__factory,
+  L1YbbERC20Gateway__factory,
+  L1YbbCustomGateway__factory,
+  L1OrbitYbbERC20Gateway__factory,
+  L1OrbitYbbCustomGateway__factory,
+  MasterVault__factory,
+  MasterVaultFactory__factory,
   IInbox__factory,
   IERC20Bridge__factory,
   IERC20__factory,
@@ -171,7 +177,8 @@ export const createTokenBridge = async (
   l2Provider: ethers.providers.Provider,
   l1TokenBridgeCreator: L1AtomicTokenBridgeCreator,
   rollupAddress: string,
-  rollupOwnerAddress: string
+  rollupOwnerAddress: string,
+  isYbb?: boolean
 ) => {
   const gasPrice = await l2Provider.getGasPrice()
 
@@ -253,19 +260,18 @@ export const createTokenBridge = async (
   }
 
   /// do it - create token bridge
+  const value =
+    feeToken == ethers.constants.AddressZero
+      ? retryableFeeForFactory.add(retryableFeeForContracts)
+      : BigNumber.from(0)
   const receipt = await (
-    await l1TokenBridgeCreator.createTokenBridge(
-      inbox,
-      rollupOwnerAddress,
-      maxGasForContracts,
-      gasPrice,
-      {
-        value:
-          feeToken == ethers.constants.AddressZero
-            ? retryableFeeForFactory.add(retryableFeeForContracts)
-            : BigNumber.from(0),
-      }
-    )
+    await (isYbb
+      ? l1TokenBridgeCreator.createYbbTokenBridge(
+          inbox, rollupOwnerAddress, maxGasForContracts, gasPrice, { value }
+        )
+      : l1TokenBridgeCreator.createTokenBridge(
+          inbox, rollupOwnerAddress, maxGasForContracts, gasPrice, { value }
+        ))
   ).wait()
 
   console.log('Deployment TX:', receipt.transactionHash)
@@ -535,6 +541,54 @@ export const deployL1TokenBridgeCreator = async (
   )
   await initializeContract(upgradeExecutor, [ADDRESS_DEAD, [ADDRESS_DEAD]])
 
+  const ybbStandardGatewayTemplate = await deployContract(
+    L1YbbERC20Gateway__factory,
+    l1Deployer,
+    [],
+    verifyContracts,
+    useCreate2
+  )
+
+  const ybbCustomGatewayTemplate = await deployContract(
+    L1YbbCustomGateway__factory,
+    l1Deployer,
+    [],
+    verifyContracts,
+    useCreate2
+  )
+
+  const feeTokenBasedYbbStandardGatewayTemplate = await deployContract(
+    L1OrbitYbbERC20Gateway__factory,
+    l1Deployer,
+    [],
+    verifyContracts,
+    useCreate2
+  )
+
+  const feeTokenBasedYbbCustomGatewayTemplate = await deployContract(
+    L1OrbitYbbCustomGateway__factory,
+    l1Deployer,
+    [],
+    verifyContracts,
+    useCreate2
+  )
+
+  const masterVaultFactoryTemplate = await deployContract(
+    MasterVaultFactory__factory,
+    l1Deployer,
+    [],
+    verifyContracts,
+    useCreate2
+  )
+
+  const masterVaultTemplate = await deployContract(
+    MasterVault__factory,
+    l1Deployer,
+    [],
+    verifyContracts,
+    useCreate2
+  )
+
   const l1Templates = {
     routerTemplate: routerTemplate.address,
     standardGatewayTemplate: standardGatewayTemplate.address,
@@ -642,6 +696,19 @@ export const deployL1TokenBridgeCreator = async (
       l1Multicall.address,
       gasLimitForL2FactoryDeployment
     )
+  ).wait()
+
+  await (
+    await l1TokenBridgeCreator.setYbbTemplates({
+      ybbStandardGatewayTemplate: ybbStandardGatewayTemplate.address,
+      ybbCustomGatewayTemplate: ybbCustomGatewayTemplate.address,
+      feeTokenBasedYbbStandardGatewayTemplate:
+        feeTokenBasedYbbStandardGatewayTemplate.address,
+      feeTokenBasedYbbCustomGatewayTemplate:
+        feeTokenBasedYbbCustomGatewayTemplate.address,
+      masterVaultFactoryTemplate: masterVaultFactoryTemplate.address,
+      masterVaultTemplate: masterVaultTemplate.address,
+    })
   ).wait()
 
   // Trigger the verification of contracts

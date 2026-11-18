@@ -41,5 +41,7 @@
 | l1Multicall                    | address                                          | 121  | 0      | 20    | contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol:L1AtomicTokenBridgeCreator |
 |--------------------------------+--------------------------------------------------+------+--------+-------+------------------------------------------------------------------------------------------|
 | canonicalL2FactoryAddress      | address                                          | 122  | 0      | 20    | contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol:L1AtomicTokenBridgeCreator |
+|--------------------------------+--------------------------------------------------+------+--------+-------+------------------------------------------------------------------------------------------|
+| ybbL1Templates                 | struct L1AtomicTokenBridgeCreator.YbbL1Templates | 123  | 0      | 192   | contracts/tokenbridge/ethereum/L1AtomicTokenBridgeCreator.sol:L1AtomicTokenBridgeCreator |
 ╰--------------------------------+--------------------------------------------------+------+--------+-------+------------------------------------------------------------------------------------------╯
 

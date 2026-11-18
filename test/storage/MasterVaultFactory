@@ -1,0 +1,15 @@
+
+╭--------------------+-----------------------------+------+--------+-------+---------------------------------------------------------------------------------╮
+| Name               | Type                        | Slot | Offset | Bytes | Contract                                                                        |
++============================================================================================================================================================+
+| _initialized       | uint8                       | 0    | 0      | 1     | contracts/tokenbridge/libraries/vault/MasterVaultFactory.sol:MasterVaultFactory |
+|--------------------+-----------------------------+------+--------+-------+---------------------------------------------------------------------------------|
+| _initializing      | bool                        | 0    | 1      | 1     | contracts/tokenbridge/libraries/vault/MasterVaultFactory.sol:MasterVaultFactory |
+|--------------------+-----------------------------+------+--------+-------+---------------------------------------------------------------------------------|
+| beaconProxyFactory | contract BeaconProxyFactory | 0    | 2      | 20    | contracts/tokenbridge/libraries/vault/MasterVaultFactory.sol:MasterVaultFactory |
+|--------------------+-----------------------------+------+--------+-------+---------------------------------------------------------------------------------|
+| rolesRegistry      | contract MasterVaultRoles   | 1    | 0      | 20    | contracts/tokenbridge/libraries/vault/MasterVaultFactory.sol:MasterVaultFactory |
+|--------------------+-----------------------------+------+--------+-------+---------------------------------------------------------------------------------|
+| gatewayRouter      | contract IGatewayRouter     | 2    | 0      | 20    | contracts/tokenbridge/libraries/vault/MasterVaultFactory.sol:MasterVaultFactory |
+╰--------------------+-----------------------------+------+--------+-------+---------------------------------------------------------------------------------╯
+

@@ -38,6 +38,20 @@ contract L1OrbitCustomGatewayTest is L1CustomGatewayTest {
     }
 
     /* solhint-disable func-name-mixedcase */
+    function registerTokenForExtraDataTest() internal override returns (address) {
+        address[] memory l1Tokens = new address[](1);
+        l1Tokens[0] = address(token);
+        address[] memory l2Tokens = new address[](1);
+        l2Tokens[0] = makeAddr("l2Token");
+        vm.prank(owner);
+        nativeToken.approve(address(l1Gateway), nativeTokenTotalFee);
+        vm.prank(owner);
+        L1OrbitCustomGateway(address(l1Gateway)).forceRegisterTokenToL2(
+            l1Tokens, l2Tokens, maxGas, gasPriceBid, maxSubmissionCost, nativeTokenTotalFee
+        );
+        return address(token);
+    }
+
     function test_calculateL2TokenAddress(address l1Token, address l2Token) public override {
         vm.assume(
             l1Token != FOUNDRY_CHEATCODE_ADDRESS && l2Token != FOUNDRY_CHEATCODE_ADDRESS
