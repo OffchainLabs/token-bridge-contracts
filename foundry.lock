@@ -1,0 +1,11 @@
+{
+  "lib/forge-std": {
+    "rev": "2b58ecbcf3dfde7a75959dc7b4eb3d0670278de6"
+  },
+  "lib/nitro-contracts": {
+    "branch": {
+      "name": "develop",
+      "rev": "0770fe07d99c499bebfaf3b7df37047d19032050"
+    }
+  }
+}
