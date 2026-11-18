@@ -45,8 +45,6 @@
     "GHSA-52f5-9888-hmc6",
     // Babel vulnerable to arbitrary code execution when compiling specifically crafted malicious code
     "GHSA-67hx-6x53-jw92",
-    // qs's arrayLimit bypass in its bracket notation allows DoS via memory exhaustion
-    "GHSA-6rw7-vpxm-498p",
     // tough-cookie Prototype Pollution vulnerability
     "GHSA-72xf-g2v4-qvf3",
     // Arbitrary File Read/Write via Hardlink Target Escape Through Symlink Chain in node-tar Extraction
@@ -73,8 +71,6 @@
     "GHSA-r6q2-hw4h-h46w",
     // min-document vulnerable to prototype pollution
     "GHSA-rx8g-88g5-qh64",
-    // Lodash has Prototype Pollution Vulnerability in `_.unset` and `_.omit` functions
-    "GHSA-xxjr-mmjv-4gpg",
     // Elliptic Uses a Cryptographic Primitive with a Risky Implementation
     "GHSA-848j-6mx2-7j84",
     // Serialize JavaScript is Vulnerable to RCE via RegExp.flags and Date.prototype.toISOString()
@@ -99,25 +95,145 @@
     "GHSA-4992-7rv2-5pvq",
     // Server-Side Request Forgery in Request
     "GHSA-p8p7-x288-28g6",
-    // path-to-regexp outputs backtracking regular expressions
-    "GHSA-9wv6-86v2-598j",
     // serve-static vulnerable to template injection that can lead to XSS
     "GHSA-cm22-4g7w-348p",
     // send vulnerable to template injection that can lead to XSS
     "GHSA-m6fv-jmcg-4jfg",
     // express vulnerable to XSS via response.redirect()
     "GHSA-qw6h-vgh9-j6wx",
-    // path-to-regexp contains a ReDoS
-    "GHSA-rhx6-c78j-4q9w",
     // Express.js Open Redirect in malformed URLs
     "GHSA-rv95-896h-c2vc",
-    // qs's arrayLimit bypass in comma parsing allows denial of service
-    "GHSA-w7fw-mjwx-w883",
-    // brace-expansion: Zero-step sequence causes process hang and memory exhaustion
-    "GHSA-f886-m6hf-6m8v",
     // node-tar Symlink Path Traversal via Drive-Relative Linkpath
     "GHSA-9ppj-qmqm-q256",
     // tar has Hardlink Path Traversal via Drive-Relative Linkpath
-    "GHSA-qffp-2rhf-9h96"
+    "GHSA-qffp-2rhf-9h96",
+    // @fastify/busboy: Fix needs @fastify/busboy 3 via undici 6; @nomiclabs/hardhat-etherscan pins undici ^5. Dev-only, used for Etherscan verification requests
+    // from: @nomiclabs/hardhat-etherscan>undici>@fastify/busboy
+    // @fastify/busboy vulnerable to CRLF injection via multipart Content-Disposition filename and name
+    "GHSA-gxm5-99cw-xjw9",
+    // @fastify/busboy vulnerable to Denial of Service via prototype-named multipart part header
+    "GHSA-x8mw-p69m-v3mx",
+    // adm-zip: Fix needs adm-zip 0.6; hardhat pins ^0.4.16. Dev-only, extracts solc downloads from the official compiler list
+    // from: hardhat>adm-zip
+    // adm-zip: Uncontrolled memory allocation via the declared uncompressed size (DoS)
+    "GHSA-7q85-xj36-vmfc",
+    // adm-zip: Unhandled error event in async DEFLATE decompression crashes Node.js process (DoS)
+    "GHSA-8238-w5pm-2374",
+    // adm-zip: getDataAsync() bypasses the maxOutputLength size guard enforced by the synchronous getData() path
+    "GHSA-c6fg-446q-cg94",
+    // adm-zip extraction preserves SUID/SGID bits from untrusted ZIPs -> local privilege escalation
+    "GHSA-j5f4-cc29-5x44",
+    // adm-zip: Duplicate ZIP entry names: getEntry() and extractAllTo() resolve to different content
+    "GHSA-p634-w6r4-rjp2",
+    // adm-zip: Decompression-bomb protection (fix for CVE-2026-39244) can be bypassed by declaring uncompressed size as 0
+    "GHSA-rcw4-f5rp-g42v",
+    // adm-zip: Crafted ZIP file triggers 4GB memory allocation
+    "GHSA-xcpc-8h2w-3j85",
+    // axios: Fix needs axios 0.31+; hardhat-deploy 0.9 pins ^0.21.1. Dev-only deploy tooling, no untrusted input or proxy config
+    // from: hardhat-deploy>axios
+    // axios Vulnerable to Credential Theft and Response Hijacking via Prototype Pollution Gadget in Config Merge
+    "GHSA-3g43-6gmg-66jw",
+    // Axios has a NO_PROXY Hostname Normalization Bypass that Leads to SSRF
+    "GHSA-3p68-rc4w-qgx5",
+    // Axios' HTTP adapter-streamed uploads bypass maxBodyLength when maxRedirects: 0
+    "GHSA-5c9x-8gcm-mpgx",
+    // Axios: unbounded recursion in toFormData causes DoS via deeply nested request data
+    "GHSA-62hf-57xw-28j9",
+    // Axios: Header Injection via Prototype Pollution
+    "GHSA-6chq-wfr3-2hj9",
+    // Axios: Nested axios option objects can consume polluted prototype values
+    "GHSA-7q8q-rj6j-mhjq",
+    // axios has DoS & Header Injection via Prototype Pollution Read-Side Gadgets in axios merge functions
+    "GHSA-898c-q2cr-xwhg",
+    // Axios has Unrestricted Cloud Metadata Exfiltration via Header Injection Chain
+    "GHSA-fvcv-3m26-pcqx",
+    // Axios: Regular Expression Denial of Service (ReDoS) via Cookie Name Injection
+    "GHSA-hfxv-24rg-xrqf",
+    // Axios: Proxy-Authorization header leaks to redirect target when proxy is re-evaluated to direct connection
+    "GHSA-j5f8-grm9-p9fc",
+    // Axios: no_proxy bypass via IP alias allows SSRF
+    "GHSA-m7pr-hjqh-92cm",
+    // Axios: Prototype pollution gadgets can alter axios request construction
+    "GHSA-mmx7-hfxf-jppx",
+    // Axios: Proxy-Authorization Credential Leak to Origin Server Across HTTP-to-HTTPS Redirect in Axios Node.js HTTP Adapter
+    "GHSA-p92q-9vqr-4j8v",
+    // Axios: Prototype Pollution Gadgets - Response Tampering, Data Exfiltration, and Request Hijacking
+    "GHSA-pf86-5x62-jrwf",
+    // axios's shouldBypassProxy does not recognize IPv4-mapped IPv6 addresses, allowing NO_PROXY bypass (incomplete fix for CVE-2025-62718)
+    "GHSA-pjwm-pj3p-43mv",
+    // Axios: Incomplete Fix for CVE-2025-62718 - NO_PROXY Protection Bypassed via RFC 1122 Loopback Subnet (127.0.0.0/8) in Axios 1.15.0
+    "GHSA-pmwg-cvhr-8vh7",
+    // Axios: HTTP adapter streamed responses bypass maxContentLength
+    "GHSA-vf2m-468p-8v99",
+    // Axios: Authentication Bypass via Prototype Pollution Gadget in `validateStatus` Merge Strategy
+    "GHSA-w9j2-pvgh-6h63",
+    // Axios: Null Byte Injection via Reverse-Encoding in AxiosURLSearchParams
+    "GHSA-xhjh-pmcv-23jw",
+    // Axios: XSRF Token Cross-Origin Leakage via Prototype Pollution Gadget in `withXSRFToken` Boolean Coercion
+    "GHSA-xx6v-rp6x-q39c",
+    // browserslist: Fix needs browserslist 4; babel-preset-env in ganache-core pins ^3. Dev-only test dependency, no untrusted queries
+    // from: ethereum-waffle>@ethereum-waffle/provider>ganache-core>web3-provider-engine>eth-block-tracker>json-rpc-engine>babel-preset-env>browserslist
+    // Browserslist: Uncaught crash / prototype write via untrusted browserslist-stats.json custom stats (normalizeStats)
+    "GHSA-73wf-gq98-2v4g",
+    // Browserslist: Unbounded memory growth (no cache eviction) via distinct query results, leading to eventual OOM
+    "GHSA-c83g-rgw3-j3cx",
+    // decode-uri-component: Fix needs 0.5; query-string in swarm-js pins ^0.2. Dev-only, swarm-js is never called
+    // from: solidity-coverage>@truffle/provider>web3>web3-bzz>swarm-js>xhr-request>query-string>decode-uri-component
+    // decode-uri-component vulnerable to denial of service via quadratic replacement of percent-encoded runs
+    "GHSA-qr28-fpjm-wq7f",
+    // decode-uri-component: Denial of service via exponential decoding of malformed percent-encoded input
+    "GHSA-vcc3-ghjq-m6fr",
+    // serialize-javascript: Fix needs serialize-javascript 7; mocha pins ^6. Dev-only test runner serializing local test results
+    // from: hardhat>mocha>serialize-javascript
+    // Serialize JavaScript: Cross-site scripting (XSS) via unescaped </script at the end of a serialized function body
+    "GHSA-m5mm-p8h7-m29v",
+    // Serialize JavaScript has CPU Exhaustion Denial of Service via crafted array-like objects
+    "GHSA-qj8w-gfj5-8c6v",
+    // tar: Fix needs tar 7; swarm-js pins ^4. Dev-only, swarm-js is never called
+    // from: solidity-coverage>@truffle/provider>web3>web3-bzz>swarm-js>tar
+    // node-tar: Decompression/parse DoS via unlimited input
+    "GHSA-23hp-3jrh-7fpw",
+    // node-tar: Negative tar entry size causes infinite loop in archive replace
+    "GHSA-8x88-c5mf-7j5w",
+    // node-tar: Uncaught Exception DoS via NUL byte in PAX path/linkpath records
+    "GHSA-gvwx-54wh-qm9j",
+    // node-tar: Uncontrolled recursion in mapHas/filesFilter allows uncatchable stack-overflow DoS via crafted long-path tar with member selection
+    "GHSA-r292-9mhp-454m",
+    // node-tar applies PAX size override to intermediary GNU long-name/long-link headers, causing tar parser interpretation differential (file smuggling)
+    "GHSA-vmf3-w455-68vh",
+    // node-tar: Process crash via PAX numeric path type confusion
+    "GHSA-w8wr-v893-vjvp",
+    // tmp: Fix needs tmp 0.2.6; parents pin 0.0.x / 0.1.x. Dev-only, no untrusted prefix or postfix passed
+    // from: ethereum-waffle>@ethereum-waffle/provider>ganache-core>patch-package>tmp
+    // tmp has Path Traversal via unsanitized prefix/postfix that enables directory escape
+    "GHSA-ph9p-34f9-6g65",
+    // undici: Fix needs undici 6; @nomiclabs/hardhat-etherscan pins ^5. Dev-only, used for Etherscan verification requests
+    // from: @nomiclabs/hardhat-etherscan>undici
+    // undici vulnerable to TLS certificate validation bypass via dropped tls options in Agent
+    "GHSA-2m5v-pch6-74hx",
+    // undici vulnerable to HTTP response queue poisoning via keep-alive socket reuse
+    "GHSA-35p6-xmwp-9g52",
+    // undici vulnerable to downstream response desynchronization via retry interceptor
+    "GHSA-8xcm-r25x-g524",
+    // undici WebSocket client vulnerable to Denial of Service via unbounded automatic PONG buffering
+    "GHSA-9fm3-97px-rjf6",
+    // undici vulnerable to Set-Cookie SameSite attribute downgrade via permissive substring matching
+    "GHSA-g8m3-5g58-fq7m",
+    // undici vulnerable to CRLF Injection via blob-like body 'type' property
+    "GHSA-m8rv-5g2x-5cg5",
+    // undici vulnerable to HTTP header injection via Set-Cookie percent-decoding
+    "GHSA-p88m-4jfj-68fv",
+    // undici vulnerable to Denial of Service via TLS 1.2 certificate-changing renegotiation
+    "GHSA-qrxm-fqhp-jwvm",
+    // undici vulnerable to downstream response splitting via retry interceptor
+    "GHSA-r53p-7pc4-xj5r",
+    // undici vulnerable to cookie attribute injection via unsanitized domain and unparsed setCookie fields
+    "GHSA-v3r7-h72x-cjcm",
+    // undici WebSocket client vulnerable to denial of service via fragment count bypass
+    "GHSA-vxpw-j846-p89q",
+    // uuid: Fix needs uuid 11; request and web3 pin older majors. Dev-only, the buf argument is never passed
+    // from: hardhat-gas-reporter>eth-gas-reporter>request>uuid
+    // uuid: Missing buffer bounds check in v3/v5/v6 when buf is provided
+    "GHSA-w5hq-g745-h8pq"
   ]
 }
