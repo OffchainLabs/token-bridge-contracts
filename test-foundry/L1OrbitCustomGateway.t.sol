@@ -642,6 +642,9 @@ contract L1OrbitCustomGatewayTest is L1CustomGatewayTest {
         virtual
         override
     {
+        // l1Token can't be the inbox. The fees minted to l1Token would then already sit in the
+        // inbox, and ERC20InboxMock spends its whole balance on the first ticket, leaving nothing
+        // for the re-registration to pay with. The real inbox never calls registerTokenToL2.
         vm.assume(
             l1Token != FOUNDRY_CHEATCODE_ADDRESS && l2Token != FOUNDRY_CHEATCODE_ADDRESS
                 && l1Token != address(0) && l1Token != inbox
