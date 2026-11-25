@@ -2,7 +2,7 @@ name: SBOM Export & Centralize
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "develop" ]
   schedule:
     - cron: '34 20 * * 1'
 
