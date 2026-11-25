@@ -22,7 +22,7 @@ const L1Signer = ethers.Wallet.fromMnemonic(l1privKey)
 const L2Signer = ethers.Wallet.fromMnemonic(l2privKey)
 
 const l1Signer = L1Signer.connect(l1Prov)
-const l2Signer = L1Signer.connect(l2Prov)
+const l2Signer = L2Signer.connect(l2Prov)
 
 const wait = (ms: number) => new Promise(res => setTimeout(res, ms))
 
